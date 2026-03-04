@@ -1,0 +1,131 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'yaml'
+require 'digest'
+require_relative '../lib/cornix/compiler'
+require_relative '../lib/cornix/decompiler'
+require_relative '../lib/cornix/validator'
+
+def show_usage
+  puts <<~USAGE
+    Cornix Keyboard Layout Manager
+
+    Usage:
+      cornix compile              Compile YAML config to layout.vil
+      cornix decompile [FILE]     Decompile layout.vil to YAML config
+      cornix validate             Validate YAML config files
+      cornix help                 Show this help message
+
+    Examples:
+      # Convert layout.vil to YAML
+      cornix decompile
+      cornix decompile ~/Downloads/layout.vil
+
+      # Edit YAML files in config/
+      # ...
+
+      # Compile back to layout.vil
+      cornix compile
+
+      # Validate before compiling
+      cornix validate && cornix compile
+  USAGE
+end
+
+def check_config_lock(config_dir)
+  if File.exist?(config_dir) && Dir.exist?(config_dir)
+    has_layers = Dir.exist?("#{config_dir}/layers") && !Dir.empty?("#{config_dir}/layers")
+    has_macros = Dir.exist?("#{config_dir}/macros") && !Dir.empty?("#{config_dir}/macros")
+
+    if has_layers || has_macros
+      puts "⚠️  Error: config/ directory already contains configuration files."
+      puts ""
+      puts "To protect your existing configuration, decompile has been blocked."
+      puts ""
+      puts "Options:"
+      puts "  1. Backup your config/ directory and remove it"
+      puts "  2. Use 'cornix compile' to compile existing config"
+      puts ""
+      puts "Example:"
+      puts "  mv config config.backup"
+      puts "  cornix decompile ~/Downloads/layout.vil"
+      exit 1
+    end
+  end
+end
+
+def main
+  command = ARGV[0]
+
+  case command
+  when 'compile'
+    config_dir = File.expand_path('../config', __dir__)
+    output_file = File.expand_path('../layout.vil', __dir__)
+
+    unless Dir.exist?(config_dir)
+      puts "Error: #{config_dir} not found"
+      puts "Run 'cornix decompile' first to create config files"
+      exit 1
+    end
+
+    compiler = Cornix::Compiler.new(config_dir)
+    compiler.compile(output_file)
+    puts "\n✓ Compilation completed: #{output_file}"
+
+  when 'decompile'
+    vil_file = ARGV[1] || File.expand_path('../tmp/layout.vil', __dir__)
+    output_dir = File.expand_path('../config', __dir__)
+
+    unless File.exist?(vil_file)
+      puts "Error: #{vil_file} not found"
+      puts ""
+      show_usage
+      exit 1
+    end
+
+    # 既存config保護チェック
+    check_config_lock(output_dir)
+
+    puts "Decompiling: #{vil_file}"
+    puts "Output to: #{output_dir}"
+    puts ""
+
+    decompiler = Cornix::Decompiler.new(vil_file)
+    decompiler.decompile(output_dir)
+
+    # ロックファイル作成
+    lock_file = "#{output_dir}/.decompile.lock"
+    File.write(lock_file, {
+      'decompiled_at' => Time.now.to_s,
+      'source_file' => vil_file,
+      'checksum' => Digest::SHA256.file(vil_file).hexdigest
+    }.to_yaml)
+
+    puts "\n✓ Decompilation completed: #{output_dir}"
+    puts "✓ Lock file created: #{lock_file}"
+
+  when 'validate'
+    config_dir = File.expand_path('../config', __dir__)
+
+    unless Dir.exist?(config_dir)
+      puts "Error: #{config_dir} not found"
+      exit 1
+    end
+
+    validator = Cornix::Validator.new(config_dir)
+    success = validator.validate
+    exit(success ? 0 : 1)
+
+  when 'help', '-h', '--help', nil
+    show_usage
+
+  else
+    puts "Error: Unknown command '#{command}'"
+    puts
+    show_usage
+    exit 1
+  end
+end
+
+main if __FILE__ == $PROGRAM_NAME

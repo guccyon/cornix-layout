@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative '../lib/cornix/validator'
+
+config_dir = File.expand_path('../config', __dir__)
+
+unless Dir.exist?(config_dir)
+  puts "Error: #{config_dir} not found"
+  exit 1
+end
+
+validator = Cornix::Validator.new(config_dir)
+success = validator.validate
+
+exit(success ? 0 : 1)

@@ -1,0 +1,101 @@
+#!/usr/bin/env ruby
+require 'json'
+
+orig = JSON.parse(File.read('tmp/layout.vil'))
+comp = JSON.parse(File.read('layout.vil'))
+
+puts "=== Comparing layout.vil files ==="
+puts
+
+# Check top-level keys
+puts "Keys in original: #{orig.keys.sort.join(', ')}"
+puts "Keys in compiled: #{comp.keys.sort.join(', ')}"
+puts
+
+# Compare metadata
+puts "Version: #{orig['version'] == comp['version'] ? '✓' : '✗ DIFFER'}"
+puts "UID: #{orig['uid'] == comp['uid'] ? '✓' : '✗ DIFFER'}"
+puts "Vial protocol: #{orig['vial_protocol'] == comp['vial_protocol'] ? '✓' : '✗ DIFFER'}"
+puts "Via protocol: #{orig['via_protocol'] == comp['via_protocol'] ? '✓' : '✗ DIFFER'}"
+puts
+
+# Compare layouts
+puts "Layout structure:"
+puts "  Original layers: #{orig['layout'].size}"
+puts "  Compiled layers: #{comp['layout'].size}"
+layout_match = orig['layout'] == comp['layout']
+puts "  Match: #{layout_match ? '✓' : '✗ DIFFER'}"
+puts
+
+# Compare encoder layout
+puts "Encoder layout:"
+encoder_match = orig['encoder_layout'] == comp['encoder_layout']
+puts "  Match: #{encoder_match ? '✓' : '✗ DIFFER'}"
+puts
+
+# Compare macros
+orig_macros = orig['macro'].reject(&:empty?)
+comp_macros = comp['macro'].reject(&:empty?)
+puts "Macros:"
+puts "  Original non-empty: #{orig_macros.size}"
+puts "  Compiled non-empty: #{comp_macros.size}"
+macro_match = orig['macro'] == comp['macro']
+puts "  Match: #{macro_match ? '✓' : '✗ DIFFER'}"
+puts
+
+# Compare tap dance
+puts "Tap Dance:"
+td_match = orig['tap_dance'] == comp['tap_dance']
+puts "  Match: #{td_match ? '✓' : '✗ DIFFER'}"
+puts
+
+# Compare combos
+puts "Combos:"
+combo_match = orig['combo'] == comp['combo']
+puts "  Match: #{combo_match ? '✓' : '✗ DIFFER'}"
+puts
+
+# Compare settings
+puts "Settings:"
+settings_match = orig['settings'] == comp['settings']
+puts "  Match: #{settings_match ? '✓' : '✗ DIFFER'}"
+puts
+
+# Overall
+if orig == comp
+  puts "=== ✓ FILES ARE IDENTICAL ==="
+  exit 0
+else
+  puts "=== ✗ FILES DIFFER ==="
+  puts
+  puts "Checking differences..."
+
+  # Find differences in layers
+  unless layout_match
+    orig['layout'].each_with_index do |layer, idx|
+      if layer != comp['layout'][idx]
+        puts "  Layer #{idx} differs"
+        layer.each_with_index do |row, row_idx|
+          if row != comp['layout'][idx][row_idx]
+            puts "    Row #{row_idx}: #{row.inspect}"
+            puts "              vs: #{comp['layout'][idx][row_idx].inspect}"
+          end
+        end
+      end
+    end
+  end
+
+  # Find differences in macros
+  unless macro_match
+    puts
+    orig['macro'].each_with_index do |macro, idx|
+      if macro != comp['macro'][idx]
+        puts "  Macro #{idx} differs"
+        puts "    Original: #{macro.inspect}"
+        puts "    Compiled: #{comp['macro'][idx].inspect}"
+      end
+    end
+  end
+
+  exit 1
+end

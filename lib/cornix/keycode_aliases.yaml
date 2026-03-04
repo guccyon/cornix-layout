@@ -1,0 +1,337 @@
+---
+# QMK Keycode Aliases
+# Based on https://docs.qmk.fm/keycodes
+
+aliases:
+  # ===================================
+  # Basic Keycodes - Letters
+  # ===================================
+  A: KC_A
+  B: KC_B
+  C: KC_C
+  D: KC_D
+  E: KC_E
+  F: KC_F
+  G: KC_G
+  H: KC_H
+  I: KC_I
+  J: KC_J
+  K: KC_K
+  L: KC_L
+  M: KC_M
+  N: KC_N
+  O: KC_O
+  P: KC_P
+  Q: KC_Q
+  R: KC_R
+  S: KC_S
+  T: KC_T
+  U: KC_U
+  V: KC_V
+  W: KC_W
+  X: KC_X
+  Y: KC_Y
+  Z: KC_Z
+
+  # ===================================
+  # Basic Keycodes - Numbers
+  # ===================================
+  '0': KC_0
+  '1': KC_1
+  '2': KC_2
+  '3': KC_3
+  '4': KC_4
+  '5': KC_5
+  '6': KC_6
+  '7': KC_7
+  '8': KC_8
+  '9': KC_9
+
+  # ===================================
+  # Basic Keycodes - Symbols
+  # ===================================
+  "-": KC_MINUS
+  "=": KC_EQUAL
+  "[": KC_LBRACKET
+  "]": KC_RBRACKET
+  "\\": KC_BSLASH
+  ";": KC_SCOLON
+  ":": KC_SCOLON
+  "'": KC_QUOTE
+  "\"": KC_QUOTE
+  "`": KC_GRAVE
+  "~": KC_GRAVE
+  ",": KC_COMMA
+  ".": KC_DOT
+  "/": KC_SLASH
+
+  # Symbol aliases (long form)
+  Minus: KC_MINUS
+  Equal: KC_EQUAL
+  LBracket: KC_LBRACKET
+  RBracket: KC_RBRACKET
+  Backslash: KC_BSLASH
+  Semicolon: KC_SCOLON
+  Quote: KC_QUOTE
+  Grave: KC_GRAVE
+  Comma: KC_COMMA
+  Dot: KC_DOT
+  Slash: KC_SLASH
+
+  # ===================================
+  # Basic Keycodes - Function Keys
+  # ===================================
+  F1: KC_F1
+  F2: KC_F2
+  F3: KC_F3
+  F4: KC_F4
+  F5: KC_F5
+  F6: KC_F6
+  F7: KC_F7
+  F8: KC_F8
+  F9: KC_F9
+  F10: KC_F10
+  F11: KC_F11
+  F12: KC_F12
+  F13: KC_F13
+  F14: KC_F14
+  F15: KC_F15
+  F16: KC_F16
+  F17: KC_F17
+  F18: KC_F18
+  F19: KC_F19
+  F20: KC_F20
+  F21: KC_F21
+  F22: KC_F22
+  F23: KC_F23
+  F24: KC_F24
+
+  # ===================================
+  # Basic Keycodes - Navigation
+  # ===================================
+  Escape: KC_ESCAPE
+  Esc: KC_ESCAPE
+  Tab: KC_TAB
+  CapsLock: KC_CAPSLOCK
+  Caps: KC_CAPSLOCK
+  Space: KC_SPACE
+  Spc: KC_SPACE
+  Enter: KC_ENTER
+  Return: KC_ENTER
+  Ent: KC_ENTER
+  Backspace: KC_BSPACE
+  Bspc: KC_BSPACE
+  Delete: KC_DELETE
+  Del: KC_DELETE
+  Insert: KC_INSERT
+  Ins: KC_INSERT
+  Home: KC_HOME
+  End: KC_END
+  PageUp: KC_PGUP
+  PgUp: KC_PGUP
+  PageDown: KC_PGDN
+  PgDn: KC_PGDN
+  Up: KC_UP
+  Down: KC_DOWN
+  Left: KC_LEFT
+  Right: KC_RIGHT
+  ArrowUp: KC_UP
+  ArrowDown: KC_DOWN
+  ArrowLeft: KC_LEFT
+  ArrowRight: KC_RIGHT
+
+  # ===================================
+  # Basic Keycodes - Modifiers
+  # ===================================
+  LCtrl: KC_LCTRL
+  LControl: KC_LCTRL
+  LShift: KC_LSHIFT
+  LAlt: KC_LALT
+  LGui: KC_LGUI
+  LCmd: KC_LGUI
+  LWin: KC_LGUI
+  RCtrl: KC_RCTRL
+  RControl: KC_RCTRL
+  RShift: KC_RSHIFT
+  RAlt: KC_RALT
+  RGui: KC_RGUI
+  RCmd: KC_RGUI
+  RWin: KC_RGUI
+
+  # ===================================
+  # Basic Keycodes - System
+  # ===================================
+  PrintScreen: KC_PSCR
+  PrtSc: KC_PSCR
+  ScrollLock: KC_SLCK
+  Pause: KC_PAUS
+  Break: KC_PAUS
+  Application: KC_APP
+  Menu: KC_APP
+
+  # ===================================
+  # Basic Keycodes - Special
+  # ===================================
+  NoKey: KC_NO
+  None: KC_NO
+  Nop: KC_NO
+  Trans: KC_TRNS
+  Transparent: KC_TRNS
+  ___: KC_TRNS
+
+  # ===================================
+  # Numpad Keys
+  # ===================================
+  NumLock: KC_NLCK
+  KpSlash: KC_PSLS
+  KpAsterisk: KC_PAST
+  KpMinus: KC_PMNS
+  KpPlus: KC_PPLS
+  KpEnter: KC_PENT
+  Kp1: KC_P1
+  Kp2: KC_P2
+  Kp3: KC_P3
+  Kp4: KC_P4
+  Kp5: KC_P5
+  Kp6: KC_P6
+  Kp7: KC_P7
+  Kp8: KC_P8
+  Kp9: KC_P9
+  Kp0: KC_P0
+  KpDot: KC_PDOT
+  KpEqual: KC_PEQL
+  KpComma: KC_PCMM
+
+  # ===================================
+  # Media Keys
+  # ===================================
+  VolumeUp: KC_VOLU
+  VolUp: KC_VOLU
+  VolumeDown: KC_VOLD
+  VolDown: KC_VOLD
+  Mute: KC_MUTE
+  VolMute: KC_MUTE
+  MediaPlayPause: KC_MPLY
+  PlayPause: KC_MPLY
+  MediaStop: KC_MSTP
+  Stop: KC_MSTP
+  MediaPrevious: KC_MPRV
+  Previous: KC_MPRV
+  Prev: KC_MPRV
+  MediaNext: KC_MNXT
+  Next: KC_MNXT
+  MediaRewind: KC_MRWD
+  Rewind: KC_MRWD
+  MediaFastForward: KC_MFFD
+  FastForward: KC_MFFD
+  MediaEject: KC_EJCT
+  Eject: KC_EJCT
+  MediaSelect: KC_MSEL
+
+  # ===================================
+  # Mouse Keys
+  # ===================================
+  MouseUp: KC_MS_U
+  MouseDown: KC_MS_D
+  MouseLeft: KC_MS_L
+  MouseRight: KC_MS_R
+  MouseButton1: KC_BTN1
+  MouseBtn1: KC_BTN1
+  MouseButton2: KC_BTN2
+  MouseBtn2: KC_BTN2
+  MouseButton3: KC_BTN3
+  MouseBtn3: KC_BTN3
+  MouseButton4: KC_BTN4
+  MouseBtn4: KC_BTN4
+  MouseButton5: KC_BTN5
+  MouseBtn5: KC_BTN5
+  MouseWheelUp: KC_WH_U
+  MouseWheelDown: KC_WH_D
+  MouseWheelLeft: KC_WH_L
+  MouseWheelRight: KC_WH_R
+  MouseAccel0: KC_ACL0
+  MouseAccel1: KC_ACL1
+  MouseAccel2: KC_ACL2
+
+  # ===================================
+  # Layer Switching
+  # ===================================
+  # Note: Layer switching requires parameters, so these are templates
+  # Actual usage: MO(0), DF(1), TG(2), etc.
+  # MO(layer): Momentary layer switch
+  # DF(layer): Default layer
+  # TG(layer): Toggle layer
+  # TO(layer): To layer (exclusive)
+  # TT(layer): Tap toggle
+  # OSL(layer): One shot layer
+  # LT(layer, kc): Layer tap
+
+  # ===================================
+  # Mod-Tap Keys
+  # ===================================
+  # Note: Mod-Tap requires parameters, so these are templates
+  # LCTL_T(kc): Left Control when held, kc when tapped
+  # LSFT_T(kc): Left Shift when held, kc when tapped
+  # LALT_T(kc): Left Alt when held, kc when tapped
+  # LGUI_T(kc): Left GUI when held, kc when tapped
+  # RCTL_T(kc): Right Control when held, kc when tapped
+  # RSFT_T(kc): Right Shift when held, kc when tapped
+  # RALT_T(kc): Right Alt when held, kc when tapped
+  # RGUI_T(kc): Right GUI when held, kc when tapped
+  # MT(mod, kc): Generic mod-tap
+
+  # ===================================
+  # One Shot Modifiers
+  # ===================================
+  # Note: One Shot Modifiers require parameters
+  # OSM(MOD_LCTL): One shot left control
+  # OSM(MOD_LSFT): One shot left shift
+  # OSM(MOD_LALT): One shot left alt
+  # OSM(MOD_LGUI): One shot left GUI
+  # OSM(MOD_RCTL): One shot right control
+  # OSM(MOD_RSFT): One shot right shift
+  # OSM(MOD_RALT): One shot right alt
+  # OSM(MOD_RGUI): One shot right GUI
+
+  # ===================================
+  # Modifier Combinations
+  # ===================================
+  # Note: Modifier combinations require parameters
+  # C(kc): Control + kc
+  # S(kc): Shift + kc
+  # A(kc): Alt + kc
+  # G(kc): GUI + kc
+  # HYPR(kc): Ctrl+Shift+Alt+GUI + kc
+  # MEH(kc): Ctrl+Shift+Alt + kc
+
+  # ===================================
+  # Backlight and RGB
+  # ===================================
+  BLOn: BL_ON
+  BLOff: BL_OFF
+  BLToggle: BL_TOGG
+  BLStep: BL_STEP
+  BLIncrease: BL_INC
+  BLDecrease: BL_DEC
+  BLBreathe: BL_BRTG
+  RGBToggle: RGB_TOG
+  RGBModeForward: RGB_MOD
+  RGBModeReverse: RGB_RMOD
+  RGBHueIncrease: RGB_HUI
+  RGBHueDecrease: RGB_HUD
+  RGBSatIncrease: RGB_SAI
+  RGBSatDecrease: RGB_SAD
+  RGBValIncrease: RGB_VAI
+  RGBValDecrease: RGB_VAD
+
+  # ===================================
+  # Quantum Keys
+  # ===================================
+  Reset: QK_BOOT
+  Boot: QK_BOOT
+  DebugToggle: DB_TOGG
+  ClearEEPROM: EE_CLR
+  AutoShiftToggle: AS_TOGG
+  AutoShiftDown: AS_DOWN
+  AutoShiftUp: AS_UP
+  AutoShiftReport: AS_RPT

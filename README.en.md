@@ -380,10 +380,46 @@ cornix-layout/
 
 ### Testing
 
+The project includes a comprehensive RSpec test suite.
+
 ```bash
-# Run tests with RSpec (to be implemented)
-bundle install
+# Run all tests
 bundle exec rspec
+
+# Run specific test files
+bundle exec rspec spec/compiler_spec.rb
+bundle exec rspec spec/decompiler_spec.rb
+bundle exec rspec spec/keycode_resolver_spec.rb
+bundle exec rspec spec/position_map_spec.rb
+bundle exec rspec spec/validator_spec.rb
+bundle exec rspec spec/integration_spec.rb
+
+# Run with detailed output
+bundle exec rspec --format documentation
+```
+
+**Test Coverage**:
+- **Compiler**: Keycode resolution, layer structure, macro/tap dance/combo compilation
+- **Decompiler**: Alias conversion, YAML generation, round-trip integrity
+- **KeycodeResolver**: Alias⇔QMK bidirectional conversion, system alias file loading
+- **PositionMap**: Physical position to symbol mapping, position lookup
+- **Validator**: Configuration file validation, duplicate name detection
+- **Integration**: Full round-trip test (Compile→Decompile→Compile)
+
+**Round-trip Check** (Manual Verification):
+```bash
+# 1. Backup existing config
+mv config config.backup
+
+# 2. Decompile from original
+ruby bin/decompile  # Uses tmp/layout.vil
+
+# 3. Compile from generated config
+ruby bin/compile
+
+# 4. Compare
+ruby bin/diff_layouts
+# Expected: === ✓ FILES ARE IDENTICAL ===
 ```
 
 ## Troubleshooting

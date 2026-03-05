@@ -429,10 +429,46 @@ cornix-layout/
 
 ### テスト
 
+プロジェクトには包括的なRSpecテストスイートが含まれています。
+
 ```bash
-# RSpecでテスト実行（今後実装予定）
-bundle install
+# 全テストを実行
 bundle exec rspec
+
+# 特定のテストファイルを実行
+bundle exec rspec spec/compiler_spec.rb
+bundle exec rspec spec/decompiler_spec.rb
+bundle exec rspec spec/keycode_resolver_spec.rb
+bundle exec rspec spec/position_map_spec.rb
+bundle exec rspec spec/validator_spec.rb
+bundle exec rspec spec/integration_spec.rb
+
+# 詳細な出力で実行
+bundle exec rspec --format documentation
+```
+
+**テストカバレッジ**:
+- **Compiler**: キーコード解決、レイヤー構造、マクロ/タップダンス/コンボのコンパイル
+- **Decompiler**: エイリアス変換、YAML生成、Round-trip整合性
+- **KeycodeResolver**: エイリアス⇔QMK双方向変換、システムエイリアスファイル読み込み
+- **PositionMap**: 物理位置とシンボルのマッピング、位置検索
+- **Validator**: 設定ファイルの妥当性検証、名前重複検出
+- **Integration**: Compile→Decompile→Compileのフルラウンドトリップテスト
+
+**Round-trip Check** (手動検証):
+```bash
+# 1. 既存configをバックアップ
+mv config config.backup
+
+# 2. オリジナルからdecompile
+ruby bin/decompile  # tmp/layout.vil を使用
+
+# 3. 生成された設定からcompile
+ruby bin/compile
+
+# 4. 比較
+ruby bin/diff_layouts
+# 期待結果: === ✓ FILES ARE IDENTICAL ===
 ```
 
 ## トラブルシューティング

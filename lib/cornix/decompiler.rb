@@ -203,10 +203,13 @@ module Cornix
       end
 
       # 右手
+      # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
       POSITION_MAP[:right].each_with_index do |row, row_idx|
         row.each_with_index do |symbol, col_idx|
           next if symbol == 'null'
-          keycode = layer_data[row_idx + 4][col_idx]
+          # position_mapの左から右の順序を、ハードウェアの右から左に変換
+          hardware_col_idx = 5 - col_idx
+          keycode = layer_data[row_idx + 4][hardware_col_idx]
           mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
         end
       end
@@ -247,11 +250,14 @@ module Cornix
       end
 
       # 右手
+      # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
       POSITION_MAP[:right].each_with_index do |row, row_idx|
         row.each_with_index do |symbol, col_idx|
           next if symbol == 'null'
-          keycode = layer_data[row_idx + 4][col_idx]
-          base_keycode = base_layer[row_idx + 4][col_idx]
+          # position_mapの左から右の順序を、ハードウェアの右から左に変換
+          hardware_col_idx = 5 - col_idx
+          keycode = layer_data[row_idx + 4][hardware_col_idx]
+          base_keycode = base_layer[row_idx + 4][hardware_col_idx]
 
           if keycode != base_keycode && keycode != -1
             overrides[symbol] = resolve_to_alias(keycode)

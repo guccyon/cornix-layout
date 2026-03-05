@@ -134,13 +134,16 @@ module Cornix
       layer[2][6] ||= -1
 
       # 右手（通常キー）
+      # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
       4.times do |row_idx|
         6.times do |col_idx|
           symbol = @position_map.symbol_at(:right, row_idx, col_idx)
           next unless symbol
 
           keycode = mapping[symbol]
-          layer[row_idx + 4][col_idx] = resolve_to_qmk(keycode || 'KC_NO')
+          # position_mapの左から右の順序を、ハードウェアの右から左に変換
+          hardware_col_idx = 5 - col_idx
+          layer[row_idx + 4][hardware_col_idx] = resolve_to_qmk(keycode || 'KC_NO')
         end
       end
 
@@ -175,6 +178,7 @@ module Cornix
       end
 
       # 右手（通常キー）
+      # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
       4.times do |row_idx|
         6.times do |col_idx|
           symbol = @position_map.symbol_at(:right, row_idx, col_idx)
@@ -182,7 +186,9 @@ module Cornix
 
           if overrides.key?(symbol)
             value = overrides[symbol]
-            layer[row_idx + 4][col_idx] = resolve_to_qmk(value)
+            # position_mapの左から右の順序を、ハードウェアの右から左に変換
+            hardware_col_idx = 5 - col_idx
+            layer[row_idx + 4][hardware_col_idx] = resolve_to_qmk(value)
           end
         end
       end

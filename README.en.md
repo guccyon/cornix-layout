@@ -37,12 +37,30 @@ ruby bin/decompile /path/to/custom.vil
 **Safety Feature**: If the `config/` directory already contains configuration files, decompilation will be automatically blocked.
 
 ```bash
-# To overwrite existing configuration, backup first
-mv config config.backup
+# Clean up existing configuration before decompiling a new layout.vil
+ruby bin/cornix cleanup
+ruby bin/cornix decompile ~/Downloads/layout.vil
 
-# Then decompile the new layout.vil
-ruby bin/decompile ~/Downloads/layout.vil
+# Or manually backup and remove
+mv config config.backup
+ruby bin/cornix decompile ~/Downloads/layout.vil
 ```
+
+**Cleanup Command**:
+
+Use the `cornix cleanup` command to safely remove generated files:
+
+```bash
+# Normal cleanup (protected if lock file exists)
+ruby bin/cornix cleanup
+
+# Force cleanup (prompts for confirmation to delete lock file)
+ruby bin/cornix cleanup -f
+```
+
+- During normal execution, processing stops if `.decompile.lock` file exists
+- When using `-f` option for forced execution, a confirmation prompt is displayed
+- Deletion targets: `config/` directory, `layout.vil` file
 
 The following files will be generated under the `config/` directory:
 

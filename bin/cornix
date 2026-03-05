@@ -3,6 +3,7 @@
 
 require 'yaml'
 require 'digest'
+require 'fileutils'
 require_relative '../lib/cornix/compiler'
 require_relative '../lib/cornix/decompiler'
 require_relative '../lib/cornix/validator'
@@ -15,7 +16,12 @@ def show_usage
       cornix compile              Compile YAML config to layout.vil
       cornix decompile [FILE]     Decompile layout.vil to YAML config
       cornix validate             Validate YAML config files
+      cornix cleanup [-f]         Clean up generated files
       cornix help                 Show this help message
+
+    Commands:
+      cleanup                     Remove config/ and layout.vil
+      cleanup -f, --force         Force cleanup (removes lock file too)
 
     Examples:
       # Convert layout.vil to YAML
@@ -30,6 +36,13 @@ def show_usage
 
       # Validate before compiling
       cornix validate && cornix compile
+
+      # Clean up before decompiling
+      cornix cleanup
+      cornix decompile
+
+      # Force cleanup (with confirmation)
+      cornix cleanup -f
   USAGE
 end
 
@@ -53,6 +66,77 @@ def check_config_lock(config_dir)
       exit 1
     end
   end
+end
+
+def cleanup(force = false)
+  config_dir = File.expand_path('../config', __dir__)
+  layout_vil = File.expand_path('../layout.vil', __dir__)
+  lock_file = "#{config_dir}/.decompile.lock"
+
+  # 削除対象の存在チェック
+  has_config = Dir.exist?(config_dir)
+  has_layout = File.exist?(layout_vil)
+  has_lock = File.exist?(lock_file)
+
+  # 何も削除するものがない場合
+  unless has_config || has_layout
+    puts "✓ Nothing to clean up"
+    return
+  end
+
+  # lockファイル保護チェック
+  if has_lock && !force
+    # lockファイル情報を表示
+    lock_data = YAML.load_file(lock_file)
+    puts "⚠️  Protected: config/ directory has an active lock file"
+    puts ""
+    puts "Lock file details:"
+    puts "  Created: #{lock_data['decompiled_at']}"
+    puts "  Source: #{lock_data['source_file']}"
+    puts "  Checksum: #{lock_data['checksum'][0..15]}..."
+    puts ""
+    puts "To force cleanup (deletes lock file too):"
+    puts "  cornix cleanup -f"
+    exit 1
+  end
+
+  # 強制実行時の確認プロンプト
+  if force && has_lock
+    lock_data = YAML.load_file(lock_file)
+    puts "⚠️  WARNING: This will delete all config files and the lock file"
+    puts ""
+    puts "Lock file details:"
+    puts "  Created: #{lock_data['decompiled_at']}"
+    puts "  Source: #{lock_data['source_file']}"
+    puts ""
+    print "Are you sure you want to continue? [y/N]: "
+    confirmation = $stdin.gets.chomp.downcase
+
+    unless ['y', 'yes'].include?(confirmation)
+      puts "✓ Cleanup cancelled"
+      exit 0
+    end
+  end
+
+  # クリーンアップ実行
+  deleted_items = []
+
+  if has_config
+    FileUtils.rm_rf(config_dir)
+    deleted_items << "config/"
+  end
+
+  if has_layout
+    FileUtils.rm(layout_vil)
+    deleted_items << "layout.vil"
+  end
+
+  puts "✓ Cleanup completed"
+  puts ""
+  puts "Deleted:"
+  deleted_items.each { |item| puts "  - #{item}" }
+  puts ""
+  puts "You can now run 'cornix decompile' to generate fresh config files"
 end
 
 def main
@@ -116,6 +200,10 @@ def main
     validator = Cornix::Validator.new(config_dir)
     success = validator.validate
     exit(success ? 0 : 1)
+
+  when 'cleanup'
+    force = ARGV[1] == '-f' || ARGV[1] == '--force'
+    cleanup(force)
 
   when 'help', '-h', '--help', nil
     show_usage

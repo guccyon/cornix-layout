@@ -37,12 +37,30 @@ ruby bin/decompile /path/to/custom.vil
 **安全機能**: 既に`config/`ディレクトリに設定ファイルが存在する場合、デコンパイルは自動的にブロックされます。
 
 ```bash
-# 既存の設定を上書きしたい場合は、まずバックアップ
-mv config config.backup
+# 既存の設定を削除してから新しいlayout.vilをデコンパイル
+ruby bin/cornix cleanup
+ruby bin/cornix decompile ~/Downloads/layout.vil
 
-# 新しいlayout.vilをデコンパイル
-ruby bin/decompile ~/Downloads/layout.vil
+# または、手動でバックアップしてから削除
+mv config config.backup
+ruby bin/cornix decompile ~/Downloads/layout.vil
 ```
+
+**cleanupコマンド**:
+
+`cornix cleanup`コマンドを使用すると、生成されたファイルを安全に削除できます：
+
+```bash
+# 通常のクリーンアップ（lockファイルがある場合は保護される）
+ruby bin/cornix cleanup
+
+# 強制クリーンアップ（確認プロンプトでlockファイルも削除）
+ruby bin/cornix cleanup -f
+```
+
+- 通常実行時、`.decompile.lock`ファイルが存在する場合は処理が停止します
+- `-f`オプションで強制実行する場合は、確認プロンプトが表示されます
+- 削除対象: `config/`ディレクトリ、`layout.vil`ファイル
 
 `config/`ディレクトリ以下に以下のファイルが生成されます：
 

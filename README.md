@@ -109,6 +109,75 @@ mv config/macros/01_macro.yml config/macros/01_curly_bracket_pair.yml
 
 **重要**: Compilerはファイル名に依存しません（レイヤーのインデックスプレフィックスを除く）。YAML内の`index`フィールドを使用してインデックスを管理します。
 
+### 設定ファイルのインテリジェントリネーム
+
+`cornix rename`コマンドを使用すると、Claude AIがマクロ、タップダンス、コンボ、レイヤーの内容を解析して、意味のある名前に自動リネームできます：
+
+```bash
+# インタラクティブなリネーム（Claude CLI必須）
+cornix rename
+```
+
+**前提条件**：
+- Claude Code CLI (`claude`コマンド) がインストールされている必要があります
+- インストールされていない場合はエラーメッセージとともに処理が中断されます
+
+**実行フロー**：
+
+1. **現在の設定をコンパイル**: リネーム前の状態をベースラインとして保存
+2. **Claude AIによる解析**:
+   - マクロ: キーシーケンスから目的を深く推測（例：`[, ], Left` → "Bracket Pair"）
+   - タップダンス: tap/hold/double-tap アクションを分析（例：`MO(1)` → "Layer 1 Switch"）
+   - コンボ: トリガーキーと出力から機能を判定
+   - レイヤー: descriptionフィールドやoverridesから意図を推測
+3. **リネーム提案を表示**: 各ファイルに対して提案を表示
+4. **ユーザー確認**: 各提案に対して`y`/`n`/`e`(dit)で応答
+5. **リネーム実行**: 自動バックアップ作成後、ファイルリネームとYAML内容更新
+6. **コンパイル検証**: layout.vilの構造が保持されていることを確認
+7. **一時ファイル削除**: ログや一時ファイルを自動削除
+
+**例**：
+
+```
+──────────────────────────────────────────────────────────────────────
+1. MACRO: 00_macro.yml
+
+  Current:  00_macro.yml
+  Proposed: 00_bracket_pair.yml
+
+  Name:        Bracket Pair
+  Description: Insert bracket pair [] with cursor positioning
+
+  Reasoning:   Key sequence inserts left bracket, right bracket, then moves cursor left
+  Confidence:  high
+
+  Apply this rename? [Y/n/e(dit)]: y
+  ✓ Added to rename queue
+```
+
+**Claude AIの解析能力**：
+- 複雑なキーシーケンスの意図を理解
+- 修飾キー（Shift, Cmd, Ctrl）の組み合わせを考慮
+- カーソル移動パターンから操作の目的を推測
+- コンテキストを考慮した命名（例：`function ()` + Left → "Function Template"）
+
+**安全機能**：
+- 自動バックアップ作成（`config.backup_<timestamp>/`）
+- トランザクション型処理（全成功 or 全ロールバック）
+- コンパイル検証（構造保持確認）
+- インデックスプレフィックス保持（`00_`, `01_`, `0_`, `1_` 等）
+- レイヤー参照の整合性保証（indexベース）
+- エラー時の自動ロールバック
+
+**リネーム対象**：
+- マクロ: 汎用名（"Macro N"）を持つファイル
+- タップダンス: 汎用名（"Tap Dance N"）を持つファイル
+- コンボ: 汎用名（"Combo N"）を持つファイル
+- レイヤー: 汎用名（"Layer N"）を持つファイル
+
+**バックアップのクリーンアップ**：
+リネーム完了後、バックアップディレクトリの削除を確認するプロンプトが表示されます。
+
 **注意**:
 - **キーコードエイリアス** (`keycode_aliases.yaml`): `lib/cornix/`に固定配置、`config/`には生成されません（QMK標準定義のため編集不要）
 - **Position Map** (`position_map.yaml`): `lib/cornix/`のテンプレートから`config/`に生成され、シンボル名をカスタマイズできます

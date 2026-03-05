@@ -7,6 +7,7 @@ require 'fileutils'
 require_relative '../lib/cornix/compiler'
 require_relative '../lib/cornix/decompiler'
 require_relative '../lib/cornix/validator'
+require_relative '../lib/cornix/rename_command'
 
 def show_usage
   puts <<~USAGE
@@ -16,10 +17,12 @@ def show_usage
       cornix compile              Compile YAML config to layout.vil
       cornix decompile [FILE]     Decompile layout.vil to YAML config
       cornix validate             Validate YAML config files
+      cornix rename               Rename config files intelligently
       cornix cleanup [-f]         Clean up generated files
       cornix help                 Show this help message
 
     Commands:
+      rename                      Analyze and rename config files
       cleanup                     Remove config/ and layout.vil
       cleanup -f, --force         Force cleanup (removes lock file too)
 
@@ -36,6 +39,9 @@ def show_usage
 
       # Validate before compiling
       cornix validate && cornix compile
+
+      # Rename config files intelligently
+      cornix rename
 
       # Clean up before decompiling
       cornix cleanup
@@ -200,6 +206,18 @@ def main
     validator = Cornix::Validator.new(config_dir)
     success = validator.validate
     exit(success ? 0 : 1)
+
+  when 'rename'
+    config_dir = File.expand_path('../config', __dir__)
+
+    unless Dir.exist?(config_dir)
+      puts "Error: #{config_dir} not found"
+      puts "Run 'cornix decompile' first to create config files"
+      exit 1
+    end
+
+    rename_command = Cornix::RenameCommand.new(config_dir)
+    rename_command.execute
 
   when 'cleanup'
     force = ARGV[1] == '-f' || ARGV[1] == '--force'

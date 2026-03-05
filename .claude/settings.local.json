@@ -8,7 +8,8 @@
       "Bash(rspec:*)",
       "Bash(ls:*)",
       "Bash(spec/README.md:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Update(.claude/CLAUDE.md)"
     ]
   }
 }

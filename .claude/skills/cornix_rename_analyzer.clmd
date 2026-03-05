@@ -1,0 +1,176 @@
+---
+name: rename
+description: Intelligently rename Cornix config files based on their content using LLM analysis
+user_invocable: true
+---
+
+# Cornix Config Renamer Skill
+
+Intelligently rename Cornix configuration files (macros, tap dances, layers) based on their content using LLM analysis.
+
+## Behavior
+
+**When invoked**, analyze all config files in `config/` directory and suggest meaningful names:
+
+1. **Analyze files**:
+   - Read `config/macros/*.yml` - analyze key sequences to infer purpose
+   - Read `config/tap_dance/*.yml` - analyze tap/hold actions to infer function
+   - Ignore files that already have meaningful names (not matching generic patterns like "Macro N")
+
+2. **Generate suggestions** using Claude AI reasoning:
+   - For macros: deeply analyze key sequences and actions
+     - Example: `KC_LBRACKET, KC_RBRACKET, KC_LEFT` → "brackets_pair"
+     - Example: `LGUI(KC_C), KC_RIGHT` → "copy_forward"
+     - Example: `LGUI(KC_RIGHT)` → "end_of_line"
+   - For tap dances: analyze all actions (on_tap, on_hold, on_double_tap, on_tap_hold)
+     - Example: `on_hold: MO(1)` → "switch_layer1"
+     - Example: complex multi-action sequences
+   - Consider context: modifier keys, sequences, positioning
+
+3. **Generate JSON plan**:
+   - **IMPORTANT**: Always write the final plan to `tmp/rename_plans.json`
+   - JSON format: array of objects with old_path, new_basename, content_updates
+   - Preserve index prefixes (00_, 01_, etc.)
+   - Include reasoning and confidence for each suggestion
+
+4. **Complete silently**:
+   - After writing `tmp/rename_plans.json`, the skill completes
+   - The calling CLI (`bin/cornix rename`) will read the plan and execute it
+   - CLI handles: file renaming, backup, rollback, compilation verification
+
+## Important Rules
+
+- **Only analyze macros and tap dances** (not layers - layer names are already meaningful)
+- **Always preserve index prefix** in filenames (00_, 01_, etc.)
+- **Skip files with already meaningful names** (not matching `/^(Macro|Tap Dance)\s*\d+$/i`)
+- **Deeply analyze content**: Don't just pattern match - understand the actual purpose
+- **Use descriptive names**: Clear, concise, and reflect the actual function
+- **Confidence levels**:
+  - High (90%+): Clear, unambiguous purpose from analysis
+  - Medium (70-89%): Reasonably inferable purpose
+  - Low (<70%): Uncertain or ambiguous purpose
+
+## Examples of Good Suggestions
+
+### Macros
+- `[, ], Left` → "brackets_pair"
+- `Shift+[, Shift+], Left` → "curly_braces_pair"
+- `Cmd+C, Right` → "copy_forward"
+- `Cmd+Right` → "end_of_line"
+- `function letters` → "function_template"
+
+### Tap Dances
+- `on_hold: MO(1)` → "switch_layer1"
+- `on_tap: M0, on_hold: M2` → "macro_trigger"
+- `on_tap: LSFT(...)` → "modifier_combo"
+
+### Layers
+- `description: "Base Layer"` → "base_layer"
+- `description: "Symbol Layer"` → "symbol_layer"
+- `index: 0` → "base" (if description is generic)
+
+## Error Handling
+
+- If no files need renaming, report "All files already have meaningful names"
+- If compile fails after rename, automatically rollback and report error
+- If YAML is invalid, skip that file and warn user
+
+## Output Format
+
+After analyzing files and getting user confirmation, generate `tmp/rename_plans.json`:
+
+```json
+[
+  {
+    "old_path": "config/macros/00_macro.yml",
+    "new_basename": "00_brackets_pair.yml",
+    "content_updates": {
+      "name": "Brackets Pair",
+      "description": "Insert bracket pair [] with cursor positioning"
+    },
+    "reasoning": "Key sequence includes [ ] and Left arrow, indicating bracket pair insertion with cursor repositioning",
+    "confidence": "high"
+  },
+  {
+    "old_path": "config/tap_dance/02_tap_dance.yml",
+    "new_basename": "02_layer1_switch.yml",
+    "content_updates": {
+      "name": "Layer 1 Switch",
+      "description": "Switch to layer 1 when held"
+    },
+    "reasoning": "on_hold action is MO(1), which momentarily activates layer 1",
+    "confidence": "high"
+  }
+]
+```
+
+Then inform the user that the plan has been saved and the CLI will execute it.
+
+## Arguments
+
+- **type** (optional): Filter by type (macro, tap_dance, layer, all)
+  - Default: all
+- **min-confidence** (optional): Minimum confidence level (high, medium, low)
+  - Default: medium
+- **dry-run** (optional): Preview changes without applying
+  - Default: false
+
+## Usage Examples
+
+```bash
+# Rename all files (interactive)
+claude rename
+
+# Preview only
+claude rename --dry-run
+
+# Rename only macros
+claude rename --type macro
+
+# Only high confidence suggestions
+claude rename --min-confidence high
+```
+
+## Implementation Details
+
+### JSON Plan Format
+
+Generate `tmp/rename_plans.json` with the following structure:
+
+```json
+[
+  {
+    "old_path": "config/macros/03_macro.yml",
+    "new_basename": "03_end_of_line.yml",
+    "content_updates": {
+      "name": "End of Line",
+      "description": "Jump to end of line with Cmd+Right"
+    }
+  }
+]
+```
+
+### Ruby Module Integration
+
+After generating the JSON plan, execute:
+
+```bash
+bin/rename_file --batch tmp/rename_plans.json
+```
+
+**Features**:
+- **Validation**: Pre-flight checks (file exists, index prefix matches, no duplicates)
+- **Backup**: Automatic `config.backup_<timestamp>/` creation
+- **Transaction**: Atomic batch processing (all or nothing)
+- **Rollback**: Automatic rollback on any error
+- **Verification**: Post-rename compilation check with `lib/cornix/compiler.rb`
+
+**Exit codes**:
+- `0`: Success
+- `1`: Failure (with JSON error details)
+
+**Cleanup** (optional):
+```bash
+bin/rename_file --batch tmp/rename_plans.json --cleanup-backup
+```
+Deletes backup directory on successful completion.

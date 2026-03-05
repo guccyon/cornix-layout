@@ -249,15 +249,17 @@ ruby bin/decompile
 ### RSpec テストスイート
 
 - `spec/`ディレクトリに包括的なテストスイートを実装済み
-- **総テストケース数**: 126
-- **総行数**: 1,722行
+- **総テストケース数**: 164（Position Map重複検証追加後）
+- **総行数**: 2,100行以上
 
 **テストファイル構成**:
 1. `compiler_spec.rb` (30テスト): Compiler機能、キーコード変換、レイヤー/マクロ/タップダンス/コンボのコンパイル
 2. `decompiler_spec.rb` (27テスト): Decompiler機能、QMK→エイリアス変換、YAML生成
 3. `keycode_resolver_spec.rb` (21テスト): エイリアス⇔QMK双方向変換
 4. `position_map_spec.rb` (17テスト): 物理位置マッピング
-5. `validator_spec.rb` (25テスト): 設定ファイル妥当性検証
+5. **`validator_spec.rb` (63テスト)**: 設定ファイル妥当性検証
+   - 既存検証: レイヤーインデックス、名前の一意性、レイヤー参照（25テスト）
+   - **Phase 1追加**: YAML構文、メタデータ、キーコード、ポジション参照、**ポジションマップ重複**（38テスト）
 6. `integration_spec.rb` (6テスト): Compile→Decompile→Compileのフルラウンドトリップ
 
 **実行方法**:
@@ -269,10 +271,21 @@ bundle exec rspec
 bundle exec rspec --format documentation
 
 # 特定のファイル
-bundle exec rspec spec/compiler_spec.rb
+bundle exec rspec spec/validator_spec.rb
 ```
 
-**テストカバレッジ**:
+**Phase 1 バリデーションテストカバレッジ**:
+- YAML構文エラー検出（不正なインデント、読み取り不可能なファイル）
+- メタデータの必須フィールド検証
+- `vendor_product_id`形式チェック（`0xXXXX`）
+- `matrix`設定の型・範囲チェック
+- **Position Mapシンボル重複検証**（同一位置、左右間）
+- キーコードの妥当性（QMKキーコード、エイリアス、関数形式）
+- 関数引数の検証（レイヤー番号、修飾キー、ネスト）
+- ポジション参照の整合性（position_map.yaml）
+- position_map.yaml欠落時の警告動作
+
+**テストカバレッジ（全体）**:
 - キーコード変換ロジック（エイリアス⇔QMK）
 - レイヤー番号の保持 (MO(3) → MO(3))
 - 修飾キー引数の変換 (LSFT(1) → LSFT(KC_1))
@@ -280,8 +293,163 @@ bundle exec rspec spec/compiler_spec.rb
 - ラウンドトリップでのデータ整合性
 - エッジケース（nil, 空文字列, 範囲外値）
 - エラーハンドリング
+- **Phase 1: 設定ファイルの包括的な妥当性検証**
 
-**推奨**: Round-trip checkとRSpecを併用して検証
+**推奨**: Round-trip check とRSpec、そして `bin/validate` を併用して検証
+
+### Validator の使い方
+
+**基本的な使い方**:
+
+```bash
+# 設定ファイルを検証
+ruby bin/validate
+
+# 成功時
+✓ All validations passed
+
+# 失敗時
+✗ Validation failed:
+  Error: Layer 0_base.yaml, symbol 'LT1': Invalid keycode 'InvalidKeycode'
+  Error: Layer 1_symbols.yaml: Unknown position symbol 'UnknownSymbol'
+```
+
+**推奨ワークフロー**:
+
+```bash
+# 1. 設定を編集
+vim config/layers/0_base.yaml
+
+# 2. 検証
+ruby bin/validate
+
+# 3. コンパイル（検証成功後のみ）
+ruby bin/compile
+```
+
+**Phase 1 実装済み検証項目**:
+
+1. **YAML構文の正当性** (`validate_yaml_syntax`)
+   - 全YAMLファイルのパースエラーを検出
+   - ユーザーフレンドリーなエラーメッセージ
+   - YAMLエラーのあるファイルは以降の検証をスキップ（多重エラー防止）
+
+2. **メタデータの妥当性** (`validate_metadata`)
+   - `metadata.yaml`の存在チェック
+   - 必須フィールド: `keyboard`, `version`, `uid`, `vial_protocol`, `via_protocol`
+   - `vendor_product_id`の形式チェック（`0xXXXX`）
+   - `matrix`の型・範囲チェック（`rows`, `cols`は正の整数）
+
+3. **Position Map の妥当性** (`validate_position_map`)
+   - **NEW**: `position_map.yaml`内のシンボルが一意であることを検証
+   - 同じシンボルが複数の物理位置に割り当てられている場合はエラー
+   - 左手・右手間での重複も検出
+   - nil や空文字列は無視
+
+4. **キーコードの妥当性** (`validate_keycodes`)
+   - レイヤー内の全キーコードを検証
+   - QMKキーコード（`KC_*`）、エイリアス（`Tab`, `Space`）をサポート
+   - 関数形式のキーコードも検証（`MO(1)`, `LSFT(A)`, `LT(2, Space)`）
+   - 関数引数も再帰的に検証（ネストされた関数にも対応）
+   - `KeycodeResolver`を活用してエイリアス解決
+
+5. **Position Map参照の整合性** (`validate_position_references`)
+   - レイヤーで使用される全シンボル（`LT1`, `RT1`等）を検証
+   - `position_map.yaml`に定義されていないシンボルを検出
+   - `position_map.yaml`が存在しない場合は警告（エラーではない）
+   - `PositionMap`クラスを活用して全シンボルを抽出
+
+**既存の検証項目**（Phase 0実装済み）:
+
+5. **レイヤーインデックスの妥当性** (`validate_layer_indices`)
+6. **マクロ名の一意性** (`validate_macro_names`)
+7. **タップダンス名の一意性** (`validate_tap_dance_names`)
+8. **コンボ名の一意性** (`validate_combo_names`)
+9. **レイヤー内の参照妥当性** (`validate_layer_references`)
+
+**未実装（Phase 2以降の候補）**:
+
+- マクロシーケンス構文の妥当性
+- タップダンスアクションの妥当性
+- コンボトリガー数の妥当性
+- QMK Settings の型・範囲チェック
+- エンコーダー設定の妥当性
+- Index フィールドの存在チェック
+
+**重要な実装詳細**:
+
+```ruby
+# validator.rb の初期化
+def initialize(config_dir)
+  @config_dir = config_dir
+  @errors = []
+  @warnings = []
+
+  # KeycodeResolverの初期化
+  aliases_path = File.join(File.dirname(__FILE__), 'keycode_aliases.yaml')
+  @keycode_resolver = KeycodeResolver.new(aliases_path)
+
+  # YAMLパースエラーがあったファイルを記録（多重エラー防止）
+  @failed_yaml_files = []
+end
+
+# キーコード検証の例
+def valid_keycode?(keycode)
+  # 関数形式のキーコード（例: MO(3), LSFT(A), LT(1, Space)）
+  if keycode.match?(/^(\w+)\((.+)\)$/)
+    function_name = $1
+    args = $2
+
+    # 関数名が有効なキーコードまたはエイリアスか確認
+    return false unless valid_simple_keycode?(function_name)
+
+    # 引数を検証（カンマ区切りをサポート）
+    args.split(',').each do |arg|
+      arg = arg.strip
+      # 数値引数は常に許容（レイヤー番号、インデックス等）
+      next if arg.match?(/^\d+$/)
+
+      # 引数が有効なキーコードか再帰的にチェック
+      return false unless valid_keycode?(arg)
+    end
+
+    return true
+  end
+
+  # シンプルなキーコード
+  valid_simple_keycode?(keycode)
+end
+
+# Position Map シンボル重複検証の例
+def validate_position_map
+  position_map_data = YAML.load_file(position_map_path)
+  symbol_locations = {}  # symbol => [locations]
+
+  ['left_hand', 'right_hand'].each do |hand|
+    position_map_data[hand].each do |row_key, row_data|
+      row_data.each do |col, symbol|
+        next if symbol.nil? || symbol.to_s.empty?
+
+        symbol_str = symbol.to_s
+        location = "#{hand}.#{row_key}[#{col}]"
+
+        if symbol_locations[symbol_str]
+          symbol_locations[symbol_str] << location
+        else
+          symbol_locations[symbol_str] = [location]
+        end
+      end
+    end
+  end
+
+  # 重複しているシンボルを報告
+  symbol_locations.each do |symbol, locations|
+    if locations.size > 1
+      @errors << "position_map.yaml: Duplicate symbol '#{symbol}' at: #{locations.join(', ')}"
+    end
+  end
+end
+```
 
 ## Troubleshooting
 

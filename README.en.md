@@ -424,15 +424,81 @@ ruby bin/diff_layouts
 
 ## Troubleshooting
 
-### Compilation Errors
+### Configuration Validation
+
+It is strongly recommended to validate your configuration files before compilation:
 
 ```bash
-# Validate configuration files (to be implemented)
+# Validate configuration files
 ruby bin/validate
+
+# On success
+✓ All validations passed
+
+# On failure
+✗ Validation failed:
+  Error: Layer 0_base.yaml, symbol 'LT1': Invalid keycode 'InvalidKeycode'
+  Error: Layer 1_symbols.yaml: Unknown position symbol 'UnknownSymbol'
 ```
+
+**Validation checks** (Phase 1 implemented):
+
+1. **YAML Syntax Validation**
+   - Detects syntax errors in all YAML files
+   - Provides user-friendly error messages for parse errors
+
+2. **Metadata Validation**
+   - Checks for existence of `metadata.yaml`
+   - Validates required fields (`keyboard`, `version`, `uid`, `vial_protocol`, `via_protocol`)
+   - Validates `vendor_product_id` format (`0xXXXX`)
+   - Validates `matrix` configuration type and range
+
+3. **Position Map Validation**
+   - Verifies symbols in `position_map.yaml` are unique
+   - Detects when the same symbol is assigned to multiple physical positions
+   - Detects duplicates across left and right hands
+
+4. **Keycode Validation**
+   - Verifies all keycodes in layers are valid QMK keycodes or aliases
+   - Validates function-style keycodes (`MO(1)`, `LSFT(A)`, `LT(2, Space)`, etc.)
+   - Catches typos early
+
+5. **Position Map Reference Validation**
+   - Verifies symbols used in layers (`LT1`, `RT1`, etc.) are defined in `position_map.yaml`
+   - Detects undefined position symbol references
+
+6. **Layer Index Validation**
+   - Layer filenames must start with a number (e.g., `0_base.yaml`)
+   - Layer indices must be in the 0-9 range
+   - No duplicate layer indices
+
+7. **Macro/Tap Dance/Combo Name Uniqueness**
+   - Each file must have a `name` field
+   - Names must be unique across files
+
+8. **Layer Reference Validation**
+   - `MACRO(name)` and `TD(name)` references must point to existing names
+
+**Recommended workflow**:
+
+```bash
+# Edit configuration
+vim config/layers/0_base.yaml
+
+# Validate
+ruby bin/validate
+
+# Compile
+ruby bin/compile
+```
+
+### Compilation Errors
 
 Common errors:
 
+- **YAML syntax errors**: Invalid indentation, illegal characters
+- **Invalid keycodes**: Typos (`Spce` → should be `Space`)
+- **Undefined position symbols**: Referencing symbols not in `position_map.yaml`
 - **Duplicate layer numbers**: Multiple layer files with the same number
 - **Duplicate macro names**: Multiple macro files with the same name
 - **Invalid references**: Referencing non-existent macros like `MACRO(unknown_macro)`

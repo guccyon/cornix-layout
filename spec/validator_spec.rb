@@ -16,6 +16,28 @@ RSpec.describe Cornix::Validator do
     FileUtils.mkdir_p("#{config_dir}/macros")
     FileUtils.mkdir_p("#{config_dir}/tap_dance")
     FileUtils.mkdir_p("#{config_dir}/combos")
+    FileUtils.mkdir_p("#{config_dir}/settings")
+
+    # Create valid metadata.yaml
+    File.write("#{config_dir}/metadata.yaml", YAML.dump({
+      'keyboard' => 'cornix',
+      'version' => 1,
+      'uid' => 12345678901234567890,
+      'vial_protocol' => 6,
+      'via_protocol' => 9
+    }))
+
+    # Create valid position_map.yaml
+    File.write("#{config_dir}/position_map.yaml", YAML.dump({
+      'left_hand' => {
+        'row0' => { 0 => 'LT1', 1 => 'LT2' },
+        'row1' => { 0 => 'LH1', 1 => 'LH2' }
+      },
+      'right_hand' => {
+        'row0' => { 0 => 'RT1', 1 => 'RT2' },
+        'row1' => { 0 => 'RH1', 1 => 'RH2' }
+      }
+    }))
   end
 
   after do
@@ -28,12 +50,12 @@ RSpec.describe Cornix::Validator do
         # Create valid layer files
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => { 'A' => 'KC_A' }
+          'mapping' => { 'LT1' => 'A', 'LT2' => 'B' }
         }))
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'A' => 'KC_B' }
+          'overrides' => { 'LT1' => 'C' }
         }))
 
         # Create valid macro
@@ -55,7 +77,7 @@ RSpec.describe Cornix::Validator do
           'name' => 'Test Combo',
           'enabled' => true,
           'trigger' => [],
-          'output' => 'KC_A'
+          'output' => 'A'
         }))
       end
 
@@ -361,6 +383,332 @@ RSpec.describe Cornix::Validator do
       }))
 
       expect(validator.validate).to be true
+    end
+  end
+
+  # Phase 1: High-priority validations
+
+  describe 'YAML syntax validation' do
+    it 'detects invalid YAML syntax' do
+      File.write("#{config_dir}/layers/0_bad.yaml", "invalid: yaml: syntax:\n  - bad")
+
+      expect(validator.validate).to be false
+    end
+
+    it 'detects unreadable files' do
+      file_path = "#{config_dir}/layers/0_test.yaml"
+      File.write(file_path, YAML.dump({ 'name' => 'Test' }))
+      File.chmod(0000, file_path)
+
+      expect(validator.validate).to be false
+
+      # Cleanup
+      File.chmod(0644, file_path)
+    end
+
+    it 'passes with valid YAML files' do
+      File.write("#{config_dir}/layers/0_valid.yaml", YAML.dump({
+        'name' => 'Valid Layer',
+        'mapping' => { 'LT1' => 'A' }
+      }))
+
+      expect(validator.validate).to be true
+    end
+  end
+
+  describe 'metadata validation' do
+    it 'detects missing metadata.yaml' do
+      FileUtils.rm_f("#{config_dir}/metadata.yaml")
+
+      expect(validator.validate).to be false
+    end
+
+    it 'detects missing required fields' do
+      File.write("#{config_dir}/metadata.yaml", YAML.dump({
+        'keyboard' => 'cornix'
+        # Missing: version, uid, vial_protocol, via_protocol
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'detects invalid vendor_product_id format' do
+      File.write("#{config_dir}/metadata.yaml", YAML.dump({
+        'keyboard' => 'cornix',
+        'version' => 1,
+        'uid' => 12345,
+        'vial_protocol' => 6,
+        'via_protocol' => 9,
+        'vendor_product_id' => 'invalid'
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'accepts valid vendor_product_id format' do
+      File.write("#{config_dir}/metadata.yaml", YAML.dump({
+        'keyboard' => 'cornix',
+        'version' => 1,
+        'uid' => 12345,
+        'vial_protocol' => 6,
+        'via_protocol' => 9,
+        'vendor_product_id' => '0x4653'
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'detects invalid matrix configuration' do
+      File.write("#{config_dir}/metadata.yaml", YAML.dump({
+        'keyboard' => 'cornix',
+        'version' => 1,
+        'uid' => 12345,
+        'vial_protocol' => 6,
+        'via_protocol' => 9,
+        'matrix' => {
+          'rows' => -1,
+          'cols' => 'invalid'
+        }
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'accepts valid matrix configuration' do
+      File.write("#{config_dir}/metadata.yaml", YAML.dump({
+        'keyboard' => 'cornix',
+        'version' => 1,
+        'uid' => 12345,
+        'vial_protocol' => 6,
+        'via_protocol' => 9,
+        'matrix' => {
+          'rows' => 8,
+          'cols' => 7
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+  end
+
+  describe 'keycode validation' do
+    it 'detects invalid keycodes in layers' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'InvalidKeycode',
+          'LT2' => 'B'
+        }
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'accepts valid QMK keycodes' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'KC_A',
+          'LT2' => 'KC_TAB'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts valid aliases' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'A',
+          'LT2' => 'Tab',
+          'RT1' => 'Space'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts function-style keycodes with layer numbers' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'MO(1)',
+          'LT2' => 'LT(2, Space)',
+          'RT1' => 'TD(0)'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts modifier functions with keycodes' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'LSFT(A)',
+          'LT2' => 'LCTL_T(Esc)'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'detects invalid keycodes in function arguments' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'LSFT(InvalidKey)'
+        }
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'accepts nested function calls' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'LT(1, LSFT(A))'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+  end
+
+  describe 'position reference validation' do
+    it 'detects unknown position symbols in layers' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'UnknownSymbol' => 'A',
+          'LT1' => 'B'
+        }
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'accepts valid position symbols' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'A',
+          'LT2' => 'B',
+          'RT1' => 'C'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'warns when position_map.yaml is missing' do
+      FileUtils.rm_f("#{config_dir}/position_map.yaml")
+
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => { 'LT1' => 'A' }
+      }))
+
+      # Capture output to check for warning
+      output = StringIO.new
+      original_stdout = $stdout
+      $stdout = output
+
+      result = validator.validate
+
+      $stdout = original_stdout
+      output_text = output.string
+
+      expect(result).to be true  # Should still pass
+      expect(output_text).to include('Warning')
+      expect(output_text).to include('position_map.yaml')
+    end
+
+    it 'detects corrupted position_map.yaml' do
+      File.write("#{config_dir}/position_map.yaml", "invalid: yaml: syntax")
+
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base'
+      }))
+
+      expect(validator.validate).to be false
+    end
+  end
+
+  describe 'position map validation' do
+    it 'detects duplicate symbols in position_map.yaml' do
+      File.write("#{config_dir}/position_map.yaml", YAML.dump({
+        'left_hand' => {
+          'row0' => { 0 => 'LT1', 1 => 'LT2' },
+          'row1' => { 0 => 'LT1', 1 => 'LT3' }  # LT1が重複
+        },
+        'right_hand' => {
+          'row0' => { 0 => 'RT1', 1 => 'RT2' }
+        }
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'detects duplicate symbols across hands' do
+      File.write("#{config_dir}/position_map.yaml", YAML.dump({
+        'left_hand' => {
+          'row0' => { 0 => 'KEY1', 1 => 'LT2' }
+        },
+        'right_hand' => {
+          'row0' => { 0 => 'KEY1', 1 => 'RT2' }  # KEY1が左手と重複
+        }
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'accepts position_map.yaml with unique symbols' do
+      File.write("#{config_dir}/position_map.yaml", YAML.dump({
+        'left_hand' => {
+          'row0' => { 0 => 'LT1', 1 => 'LT2' },
+          'row1' => { 0 => 'LH1', 1 => 'LH2' }
+        },
+        'right_hand' => {
+          'row0' => { 0 => 'RT1', 1 => 'RT2' },
+          'row1' => { 0 => 'RH1', 1 => 'RH2' }
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'ignores nil and empty symbols' do
+      File.write("#{config_dir}/position_map.yaml", YAML.dump({
+        'left_hand' => {
+          'row0' => { 0 => 'LT1', 1 => nil, 2 => '', 3 => 'LT2' }
+        },
+        'right_hand' => {
+          'row0' => { 0 => 'RT1', 1 => nil }
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'warns when position_map.yaml is missing' do
+      FileUtils.rm_f("#{config_dir}/position_map.yaml")
+
+      # Capture output
+      output = StringIO.new
+      original_stdout = $stdout
+      $stdout = output
+
+      result = validator.validate
+
+      $stdout = original_stdout
+      output_text = output.string
+
+      expect(result).to be true  # Should still pass
+      expect(output_text).to include('Warning')
+      expect(output_text).to include('position_map.yaml')
     end
   end
 end

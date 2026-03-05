@@ -473,15 +473,81 @@ ruby bin/diff_layouts
 
 ## トラブルシューティング
 
-### コンパイルエラー
+### 設定ファイルの検証
+
+コンパイル前に設定ファイルの妥当性を検証することを強く推奨します：
 
 ```bash
-# 設定ファイルの検証（今後実装予定）
+# 設定ファイルを検証
 ruby bin/validate
+
+# 検証に成功した場合
+✓ All validations passed
+
+# 検証に失敗した場合
+✗ Validation failed:
+  Error: Layer 0_base.yaml, symbol 'LT1': Invalid keycode 'InvalidKeycode'
+  Error: Layer 1_symbols.yaml: Unknown position symbol 'UnknownSymbol'
 ```
+
+**検証内容**（Phase 1実装済み）:
+
+1. **YAML構文の正当性**
+   - 全YAMLファイルの構文エラーを検出
+   - パースエラーのある場合、分かりやすいエラーメッセージを表示
+
+2. **メタデータの妥当性**
+   - `metadata.yaml`の存在チェック
+   - 必須フィールド（`keyboard`, `version`, `uid`, `vial_protocol`, `via_protocol`）の検証
+   - `vendor_product_id`の形式チェック（`0xXXXX`）
+   - `matrix`設定の型・範囲チェック
+
+3. **Position Map の妥当性**
+   - `position_map.yaml`内のシンボルが一意であることを検証
+   - 同じシンボルが複数の物理位置に割り当てられている場合はエラー
+   - 左手・右手間での重複も検出
+
+4. **キーコードの妥当性**
+   - レイヤー内の全キーコードが有効なQMKキーコードまたはエイリアスか検証
+   - 関数形式のキーコード（`MO(1)`, `LSFT(A)`, `LT(2, Space)`等）の引数も検証
+   - タイプミスの早期発見
+
+5. **Position Map参照の整合性**
+   - レイヤーで使用されるシンボル（`LT1`, `RT1`等）が`position_map.yaml`に定義されているか検証
+   - 未定義のポジションシンボル参照を検出
+
+6. **レイヤーインデックスの妥当性**
+   - レイヤーファイル名が数字で始まること（例: `0_base.yaml`）
+   - レイヤーインデックスが0-9の範囲内
+   - 重複するレイヤーインデックスがないこと
+
+7. **マクロ/タップダンス/コンボ名の一意性**
+   - 各ファイルに`name`フィールドが存在
+   - 名前がファイル間で一意
+
+8. **レイヤー内の参照妥当性**
+   - `MACRO(name)`, `TD(name)`参照が実在する名前を指していること
+
+**推奨ワークフロー**:
+
+```bash
+# 設定を編集
+vim config/layers/0_base.yaml
+
+# 検証
+ruby bin/validate
+
+# コンパイル
+ruby bin/compile
+```
+
+### コンパイルエラー
 
 よくあるエラー：
 
+- **YAML構文エラー**: インデント不正、不正な文字
+- **無効なキーコード**: タイプミス（`Spce` → 正しくは `Space`）
+- **未定義のポジションシンボル**: `position_map.yaml`に存在しないシンボルを参照
 - **レイヤー番号の重複**: 同じ番号のレイヤーファイルが複数存在
 - **マクロ名の重複**: 同じ名前のマクロファイルが複数存在
 - **存在しない参照**: `MACRO(unknown_macro)`など、存在しないマクロを参照

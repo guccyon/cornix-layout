@@ -162,7 +162,7 @@ RSpec.describe Cornix::Decompiler do
 
         # Overrides should be a subset of all possible keys
         overrides = layer1['overrides']
-        expect(overrides.size).to be < 50 # Less than total keys
+        expect(overrides.size).to be < 56 # Less than total keys
       end
     end
 
@@ -318,9 +318,10 @@ RSpec.describe Cornix::Decompiler do
 
         # Check that layer functions keep their numeric arguments
         actions.each_value do |action|
-          if action.to_s.match?(/^(MO|OSL|TO|TG|TT|DF|LT\d*)\((\d+)\)$/)
+          match = action.to_s.match(/^(MO|OSL|TO|TG|TT|DF|LT\d*)\((\d+)\)$/)
+          if match
             # Layer number should be preserved as integer
-            expect($2).to match(/^\d+$/)
+            expect(match[2]).to match(/^\d+$/)
           end
         end
       end

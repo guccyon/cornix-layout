@@ -227,7 +227,7 @@ RSpec.describe Cornix::Validator do
       it 'detects unknown macro references' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'A' => 'MACRO(nonexistent)' }
+          'overrides' => { 'LT1' => 'MACRO(nonexistent)' }
         }))
 
         expect(validator.validate).to be false
@@ -236,7 +236,7 @@ RSpec.describe Cornix::Validator do
       it 'detects unknown tap dance references' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'A' => 'TD(nonexistent)' }
+          'overrides' => { 'LT1' => 'TD(nonexistent)' }
         }))
 
         expect(validator.validate).to be false
@@ -250,7 +250,7 @@ RSpec.describe Cornix::Validator do
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'A' => 'MACRO(test)' }
+          'overrides' => { 'LT1' => 'MACRO(test)' }
         }))
 
         expect(validator.validate).to be true
@@ -264,7 +264,7 @@ RSpec.describe Cornix::Validator do
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'A' => 'TD(test)' }
+          'overrides' => { 'LT1' => 'TD(test)' }
         }))
 
         expect(validator.validate).to be true
@@ -273,7 +273,7 @@ RSpec.describe Cornix::Validator do
       it 'allows macro references by index' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'A' => 'MACRO(0)' }
+          'overrides' => { 'LT1' => 'MACRO(0)' }
         }))
 
         # Index references are allowed even without defined macros
@@ -284,7 +284,7 @@ RSpec.describe Cornix::Validator do
       it 'allows tap dance references by index' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'A' => 'TD(0)' }
+          'overrides' => { 'LT1' => 'TD(0)' }
         }))
 
         # Index references are allowed even without defined tap dances

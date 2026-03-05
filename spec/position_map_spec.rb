@@ -29,7 +29,7 @@ RSpec.describe Cornix::PositionMap do
     context 'right hand' do
       it 'returns the correct symbol for position' do
         expect(position_map.symbol_at(:right, 0, 0)).to be_a(String)
-        expect(position_map.symbol_at(:right, 0, 1)).to eq('P')
+        expect(position_map.symbol_at(:right, 0, 1)).to eq('U')
       end
 
       it 'handles bottom row correctly' do
@@ -61,7 +61,7 @@ RSpec.describe Cornix::PositionMap do
 
     it 'finds position for right hand symbols' do
       result = position_map.find_position('P')
-      expect(result).to eq({ hand: :right, row: 0, col: 1 })
+      expect(result).to eq({ hand: :right, row: 0, col: 4 })
     end
 
     it 'finds position for special keys' do

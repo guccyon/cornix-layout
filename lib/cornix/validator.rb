@@ -315,13 +315,19 @@ module Cornix
       keycode = keycode.strip
 
       # 関数形式のキーコード（例: MO(3), LSFT(A), LT(1, Space)）
-      if keycode.match?(/^(\w+)\((.+)\)$/)
-        function_name = $1
-        args = $2
+      match = keycode.match(/^(\w+)\((.+)\)$/)
+      if match
+        function_name = match[1]
+        args = match[2]
 
         # 関数名が有効なキーコードまたはエイリアスか確認
         unless valid_simple_keycode?(function_name)
           return false
+        end
+
+        # MACRO, TD, COMBOの引数は名前/インデックスなので、キーコード検証をスキップ
+        if function_name.match?(/^(MACRO|TD|COMBO)$/)
+          return true
         end
 
         # 引数を検証（カンマ区切りをサポート）
@@ -352,8 +358,8 @@ module Cornix
         return true
       end
 
-      # 特殊なキーコード（MACRO, TD, COMBOなど）
-      if keycode.match?(/^(MACRO|TD|COMBO|USER|SAFE_RANGE)$/)
+      # 特殊なキーコード・関数名（MACRO, TD, COMBOなど）
+      if keycode.match?(/^(MACRO|TD|COMBO|USER|SAFE_RANGE|MO|TO|OSL|TG|TT|DF|LT\d*|LSFT|LCTL|LGUI|LALT|RSFT|RCTL|RGUI|RALT|LSFT_T|LCTL_T|LGUI_T|LALT_T|RSFT_T|RCTL_T|RGUI_T|RALT_T|OSM)$/)
         return true
       end
 

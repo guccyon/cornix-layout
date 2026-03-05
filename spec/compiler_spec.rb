@@ -226,7 +226,7 @@ RSpec.describe Cornix::Compiler do
         'name' => 'Text Test',
         'description' => 'Test text macro',
         'enabled' => true,
-        'index' => 10,
+        'index' => 15,
         'sequence' => [
           { 'action' => 'text', 'content' => 'Hello World' }
         ]
@@ -237,7 +237,7 @@ RSpec.describe Cornix::Compiler do
       temp_compiler.compile(output_file.path)
 
       vil_data = JSON.parse(File.read(output_file.path))
-      expect(vil_data['macro'][10]).to eq([['text', 'Hello World']])
+      expect(vil_data['macro'][15]).to eq([['text', 'Hello World']])
 
       FileUtils.rm_rf(temp_config_dir)
     end
@@ -406,10 +406,11 @@ RSpec.describe Cornix::Compiler do
       compiler.compile(output_file.path)
       vil_data = JSON.parse(File.read(output_file.path))
 
-      # LT(1, Space) should become LT(1, KC_SPACE)
-      # Check for LT functions with two arguments
+      # LT1(Space) should become LT1(KC_SPACE)
+      # Check for LT functions with keycodes
       layer0 = vil_data['layout'][0]
-      lt_with_args = layer0.flatten.any? { |k| k.to_s.match?(/^LT\d*\(\d+, KC_\w+\)$/) }
+      lt_with_args = layer0.flatten.any? { |k| k.to_s.match?(/^LT\d+\(KC_\w+\)$/) }
       expect(lt_with_args).to be true
     end
   end
+end

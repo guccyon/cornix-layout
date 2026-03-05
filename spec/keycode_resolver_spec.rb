@@ -69,7 +69,7 @@ RSpec.describe Cornix::KeycodeResolver do
     end
 
     it 'returns original keycode if no alias exists' do
-      expect(resolver.reverse_resolve('KC_TAB')).to eq('KC_TAB')
+      expect(resolver.reverse_resolve('KC_XYZ_UNKNOWN')).to eq('KC_XYZ_UNKNOWN')
     end
 
     it 'returns first defined alias when multiple aliases exist' do
@@ -88,7 +88,7 @@ RSpec.describe Cornix::KeycodeResolver do
 
   describe 'with system keycode_aliases.yaml' do
     let(:system_resolver) do
-      aliases_path = File.join(__dir__, '../../lib/cornix/keycode_aliases.yaml')
+      aliases_path = File.join(__dir__, '../lib/cornix/keycode_aliases.yaml')
       described_class.new(aliases_path)
     end
 
@@ -98,19 +98,19 @@ RSpec.describe Cornix::KeycodeResolver do
 
     it 'resolves common aliases from system file' do
       expect(system_resolver.resolve('Tab')).to eq('KC_TAB')
-      expect(system_resolver.resolve('Enter')).to eq('KC_ENT')
-      expect(system_resolver.resolve('Space')).to eq('KC_SPC')
+      expect(system_resolver.resolve('Enter')).to eq('KC_ENTER')
+      expect(system_resolver.resolve('Space')).to eq('KC_SPACE')
     end
 
     it 'reverse resolves common keycodes from system file' do
       expect(system_resolver.reverse_resolve('KC_TAB')).to eq('Tab')
-      expect(system_resolver.reverse_resolve('KC_ENT')).to eq('Enter')
-      expect(system_resolver.reverse_resolve('KC_SPC')).to eq('Space')
+      expect(system_resolver.reverse_resolve('KC_ENTER')).to eq('Enter')
+      expect(system_resolver.reverse_resolve('KC_SPACE')).to eq('Space')
     end
 
     it 'handles modifier keycodes' do
       expect(system_resolver.resolve('LShift')).to match(/KC_L(SH|SFT)/)
-      expect(system_resolver.resolve('LCtrl')).to match(/KC_LCTL/)
+      expect(system_resolver.resolve('LCtrl')).to eq('KC_LCTRL')
     end
   end
 

@@ -91,7 +91,9 @@ mv config/macros/01_macro.yml config/macros/01_curly_bracket_pair.yml
 
 **重要**: Compilerはファイル名に依存しません（レイヤーのインデックスプレフィックスを除く）。YAML内の`index`フィールドを使用してインデックスを管理します。
 
-**注意**: キーコードエイリアス(`keycode_aliases.yaml`)は`lib/cornix/`ディレクトリに固定ファイルとして配置されており、`config/`ディレクトリには生成されません。
+**注意**:
+- **キーコードエイリアス** (`keycode_aliases.yaml`): `lib/cornix/`に固定配置、`config/`には生成されません（QMK標準定義のため編集不要）
+- **Position Map** (`position_map.yaml`): `lib/cornix/`のテンプレートから`config/`に生成され、シンボル名をカスタマイズできます
 
 ### 設定ファイルを編集
 
@@ -422,6 +424,7 @@ cornix-layout/
 │       ├── decompiler.rb
 │       ├── keycode_resolver.rb
 │       ├── keycode_aliases.yaml # システム提供のキーコードエイリアス
+│       ├── position_map.yaml    # デフォルトの物理位置マップテンプレート
 │       └── position_map.rb
 ├── config/                     # 設定ファイル
 └── layout.vil                  # 生成されるファイル

@@ -436,6 +436,23 @@ RSpec.describe Cornix::Decompiler do
       # keycode_aliases.yaml should NOT be copied to config
       expect(File.exist?("#{output_dir}/keycode_aliases.yaml")).to be false
     end
+
+    it 'loads position map template from lib/cornix' do
+      template_path = File.join(__dir__, '../lib/cornix/position_map.yaml')
+      expect(File.exist?(template_path)).to be true
+
+      template = YAML.load_file(template_path)
+      expect(template).to have_key('left_hand')
+      expect(template).to have_key('right_hand')
+      expect(template).to have_key('encoders')
+
+      expect(template['left_hand']['row0']).to be_an(Array)
+      expect(template['encoders']['left']).to have_key('push')
+    end
+
+    it 'does not define POSITION_MAP constant' do
+      expect(Cornix::Decompiler.const_defined?(:POSITION_MAP)).to be false
+    end
   end
 
   describe 'round-trip compatibility' do

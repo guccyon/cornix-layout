@@ -7,22 +7,6 @@ require_relative 'keycode_resolver'
 module Cornix
   # layout.vilをYAML設定ファイルに変換するデコンパイラ
   class Decompiler
-    # 物理位置からシンボル名へのマッピング（position_mapから生成）
-    POSITION_MAP = {
-      left: [
-        %w[tab Q W E R T null],
-        %w[lctrl A S D F G null],
-        %w[lshift Z X C V B l_rotary_push],
-        %w[caps fn option command space esc null]
-      ],
-      right: [
-        %w[Y U I O P backspace null],
-        %w[H J K L colon backslash r_rotary_push],
-        %w[N M comma dot up rshift null],
-        %w[enter raise lang left down right null]
-      ]
-    }.freeze
-
     def initialize(vil_path)
       @vil_path = vil_path
       @data = JSON.parse(File.read(vil_path))
@@ -30,6 +14,13 @@ module Cornix
       # KeycodeResolverを初期化（エイリアス変換用）
       aliases_path = File.join(__dir__, 'keycode_aliases.yaml')
       @keycode_resolver = KeycodeResolver.new(aliases_path)
+
+      # Load position map template
+      @position_map_template_path = File.join(__dir__, 'position_map.yaml')
+      unless File.exist?(@position_map_template_path)
+        raise "Missing required template: #{@position_map_template_path}"
+      end
+      @position_map_template = YAML.load_file(@position_map_template_path)
     end
 
     def decompile(output_dir)
@@ -119,34 +110,8 @@ module Cornix
     end
 
     def extract_position_map(output_dir)
-      position_map = {
-        'left_hand' => {
-          'row0' => POSITION_MAP[:left][0].reject { |k| k == 'null' || k == 'l_rotary_push' || k == 'r_rotary_push' },
-          'row1' => POSITION_MAP[:left][1].reject { |k| k == 'null' || k == 'l_rotary_push' || k == 'r_rotary_push' },
-          'row2' => POSITION_MAP[:left][2].reject { |k| k == 'null' || k == 'l_rotary_push' || k == 'r_rotary_push' },
-          'row3' => POSITION_MAP[:left][3].reject { |k| k == 'null' || k == 'l_rotary_push' || k == 'r_rotary_push' }
-        },
-        'right_hand' => {
-          'row0' => POSITION_MAP[:right][0].reject { |k| k == 'null' || k == 'l_rotary_push' || k == 'r_rotary_push' },
-          'row1' => POSITION_MAP[:right][1].reject { |k| k == 'null' || k == 'l_rotary_push' || k == 'r_rotary_push' },
-          'row2' => POSITION_MAP[:right][2].reject { |k| k == 'null' || k == 'l_rotary_push' || k == 'r_rotary_push' },
-          'row3' => POSITION_MAP[:right][3].reject { |k| k == 'null' || k == 'l_rotary_push' || k == 'r_rotary_push' }
-        },
-        'encoders' => {
-          'left' => {
-            'push' => 'l_rotary_push',
-            'ccw' => 'l_rotary_ccw',
-            'cw' => 'l_rotary_cw'
-          },
-          'right' => {
-            'push' => 'r_rotary_push',
-            'ccw' => 'r_rotary_ccw',
-            'cw' => 'r_rotary_cw'
-          }
-        }
-      }
-
-      write_yaml_with_flow_arrays("#{output_dir}/position_map.yaml", position_map)
+      # Generate config/position_map.yaml from template
+      write_yaml_with_flow_arrays("#{output_dir}/position_map.yaml", @position_map_template)
     end
 
     def extract_qmk_settings(output_dir)
@@ -194,9 +159,10 @@ module Cornix
       mapping = {}
 
       # 左手
-      POSITION_MAP[:left].each_with_index do |row, row_idx|
+      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+        row = @position_map_template['left_hand'][row_key]
         row.each_with_index do |symbol, col_idx|
-          next if symbol == 'null'
+          next if symbol.nil? || symbol.to_s.empty?
           keycode = layer_data[row_idx][col_idx]
           mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
         end
@@ -204,9 +170,10 @@ module Cornix
 
       # 右手
       # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
-      POSITION_MAP[:right].each_with_index do |row, row_idx|
+      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+        row = @position_map_template['right_hand'][row_key]
         row.each_with_index do |symbol, col_idx|
-          next if symbol == 'null'
+          next if symbol.nil? || symbol.to_s.empty?
           # position_mapの左から右の順序を、ハードウェアの右から左に変換
           hardware_col_idx = 5 - col_idx
           keycode = layer_data[row_idx + 4][hardware_col_idx]
@@ -236,9 +203,10 @@ module Cornix
       base_layer = @data['layout'][0]
 
       # 左手
-      POSITION_MAP[:left].each_with_index do |row, row_idx|
+      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+        row = @position_map_template['left_hand'][row_key]
         row.each_with_index do |symbol, col_idx|
-          next if symbol == 'null'
+          next if symbol.nil? || symbol.to_s.empty?
           keycode = layer_data[row_idx][col_idx]
           base_keycode = base_layer[row_idx][col_idx]
 
@@ -251,9 +219,10 @@ module Cornix
 
       # 右手
       # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
-      POSITION_MAP[:right].each_with_index do |row, row_idx|
+      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+        row = @position_map_template['right_hand'][row_key]
         row.each_with_index do |symbol, col_idx|
-          next if symbol == 'null'
+          next if symbol.nil? || symbol.to_s.empty?
           # position_mapの左から右の順序を、ハードウェアの右から左に変換
           hardware_col_idx = 5 - col_idx
           keycode = layer_data[row_idx + 4][hardware_col_idx]
@@ -267,6 +236,21 @@ module Cornix
 
       # エンコーダーの差分
       base_encoder = @data['encoder_layout'][0]
+
+      # エンコーダープッシュボタンの差分をチェック
+      l_push_keycode = layer_data[2][6]
+      l_push_base = base_layer[2][6]
+      if l_push_keycode != l_push_base && l_push_keycode != -1
+        overrides['l_rotary_push'] = resolve_to_alias(l_push_keycode)
+      end
+
+      r_push_keycode = layer_data[5][6]
+      r_push_base = base_layer[5][6]
+      if r_push_keycode != r_push_base && r_push_keycode != -1
+        overrides['r_rotary_push'] = resolve_to_alias(r_push_keycode)
+      end
+
+      # エンコーダー回転の差分をチェック
       if encoder_data[0] != base_encoder[0]
         overrides['l_rotary_ccw'] = resolve_to_alias(encoder_data[0][0])
         overrides['l_rotary_cw'] = resolve_to_alias(encoder_data[0][1])

@@ -65,7 +65,9 @@ config/
     └── ...
 ```
 
-**Note**: Keycode aliases (`keycode_aliases.yaml`) are stored as a fixed file in the `lib/cornix/` directory and are not generated in the `config/` directory.
+**Note**:
+- **Keycode Aliases** (`keycode_aliases.yaml`): Fixed file in `lib/cornix/`, not generated in `config/` (no editing needed as it's QMK standard)
+- **Position Map** (`position_map.yaml`): Generated in `config/` from `lib/cornix/` template, customizable symbol names
 
 ### Edit Configuration Files
 
@@ -373,6 +375,7 @@ cornix-layout/
 │       ├── decompiler.rb
 │       ├── keycode_resolver.rb
 │       ├── keycode_aliases.yaml # System-provided keycode aliases
+│       ├── position_map.yaml    # Default physical position map template
 │       └── position_map.rb
 ├── config/                     # Configuration files
 └── layout.vil                  # Generated file

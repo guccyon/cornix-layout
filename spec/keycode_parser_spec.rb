@@ -634,6 +634,69 @@ RSpec.describe Cornix::KeycodeParser do
         })
       end
 
+      it 'parses quoted key with double quotes' do
+        result = described_class.parse('Shift + "="')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Shift'],
+          key: '='
+        })
+      end
+
+      it 'parses quoted key with single quotes' do
+        result = described_class.parse("Shift + '='")
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Shift'],
+          key: '='
+        })
+      end
+
+      it 'parses double quoted single quote' do
+        result = described_class.parse('Shift + "\'"')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Shift'],
+          key: "'"
+        })
+      end
+
+      it 'parses double quoted backtick' do
+        result = described_class.parse('Shift + "`"')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Shift'],
+          key: '`'
+        })
+      end
+
+      it 'parses double quoted minus' do
+        result = described_class.parse('Ctrl + "-"')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Ctrl'],
+          key: '-'
+        })
+      end
+
+      it 'parses double quoted slash' do
+        result = described_class.parse('Shift + "/"')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Shift'],
+          key: '/'
+        })
+      end
+
+      it 'parses multiple modifiers with quoted key' do
+        result = described_class.parse('Shift + Ctrl + "="')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Shift', 'Ctrl'],
+          key: '='
+        })
+      end
+
       it 'does not parse plus sign as key' do
         # "Shift + +" won't match the pattern since '+' is not \w+
         result = described_class.parse('Shift + +')
@@ -687,6 +750,28 @@ RSpec.describe Cornix::KeycodeParser do
         parsed = described_class.parse(original)
         unparsed = described_class.unparse(parsed)
         expect(unparsed).to eq(original)
+      end
+
+      it 'strips quotes from key (normalization)' do
+        # Quoted keys are normalized to unquoted form
+        original = 'Shift + "="'
+        parsed = described_class.parse(original)
+        unparsed = described_class.unparse(parsed)
+        expect(unparsed).to eq('Shift + =')
+      end
+
+      it 'strips quotes from single quote key' do
+        original = 'Shift + "\'"'
+        parsed = described_class.parse(original)
+        unparsed = described_class.unparse(parsed)
+        expect(unparsed).to eq("Shift + '")
+      end
+
+      it 'strips quotes from backtick key' do
+        original = 'Shift + "`"'
+        parsed = described_class.parse(original)
+        unparsed = described_class.unparse(parsed)
+        expect(unparsed).to eq('Shift + `')
       end
     end
   end

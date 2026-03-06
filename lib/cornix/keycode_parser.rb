@@ -74,9 +74,10 @@ module Cornix
         return { type: :legacy_tap_dance, value: keycode_str }
       end
 
-      # Pattern 3: Modifier expressions - Cmd + Q, Shift + Ctrl + A
+      # Pattern 3: Modifier expressions - Cmd + Q, Shift + Ctrl + A, Shift + "="
       # Must come before generic function pattern to avoid false positives
-      if keycode_str.match?(/^(\w+)(\s*\+\s*\w+)+$/)
+      # Support: word characters, quoted strings (", '), and special chars
+      if keycode_str.match?(/^(\w+)(\s*\+\s*(?:\w+|"[^"]*"|'[^']*'))+$/)
         return parse_modifier_expression(keycode_str)
       end
 
@@ -119,17 +120,52 @@ module Cornix
       { type: :alias, value: keycode_str }
     end
 
-    # Parse modifier expression (e.g., "Cmd + Q", "Shift + Ctrl + A")
+    # Parse modifier expression (e.g., "Cmd + Q", "Shift + Ctrl + A", "Shift + '='")
     #
     # @param expr [String] The modifier expression string
     # @return [Hash] Structured token with modifiers and key
     def self.parse_modifier_expression(expr)
-      # Split by '+' with flexible spacing
-      parts = expr.split(/\s*\+\s*/).map(&:strip)
+      # Split by '+' with flexible spacing, but preserve quoted strings
+      parts = []
+      current_part = +""
+      in_string = false
+      string_char = nil
+
+      expr.each_char do |char|
+        case char
+        when "'", '"'
+          if !in_string
+            in_string = true
+            string_char = char
+          elsif char == string_char
+            in_string = false
+            string_char = nil
+          end
+          current_part << char
+
+        when '+'
+          if in_string
+            current_part << char
+          else
+            parts << current_part.strip unless current_part.strip.empty?
+            current_part = +""
+          end
+
+        else
+          current_part << char
+        end
+      end
+
+      parts << current_part.strip unless current_part.strip.empty?
 
       # Last part is the key, everything else is modifiers
       modifiers = parts[0..-2]
       key = parts[-1]
+
+      # Strip quotes from key if present
+      if key.match?(/^["'](.*)["']$/)
+        key = key[1..-2]
+      end
 
       {
         type: :modifier_expression,

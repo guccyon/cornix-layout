@@ -179,12 +179,66 @@ overrides:
   lshift: Trans      # Transparent (use key from lower layer)
   D: NoKey           # Disabled
 
-  # Reference macro by name
-  A: MACRO(bracket_pair)
+  # Reference macro by name (recommended)
+  A: Macro('Bracket Pair')
 
-  # Reference tap dance
-  fn: TD(layer_switch)
+  # Reference tap dance by name (recommended)
+  fn: TapDance('Layer Switch')
 ```
+
+#### Macro, Tap Dance, and Combo References
+
+Cornix supports three reference formats:
+
+**1. Name-based Format (Recommended)**: Reference by name for maximum readability
+```yaml
+# Reference macro by name
+A: Macro('Bracket Pair')
+
+# Reference tap dance by name
+fn: TapDance('Layer Switch')
+
+# Reference combo by name
+combo1: Combo('Escape Alternative')
+```
+
+**Benefits**:
+- Configuration files are self-documenting and highly readable
+- References auto-update when files are renamed (with `cornix rename`)
+- Function is immediately clear when editing
+
+**2. Index-based Format (Explicit)**: Reference by index
+```yaml
+# Reference macro by index
+A: Macro(0)
+
+# Reference tap dance by index
+fn: TapDance(2)
+```
+
+**Benefits**:
+- Useful when you want explicit index control
+- Easy migration from existing configs
+
+**3. QMK Legacy Format (Backward Compatible)**: Traditional QMK format
+```yaml
+# Macro (M prefix)
+A: M0
+
+# Tap Dance (TD function)
+fn: TD(2)
+```
+
+**Benefits**:
+- Familiar to QMK users
+- Existing configs work unchanged
+
+**Recommendation**: Use **Name-based format** for new configs. `cornix decompile` automatically generates Name-based format.
+
+**Note**:
+- All formats compile to the same `layout.vil` (Vial compatible)
+- `cornix rename` auto-updates Name-based references only
+- Index-based / Legacy formats are preserved for backward compatibility but won't auto-update
 
 **Alias Benefits**:
 - `KC_TRNS` → `Trans` (more concise)

@@ -3,6 +3,8 @@
 require 'json'
 require 'yaml'
 require_relative 'keycode_resolver'
+require_relative 'keycode_parser'
+require_relative 'reference_resolver'
 require_relative 'position_map'
 
 module Cornix
@@ -13,6 +15,7 @@ module Cornix
       # lib/cornix/keycode_aliases.yaml を直接参照
       aliases_path = File.join(__dir__, 'keycode_aliases.yaml')
       @keycode_resolver = KeycodeResolver.new(aliases_path)
+      @reference_resolver = ReferenceResolver.new(config_dir)
       @position_map = PositionMap.new("#{config_dir}/position_map.yaml")
     end
 
@@ -51,46 +54,64 @@ module Cornix
     def resolve_to_qmk(keycode)
       return keycode if keycode.nil? || keycode == '' || keycode == -1
 
-      # パターン1: 既にQMK形式（KC_*）の場合はそのまま
-      return keycode if keycode.match?(/^KC_[A-Z0-9_]+$/)
+      # Parse using KeycodeParser
+      parsed = KeycodeParser.parse(keycode)
 
-      # パターン2: 関数呼び出し形式（LSFT(1), LGUI_T(A)など）
-      if match = keycode.match(/^([A-Z_]+[0-9]*)\((.+)\)$/)
-        function_name = match[1]
-        arguments = match[2]
+      case parsed[:type]
+      when :keycode
+        # Already QMK format - pass through
+        parsed[:value]
 
-        # 引数をカンマで分割（LT(1, Space)のようなケース）
-        args = arguments.split(',').map(&:strip)
+      when :reference
+        # Delegate to ReferenceResolver
+        begin
+          @reference_resolver.resolve(parsed)
+        rescue => e
+          # If resolution fails, return original keycode
+          warn "Warning: #{e.message}"
+          keycode
+        end
+
+      when :legacy_macro, :legacy_tap_dance
+        # Legacy format - pass through
+        parsed[:value]
+
+      when :function
+        # Handle function calls (MO, LSFT, LT, etc.)
+        function_name = parsed[:name]
+        args = parsed[:args]
+
+        # Recursively resolve arguments
         resolved_args = args.map do |arg|
-          # 引数が数値のみの場合、レイヤー切り替え系・タップダンス（MO, TO, OSL, TG, LT, TT, TD）なら数値のまま
-          # それ以外（LSFT, LCTLなど）は KC_* に変換
-          if arg.match?(/^\d+$/)
-            # レイヤー切り替え系・タップダンス・コンボの関数かチェック
+          if arg[:type] == :number
+            # Layer switching functions: preserve numeric args
             if function_name.match?(/^(MO|TO|OSL|TG|TT|DF|LT\d*|TD|COMBO)$/)
-              arg  # インデックス番号はそのまま
+              arg[:value]
             else
-              # 修飾キー系の関数の場合、KC_0-9 に変換
-              "KC_#{arg}"
+              # Modifier functions: convert to KC_*
+              "KC_#{arg[:value]}"
             end
           else
-            resolve_to_qmk(arg)
+            # Recursively resolve non-numeric args
+            resolve_to_qmk(KeycodeParser.unparse(arg))
           end
         end
 
-        return "#{function_name}(#{resolved_args.join(', ')})"
+        "#{function_name}(#{resolved_args.join(', ')})"
+
+      when :alias
+        # Delegate to KeycodeResolver
+        resolved = @keycode_resolver.resolve(parsed[:value])
+        resolved != parsed[:value] ? resolved : parsed[:value]
+
+      when :number
+        # Standalone number → KC_*
+        "KC_#{parsed[:value]}"
+
+      else
+        # Unknown - return as-is
+        keycode
       end
-
-      # パターン3: 単独の数値（'1', '2'など）→ KC_1, KC_2
-      if keycode.match?(/^[0-9]$/)
-        return "KC_#{keycode}"
-      end
-
-      # パターン4: エイリアスとして登録されている場合、QMKキーコードに変換
-      resolved = @keycode_resolver.resolve(keycode)
-      return resolved if resolved != keycode
-
-      # パターン5: マクロ参照（M0, M1など）、特殊な文字列はそのまま
-      keycode
     end
 
     def compile_layers

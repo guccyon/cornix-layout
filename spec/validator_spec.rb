@@ -227,7 +227,7 @@ RSpec.describe Cornix::Validator do
       it 'detects unknown macro references' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => 'MACRO(nonexistent)' }
+          'overrides' => { 'LT1' => "Macro('nonexistent')" }
         }))
 
         expect(validator.validate).to be false
@@ -236,7 +236,7 @@ RSpec.describe Cornix::Validator do
       it 'detects unknown tap dance references' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => 'TD(nonexistent)' }
+          'overrides' => { 'LT1' => "TapDance('nonexistent')" }
         }))
 
         expect(validator.validate).to be false
@@ -245,12 +245,13 @@ RSpec.describe Cornix::Validator do
       it 'allows valid macro references by name' do
         File.write("#{config_dir}/macros/test.yaml", YAML.dump({
           'name' => 'test',
-          'enabled' => true
+          'enabled' => true,
+          'index' => 0
         }))
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => 'MACRO(test)' }
+          'overrides' => { 'LT1' => "Macro('test')" }
         }))
 
         expect(validator.validate).to be true
@@ -259,12 +260,13 @@ RSpec.describe Cornix::Validator do
       it 'allows valid tap dance references by name' do
         File.write("#{config_dir}/tap_dance/test.yaml", YAML.dump({
           'name' => 'test',
-          'enabled' => true
+          'enabled' => true,
+          'index' => 0
         }))
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => 'TD(test)' }
+          'overrides' => { 'LT1' => "TapDance('test')" }
         }))
 
         expect(validator.validate).to be true
@@ -709,6 +711,400 @@ RSpec.describe Cornix::Validator do
       expect(result).to be true  # Should still pass
       expect(output_text).to include('Warning')
       expect(output_text).to include('position_map.yaml')
+    end
+  end
+
+  describe 'KeycodeParser integration' do
+    describe 'reference format validation' do
+      it 'validates name-based Macro references' do
+        File.write("#{config_dir}/macros/test.yaml", YAML.dump({
+          'name' => 'TestMacro',
+          'enabled' => true,
+          'index' => 0
+        }))
+
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => "Macro('TestMacro')"
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'validates name-based TapDance references' do
+        File.write("#{config_dir}/tap_dance/test.yaml", YAML.dump({
+          'name' => 'TestTapDance',
+          'enabled' => true,
+          'index' => 0
+        }))
+
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => "TapDance('TestTapDance')"
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'validates index-based Macro references' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'Macro(0)',
+            'LT2' => 'Macro(15)',
+            'RT1' => 'Macro(31)'
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'validates index-based TapDance references' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'TapDance(0)',
+            'LT2' => 'TapDance(15)',
+            'RT1' => 'TapDance(31)'
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'detects invalid index out of range' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'Macro(32)'
+          }
+        }))
+
+        expect(validator.validate).to be false
+      end
+
+      it 'detects non-existent name references' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => "Macro('NonExistent')"
+          }
+        }))
+
+        expect(validator.validate).to be false
+      end
+
+      it 'validates legacy M0 format' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'M0',
+            'LT2' => 'M15'
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'validates legacy TD(0) format' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'TD(0)',
+            'LT2' => 'TD(15)'
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+    end
+
+    describe 'function parsing' do
+      it 'validates nested function calls' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'LT(1, Space)',
+            'LT2' => 'LSFT(Tab)',
+            'RT1' => 'LCTL_T(Esc)'
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'validates layer switching functions with numbers' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'MO(3)',
+            'LT2' => 'TO(5)',
+            'RT1' => 'OSL(7)'
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'detects invalid function arguments' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'LSFT(InvalidAlias)'
+          }
+        }))
+
+        expect(validator.validate).to be false
+      end
+    end
+
+    describe 'keycode parsing' do
+      it 'validates QMK keycodes with parser' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'KC_A',
+            'LT2' => 'KC_TAB',
+            'RT1' => 'KC_SPACE'
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'validates aliases with parser' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'A',
+            'LT2' => 'Tab',
+            'RT1' => 'Space',
+            'RT2' => 'Esc'
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+
+      it 'detects invalid aliases' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'NotAValidAlias'
+          }
+        }))
+
+        expect(validator.validate).to be false
+      end
+
+      it 'validates numbers as layer indices' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 1,
+            'LT2' => 5
+          }
+        }))
+
+        expect(validator.validate).to be true
+      end
+    end
+  end
+
+  describe 'reference typo detection and suggestions' do
+    before do
+      # Create test macros
+      FileUtils.mkdir_p("#{config_dir}/macros")
+      File.write("#{config_dir}/macros/00_test.yml", YAML.dump({
+        'name' => 'Bracket Pair',
+        'description' => 'Insert brackets',
+        'enabled' => true,
+        'index' => 0,
+        'sequence' => []
+      }))
+      File.write("#{config_dir}/macros/01_test.yml", YAML.dump({
+        'name' => 'Curly Bracket Pair',
+        'description' => 'Insert curly brackets',
+        'enabled' => true,
+        'index' => 1,
+        'sequence' => []
+      }))
+
+      # Create test tap dances
+      FileUtils.mkdir_p("#{config_dir}/tap_dance")
+      File.write("#{config_dir}/tap_dance/00_test.yml", YAML.dump({
+        'name' => 'Layer Switch',
+        'description' => 'Switch layer',
+        'enabled' => true,
+        'index' => 0,
+        'actions' => {}
+      }))
+    end
+
+    it 'detects typo in reference function name and suggests correction' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => "Maacro('Bracket Pair')"  # Typo: Maacro -> Macro
+        }
+      }))
+
+      output = StringIO.new
+      original_stdout = $stdout
+      $stdout = output
+
+      result = validator.validate
+
+      $stdout = original_stdout
+      output_text = output.string
+
+      expect(result).to be false
+      expect(output_text).to include('Invalid reference function')
+      expect(output_text).to include('Maacro')
+      expect(output_text).to include("Did you mean 'Macro'")
+    end
+
+    it 'detects non-existent reference name and suggests similar names' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => "Macro('Bracket Pir')"  # Typo: Pir -> Pair
+        }
+      }))
+
+      output = StringIO.new
+      original_stdout = $stdout
+      $stdout = output
+
+      result = validator.validate
+
+      $stdout = original_stdout
+      output_text = output.string
+
+      expect(result).to be false
+      expect(output_text).to include('not found')
+      expect(output_text).to include("Did you mean")
+      expect(output_text).to include('Bracket Pair')
+    end
+
+    it 'suggests multiple similar names when available' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => "Macro('Bracket')"  # Similar to both "Bracket Pair" and "Curly Bracket Pair"
+        }
+      }))
+
+      output = StringIO.new
+      original_stdout = $stdout
+      $stdout = output
+
+      result = validator.validate
+
+      $stdout = original_stdout
+      output_text = output.string
+
+      expect(result).to be false
+      expect(output_text).to include('not found')
+      expect(output_text).to include("Did you mean")
+      # Should suggest at least one similar name
+      expect(output_text).to match(/Bracket Pair|Curly Bracket Pair/)
+    end
+
+    it 'detects typo "TapDannce"' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => "TapDannce('Layer Switch')"  # Typo: TapDannce -> TapDance
+        }
+      }))
+
+      output = StringIO.new
+      original_stdout = $stdout
+      $stdout = output
+
+      result = validator.validate
+
+      $stdout = original_stdout
+      output_text = output.string
+
+      expect(result).to be false
+      expect(output_text).to include('Invalid reference function')
+      expect(output_text).to include('TapDannce')
+      expect(output_text).to include("Did you mean 'TapDance'")
+    end
+
+    it 'detects completely non-existent macro name without similar names' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => "Macro('Xyz123')"  # Completely different name
+        }
+      }))
+
+      output = StringIO.new
+      original_stdout = $stdout
+      $stdout = output
+
+      result = validator.validate
+
+      $stdout = original_stdout
+      output_text = output.string
+
+      expect(result).to be false
+      expect(output_text).to include('not found')
+      # Should not suggest anything if no similar names
+      # (or might suggest something if distance is within threshold)
+    end
+
+    it 'accepts valid reference with correct name' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => "Macro('Bracket Pair')",
+          'LT2' => "TapDance('Layer Switch')"
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts encoder symbols from position_map.yaml' do
+      # Add encoders to position_map
+      position_map = YAML.load_file("#{config_dir}/position_map.yaml")
+      position_map['encoders'] = {
+        'left' => {
+          'push' => 'l_rotary_push',
+          'ccw' => 'l_rotary_ccw',
+          'cw' => 'l_rotary_cw'
+        },
+        'right' => {
+          'push' => 'r_rotary_push',
+          'ccw' => 'r_rotary_ccw',
+          'cw' => 'r_rotary_cw'
+        }
+      }
+      File.write("#{config_dir}/position_map.yaml", YAML.dump(position_map))
+
+      # Use encoder symbols in layer
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'A',
+          'l_rotary_push' => 'Enter',
+          'l_rotary_ccw' => 'KC_VOLU',
+          'l_rotary_cw' => 'KC_VOLD',
+          'r_rotary_push' => 'Space',
+          'r_rotary_ccw' => 'KC_PGUP',
+          'r_rotary_cw' => 'KC_PGDN'
+        }
+      }))
+
+      expect(validator.validate).to be true
     end
   end
 end

@@ -3,6 +3,8 @@
 require 'yaml'
 require_relative 'position_map'
 require_relative 'keycode_resolver'
+require_relative 'keycode_parser'
+require_relative 'reference_resolver'
 
 module Cornix
   # 設定ファイルの妥当性を検証
@@ -15,6 +17,9 @@ module Cornix
       # KeycodeResolverの初期化
       aliases_path = File.join(File.dirname(__FILE__), 'keycode_aliases.yaml')
       @keycode_resolver = KeycodeResolver.new(aliases_path)
+
+      # ReferenceResolverの初期化
+      @reference_resolver = ReferenceResolver.new(config_dir)
 
       # PositionMapの初期化（遅延ロード）
       @position_map = nil
@@ -54,8 +59,77 @@ module Cornix
 
     private
 
+    # Levenshtein距離を計算（類似度判定用）
+    def levenshtein_distance(str1, str2)
+      return str2.length if str1.empty?
+      return str1.length if str2.empty?
+
+      matrix = Array.new(str1.length + 1) { Array.new(str2.length + 1) }
+
+      (0..str1.length).each { |i| matrix[i][0] = i }
+      (0..str2.length).each { |j| matrix[0][j] = j }
+
+      (1..str1.length).each do |i|
+        (1..str2.length).each do |j|
+          cost = str1[i - 1] == str2[j - 1] ? 0 : 1
+          matrix[i][j] = [
+            matrix[i - 1][j] + 1,      # deletion
+            matrix[i][j - 1] + 1,      # insertion
+            matrix[i - 1][j - 1] + cost # substitution
+          ].min
+        end
+      end
+
+      matrix[str1.length][str2.length]
+    end
+
+    # 類似した名前を見つける
+    def find_similar_names(target, candidates, threshold: 3)
+      return [] if candidates.empty?
+
+      target_lower = target.downcase
+
+      similarities = candidates.map do |candidate|
+        candidate_lower = candidate.downcase
+
+        # 完全一致
+        if candidate_lower == target_lower
+          distance = 0
+        # 部分一致（候補が対象を含む）
+        elsif candidate_lower.include?(target_lower)
+          distance = 1
+        # 部分一致（対象が候補を含む）
+        elsif target_lower.include?(candidate_lower)
+          distance = 1
+        else
+          # Levenshtein距離
+          distance = levenshtein_distance(target_lower, candidate_lower)
+        end
+
+        { name: candidate, distance: distance }
+      end
+
+      # 距離が閾値以下のものを返す（部分一致は常に含まれる）
+      similar = similarities.select { |s| s[:distance] <= threshold || s[:distance] == 1 }
+                            .sort_by { |s| [s[:distance], s[:name]] }
+                            .map { |s| s[:name] }
+
+      similar.take(3) # 最大3件まで
+    end
+
+    # 有効な参照関数名
+    VALID_REFERENCE_FUNCTIONS = %w[Macro TapDance Combo].freeze
+
+    # 参照関数名のタイポをチェック
+    def suggest_reference_function(function_name)
+      return nil if VALID_REFERENCE_FUNCTIONS.include?(function_name)
+
+      similar = find_similar_names(function_name, VALID_REFERENCE_FUNCTIONS, threshold: 2)
+      similar.first
+    end
+
     def validate_layer_indices
-      layer_files = Dir.glob("#{@config_dir}/layers/*.yaml")
+      layer_files = Dir.glob("#{@config_dir}/layers/*.{yaml,yml}")
       indices = []
 
       layer_files.each do |file|
@@ -117,49 +191,93 @@ module Cornix
     end
 
     def validate_layer_references
-      # マクロとタップダンスの名前→インデックスマッピングを構築
-      macro_names = build_name_index('macros')
-      td_names = build_name_index('tap_dance')
-
       # 各レイヤーをチェック
-      Dir.glob("#{@config_dir}/layers/*.yaml").each do |file|
+      Dir.glob("#{@config_dir}/layers/*.{yaml,yml}").each do |file|
         next if @failed_yaml_files.include?(file)
 
         layer = YAML.load_file(file)
         mapping = layer['mapping'] || layer['overrides'] || {}
 
         mapping.each do |symbol, keycode|
-          # MACRO(name) 参照をチェック
-          if keycode.to_s.match(/MACRO\((\w+)\)/)
-            name = $1
-            unless macro_names.include?(name) || name.match?(/^\d+$/)
-              @errors << "Layer #{File.basename(file)}: Unknown macro '#{name}'"
-            end
-          end
+          # Parse using KeycodeParser
+          parsed = KeycodeParser.parse(keycode.to_s)
 
-          # TD(name) 参照をチェック
-          if keycode.to_s.match(/TD\((\w+)\)/)
-            name = $1
-            unless td_names.include?(name) || name.match?(/^\d+$/)
-              @errors << "Layer #{File.basename(file)}: Unknown tap dance '#{name}'"
+          if parsed[:type] == :reference
+            function_name = parsed[:function]
+            arg = parsed[:args][0]
+
+            # 1. 関数名のタイポチェック
+            unless VALID_REFERENCE_FUNCTIONS.include?(function_name)
+              suggestion = suggest_reference_function(function_name)
+              error_msg = "Layer #{File.basename(file)}, symbol '#{symbol}': Invalid reference function '#{function_name}'"
+              if suggestion
+                error_msg += " (Did you mean '#{suggestion}'?)"
+              end
+              @errors << error_msg
+              next
+            end
+
+            # 2. Name-based参照の存在チェック
+            if arg[:type] == :string
+              result = @reference_resolver.validate_reference(parsed)
+
+              unless result[:valid]
+                error_msg = "Layer #{File.basename(file)}, symbol '#{symbol}': #{result[:error]}"
+
+                # 類似名のサジェスト
+                reference_name = arg[:value]
+                candidates = case function_name
+                when 'Macro'
+                  get_all_macro_names
+                when 'TapDance'
+                  get_all_tap_dance_names
+                when 'Combo'
+                  get_all_combo_names
+                else
+                  []
+                end
+
+                similar = find_similar_names(reference_name, candidates, threshold: 3)
+                if similar.any?
+                  error_msg += " (Did you mean: #{similar.map { |s| "'#{s}'" }.join(', ')}?)"
+                end
+
+                @errors << error_msg
+              end
             end
           end
         end
       end
     end
 
-    def build_name_index(dir)
-      files = Dir.glob("#{@config_dir}/#{dir}/*.yaml")
-      names = []
-
-      files.each do |file|
+    # マクロ名を全て取得
+    def get_all_macro_names
+      files = Dir.glob("#{@config_dir}/macros/*.{yaml,yml}")
+      files.map do |file|
         next if @failed_yaml_files.include?(file)
+        config = YAML.load_file(file) rescue next
+        config['name']
+      end.compact
+    end
 
-        config = YAML.load_file(file)
-        names << config['name'] if config['name']
-      end
+    # タップダンス名を全て取得
+    def get_all_tap_dance_names
+      files = Dir.glob("#{@config_dir}/tap_dance/*.{yaml,yml}")
+      files.map do |file|
+        next if @failed_yaml_files.include?(file)
+        config = YAML.load_file(file) rescue next
+        config['name']
+      end.compact
+    end
 
-      names
+    # コンボ名を全て取得
+    def get_all_combo_names
+      files = Dir.glob("#{@config_dir}/combos/*.{yaml,yml}")
+      files.map do |file|
+        next if @failed_yaml_files.include?(file)
+        config = YAML.load_file(file) rescue next
+        config['name']
+      end.compact
     end
 
     # Phase 1 validations
@@ -288,7 +406,7 @@ module Cornix
 
     def validate_keycodes
       # レイヤー内のキーコードをチェック
-      Dir.glob("#{@config_dir}/layers/*.yaml").each do |file|
+      Dir.glob("#{@config_dir}/layers/*.{yaml,yml}").each do |file|
         next unless File.exist?(file)
         next if @failed_yaml_files.include?(file)
 
@@ -299,54 +417,93 @@ module Cornix
           mapping.each do |symbol, keycode|
             next if keycode.nil? || keycode.to_s.empty?
 
-            # キーコードを検証
-            unless valid_keycode?(keycode.to_s)
+            keycode_str = keycode.to_s
+            error_found = false
+
+            # タイポされた参照関数を検出（KeycodeParserでは:aliasとして解析される）
+            if keycode_str =~ /^([A-Za-z_]+)\(/
+              function_name = Regexp.last_match(1)
+
+              # QMK組み込み関数（大文字）はスキップ
+              # MACRO, TD, COMBO, MO, TO, OSL, TG, TT, DF, LT, LSFT, SGUI, LCA, USER, etc.
+              is_qmk_builtin = function_name.match?(/^(MACRO|TD|COMBO|USER\d*|SAFE_RANGE|MO|TO|OSL|TG|TT|DF|LT\d*|LSFT|LCTL|LGUI|LALT|RSFT|RCTL|RGUI|RALT|SGUI|LCA|LSFT_T|LCTL_T|LGUI_T|LALT_T|RSFT_T|RCTL_T|RGUI_T|RALT_T|OSM)$/)
+
+              # 参照関数のように見えるがタイポしている場合（QMK組み込みでない場合のみ）
+              unless is_qmk_builtin || VALID_REFERENCE_FUNCTIONS.include?(function_name)
+                suggestion = suggest_reference_function(function_name)
+                if suggestion
+                  error_msg = "Layer #{File.basename(file)}, symbol '#{symbol}': Invalid reference function '#{function_name}' (Did you mean '#{suggestion}'?)"
+                  @errors << error_msg
+                  error_found = true
+                end
+              end
+            end
+
+            # キーコードを検証（タイポエラーが見つかっていない場合のみ）
+            unless error_found || valid_keycode?(keycode_str)
               @errors << "Layer #{File.basename(file)}, symbol '#{symbol}': Invalid keycode '#{keycode}'"
             end
           end
-        rescue StandardError => e
+        rescue StandardError
           # YAML構文エラーは validate_yaml_syntax で既に報告済み
         end
       end
     end
 
     def valid_keycode?(keycode)
-      # 再帰的にキーコードを検証
       keycode = keycode.strip
 
-      # 関数形式のキーコード（例: MO(3), LSFT(A), LT(1, Space)）
-      match = keycode.match(/^(\w+)\((.+)\)$/)
-      if match
-        function_name = match[1]
-        args = match[2]
+      # Parse using KeycodeParser
+      parsed = KeycodeParser.parse(keycode)
 
-        # 関数名が有効なキーコードまたはエイリアスか確認
-        unless valid_simple_keycode?(function_name)
+      case parsed[:type]
+      when :reference
+        # Reference format validation (Macro, TapDance, Combo)
+        # Function name validation is done in validate_layer_references
+        arg = parsed[:args][0]
+        if arg[:type] == :string
+          # Name reference - actual validation in validate_layer_references
+          return true
+        elsif arg[:type] == :number
+          # Index reference - validate range
+          index = arg[:value]
+          return index >= 0 && index < 32  # QMK max
+        else
           return false
         end
 
-        # MACRO, TD, COMBOの引数は名前/インデックスなので、キーコード検証をスキップ
-        if function_name.match?(/^(MACRO|TD|COMBO)$/)
-          return true
+      when :function
+        # Validate function name and arguments
+        unless valid_simple_keycode?(parsed[:name])
+          return false
         end
 
-        # 引数を検証（カンマ区切りをサポート）
-        args.split(',').each do |arg|
-          arg = arg.strip
-          # 数値引数は常に許容（レイヤー番号、インデックス等）
-          next if arg.match?(/^\d+$/)
+        # Validate arguments recursively
+        parsed[:args].each do |arg|
+          next if arg[:type] == :number
 
-          # 引数が有効なキーコードか再帰的にチェック
-          unless valid_keycode?(arg)
+          unless valid_keycode?(KeycodeParser.unparse(arg))
             return false
           end
         end
 
         return true
-      end
 
-      # シンプルなキーコード
-      valid_simple_keycode?(keycode)
+      when :keycode, :legacy_macro, :legacy_tap_dance
+        # Valid formats
+        return true
+
+      when :alias
+        # Validate that the alias is resolvable
+        return valid_simple_keycode?(parsed[:value])
+
+      when :number
+        # Pure number is valid (for layer indices)
+        return true
+
+      else
+        false
+      end
     end
 
     def valid_simple_keycode?(keycode)
@@ -359,7 +516,8 @@ module Cornix
       end
 
       # 特殊なキーコード・関数名（MACRO, TD, COMBOなど）
-      if keycode.match?(/^(MACRO|TD|COMBO|USER|SAFE_RANGE|MO|TO|OSL|TG|TT|DF|LT\d*|LSFT|LCTL|LGUI|LALT|RSFT|RCTL|RGUI|RALT|LSFT_T|LCTL_T|LGUI_T|LALT_T|RSFT_T|RCTL_T|RGUI_T|RALT_T|OSM)$/)
+      # SGUI, LCA, USER なども追加
+      if keycode.match?(/^(MACRO|TD|COMBO|USER\d*|SAFE_RANGE|MO|TO|OSL|TG|TT|DF|LT\d*|LSFT|LCTL|LGUI|LALT|RSFT|RCTL|RGUI|RALT|SGUI|LCA|LSFT_T|LCTL_T|LGUI_T|LALT_T|RSFT_T|RCTL_T|RGUI_T|RALT_T|OSM)$/)
         return true
       end
 
@@ -385,7 +543,7 @@ module Cornix
         valid_symbols = extract_all_symbols(@position_map)
 
         # 各レイヤーのシンボルをチェック
-        Dir.glob("#{@config_dir}/layers/*.yaml").each do |file|
+        Dir.glob("#{@config_dir}/layers/*.{yaml,yml}").each do |file|
           next unless File.exist?(file)
           next if @failed_yaml_files.include?(file)
 
@@ -417,6 +575,26 @@ module Cornix
             symbol = position_map.symbol_at(hand, row, col)
             symbols << symbol if symbol
           end
+        end
+      end
+
+      # エンコーダーシンボルも抽出
+      position_map_path = "#{@config_dir}/position_map.yaml"
+      if File.exist?(position_map_path)
+        begin
+          position_map_data = YAML.load_file(position_map_path)
+          if position_map_data['encoders']
+            ['left', 'right'].each do |side|
+              if position_map_data['encoders'][side]
+                encoder = position_map_data['encoders'][side]
+                symbols << encoder['push'] if encoder['push']
+                symbols << encoder['ccw'] if encoder['ccw']
+                symbols << encoder['cw'] if encoder['cw']
+              end
+            end
+          end
+        rescue StandardError
+          # Ignore errors - position_map may not have encoders section
         end
       end
 

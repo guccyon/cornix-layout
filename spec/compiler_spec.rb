@@ -413,4 +413,91 @@ RSpec.describe Cornix::Compiler do
       expect(lt_with_args).to be true
     end
   end
+
+  describe 'reference format support' do
+    let(:temp_config_dir) { Dir.mktmpdir }
+    let(:temp_compiler) { described_class.new(temp_config_dir) }
+
+    before do
+      # Create config structure
+      FileUtils.mkdir_p("#{temp_config_dir}/macros")
+      FileUtils.mkdir_p("#{temp_config_dir}/tap_dance")
+
+      # Copy position_map.yaml from main config
+      FileUtils.cp("#{config_dir}/position_map.yaml", temp_config_dir)
+
+      # Create a simple macro
+      File.write("#{temp_config_dir}/macros/00_test_macro.yml", YAML.dump({
+        'index' => 0,
+        'name' => 'Test Macro',
+        'enabled' => true,
+        'sequence' => [
+          { 'action' => 'tap', 'keys' => ['A'] }
+        ]
+      }))
+
+      # Create a simple tap dance
+      File.write("#{temp_config_dir}/tap_dance/00_test_tap.yml", YAML.dump({
+        'index' => 0,
+        'name' => 'Test TapDance',
+        'on_tap' => 'Escape',
+        'on_hold' => 'MO(1)'
+      }))
+    end
+
+    after do
+      FileUtils.rm_rf(temp_config_dir)
+    end
+
+    it 'resolves name-based Macro references' do
+      result = temp_compiler.send(:resolve_to_qmk, "Macro('Test Macro')")
+      expect(result).to eq('M0')
+    end
+
+    it 'resolves index-based Macro references' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Macro(0)')
+      expect(result).to eq('M0')
+    end
+
+    it 'resolves name-based TapDance references' do
+      result = temp_compiler.send(:resolve_to_qmk, "TapDance('Test TapDance')")
+      expect(result).to eq('TD(0)')
+    end
+
+    it 'resolves index-based TapDance references' do
+      result = temp_compiler.send(:resolve_to_qmk, 'TapDance(0)')
+      expect(result).to eq('TD(0)')
+    end
+
+    it 'preserves legacy M0 format' do
+      result = temp_compiler.send(:resolve_to_qmk, 'M0')
+      expect(result).to eq('M0')
+    end
+
+    it 'preserves legacy TD(0) format' do
+      result = temp_compiler.send(:resolve_to_qmk, 'TD(0)')
+      expect(result).to eq('TD(0)')
+    end
+
+    it 'handles non-existent reference gracefully' do
+      expect {
+        temp_compiler.send(:resolve_to_qmk, "Macro('NonExistent')")
+      }.to output(/Warning:.*not found/).to_stderr
+    end
+
+    it 'still resolves regular aliases' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Tab')
+      expect(result).to eq('KC_TAB')
+    end
+
+    it 'still resolves function calls' do
+      result = temp_compiler.send(:resolve_to_qmk, 'MO(3)')
+      expect(result).to eq('MO(3)')
+    end
+
+    it 'resolves nested references in functions' do
+      result = temp_compiler.send(:resolve_to_qmk, "LT(1, Macro('Test Macro'))")
+      expect(result).to eq('LT(1, M0)')
+    end
+  end
 end

@@ -468,4 +468,58 @@ RSpec.describe Cornix::Decompiler do
       expect(File.exist?("#{output_dir}/settings/qmk_settings.yaml")).to be true
     end
   end
+
+  describe 'reference format support' do
+    it 'upgrades legacy M0 to name-based Macro reference' do
+      decompiler.decompile(output_dir)
+
+      # Check if layers contain Macro references instead of M0
+      layer_files = Dir.glob("#{output_dir}/layers/*.yml")
+      layer_contents = layer_files.map { |f| File.read(f) }.join
+
+      # Should contain name-based Macro references
+      expect(layer_contents).to match(/Macro\('/)
+    end
+
+    it 'upgrades legacy TD(0) to name-based TapDance reference' do
+      decompiler.decompile(output_dir)
+
+      # Check if layers contain TapDance references instead of TD(0)
+      layer_files = Dir.glob("#{output_dir}/layers/*.yml")
+      layer_contents = layer_files.map { |f| File.read(f) }.join
+
+      # Should contain name-based TapDance references
+      expect(layer_contents).to match(/TapDance\('/)
+    end
+
+    it 'converts QMK keycodes to aliases' do
+      result = decompiler.send(:resolve_to_alias, 'KC_TAB')
+      expect(result).to eq('Tab')
+    end
+
+    it 'converts KC_TRNS to Trans' do
+      result = decompiler.send(:resolve_to_alias, 'KC_TRNS')
+      expect(result).to eq('Trans')
+    end
+
+    it 'handles function calls with nested keycodes' do
+      result = decompiler.send(:resolve_to_alias, 'LSFT(KC_A)')
+      expect(result).to eq('LSFT(A)')
+    end
+
+    it 'handles LT function with layer and keycode' do
+      result = decompiler.send(:resolve_to_alias, 'LT(1, KC_SPACE)')
+      expect(result).to eq('LT(1, Space)')
+    end
+
+    it 'handles nil keycode' do
+      result = decompiler.send(:resolve_to_alias, nil)
+      expect(result).to be_nil
+    end
+
+    it 'handles -1 keycode' do
+      result = decompiler.send(:resolve_to_alias, -1)
+      expect(result).to eq(-1)
+    end
+  end
 end

@@ -573,4 +573,215 @@ RSpec.describe Cornix::FileRenamer do
       expect(compilation_result[:success]).to be true
     end
   end
+
+  describe 'layer reference updates' do
+    describe '#update_layer_references' do
+      it 'updates name-based Macro references in layers' do
+        # Create a macro with initial name
+        File.write("#{config_dir}/macros/00_test.yaml", YAML.dump({
+          'name' => 'OldMacro',
+          'index' => 0,
+          'enabled' => true
+        }))
+
+        # Create a layer using name-based reference
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => "Macro('OldMacro')",
+            'LT2' => 'Macro(1)',  # index-based
+            'RT1' => 'M2'  # legacy
+          }
+        }))
+
+        # Update references
+        updated = renamer.update_layer_references('OldMacro', 'NewMacro', :macro)
+
+        expect(updated.size).to eq(1)
+        expect(updated.first).to include('0_base.yaml')
+
+        # Verify only name-based reference was updated
+        layer = YAML.load_file("#{config_dir}/layers/0_base.yaml")
+        expect(layer['mapping']['LT1']).to eq("Macro('NewMacro')")
+        expect(layer['mapping']['LT2']).to eq('Macro(1)')  # unchanged
+        expect(layer['mapping']['RT1']).to eq('M2')  # unchanged
+      end
+
+      it 'updates name-based TapDance references in layers' do
+        File.write("#{config_dir}/tap_dance/00_test.yaml", YAML.dump({
+          'name' => 'OldTapDance',
+          'index' => 0,
+          'enabled' => true
+        }))
+
+        File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
+          'name' => 'Layer 1',
+          'overrides' => {
+            'LT1' => "TapDance('OldTapDance')"
+          }
+        }))
+
+        updated = renamer.update_layer_references('OldTapDance', 'NewTapDance', :tap_dance)
+
+        expect(updated.size).to eq(1)
+
+        layer = YAML.load_file("#{config_dir}/layers/1_layer.yaml")
+        expect(layer['overrides']['LT1']).to eq("TapDance('NewTapDance')")
+      end
+
+      it 'does not update index-based references' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'Macro(0)',
+            'LT2' => 'TapDance(5)'
+          }
+        }))
+
+        updated = renamer.update_layer_references('OldName', 'NewName', :macro)
+
+        expect(updated).to be_empty
+
+        # Verify nothing changed
+        layer = YAML.load_file("#{config_dir}/layers/0_base.yaml")
+        expect(layer['mapping']['LT1']).to eq('Macro(0)')
+        expect(layer['mapping']['LT2']).to eq('TapDance(5)')
+      end
+
+      it 'does not update legacy references' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => {
+            'LT1' => 'M0',
+            'LT2' => 'TD(2)'
+          }
+        }))
+
+        updated = renamer.update_layer_references('OldName', 'NewName', :macro)
+
+        expect(updated).to be_empty
+
+        # Verify nothing changed
+        layer = YAML.load_file("#{config_dir}/layers/0_base.yaml")
+        expect(layer['mapping']['LT1']).to eq('M0')
+        expect(layer['mapping']['LT2']).to eq('TD(2)')
+      end
+
+      it 'updates multiple layers with same reference' do
+        File.write("#{config_dir}/macros/00_test.yaml", YAML.dump({
+          'name' => 'SharedMacro',
+          'index' => 0,
+          'enabled' => true
+        }))
+
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => { 'LT1' => "Macro('SharedMacro')" }
+        }))
+
+        File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
+          'name' => 'Layer 1',
+          'overrides' => { 'RT1' => "Macro('SharedMacro')" }
+        }))
+
+        updated = renamer.update_layer_references('SharedMacro', 'RenamedMacro', :macro)
+
+        expect(updated.size).to eq(2)
+
+        layer0 = YAML.load_file("#{config_dir}/layers/0_base.yaml")
+        layer1 = YAML.load_file("#{config_dir}/layers/1_layer.yaml")
+
+        expect(layer0['mapping']['LT1']).to eq("Macro('RenamedMacro')")
+        expect(layer1['overrides']['RT1']).to eq("Macro('RenamedMacro')")
+      end
+
+      it 'returns empty array when no references match' do
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => { 'LT1' => "Macro('OtherMacro')" }
+        }))
+
+        updated = renamer.update_layer_references('NonExistent', 'NewName', :macro)
+
+        expect(updated).to be_empty
+      end
+    end
+
+    describe '#detect_file_type' do
+      it 'detects macro files' do
+        expect(renamer.detect_file_type("#{config_dir}/macros/00_test.yaml")).to eq(:macro)
+      end
+
+      it 'detects tap dance files' do
+        expect(renamer.detect_file_type("#{config_dir}/tap_dance/00_test.yaml")).to eq(:tap_dance)
+      end
+
+      it 'detects combo files' do
+        expect(renamer.detect_file_type("#{config_dir}/combos/00_test.yaml")).to eq(:combo)
+      end
+
+      it 'returns nil for layer files' do
+        expect(renamer.detect_file_type("#{config_dir}/layers/0_base.yaml")).to be_nil
+      end
+
+      it 'returns nil for other files' do
+        expect(renamer.detect_file_type("#{config_dir}/metadata.yaml")).to be_nil
+      end
+    end
+
+    describe 'integration with rename_file' do
+      it 'automatically updates layer references when renaming macro with name change' do
+        # Create macro
+        File.write("#{config_dir}/macros/00_old.yaml", YAML.dump({
+          'name' => 'OldMacroName',
+          'index' => 0,
+          'enabled' => true
+        }))
+
+        # Create layer using this macro
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => { 'LT1' => "Macro('OldMacroName')" }
+        }))
+
+        # Rename with name update
+        result = renamer.rename_file(
+          "#{config_dir}/macros/00_old.yaml",
+          '00_new.yaml',
+          content_updates: { 'name' => 'NewMacroName' }
+        )
+
+        expect(result[:success]).to be true
+
+        # Verify layer was updated
+        layer = YAML.load_file("#{config_dir}/layers/0_base.yaml")
+        expect(layer['mapping']['LT1']).to eq("Macro('NewMacroName')")
+      end
+
+      it 'does not update layers when name does not change' do
+        File.write("#{config_dir}/macros/00_test.yaml", YAML.dump({
+          'name' => 'TestMacro',
+          'index' => 0,
+          'enabled' => true
+        }))
+
+        File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+          'name' => 'Base',
+          'mapping' => { 'LT1' => "Macro('TestMacro')" }
+        }))
+
+        # Rename file without name change
+        result = renamer.rename_file(
+          "#{config_dir}/macros/00_test.yaml",
+          '00_renamed.yaml'
+        )
+
+        expect(result[:success]).to be true
+
+        # Layer reference should be unchanged
+        layer = YAML.load_file("#{config_dir}/layers/0_base.yaml")
+        expect(layer['mapping']['LT1']).to eq("Macro('TestMacro')")
+      end
+    end
+  end
 end

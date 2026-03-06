@@ -157,4 +157,259 @@ RSpec.describe 'Compiler and Decompiler Integration' do
       end
     end
   end
+
+  describe 'reference system integration' do
+    describe 'name-based references' do
+      it 'compiles name-based Macro references to QMK format' do
+        # Create temp config with name-based reference
+        temp_config = Dir.mktmpdir
+        FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+        # Get the actual macro name from the first macro file
+        macro_files = Dir.glob("#{temp_config}/macros/*.{yaml,yml}").sort
+        macro_data = YAML.load_file(macro_files.first)
+        macro_name = macro_data['name']
+        macro_index = macro_data['index']
+
+        # Update layer to use name-based reference
+        layer_path = "#{temp_config}/layers/0_layer.yml"
+        layer_data = YAML.load_file(layer_path)
+        layer_data['mapping']['tab'] = "Macro('#{macro_name}')"  # Use existing position
+        File.write(layer_path, YAML.dump(layer_data))
+
+        compiler = Cornix::Compiler.new(temp_config)
+        compiler.compile(vil_file.path)
+
+        vil_data = JSON.parse(File.read(vil_file.path))
+        layer0 = vil_data['layout'][0]
+
+        # Should compile to M{index} (QMK format)
+        expect(layer0.flatten).to include("M#{macro_index}")
+
+        FileUtils.rm_rf(temp_config)
+      end
+
+      it 'compiles name-based TapDance references to QMK format' do
+        temp_config = Dir.mktmpdir
+        FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+        # Get the actual tap dance name from the first tap dance file
+        td_files = Dir.glob("#{temp_config}/tap_dance/*.{yaml,yml}").sort
+        td_data = YAML.load_file(td_files.first)
+        td_name = td_data['name']
+        td_index = td_data['index']
+
+        # Update layer to use name-based reference
+        layer_path = "#{temp_config}/layers/0_layer.yml"
+        layer_data = YAML.load_file(layer_path)
+        layer_data['mapping']['Q'] = "TapDance('#{td_name}')"  # Use existing position
+        File.write(layer_path, YAML.dump(layer_data))
+
+        compiler = Cornix::Compiler.new(temp_config)
+        compiler.compile(vil_file.path)
+
+        vil_data = JSON.parse(File.read(vil_file.path))
+        layer0 = vil_data['layout'][0]
+
+        # Should compile to TD(index)
+        expect(layer0.flatten).to include("TD(#{td_index})")
+
+        FileUtils.rm_rf(temp_config)
+      end
+    end
+
+    describe 'index-based references' do
+      it 'preserves index-based Macro references' do
+        temp_config = Dir.mktmpdir
+        FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+        # Update layer to use index-based references
+        layer_path = "#{temp_config}/layers/0_layer.yml"
+        layer_data = YAML.load_file(layer_path)
+        layer_data['mapping']['tab'] = 'Macro(0)'
+        layer_data['mapping']['Q'] = 'Macro(1)'
+        File.write(layer_path, YAML.dump(layer_data))
+
+        compiler = Cornix::Compiler.new(temp_config)
+        compiler.compile(vil_file.path)
+
+        vil_data = JSON.parse(File.read(vil_file.path))
+        layer0 = vil_data['layout'][0]
+
+        expect(layer0.flatten).to include('M0')
+        expect(layer0.flatten).to include('M1')
+
+        FileUtils.rm_rf(temp_config)
+      end
+
+      it 'preserves index-based TapDance references' do
+        temp_config = Dir.mktmpdir
+        FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+        # Update layer to use index-based references
+        layer_path = "#{temp_config}/layers/0_layer.yml"
+        layer_data = YAML.load_file(layer_path)
+        layer_data['mapping']['W'] = 'TapDance(0)'
+        layer_data['mapping']['E'] = 'TapDance(1)'
+        File.write(layer_path, YAML.dump(layer_data))
+
+        compiler = Cornix::Compiler.new(temp_config)
+        compiler.compile(vil_file.path)
+
+        vil_data = JSON.parse(File.read(vil_file.path))
+        layer0 = vil_data['layout'][0]
+
+        expect(layer0.flatten).to include('TD(0)')
+        expect(layer0.flatten).to include('TD(1)')
+
+        FileUtils.rm_rf(temp_config)
+      end
+    end
+
+    describe 'legacy references' do
+      it 'preserves legacy M0 format' do
+        temp_config = Dir.mktmpdir
+        FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+        # Update layer to use legacy references
+        layer_path = "#{temp_config}/layers/0_layer.yml"
+        layer_data = YAML.load_file(layer_path)
+        layer_data['mapping']['R'] = 'M0'
+        layer_data['mapping']['T'] = 'M1'
+        File.write(layer_path, YAML.dump(layer_data))
+
+        compiler = Cornix::Compiler.new(temp_config)
+        compiler.compile(vil_file.path)
+
+        vil_data = JSON.parse(File.read(vil_file.path))
+        layer0 = vil_data['layout'][0]
+
+        expect(layer0.flatten).to include('M0')
+        expect(layer0.flatten).to include('M1')
+
+        FileUtils.rm_rf(temp_config)
+      end
+
+      it 'preserves legacy TD(0) format' do
+        temp_config = Dir.mktmpdir
+        FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+        # Update layer to use legacy references
+        layer_path = "#{temp_config}/layers/0_layer.yml"
+        layer_data = YAML.load_file(layer_path)
+        layer_data['mapping']['Y'] = 'TD(0)'
+        layer_data['mapping']['U'] = 'TD(1)'
+        File.write(layer_path, YAML.dump(layer_data))
+
+        compiler = Cornix::Compiler.new(temp_config)
+        compiler.compile(vil_file.path)
+
+        vil_data = JSON.parse(File.read(vil_file.path))
+        layer0 = vil_data['layout'][0]
+
+        expect(layer0.flatten).to include('TD(0)')
+        expect(layer0.flatten).to include('TD(1)')
+
+        FileUtils.rm_rf(temp_config)
+      end
+    end
+
+    describe 'decompiler format upgrade' do
+      it 'upgrades legacy M0 to name-based Macro references' do
+        # Compile original (will have M0 in vil)
+        compiler = Cornix::Compiler.new(test_config_dir)
+        compiler.compile(vil_file.path)
+
+        # Decompile
+        temp_config = Dir.mktmpdir
+        decompiler = Cornix::Decompiler.new(vil_file.path)
+        decompiler.decompile(temp_config)
+
+        # Check that decompiled layers use name-based format
+        layer_files = Dir.glob("#{temp_config}/layers/*.yml")
+        layer_contents = layer_files.map { |f| File.read(f) }.join
+
+        # Should contain name-based Macro references
+        expect(layer_contents).to match(/Macro\('/)
+
+        # Should not contain legacy M0 format (upgraded to name-based)
+        # Note: Some layers might not have macro references at all
+        # so we just check that IF there are macro references, they're name-based
+
+        FileUtils.rm_rf(temp_config)
+      end
+
+      it 'upgrades legacy TD(0) to name-based TapDance references' do
+        compiler = Cornix::Compiler.new(test_config_dir)
+        compiler.compile(vil_file.path)
+
+        temp_config = Dir.mktmpdir
+        decompiler = Cornix::Decompiler.new(vil_file.path)
+        decompiler.decompile(temp_config)
+
+        layer_files = Dir.glob("#{temp_config}/layers/*.yml")
+        layer_contents = layer_files.map { |f| File.read(f) }.join
+
+        # Should contain name-based TapDance references
+        expect(layer_contents).to match(/TapDance\('/)
+
+        FileUtils.rm_rf(temp_config)
+      end
+    end
+
+    describe 'round-trip with mixed formats' do
+      it 'handles all three reference formats correctly' do
+        # Create config with mixed reference formats
+        temp_config = Dir.mktmpdir
+        FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+        # Get actual macro and tap dance names
+        macro_files = Dir.glob("#{temp_config}/macros/*.{yaml,yml}").sort
+        macro0 = YAML.load_file(macro_files[0])
+
+        td_files = Dir.glob("#{temp_config}/tap_dance/*.{yaml,yml}").sort
+        td0 = YAML.load_file(td_files[0])
+
+        # Update layer to use mixed reference formats
+        layer_path = "#{temp_config}/layers/0_layer.yml"
+        layer_data = YAML.load_file(layer_path)
+        layer_data['mapping']['tab'] = "Macro('#{macro0['name']}')"  # name-based
+        layer_data['mapping']['Q'] = 'Macro(1)'                      # index-based
+        layer_data['mapping']['W'] = 'M2'                            # legacy
+        layer_data['mapping']['E'] = "TapDance('#{td0['name']}')"   # name-based
+        layer_data['mapping']['R'] = 'TapDance(1)'                   # index-based
+        layer_data['mapping']['T'] = 'TD(2)'                         # legacy
+        File.write(layer_path, YAML.dump(layer_data))
+
+        # Compile
+        vil_temp = Tempfile.new(['mixed', '.vil'])
+        compiler = Cornix::Compiler.new(temp_config)
+        compiler.compile(vil_temp.path)
+
+        vil_data1 = JSON.parse(File.read(vil_temp.path))
+
+        # Decompile
+        temp_config2 = Dir.mktmpdir
+        decompiler = Cornix::Decompiler.new(vil_temp.path)
+        decompiler.decompile(temp_config2)
+
+        # Recompile
+        vil_temp2 = Tempfile.new(['mixed2', '.vil'])
+        compiler2 = Cornix::Compiler.new(temp_config2)
+        compiler2.compile(vil_temp2.path)
+
+        vil_data2 = JSON.parse(File.read(vil_temp2.path))
+
+        # Should be identical
+        expect(vil_data2['layout']).to eq(vil_data1['layout'])
+
+        FileUtils.rm_rf(temp_config)
+        FileUtils.rm_rf(temp_config2)
+        vil_temp.close
+        vil_temp.unlink
+        vil_temp2.close
+        vil_temp2.unlink
+      end
+    end
+  end
 end

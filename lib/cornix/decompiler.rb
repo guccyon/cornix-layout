@@ -3,6 +3,8 @@
 require 'json'
 require 'yaml'
 require_relative 'keycode_resolver'
+require_relative 'keycode_parser'
+require_relative 'reference_resolver'
 
 module Cornix
   # layout.vilをYAML設定ファイルに変換するデコンパイラ
@@ -29,10 +31,18 @@ module Cornix
       extract_metadata(output_dir)
       extract_position_map(output_dir)
       extract_qmk_settings(output_dir)
-      extract_layers(output_dir)
+
+      # Extract macros, tap dance, and combos first
+      # so ReferenceResolver can find them
       extract_macros(output_dir)
       extract_tap_dance(output_dir)
       extract_combos(output_dir)
+
+      # Initialize ReferenceResolver after files are created
+      @reference_resolver = ReferenceResolver.new(output_dir)
+
+      # Extract layers last, so they can use name-based references
+      extract_layers(output_dir)
 
       puts "✓ Decompilation completed: #{output_dir}"
     end
@@ -43,25 +53,49 @@ module Cornix
     def resolve_to_alias(keycode)
       return keycode if keycode.nil? || keycode == '' || keycode == -1
 
-      # パターン1: シンプルなキーコード（KC_A, KC_TABなど）
-      if keycode.match?(/^KC_[A-Z0-9_]+$/)
-        return @keycode_resolver.reverse_resolve(keycode)
+      # Parse using KeycodeParser
+      parsed = KeycodeParser.parse(keycode)
+
+      case parsed[:type]
+      when :keycode
+        # QMK keycode → alias
+        @keycode_resolver.reverse_resolve(parsed[:value])
+
+      when :legacy_macro
+        # M0 → Macro('End of Line') or Macro(0) (fallback)
+        if @reference_resolver
+          token = @reference_resolver.reverse_resolve(parsed[:value], prefer_name: true)
+          KeycodeParser.unparse(token)
+        else
+          parsed[:value]
+        end
+
+      when :legacy_tap_dance
+        # TD(2) → TapDance('Escape') or TapDance(2) (fallback)
+        if @reference_resolver
+          token = @reference_resolver.reverse_resolve(parsed[:value], prefer_name: true)
+          KeycodeParser.unparse(token)
+        else
+          parsed[:value]
+        end
+
+      when :function
+        # Process function arguments recursively
+        function_name = parsed[:name]
+        args = parsed[:args]
+
+        resolved_args = args.map do |arg|
+          resolved = resolve_to_alias(KeycodeParser.unparse(arg))
+          KeycodeParser.parse(resolved)
+        end
+
+        token = { type: :function, name: function_name, args: resolved_args }
+        KeycodeParser.unparse(token)
+
+      else
+        # Unknown - return as-is
+        parsed[:value] || keycode
       end
-
-      # パターン2: 関数呼び出し形式（LSFT(KC_1), LGUI_T(KC_A)など）
-      if match = keycode.match(/^([A-Z_]+[0-9]*)\((.+)\)$/)
-        function_name = match[1]
-        arguments = match[2]
-
-        # 引数をカンマで分割（LT(1, KC_SPACE)のようなケース）
-        args = arguments.split(',').map(&:strip)
-        resolved_args = args.map { |arg| resolve_to_alias(arg) }
-
-        return "#{function_name}(#{resolved_args.join(', ')})"
-      end
-
-      # パターン3: 数値、マクロ参照（M0, TD(1)など）はそのまま
-      keycode
     end
 
     def extract_metadata(output_dir)

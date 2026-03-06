@@ -6,6 +6,8 @@ require 'time'
 require 'pathname'
 require 'tmpdir'
 require_relative 'compiler'
+require_relative 'keycode_parser'
+require_relative 'reference_resolver'
 
 module Cornix
   # YAML設定ファイルのリネームとバックアップを管理するクラス
@@ -16,6 +18,7 @@ module Cornix
   # - 自動バックアップ＆ロールバック
   # - コンパイル検証
   # - トランザクション型バッチ処理
+  # - レイヤー参照の自動更新（name-based形式のみ）
   class FileRenamer
     attr_reader :config_dir, :backup_path
 
@@ -28,6 +31,9 @@ module Cornix
       @backup_path = nil
 
       raise ArgumentError, "Config directory not found: #{@config_dir}" unless Dir.exist?(@config_dir)
+
+      # ReferenceResolver を初期化（レイヤー参照の更新用）
+      @reference_resolver = ReferenceResolver.new(@config_dir)
 
       create_backup if backup_on_init
     end
@@ -44,6 +50,20 @@ module Cornix
       # ファイル存在チェック
       unless File.exist?(old_path)
         return { success: false, old_path: old_path, new_path: nil, error: "File not found: #{old_path}" }
+      end
+
+      # ファイルタイプの検出
+      file_type = detect_file_type(old_path)
+
+      # 現在の name フィールドを取得（レイヤー参照更新用）
+      old_name = nil
+      if file_type && content_updates.key?('name')
+        begin
+          old_data = YAML.load_file(old_path)
+          old_name = old_data['name']
+        rescue
+          # YAMLパースエラーは無視（後続処理でエラーになる）
+        end
       end
 
       # インデックスプレフィックスの検証
@@ -70,6 +90,18 @@ module Cornix
 
         # ファイルリネーム実行
         File.rename(old_path, new_path) unless old_path == new_path
+
+        # レイヤー参照の更新（name が変更された場合）
+        if file_type && old_name && content_updates['name'] && old_name != content_updates['name']
+          new_name = content_updates['name']
+          updated_layers = update_layer_references(old_name, new_name, file_type)
+
+          # ReferenceResolver のキャッシュをクリア
+          @reference_resolver.clear_cache
+
+          # デバッグ情報
+          puts "  Updated #{updated_layers.size} layer(s) with new reference: #{new_name}" if updated_layers.any?
+        end
 
         { success: true, old_path: old_path, new_path: new_path, error: nil }
       rescue StandardError => e
@@ -239,6 +271,79 @@ module Cornix
       rescue StandardError => e
         warn "Backup cleanup failed: #{e.message}"
         false
+      end
+    end
+
+    # レイヤーファイル内のname-based参照を更新する
+    #
+    # @param old_name [String] 古い名前
+    # @param new_name [String] 新しい名前
+    # @param type [Symbol] ファイルタイプ (:macro, :tap_dance, :combo)
+    # @return [Array<String>] 更新されたレイヤーファイルのパスの配列
+    def update_layer_references(old_name, new_name, type)
+      function_name = case type
+      when :macro then 'Macro'
+      when :tap_dance then 'TapDance'
+      when :combo then 'Combo'
+      else
+        return []
+      end
+
+      updated_files = []
+
+      Dir.glob("#{@config_dir}/layers/*.{yaml,yml}").each do |layer_file|
+        begin
+          layer_data = YAML.load_file(layer_file)
+          mapping = layer_data['mapping'] || layer_data['overrides'] || {}
+
+          changed = false
+          mapping.each do |symbol, keycode|
+            # Parse using KeycodeParser
+            parsed = KeycodeParser.parse(keycode.to_s)
+
+            # Only update name-based references (not index-based or legacy)
+            if parsed[:type] == :reference &&
+               parsed[:function] == function_name &&
+               parsed[:args][0][:type] == :string &&
+               parsed[:args][0][:value] == old_name
+
+              # Update to new name
+              new_token = {
+                type: :reference,
+                function: function_name,
+                args: [{ type: :string, value: new_name }]
+              }
+              mapping[symbol] = KeycodeParser.unparse(new_token)
+              changed = true
+            end
+          end
+
+          if changed
+            File.write(layer_file, YAML.dump(layer_data))
+            updated_files << layer_file
+          end
+        rescue => e
+          warn "Warning: Failed to update references in #{layer_file}: #{e.message}"
+        end
+      end
+
+      updated_files
+    end
+
+    # ファイルタイプを検出する
+    #
+    # @param file_path [String] ファイルパス
+    # @return [Symbol, nil] ファイルタイプ (:macro, :tap_dance, :combo) または nil
+    def detect_file_type(file_path)
+      case file_path
+      when %r{/macros/}
+        :macro
+      when %r{/tap_dance/}
+        :tap_dance
+      when %r{/combos/}
+        :combo
+      else
+        nil
       end
     end
 

@@ -1,0 +1,55 @@
+---
+name: Symbols
+description: Symbol layer with shifted numbers, brackets, and special characters
+overrides:
+  tab: Escape
+  Q: Shift + 1
+  W: Shift + 2
+  E: Shift + 3
+  R: Shift + 4
+  T: Shift + 5
+  lctrl: Ctrl + Up
+  A: "`"
+  S: Shift + "`"
+  D: NoKey
+  F: NoKey
+  G: "-"
+  lshift: Trans
+  Z: NoKey
+  X: NoKey
+  C: NoKey
+  V: NoKey
+  B: Shift + "-"
+  caps: NoKey
+  fn: NoKey
+  option: NoKey
+  command: Trans
+  space: NoKey
+  esc: NoKey
+  Y: Shift + 6
+  U: Shift + 7
+  I: Shift + 8
+  O: Shift + 9
+  P: Shift + 0
+  backspace: Ctrl + "-"
+  H: =
+  J: Shift + "="
+  K: NoKey
+  L: NoKey
+  colon: NoKey
+  backslash: NoKey
+  N: "'"
+  M: Shift + "'"
+  comma: NoKey
+  dot: Shift + "/"
+  slash: /
+  rshift: Trans
+  enter: SGUI(Enter)
+  raise: Cmd + Space
+  lang: RGui
+  left: Ctrl + Alt + Left
+  down: Ctrl + Alt + Enter
+  right: Ctrl + Alt + Right
+  r_rotary_push: MouseButton3
+  r_rotary_ccw: MouseWheelUp
+  r_rotary_cw: MouseWheelDown

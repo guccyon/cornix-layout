@@ -1,0 +1,26 @@
+---
+name: Copy Current Line
+description: カーソル行を選択してコピー
+enabled: true
+index: 4
+sequence:
+- action: down
+  keys: KC_LGUI
+- action: tap
+  keys:
+  - KC_LEFT
+- action: down
+  keys: KC_LSHIFT
+- action: tap
+  keys:
+  - KC_RIGHT
+- action: up
+  keys: KC_LSHIFT
+- action: tap
+  keys:
+  - KC_C
+- action: up
+  keys: KC_LGUI
+- action: tap
+  keys:
+  - KC_RIGHT

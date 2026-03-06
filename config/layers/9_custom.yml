@@ -1,0 +1,55 @@
+---
+name: Custom
+description: Custom user-defined keys (USER00-USER06)
+overrides:
+  tab: USER06
+  Q: NoKey
+  W: NoKey
+  E: NoKey
+  R: NoKey
+  T: NoKey
+  lctrl: USER02
+  A: NoKey
+  S: NoKey
+  D: NoKey
+  F: NoKey
+  G: NoKey
+  lshift: USER01
+  Z: NoKey
+  X: NoKey
+  C: NoKey
+  V: NoKey
+  B: NoKey
+  caps: USER00
+  fn: NoKey
+  option: NoKey
+  command: NoKey
+  space: NoKey
+  esc: USER05
+  Y: NoKey
+  U: NoKey
+  I: NoKey
+  O: NoKey
+  P: NoKey
+  backspace: NoKey
+  H: NoKey
+  J: NoKey
+  K: NoKey
+  L: NoKey
+  colon: NoKey
+  backslash: NoKey
+  N: NoKey
+  M: NoKey
+  comma: NoKey
+  dot: NoKey
+  slash: NoKey
+  rshift: NoKey
+  enter: NoKey
+  raise: NoKey
+  lang: NoKey
+  left: NoKey
+  down: NoKey
+  right: NoKey
+  r_rotary_push: TO(0)
+  r_rotary_ccw: MouseWheelUp
+  r_rotary_cw: MouseWheelDown

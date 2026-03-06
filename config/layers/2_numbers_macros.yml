@@ -1,0 +1,55 @@
+---
+name: Numbers and Macros
+description: Number row, bracket/quote macros, and numpad layout
+overrides:
+  tab: Escape
+  Q: 1
+  W: 2
+  E: 3
+  R: 4
+  T: 5
+  lctrl: Macro('Macro 11')
+  A: Macro('Bracket Pair')
+  S: Macro('Curly Brace Pair')
+  D: Macro('Parenthesis Pair')
+  F: Macro('Single Quote Pair')
+  G: Macro('Double Quote Pair')
+  lshift: NoKey
+  Z: Macro('Function Template')
+  X: NoKey
+  C: TapDance('Paste Variants')
+  V: Macro('Clipboard History')
+  B: NoKey
+  caps: NoKey
+  fn: NoKey
+  option: NoKey
+  command: NoKey
+  space: NoKey
+  esc: NoKey
+  Y: 6
+  U: 7
+  I: 8
+  O: 9
+  P: 0
+  backspace: NoKey
+  H: NoKey
+  J: KC_KP_4
+  K: KC_KP_5
+  L: KC_KP_6
+  colon: NoKey
+  backslash: NoKey
+  N: NoKey
+  M: KC_KP_1
+  comma: KC_KP_2
+  dot: KC_KP_3
+  slash: KC_KP_DOT
+  rshift: NoKey
+  enter: NoKey
+  raise: KC_KP_0
+  lang: NoKey
+  left: SGUI([)
+  down: NoKey
+  right: SGUI(])
+  r_rotary_push: MouseButton3
+  r_rotary_ccw: MouseWheelUp
+  r_rotary_cw: MouseWheelDown

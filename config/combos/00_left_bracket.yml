@@ -1,0 +1,9 @@
+---
+name: Left Bracket
+description: D + F で左角括弧 [ を入力
+enabled: true
+index: 0
+trigger:
+- KC_D
+- KC_F
+output: KC_LBRACKET

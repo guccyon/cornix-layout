@@ -1,0 +1,55 @@
+---
+name: Function Keys
+description: Function keys F1-F12 and system shortcuts
+overrides:
+  tab: NoKey
+  Q: F1
+  W: F2
+  E: F3
+  R: F4
+  T: F5
+  lctrl: LGUI([)
+  A: NoKey
+  S: NoKey
+  D: NoKey
+  F: NoKey
+  G: NoKey
+  lshift: NoKey
+  Z: NoKey
+  X: NoKey
+  C: NoKey
+  V: NoKey
+  B: NoKey
+  caps: NoKey
+  fn: NoKey
+  option: NoKey
+  command: NoKey
+  space: NoKey
+  esc: TapDance('Screen Capture')
+  Y: F6
+  U: F7
+  I: F8
+  O: F9
+  P: F10
+  backspace: NoKey
+  H: NoKey
+  J: NoKey
+  K: NoKey
+  L: F11
+  colon: F12
+  backslash: NoKey
+  N: NoKey
+  M: NoKey
+  comma: NoKey
+  dot: NoKey
+  slash: NoKey
+  rshift: NoKey
+  enter: NoKey
+  raise: NoKey
+  lang: NoKey
+  left: NoKey
+  down: NoKey
+  right: NoKey
+  r_rotary_push: MouseButton3
+  r_rotary_ccw: MouseWheelUp
+  r_rotary_cw: MouseWheelDown

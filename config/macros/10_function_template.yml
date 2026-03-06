@@ -1,0 +1,14 @@
+---
+name: Function Template
+description: JavaScript関数テンプレートを挿入してカーソルを配置
+enabled: true
+index: 10
+sequence:
+- action: tap
+  keys:
+  - KC_LANG2
+- action: text
+  content: function ()
+- action: tap
+  keys:
+  - KC_LEFT

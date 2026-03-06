@@ -1,0 +1,11 @@
+---
+keyboard:
+  tapping_term: 250
+  permissive_hold: false
+  hold_on_other_key_press: false
+  tap_code_delay: 20
+  tap_hold_caps_delay: 20
+  chordal_hold: true
+  flow_tap: 120
+vial:
+  combo_timing_window: 50

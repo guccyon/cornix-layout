@@ -1,0 +1,9 @@
+---
+name: Left Curly Brace
+description: C + V で左波括弧 { を入力
+enabled: true
+index: 2
+trigger:
+- KC_C
+- KC_V
+output: LSFT(KC_LBRACKET)

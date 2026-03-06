@@ -499,5 +499,45 @@ RSpec.describe Cornix::Compiler do
       result = temp_compiler.send(:resolve_to_qmk, "LT(1, Macro('Test Macro'))")
       expect(result).to eq('LT(1, M0)')
     end
+
+    it 'resolves simple modifier expression' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Cmd + Q')
+      expect(result).to eq('LGUI(KC_Q)')
+    end
+
+    it 'resolves two modifier expression with shortcut' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Shift + Cmd + Q')
+      expect(result).to eq('LSG(KC_Q)')
+    end
+
+    it 'resolves three modifier expression (MEH)' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Ctrl + Shift + Alt + Q')
+      expect(result).to eq('MEH(KC_Q)')
+    end
+
+    it 'resolves four modifier expression (HYPR)' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Ctrl + Shift + Alt + Cmd + Q')
+      expect(result).to eq('HYPR(KC_Q)')
+    end
+
+    it 'resolves with key alias' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Cmd + Space')
+      expect(result).to eq('LGUI(KC_SPACE)')
+    end
+
+    it 'handles flexible spacing' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Cmd+Q')
+      expect(result).to eq('LGUI(KC_Q)')
+    end
+
+    it 'resolves modifier aliases' do
+      result = temp_compiler.send(:resolve_to_qmk, 'Command + Q')
+      expect(result).to eq('LGUI(KC_Q)')
+    end
+
+    it 'resolves right-side modifiers' do
+      result = temp_compiler.send(:resolve_to_qmk, 'RShift + Q')
+      expect(result).to eq('RSFT(KC_Q)')
+    end
   end
 end

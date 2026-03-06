@@ -1107,4 +1107,94 @@ RSpec.describe Cornix::Validator do
       expect(validator.validate).to be true
     end
   end
+
+  describe 'modifier expression validation' do
+    it 'accepts valid simple modifier expression' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'Cmd + Q'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts valid two modifier expression' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'Shift + Cmd + Q'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts valid three modifier expression (MEH)' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'Ctrl + Shift + Alt + Q'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts modifier aliases' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'Command + Q'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts right-side modifiers' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'RShift + Q'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'rejects invalid modifier name' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'InvalidMod + Q'
+        }
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'accepts key aliases in modifier expressions' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'Cmd + Space'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
+    it 'accepts KC_ prefixed keys in modifier expressions' do
+      File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
+        'name' => 'Base',
+        'mapping' => {
+          'LT1' => 'Cmd + KC_ENTER'
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+  end
 end

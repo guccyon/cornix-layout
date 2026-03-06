@@ -20,6 +20,7 @@ module Cornix
   #   :keycode         - KC_TAB, KC_SPACE
   #   :legacy_macro    - M0, M11
   #   :legacy_tap_dance - TD(2)
+  #   :modifier_expression - Cmd + Q, Shift + Ctrl + A
   #   :alias           - Tab, Space, Trans
   #   :number          - 3, 42 (for layer numbers, indices)
   #   :string          - 'End of Line', "Bracket Combo"
@@ -73,7 +74,13 @@ module Cornix
         return { type: :legacy_tap_dance, value: keycode_str }
       end
 
-      # Pattern 3: Function calls - MO(3), LSFT(A), LT(1, Space)
+      # Pattern 3: Modifier expressions - Cmd + Q, Shift + Ctrl + A
+      # Must come before generic function pattern to avoid false positives
+      if keycode_str.match?(/^(\w+)(\s*\+\s*\w+)+$/)
+        return parse_modifier_expression(keycode_str)
+      end
+
+      # Pattern 4: Function calls - MO(3), LSFT(A), LT(1, Space)
       if match = keycode_str.match(/^([A-Z_]+[0-9]*)\((.*)\)$/m)
         function_name = match[1]
         arguments = match[2]
@@ -88,28 +95,47 @@ module Cornix
         }
       end
 
-      # Pattern 4: QMK keycode - KC_TAB, KC_SPACE
+      # Pattern 5: QMK keycode - KC_TAB, KC_SPACE
       if keycode_str.match?(/^KC_[A-Z0-9_]+$/)
         return { type: :keycode, value: keycode_str }
       end
 
-      # Pattern 5: Legacy macro - M0, M11
+      # Pattern 6: Legacy macro - M0, M11
       if keycode_str.match?(/^M\d+$/)
         return { type: :legacy_macro, value: keycode_str }
       end
 
-      # Pattern 6: Pure number (for layer indices, etc.)
+      # Pattern 7: Pure number (for layer indices, etc.)
       if keycode_str.match?(/^\d+$/)
         return { type: :number, value: keycode_str.to_i }
       end
 
-      # Pattern 7: String literals (for testing)
+      # Pattern 8: String literals (for testing)
       if string_match = keycode_str.match(/^(['"])(.*)\1$/m)
         return { type: :string, value: string_match[2] }
       end
 
-      # Pattern 8: Alias or unknown
+      # Pattern 9: Alias or unknown
       { type: :alias, value: keycode_str }
+    end
+
+    # Parse modifier expression (e.g., "Cmd + Q", "Shift + Ctrl + A")
+    #
+    # @param expr [String] The modifier expression string
+    # @return [Hash] Structured token with modifiers and key
+    def self.parse_modifier_expression(expr)
+      # Split by '+' with flexible spacing
+      parts = expr.split(/\s*\+\s*/).map(&:strip)
+
+      # Last part is the key, everything else is modifiers
+      modifiers = parts[0..-2]
+      key = parts[-1]
+
+      {
+        type: :modifier_expression,
+        modifiers: modifiers,
+        key: key
+      }
     end
 
     # Parse function arguments (handles nesting and commas)
@@ -194,6 +220,11 @@ module Cornix
         name = token[:name]
         args = token[:args].map { |a| unparse(a) }.join(', ')
         "#{name}(#{args})"
+
+      when :modifier_expression
+        modifiers = token[:modifiers].join(' + ')
+        key = token[:key]
+        "#{modifiers} + #{key}"
 
       when :keycode, :legacy_macro, :legacy_tap_dance, :alias
         token[:value].to_s

@@ -514,4 +514,180 @@ RSpec.describe Cornix::KeycodeParser do
       expect(described_class.function?('KC_TAB')).to be false
     end
   end
+
+  describe 'modifier expressions' do
+    context 'parsing' do
+      it 'parses simple modifier expression' do
+        result = described_class.parse('Cmd + Q')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Cmd'],
+          key: 'Q'
+        })
+      end
+
+      it 'parses two modifier expression' do
+        result = described_class.parse('Shift + Cmd + Q')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Shift', 'Cmd'],
+          key: 'Q'
+        })
+      end
+
+      it 'parses three modifier expression' do
+        result = described_class.parse('Ctrl + Shift + Alt + A')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Ctrl', 'Shift', 'Alt'],
+          key: 'A'
+        })
+      end
+
+      it 'parses four modifier expression (HYPR)' do
+        result = described_class.parse('Ctrl + Shift + Alt + Cmd + Q')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Ctrl', 'Shift', 'Alt', 'Cmd'],
+          key: 'Q'
+        })
+      end
+
+      it 'handles flexible spacing (no spaces)' do
+        result = described_class.parse('Cmd+Q')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Cmd'],
+          key: 'Q'
+        })
+      end
+
+      it 'handles flexible spacing (extra spaces)' do
+        result = described_class.parse('Cmd  +  Q')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Cmd'],
+          key: 'Q'
+        })
+      end
+
+      it 'parses right-side modifiers' do
+        result = described_class.parse('RShift + RCmd + Q')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['RShift', 'RCmd'],
+          key: 'Q'
+        })
+      end
+
+      it 'parses modifier aliases (Command)' do
+        result = described_class.parse('Command + Q')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Command'],
+          key: 'Q'
+        })
+      end
+
+      it 'parses modifier aliases (Win)' do
+        result = described_class.parse('Win + E')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Win'],
+          key: 'E'
+        })
+      end
+
+      it 'parses modifier aliases (Option)' do
+        result = described_class.parse('Option + Tab')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Option'],
+          key: 'Tab'
+        })
+      end
+
+      it 'parses modifier aliases (Control)' do
+        result = described_class.parse('Control + C')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Control'],
+          key: 'C'
+        })
+      end
+
+      it 'parses key with KC_ prefix' do
+        result = described_class.parse('Cmd + KC_ENTER')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Cmd'],
+          key: 'KC_ENTER'
+        })
+      end
+
+      it 'parses key with alias' do
+        result = described_class.parse('Shift + Space')
+        expect(result).to eq({
+          type: :modifier_expression,
+          modifiers: ['Shift'],
+          key: 'Space'
+        })
+      end
+
+      it 'does not parse plus sign as key' do
+        # "Shift + +" won't match the pattern since '+' is not \w+
+        result = described_class.parse('Shift + +')
+        expect(result[:type]).to eq(:alias) # Falls through to alias
+      end
+
+      it 'does not parse function calls as modifier expression' do
+        # "Cmd + LT(1, Space)" won't match because of parentheses
+        result = described_class.parse('Cmd + LT(1, Space)')
+        expect(result[:type]).to eq(:alias) # Falls through
+      end
+    end
+
+    context 'unparsing' do
+      it 'unparses simple modifier expression' do
+        token = { type: :modifier_expression, modifiers: ['Cmd'], key: 'Q' }
+        result = described_class.unparse(token)
+        expect(result).to eq('Cmd + Q')
+      end
+
+      it 'unparses two modifier expression' do
+        token = { type: :modifier_expression, modifiers: ['Shift', 'Cmd'], key: 'Q' }
+        result = described_class.unparse(token)
+        expect(result).to eq('Shift + Cmd + Q')
+      end
+
+      it 'unparses three modifier expression' do
+        token = { type: :modifier_expression, modifiers: ['Ctrl', 'Shift', 'Alt'], key: 'A' }
+        result = described_class.unparse(token)
+        expect(result).to eq('Ctrl + Shift + Alt + A')
+      end
+    end
+
+    context 'round-trip' do
+      it 'preserves simple modifier expression' do
+        original = 'Cmd + Q'
+        parsed = described_class.parse(original)
+        unparsed = described_class.unparse(parsed)
+        expect(unparsed).to eq(original)
+      end
+
+      it 'normalizes spacing' do
+        original = 'Cmd+Q'
+        parsed = described_class.parse(original)
+        unparsed = described_class.unparse(parsed)
+        expect(unparsed).to eq('Cmd + Q')
+      end
+
+      it 'preserves multiple modifiers' do
+        original = 'Ctrl + Shift + Alt + Q'
+        parsed = described_class.parse(original)
+        unparsed = described_class.unparse(parsed)
+        expect(unparsed).to eq(original)
+      end
+    end
+  end
 end

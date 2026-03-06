@@ -5,6 +5,7 @@ require 'yaml'
 require_relative 'keycode_resolver'
 require_relative 'keycode_parser'
 require_relative 'reference_resolver'
+require_relative 'modifier_expression_compiler'
 require_relative 'position_map'
 
 module Cornix
@@ -75,6 +76,10 @@ module Cornix
       when :legacy_macro, :legacy_tap_dance
         # Legacy format - pass through
         parsed[:value]
+
+      when :modifier_expression
+        # Delegate to ModifierExpressionCompiler
+        ModifierExpressionCompiler.to_qmk(parsed, @keycode_resolver)
 
       when :function
         # Handle function calls (MO, LSFT, LT, etc.)

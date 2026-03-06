@@ -9,7 +9,8 @@
       "Bash(ls:*)",
       "Bash(spec/README.md:*)",
       "Bash(git add:*)",
-      "Update(.claude/CLAUDE.md)"
+      "Update(.claude/CLAUDE.md)",
+      "WebFetch(domain:docs.qmk.fm)"
     ]
   }
 }

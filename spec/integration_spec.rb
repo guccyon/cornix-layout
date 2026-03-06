@@ -412,4 +412,67 @@ RSpec.describe 'Compiler and Decompiler Integration' do
       end
     end
   end
+
+  describe 'modifier expressions integration' do
+    it 'compiles modifier expressions to QMK format' do
+      temp_config = Dir.mktmpdir
+      FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+      # Update layer to use modifier expressions
+      layer_path = "#{temp_config}/layers/0_layer.yml"
+      layer_data = YAML.load_file(layer_path)
+      layer_data['mapping']['tab'] = 'Cmd + Q'
+      layer_data['mapping']['Q'] = 'Shift + Cmd + W'
+      layer_data['mapping']['W'] = 'Ctrl + Shift + Alt + E'
+      File.write(layer_path, YAML.dump(layer_data))
+
+      # Compile
+      compiler = Cornix::Compiler.new(temp_config)
+      compiler.compile(vil_file.path)
+
+      vil_data = JSON.parse(File.read(vil_file.path))
+      layer0 = vil_data['layout'][0]
+
+      # Should compile to QMK format with shortcuts
+      expect(layer0.flatten).to include('LGUI(KC_Q)')
+      expect(layer0.flatten).to include('LSG(KC_W)')
+      expect(layer0.flatten).to include('MEH(KC_E)')
+
+      FileUtils.rm_rf(temp_config)
+    end
+
+    it 'preserves QMK format in round-trip (no automatic upgrade)' do
+      temp_config = Dir.mktmpdir
+      FileUtils.cp_r("#{test_config_dir}/.", temp_config)
+
+      # Update layer to use modifier expressions
+      layer_path = "#{temp_config}/layers/0_layer.yml"
+      layer_data = YAML.load_file(layer_path)
+      layer_data['mapping']['tab'] = 'Cmd + Q'
+      File.write(layer_path, YAML.dump(layer_data))
+
+      # Compile
+      vil_temp = Tempfile.new(['modifier', '.vil'])
+      compiler = Cornix::Compiler.new(temp_config)
+      compiler.compile(vil_temp.path)
+
+      # Decompile
+      temp_config2 = Dir.mktmpdir
+      decompiler = Cornix::Decompiler.new(vil_temp.path)
+      decompiler.decompile(temp_config2)
+
+      # Check that decompiled format is QMK, not modifier expression
+      layer_files = Dir.glob("#{temp_config2}/layers/*.{yaml,yml}")
+      layer_contents = layer_files.map { |f| File.read(f) }.join
+
+      # Should contain LGUI, not "Cmd + Q"
+      expect(layer_contents).to match(/LGUI\(/)
+      expect(layer_contents).not_to include('Cmd + Q')
+
+      FileUtils.rm_rf(temp_config)
+      FileUtils.rm_rf(temp_config2)
+      vil_temp.close
+      vil_temp.unlink
+    end
+  end
 end

@@ -5,6 +5,7 @@ require_relative 'position_map'
 require_relative 'keycode_resolver'
 require_relative 'keycode_parser'
 require_relative 'reference_resolver'
+require_relative 'modifier_expression_compiler'
 
 module Cornix
   # 設定ファイルの妥当性を検証
@@ -489,6 +490,19 @@ module Cornix
 
         return true
 
+      when :modifier_expression
+        # Validate modifier names
+        parsed[:modifiers].each do |mod|
+          unless valid_modifier?(mod)
+            @errors << "Invalid modifier name: #{mod} in expression '#{keycode}'"
+            return false
+          end
+        end
+
+        # Validate key
+        key = parsed[:key]
+        return valid_simple_keycode?(key)
+
       when :keycode, :legacy_macro, :legacy_tap_dance
         # Valid formats
         return true
@@ -522,6 +536,11 @@ module Cornix
       end
 
       false
+    end
+
+    def valid_modifier?(modifier)
+      # Check if modifier name is recognized by ModifierExpressionCompiler
+      Cornix::ModifierExpressionCompiler::MODIFIER_TO_FUNCTION.key?(modifier)
     end
 
     def validate_position_references

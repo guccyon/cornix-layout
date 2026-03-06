@@ -358,6 +358,193 @@ overrides:
   B: MACRO(0)  # Hard to understand which macro
 ```
 
+## Modifier Expressions (VS Code-style)
+
+Cornix supports readable modifier expressions similar to VS Code or IDE keybindings. Write `Cmd + Q` and it automatically compiles to QMK format (`LGUI(KC_Q)`).
+
+### Basic Usage
+
+```yaml
+# config/layers/0_base.yaml
+mapping:
+  Q: Cmd + Q              # → LGUI(KC_Q)
+  W: Shift + W            # → LSFT(KC_W)
+  E: Ctrl + C             # → LCTL(KC_C)
+  R: Alt + Tab            # → LALT(KC_TAB)
+```
+
+### Automatic QMK Shortcut Detection
+
+When combining multiple modifiers, QMK shortcut functions are automatically used:
+
+```yaml
+mapping:
+  # 2 modifiers
+  Q: Shift + Cmd + Q          # → LSG(KC_Q)
+  W: Ctrl + Shift + W         # → LCS(KC_W)
+  E: Ctrl + Alt + E           # → LCA(KC_E)
+
+  # 3 modifiers
+  R: Ctrl + Shift + Alt + R   # → MEH(KC_R)
+  T: Ctrl + Shift + Cmd + T   # → LCSG(KC_T)
+
+  # 4 modifiers (HYPR)
+  Y: Ctrl + Shift + Alt + Cmd + Y  # → HYPR(KC_Y)
+```
+
+### Order Independent
+
+Modifier order doesn't matter. Both compile to the same QMK code:
+
+```yaml
+Q: Shift + Cmd + Q    # → LSG(KC_Q)
+W: Cmd + Shift + W    # → LSG(KC_W)  # Same despite different order
+```
+
+### Supported Modifiers
+
+#### Left-side Modifiers (default)
+
+| Notation | QMK Function | Description |
+|----------|--------------|-------------|
+| `Shift` | `LSFT` | Left Shift |
+| `Ctrl`, `Control` | `LCTL` | Left Ctrl |
+| `Alt`, `Option` | `LALT` | Left Alt/Option |
+| `Cmd`, `Command`, `Win`, `Gui` | `LGUI` | Left Cmd/Win |
+
+#### Right-side Modifiers (explicit)
+
+| Notation | QMK Function | Description |
+|----------|--------------|-------------|
+| `RShift` | `RSFT` | Right Shift |
+| `RCtrl`, `RControl` | `RCTL` | Right Ctrl |
+| `RAlt`, `ROption` | `RALT` | Right Alt/Option |
+| `RCmd`, `RCommand`, `RWin`, `RGui` | `RGUI` | Right Cmd/Win |
+
+### QMK Shortcut List
+
+Cornix automatically detects the following QMK shortcuts:
+
+#### 2 Modifiers
+
+| Combination | QMK | Combination | QMK |
+|------------|-----|------------|-----|
+| Ctrl + Shift | LCS | RCtrl + RShift | RCS |
+| Ctrl + Alt | LCA | RCtrl + RAlt | RCA |
+| Ctrl + Cmd | LCG | RCtrl + RCmd | RCG |
+| Shift + Alt | LSA | RShift + RAlt | RSA |
+| Shift + Cmd | LSG | RShift + RCmd | RSG |
+| Alt + Cmd | LAG | RAlt + RCmd | RAG |
+
+#### 3 Modifiers
+
+| Combination | QMK | Description |
+|------------|-----|-------------|
+| Ctrl + Shift + Alt | MEH | MEH key |
+| Ctrl + Shift + Cmd | LCSG | Left 3-mod |
+| Ctrl + Alt + Cmd | LCAG | Left 3-mod |
+| Shift + Alt + Cmd | LSAG | Left 3-mod |
+
+#### 4 Modifiers
+
+| Combination | QMK | Description |
+|------------|-----|-------------|
+| Ctrl + Shift + Alt + Cmd | HYPR | HYPR key |
+
+### Flexible Spacing
+
+Spaces are optional:
+
+```yaml
+Q: Cmd + Q      # Recommended (readable)
+W: Cmd+W        # Also works
+E: Cmd  +  E    # Also works
+```
+
+### Combined with Key Aliases
+
+Keys can use aliases:
+
+```yaml
+mapping:
+  Q: Cmd + Space      # → LGUI(KC_SPACE)
+  W: Shift + Tab      # → LSFT(KC_TAB)
+  E: Ctrl + Enter     # → LCTL(KC_ENTER)
+  R: Alt + KC_ESCAPE  # → LALT(KC_ESCAPE)
+```
+
+### Usage Examples
+
+#### Application Operations
+
+```yaml
+mapping:
+  Q: Cmd + Q          # Quit app
+  W: Cmd + W          # Close window
+  N: Cmd + N          # New window
+  T: Cmd + T          # New tab
+```
+
+#### Editor Shortcuts
+
+```yaml
+mapping:
+  C: Cmd + C          # Copy
+  V: Cmd + V          # Paste
+  X: Cmd + X          # Cut
+  Z: Cmd + Z          # Undo
+  S: Cmd + S          # Save
+```
+
+#### Advanced Combinations
+
+```yaml
+mapping:
+  F: Ctrl + Shift + F     # → LCS(KC_F) - Project search
+  R: Ctrl + Shift + R     # → LCS(KC_R) - Refactor
+  P: Ctrl + Shift + P     # → LCS(KC_P) - Command palette
+```
+
+### Escape Hatch
+
+You can still write QMK function syntax directly:
+
+```yaml
+mapping:
+  Q: LGUI(KC_Q)           # Direct QMK syntax
+  W: Cmd + W              # Modifier expression (recommended)
+```
+
+### Decompile Behavior
+
+**Important**: The `decompile` command does not automatically convert back to modifier expressions. It preserves QMK format.
+
+```yaml
+# Before compile (original YAML)
+mapping:
+  Q: Cmd + Q
+
+# layout.vil (after compile)
+# → LGUI(KC_Q)
+
+# After decompile (YAML)
+mapping:
+  Q: LGUI(Q)    # Does not revert to modifier expression
+```
+
+**Reason**: QMK functions can be written in various ways (`LGUI(KC_Q)`, `Cmd + Q`, `LGUI_T(KC_Q)`, etc.), making it difficult to accurately restore the original notation. Therefore, decompile preserves QMK format, and modifier expressions are only maintained when users intentionally use them.
+
+### Limitations
+
+1. **Plus sign as key**: `Shift + +` cannot be parsed. Use `LSFT(KC_PLUS)` instead.
+
+2. **Function as key**: `Cmd + LT(1, Space)` cannot be parsed. Use `LGUI(LT(1, Space))` instead.
+
+3. **Modifier as key**: Possible, but be explicit:
+   ```yaml
+   Q: Shift + Shift    # → LSFT(KC_LSHIFT) (sticky Shift)
+   ```
+
 ## Keycode Aliases
 
 Keycode aliases are stored as a fixed file in `lib/cornix/keycode_aliases.yaml`. This file provides comprehensive keycode definitions based on the QMK official documentation ([https://docs.qmk.fm/keycodes](https://docs.qmk.fm/keycodes)).

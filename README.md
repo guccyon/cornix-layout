@@ -385,6 +385,193 @@ overrides:
   B: MACRO(0)  # どのマクロか分かりにくい
 ```
 
+## 修飾キー表現（VS Code風）
+
+Cornixは、VS CodeやIDEのキーバインディングのような読みやすい修飾キー表現をサポートしています。`Cmd + Q`のように記述すると、自動的にQMK形式（`LGUI(KC_Q)`）にコンパイルされます。
+
+### 基本的な使い方
+
+```yaml
+# config/layers/0_base.yaml
+mapping:
+  Q: Cmd + Q              # → LGUI(KC_Q)
+  W: Shift + W            # → LSFT(KC_W)
+  E: Ctrl + C             # → LCTL(KC_C)
+  R: Alt + Tab            # → LALT(KC_TAB)
+```
+
+### QMKショートカット自動検出
+
+複数の修飾キーを組み合わせると、QMKのショートカット関数が自動的に使用されます：
+
+```yaml
+mapping:
+  # 2修飾キー
+  Q: Shift + Cmd + Q          # → LSG(KC_Q)
+  W: Ctrl + Shift + W         # → LCS(KC_W)
+  E: Ctrl + Alt + E           # → LCA(KC_E)
+
+  # 3修飾キー
+  R: Ctrl + Shift + Alt + R   # → MEH(KC_R)
+  T: Ctrl + Shift + Cmd + T   # → LCSG(KC_T)
+
+  # 4修飾キー（HYPR）
+  Y: Ctrl + Shift + Alt + Cmd + Y  # → HYPR(KC_Y)
+```
+
+### 順序無関係
+
+修飾キーの順序は関係ありません。どちらも同じQMKコードにコンパイルされます：
+
+```yaml
+Q: Shift + Cmd + Q    # → LSG(KC_Q)
+W: Cmd + Shift + W    # → LSG(KC_W)  # 順序が違っても同じ
+```
+
+### サポートする修飾キー
+
+#### 左側修飾キー（デフォルト）
+
+| 記述 | QMK関数 | 説明 |
+|-----|---------|------|
+| `Shift` | `LSFT` | 左Shift |
+| `Ctrl`, `Control` | `LCTL` | 左Ctrl |
+| `Alt`, `Option` | `LALT` | 左Alt/Option |
+| `Cmd`, `Command`, `Win`, `Gui` | `LGUI` | 左Cmd/Win |
+
+#### 右側修飾キー（明示的）
+
+| 記述 | QMK関数 | 説明 |
+|-----|---------|------|
+| `RShift` | `RSFT` | 右Shift |
+| `RCtrl`, `RControl` | `RCTL` | 右Ctrl |
+| `RAlt`, `ROption` | `RALT` | 右Alt/Option |
+| `RCmd`, `RCommand`, `RWin`, `RGui` | `RGUI` | 右Cmd/Win |
+
+### QMKショートカット一覧
+
+Cornixは以下のQMKショートカットを自動検出します：
+
+#### 2修飾キー
+
+| 組み合わせ | QMK | 組み合わせ | QMK |
+|----------|-----|----------|-----|
+| Ctrl + Shift | LCS | RCtrl + RShift | RCS |
+| Ctrl + Alt | LCA | RCtrl + RAlt | RCA |
+| Ctrl + Cmd | LCG | RCtrl + RCmd | RCG |
+| Shift + Alt | LSA | RShift + RAlt | RSA |
+| Shift + Cmd | LSG | RShift + RCmd | RSG |
+| Alt + Cmd | LAG | RAlt + RCmd | RAG |
+
+#### 3修飾キー
+
+| 組み合わせ | QMK | 説明 |
+|----------|-----|------|
+| Ctrl + Shift + Alt | MEH | MEHキー |
+| Ctrl + Shift + Cmd | LCSG | 左3修飾 |
+| Ctrl + Alt + Cmd | LCAG | 左3修飾 |
+| Shift + Alt + Cmd | LSAG | 左3修飾 |
+
+#### 4修飾キー
+
+| 組み合わせ | QMK | 説明 |
+|----------|-----|------|
+| Ctrl + Shift + Alt + Cmd | HYPR | HYPRキー |
+
+### スペースの柔軟性
+
+スペースの有無は自由です：
+
+```yaml
+Q: Cmd + Q      # 推奨（読みやすい）
+W: Cmd+W        # これも可能
+E: Cmd  +  E    # これも可能
+```
+
+### キーエイリアスとの併用
+
+キーにはエイリアスも使用できます：
+
+```yaml
+mapping:
+  Q: Cmd + Space      # → LGUI(KC_SPACE)
+  W: Shift + Tab      # → LSFT(KC_TAB)
+  E: Ctrl + Enter     # → LCTL(KC_ENTER)
+  R: Alt + KC_ESCAPE  # → LALT(KC_ESCAPE)
+```
+
+### 使用例
+
+#### アプリケーション操作
+
+```yaml
+mapping:
+  Q: Cmd + Q          # アプリ終了
+  W: Cmd + W          # ウィンドウを閉じる
+  N: Cmd + N          # 新規ウィンドウ
+  T: Cmd + T          # 新規タブ
+```
+
+#### エディタショートカット
+
+```yaml
+mapping:
+  C: Cmd + C          # コピー
+  V: Cmd + V          # ペースト
+  X: Cmd + X          # カット
+  Z: Cmd + Z          # アンドゥ
+  S: Cmd + S          # 保存
+```
+
+#### 高度な組み合わせ
+
+```yaml
+mapping:
+  F: Ctrl + Shift + F     # → LCS(KC_F) - プロジェクト検索
+  R: Ctrl + Shift + R     # → LCS(KC_R) - リファクタリング
+  P: Ctrl + Shift + P     # → LCS(KC_P) - コマンドパレット
+```
+
+### エスケープハッチ
+
+QMK関数構文を直接記述することも可能です：
+
+```yaml
+mapping:
+  Q: LGUI(KC_Q)           # QMK構文で直接記述
+  W: Cmd + W              # 修飾キー表現（推奨）
+```
+
+### Decompile時の動作
+
+**重要**: `decompile`コマンドは、修飾キー表現を自動的に元に戻しません。QMK形式のまま保持されます。
+
+```yaml
+# compile前（元のYAML）
+mapping:
+  Q: Cmd + Q
+
+# layout.vil（コンパイル後）
+# → LGUI(KC_Q)
+
+# decompile後（YAML）
+mapping:
+  Q: LGUI(Q)    # 修飾キー表現には戻らない
+```
+
+**理由**: QMK関数は様々な方法で記述できるため（`LGUI(KC_Q)`、`Cmd + Q`、`LGUI_T(KC_Q)`など）、元の記述方法を正確に復元することは困難です。そのため、decompileはQMK形式を保持し、ユーザーが意図的に修飾キー表現を使用している場合のみ維持されます。
+
+### 制限事項
+
+1. **プラス記号をキーとして使用**: `Shift + +`は構文解析できません。代わりに`LSFT(KC_PLUS)`を使用してください。
+
+2. **関数をキーとして使用**: `Cmd + LT(1, Space)`は構文解析できません。代わりに`LGUI(LT(1, Space))`を使用してください。
+
+3. **修飾キーをキーとして使用**: 可能ですが、明示的に記述してください：
+   ```yaml
+   Q: Shift + Shift    # → LSFT(KC_LSHIFT)（スティッキーShift）
+   ```
+
 ## キーコードエイリアス
 
 キーコードエイリアスは`lib/cornix/keycode_aliases.yaml`に固定ファイルとして配置されています。このファイルは、QMK公式ドキュメント([https://docs.qmk.fm/keycodes](https://docs.qmk.fm/keycodes))に基づいた包括的なキーコード定義を提供します。

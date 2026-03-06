@@ -27,23 +27,23 @@ cd cornix-layout
 
 ```bash
 # デフォルト（tmp/layout.vil）を使用
-ruby bin/decompile
+cornix decompile
 
 # または、任意のファイルパスを指定
-ruby bin/decompile ~/Downloads/layout.vil
-ruby bin/decompile /path/to/custom.vil
+cornix decompile ~/Downloads/layout.vil
+cornix decompile /path/to/custom.vil
 ```
 
 **安全機能**: 既に`config/`ディレクトリに設定ファイルが存在する場合、デコンパイルは自動的にブロックされます。
 
 ```bash
 # 既存の設定を削除してから新しいlayout.vilをデコンパイル
-ruby bin/cornix cleanup
-ruby bin/cornix decompile ~/Downloads/layout.vil
+cornix cleanup
+cornix decompile ~/Downloads/layout.vil
 
 # または、手動でバックアップしてから削除
 mv config config.backup
-ruby bin/cornix decompile ~/Downloads/layout.vil
+cornix decompile ~/Downloads/layout.vil
 ```
 
 **cleanupコマンド**:
@@ -52,10 +52,10 @@ ruby bin/cornix decompile ~/Downloads/layout.vil
 
 ```bash
 # 通常のクリーンアップ（lockファイルがある場合は保護される）
-ruby bin/cornix cleanup
+cornix cleanup
 
 # 強制クリーンアップ（確認プロンプトでlockファイルも削除）
-ruby bin/cornix cleanup -f
+cornix cleanup -f
 ```
 
 - 通常実行時、`.decompile.lock`ファイルが存在する場合は処理が停止します
@@ -287,8 +287,16 @@ sequence:
 
 ### layout.vilに変換
 
+**重要**: コンパイル時に自動的に設定ファイルの検証が実行されます。
+
 ```bash
-ruby bin/compile
+cornix compile
+```
+
+検証エラーがある場合、コンパイルは自動的に中断されます。検証のみを実行したい場合は：
+
+```bash
+cornix validate
 ```
 
 生成された`layout.vil`をVialでインポートしてキーボードに書き込みます。
@@ -792,10 +800,10 @@ bundle exec rspec --format documentation
 mv config config.backup
 
 # 2. オリジナルからdecompile
-ruby bin/decompile  # tmp/layout.vil を使用
+cornix decompile  # tmp/layout.vil を使用
 
 # 3. 生成された設定からcompile
-ruby bin/compile
+cornix compile
 
 # 4. 比較
 ruby bin/diff_layouts
@@ -810,7 +818,7 @@ ruby bin/diff_layouts
 
 ```bash
 # 設定ファイルを検証
-ruby bin/validate
+cornix validate
 
 # 検証に成功した場合
 ✓ All validations passed
@@ -865,11 +873,8 @@ ruby bin/validate
 # 設定を編集
 vim config/layers/0_base.yaml
 
-# 検証
-ruby bin/validate
-
-# コンパイル
-ruby bin/compile
+# 検証＆コンパイル（自動検証）
+cornix compile
 ```
 
 ### コンパイルエラー

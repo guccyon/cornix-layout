@@ -27,23 +27,23 @@ cd cornix-layout
 
 ```bash
 # Use default (tmp/layout.vil)
-ruby bin/decompile
+cornix decompile
 
 # Or specify any file path
-ruby bin/decompile ~/Downloads/layout.vil
-ruby bin/decompile /path/to/custom.vil
+cornix decompile ~/Downloads/layout.vil
+cornix decompile /path/to/custom.vil
 ```
 
 **Safety Feature**: If the `config/` directory already contains configuration files, decompilation will be automatically blocked.
 
 ```bash
 # Clean up existing configuration before decompiling a new layout.vil
-ruby bin/cornix cleanup
-ruby bin/cornix decompile ~/Downloads/layout.vil
+cornix cleanup
+cornix decompile ~/Downloads/layout.vil
 
 # Or manually backup and remove
 mv config config.backup
-ruby bin/cornix decompile ~/Downloads/layout.vil
+cornix decompile ~/Downloads/layout.vil
 ```
 
 **Cleanup Command**:
@@ -52,10 +52,10 @@ Use the `cornix cleanup` command to safely remove generated files:
 
 ```bash
 # Normal cleanup (protected if lock file exists)
-ruby bin/cornix cleanup
+cornix cleanup
 
 # Force cleanup (prompts for confirmation to delete lock file)
-ruby bin/cornix cleanup -f
+cornix cleanup -f
 ```
 
 - During normal execution, processing stops if `.decompile.lock` file exists
@@ -260,8 +260,16 @@ sequence:
 
 ### Compile to layout.vil
 
+**Important**: Validation is automatically run before compilation.
+
 ```bash
-ruby bin/compile
+cornix compile
+```
+
+If there are validation errors, compilation will be automatically aborted. To run validation only:
+
+```bash
+cornix validate
 ```
 
 Import the generated `layout.vil` into Vial and flash it to your keyboard.
@@ -747,10 +755,10 @@ bundle exec rspec --format documentation
 mv config config.backup
 
 # 2. Decompile from original
-ruby bin/decompile  # Uses tmp/layout.vil
+cornix decompile  # Uses tmp/layout.vil
 
 # 3. Compile from generated config
-ruby bin/compile
+cornix compile
 
 # 4. Compare
 ruby bin/diff_layouts
@@ -761,11 +769,11 @@ ruby bin/diff_layouts
 
 ### Configuration Validation
 
-It is strongly recommended to validate your configuration files before compilation:
+**Note**: Validation is automatically performed during `cornix compile`. You can also validate separately:
 
 ```bash
 # Validate configuration files
-ruby bin/validate
+cornix validate
 
 # On success
 ✓ All validations passed
@@ -820,11 +828,8 @@ ruby bin/validate
 # Edit configuration
 vim config/layers/0_base.yaml
 
-# Validate
-ruby bin/validate
-
-# Compile
-ruby bin/compile
+# Validate & compile (auto-validation)
+cornix compile
 ```
 
 ### Compilation Errors

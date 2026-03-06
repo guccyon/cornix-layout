@@ -1,9 +1,0 @@
-#!/usr/bin/env ruby
-require 'json'
-
-data = JSON.parse(File.read('layout.vil'))
-puts "Version: #{data['version']}"
-puts "Layers: #{data['layout'].size}"
-puts "Macros: #{data['macro'].reject(&:empty?).size}"
-puts "Tap dances: #{data['tap_dance'].count { |td| td[0] != 'KC_NO' }}"
-puts "Combos: #{data['combo'].count { |c| c[0] != 'KC_NO' }}"

@@ -1,231 +1,56 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'yaml'
-require 'digest'
-require 'fileutils'
-require_relative '../lib/cornix/compiler'
-require_relative '../lib/cornix/decompiler'
-require_relative '../lib/cornix/validator'
-require_relative '../lib/cornix/rename_command'
-
 def show_usage
   puts <<~USAGE
     Cornix Keyboard Layout Manager
 
     Usage:
-      cornix compile              Compile YAML config to layout.vil
-      cornix decompile [FILE]     Decompile layout.vil to YAML config
+      cornix compile              Compile YAML to layout.vil (validates first)
+      cornix decompile [FILE]     Decompile layout.vil to YAML
       cornix validate             Validate YAML config files
       cornix rename               Rename config files intelligently
       cornix cleanup [-f]         Clean up generated files
       cornix help                 Show this help message
-
-    Commands:
-      rename                      Analyze and rename config files
-      cleanup                     Remove config/ and layout.vil
-      cleanup -f, --force         Force cleanup (removes lock file too)
 
     Examples:
       # Convert layout.vil to YAML
       cornix decompile
       cornix decompile ~/Downloads/layout.vil
 
-      # Edit YAML files in config/
-      # ...
+      # Edit YAML files in config/...
 
-      # Compile back to layout.vil
+      # Compile (auto-validates first)
       cornix compile
 
-      # Validate before compiling
-      cornix validate && cornix compile
+      # Validate only
+      cornix validate
 
-      # Rename config files intelligently
+      # Rename config files
       cornix rename
 
-      # Clean up before decompiling
+      # Clean up
       cornix cleanup
-      cornix decompile
-
-      # Force cleanup (with confirmation)
-      cornix cleanup -f
+      cornix cleanup -f  # Force (with confirmation)
   USAGE
 end
 
-def check_config_lock(config_dir)
-  if File.exist?(config_dir) && Dir.exist?(config_dir)
-    has_layers = Dir.exist?("#{config_dir}/layers") && !Dir.empty?("#{config_dir}/layers")
-    has_macros = Dir.exist?("#{config_dir}/macros") && !Dir.empty?("#{config_dir}/macros")
-
-    if has_layers || has_macros
-      puts "⚠️  Error: config/ directory already contains configuration files."
-      puts ""
-      puts "To protect your existing configuration, decompile has been blocked."
-      puts ""
-      puts "Options:"
-      puts "  1. Backup your config/ directory and remove it"
-      puts "  2. Use 'cornix compile' to compile existing config"
-      puts ""
-      puts "Example:"
-      puts "  mv config config.backup"
-      puts "  cornix decompile ~/Downloads/layout.vil"
-      exit 1
-    end
-  end
-end
-
-def cleanup(force = false)
-  config_dir = File.expand_path('../config', __dir__)
-  layout_vil = File.expand_path('../layout.vil', __dir__)
-  lock_file = "#{config_dir}/.decompile.lock"
-
-  # 削除対象の存在チェック
-  has_config = Dir.exist?(config_dir)
-  has_layout = File.exist?(layout_vil)
-  has_lock = File.exist?(lock_file)
-
-  # 何も削除するものがない場合
-  unless has_config || has_layout
-    puts "✓ Nothing to clean up"
-    return
-  end
-
-  # lockファイル保護チェック
-  if has_lock && !force
-    # lockファイル情報を表示
-    lock_data = YAML.load_file(lock_file)
-    puts "⚠️  Protected: config/ directory has an active lock file"
-    puts ""
-    puts "Lock file details:"
-    puts "  Created: #{lock_data['decompiled_at']}"
-    puts "  Source: #{lock_data['source_file']}"
-    puts "  Checksum: #{lock_data['checksum'][0..15]}..."
-    puts ""
-    puts "To force cleanup (deletes lock file too):"
-    puts "  cornix cleanup -f"
-    exit 1
-  end
-
-  # 強制実行時の確認プロンプト
-  if force && has_lock
-    lock_data = YAML.load_file(lock_file)
-    puts "⚠️  WARNING: This will delete all config files and the lock file"
-    puts ""
-    puts "Lock file details:"
-    puts "  Created: #{lock_data['decompiled_at']}"
-    puts "  Source: #{lock_data['source_file']}"
-    puts ""
-    print "Are you sure you want to continue? [y/N]: "
-    confirmation = $stdin.gets.chomp.downcase
-
-    unless ['y', 'yes'].include?(confirmation)
-      puts "✓ Cleanup cancelled"
-      exit 0
-    end
-  end
-
-  # クリーンアップ実行
-  deleted_items = []
-
-  if has_config
-    FileUtils.rm_rf(config_dir)
-    deleted_items << "config/"
-  end
-
-  if has_layout
-    FileUtils.rm(layout_vil)
-    deleted_items << "layout.vil"
-  end
-
-  puts "✓ Cleanup completed"
-  puts ""
-  puts "Deleted:"
-  deleted_items.each { |item| puts "  - #{item}" }
-  puts ""
-  puts "You can now run 'cornix decompile' to generate fresh config files"
-end
-
 def main
-  command = ARGV[0]
+  command = ARGV.shift  # Remove command from ARGV
 
   case command
   when 'compile'
-    config_dir = File.expand_path('../config', __dir__)
-    output_file = File.expand_path('../layout.vil', __dir__)
-
-    unless Dir.exist?(config_dir)
-      puts "Error: #{config_dir} not found"
-      puts "Run 'cornix decompile' first to create config files"
-      exit 1
-    end
-
-    compiler = Cornix::Compiler.new(config_dir)
-    compiler.compile(output_file)
-    puts "\n✓ Compilation completed: #{output_file}"
-
+    load File.expand_path('subcommands/compile.rb', __dir__)
   when 'decompile'
-    vil_file = ARGV[1] || File.expand_path('../tmp/layout.vil', __dir__)
-    output_dir = File.expand_path('../config', __dir__)
-
-    unless File.exist?(vil_file)
-      puts "Error: #{vil_file} not found"
-      puts ""
-      show_usage
-      exit 1
-    end
-
-    # 既存config保護チェック
-    check_config_lock(output_dir)
-
-    puts "Decompiling: #{vil_file}"
-    puts "Output to: #{output_dir}"
-    puts ""
-
-    decompiler = Cornix::Decompiler.new(vil_file)
-    decompiler.decompile(output_dir)
-
-    # ロックファイル作成
-    lock_file = "#{output_dir}/.decompile.lock"
-    File.write(lock_file, {
-      'decompiled_at' => Time.now.to_s,
-      'source_file' => vil_file,
-      'checksum' => Digest::SHA256.file(vil_file).hexdigest
-    }.to_yaml)
-
-    puts "\n✓ Decompilation completed: #{output_dir}"
-    puts "✓ Lock file created: #{lock_file}"
-
+    load File.expand_path('subcommands/decompile.rb', __dir__)
   when 'validate'
-    config_dir = File.expand_path('../config', __dir__)
-
-    unless Dir.exist?(config_dir)
-      puts "Error: #{config_dir} not found"
-      exit 1
-    end
-
-    validator = Cornix::Validator.new(config_dir)
-    success = validator.validate
-    exit(success ? 0 : 1)
-
+    load File.expand_path('subcommands/validate.rb', __dir__)
   when 'rename'
-    config_dir = File.expand_path('../config', __dir__)
-
-    unless Dir.exist?(config_dir)
-      puts "Error: #{config_dir} not found"
-      puts "Run 'cornix decompile' first to create config files"
-      exit 1
-    end
-
-    rename_command = Cornix::RenameCommand.new(config_dir)
-    rename_command.execute
-
+    load File.expand_path('subcommands/rename.rb', __dir__)
   when 'cleanup'
-    force = ARGV[1] == '-f' || ARGV[1] == '--force'
-    cleanup(force)
-
+    load File.expand_path('subcommands/cleanup.rb', __dir__)
   when 'help', '-h', '--help', nil
     show_usage
-
   else
     puts "Error: Unknown command '#{command}'"
     puts

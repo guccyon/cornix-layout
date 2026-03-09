@@ -161,14 +161,26 @@ module Cornix
 
       # 右手（通常キー）
       # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
+      # row3も含めて全行で逆順処理を適用
       4.times do |row_idx|
-        6.times do |col_idx|
+        # row3の場合は最初の3列のみ（cols 0-2）、他は6列
+        max_col = (row_idx == 3) ? 3 : 6
+
+        max_col.times do |col_idx|
           symbol = @position_map.symbol_at(:right, row_idx, col_idx)
           next unless symbol
 
           keycode = mapping[symbol]
-          # position_mapの左から右の順序を、ハードウェアの右から左に変換
-          hardware_col_idx = 5 - col_idx
+
+          # 全行で逆順処理
+          # row0-2: 5 - col_idx (6要素の場合)
+          # row3: 2 - col_idx (3要素の場合)
+          if row_idx == 3
+            hardware_col_idx = 2 - col_idx
+          else
+            hardware_col_idx = 5 - col_idx
+          end
+
           layer[row_idx + 4][hardware_col_idx] = resolve_to_qmk(keycode || 'KC_NO')
         end
       end
@@ -176,6 +188,27 @@ module Cornix
       # 右手ロータリープッシュ (row1, col6)
       layer[5][6] = resolve_to_qmk(mapping['r_rotary_push']) if mapping['r_rotary_push']
       layer[5][6] ||= -1
+
+      # 親指キー
+      # 左手親指キー（Row 3, Cols 3-5）
+      ['thumb_l_left', 'thumb_l_middle', 'thumb_l_right'].each_with_index do |symbol, idx|
+        col_idx = 3 + idx
+        if mapping[symbol]
+          layer[3][col_idx] = resolve_to_qmk(mapping[symbol])
+        else
+          layer[3][col_idx] = resolve_to_qmk('KC_NO')
+        end
+      end
+
+      # 右手親指キー（Row 7, Cols 5-3 逆順）
+      ['thumb_r_left', 'thumb_r_middle', 'thumb_r_right'].each_with_index do |symbol, idx|
+        col_idx = 5 - idx  # 逆順: 5, 4, 3
+        if mapping[symbol]
+          layer[7][col_idx] = resolve_to_qmk(mapping[symbol])
+        else
+          layer[7][col_idx] = resolve_to_qmk('KC_NO')
+        end
+      end
 
       layer
     end
@@ -203,19 +236,47 @@ module Cornix
         layer[2][6] = resolve_to_qmk(overrides['l_rotary_push'])
       end
 
+      # 左手親指キー
+      ['thumb_l_left', 'thumb_l_middle', 'thumb_l_right'].each_with_index do |symbol, idx|
+        if overrides.key?(symbol)
+          col_idx = 3 + idx
+          layer[3][col_idx] = resolve_to_qmk(overrides[symbol])
+        end
+      end
+
       # 右手（通常キー）
       # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
+      # row3も含めて全行で逆順処理を適用
       4.times do |row_idx|
-        6.times do |col_idx|
+        # row3の場合は最初の3列のみ（cols 0-2）、他は6列
+        max_col = (row_idx == 3) ? 3 : 6
+
+        max_col.times do |col_idx|
           symbol = @position_map.symbol_at(:right, row_idx, col_idx)
           next unless symbol
 
           if overrides.key?(symbol)
             value = overrides[symbol]
-            # position_mapの左から右の順序を、ハードウェアの右から左に変換
-            hardware_col_idx = 5 - col_idx
+
+            # 全行で逆順処理
+            # row0-2: 5 - col_idx (6要素の場合)
+            # row3: 2 - col_idx (3要素の場合)
+            if row_idx == 3
+              hardware_col_idx = 2 - col_idx
+            else
+              hardware_col_idx = 5 - col_idx
+            end
+
             layer[row_idx + 4][hardware_col_idx] = resolve_to_qmk(value)
           end
+        end
+      end
+
+      # 右手親指キー
+      ['thumb_r_left', 'thumb_r_middle', 'thumb_r_right'].each_with_index do |symbol, idx|
+        if overrides.key?(symbol)
+          col_idx = 5 - idx  # 逆順
+          layer[7][col_idx] = resolve_to_qmk(overrides[symbol])
         end
       end
 

@@ -377,9 +377,9 @@ module Cornix
           next unless position_map_data[hand]
 
           position_map_data[hand].each do |row_key, row_data|
-            next unless row_data.is_a?(Hash)
+            next unless row_data.is_a?(Array)
 
-            row_data.each do |col, symbol|
+            row_data.each_with_index do |symbol, col|
               next if symbol.nil? || symbol.to_s.empty?
 
               symbol_str = symbol.to_s
@@ -389,6 +389,46 @@ module Cornix
                 symbol_locations[symbol_str] << location
               else
                 symbol_locations[symbol_str] = [location]
+              end
+            end
+          end
+        end
+
+        # エンコーダーのチェック
+        if position_map_data['encoders']
+          ['left', 'right'].each do |side|
+            if position_map_data['encoders'][side]
+              encoder = position_map_data['encoders'][side]
+              ['push', 'ccw', 'cw'].each do |key|
+                next unless encoder[key]
+                symbol_str = encoder[key].to_s
+                location = "encoders.#{side}.#{key}"
+
+                if symbol_locations[symbol_str]
+                  symbol_locations[symbol_str] << location
+                else
+                  symbol_locations[symbol_str] = [location]
+                end
+              end
+            end
+          end
+        end
+
+        # 親指キーのチェック
+        if position_map_data['thumb_keys']
+          ['left', 'right'].each do |side|
+            if position_map_data['thumb_keys'][side].is_a?(Array)
+              position_map_data['thumb_keys'][side].each_with_index do |symbol, idx|
+                next if symbol.nil? || symbol.to_s.empty?
+
+                symbol_str = symbol.to_s
+                location = "thumb_keys.#{side}[#{idx}]"
+
+                if symbol_locations[symbol_str]
+                  symbol_locations[symbol_str] << location
+                else
+                  symbol_locations[symbol_str] = [location]
+                end
               end
             end
           end
@@ -575,7 +615,7 @@ module Cornix
                 @errors << "Layer #{File.basename(file)}: Unknown position symbol '#{symbol}'"
               end
             end
-          rescue StandardError => e
+          rescue StandardError
             # YAML構文エラーは validate_yaml_syntax で既に報告済み
           end
         end
@@ -612,8 +652,17 @@ module Cornix
               end
             end
           end
+
+          # 親指キーシンボルも抽出
+          if position_map_data['thumb_keys']
+            ['left', 'right'].each do |side|
+              if position_map_data['thumb_keys'][side].is_a?(Array)
+                symbols.concat(position_map_data['thumb_keys'][side])
+              end
+            end
+          end
         rescue StandardError
-          # Ignore errors - position_map may not have encoders section
+          # Ignore errors - position_map may not have encoders/thumb_keys section
         end
       end
 

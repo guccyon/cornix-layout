@@ -204,12 +204,16 @@ module Cornix
 
       # 右手
       # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
+      # row3も含めて全行で逆順処理を適用
       ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
         row = @position_map_template['right_hand'][row_key]
         row.each_with_index do |symbol, col_idx|
           next if symbol.nil? || symbol.to_s.empty?
-          # position_mapの左から右の順序を、ハードウェアの右から左に変換
-          hardware_col_idx = 5 - col_idx
+
+          # 全行で逆順: position_mapの左から右の順序を、ハードウェアの右から左に変換
+          # ただし、row3は3要素しかないため、5 - col_idxではなく、(row.size - 1) - col_idxを使用
+          hardware_col_idx = (row.size - 1) - col_idx
+
           keycode = layer_data[row_idx + 4][hardware_col_idx]
           mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
         end
@@ -222,6 +226,21 @@ module Cornix
       mapping['r_rotary_push'] = resolve_to_alias(layer_data[5][6])  # Row 5, Col 6
       mapping['r_rotary_ccw'] = resolve_to_alias(encoder_data[1][0])
       mapping['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1])
+
+      # 親指キー
+      # 左手親指キー（Row 3, Cols 3-5）
+      @position_map_template['thumb_keys']['left'].each_with_index do |symbol, idx|
+        col_idx = 3 + idx
+        keycode = layer_data[3][col_idx]
+        mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
+      end
+
+      # 右手親指キー（Row 7, Cols 5-3 逆順）
+      @position_map_template['thumb_keys']['right'].each_with_index do |symbol, idx|
+        col_idx = 5 - idx  # 逆順: 5, 4, 3
+        keycode = layer_data[7][col_idx]
+        mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
+      end
 
       layer = {
         'name' => 'Layer 0',
@@ -253,12 +272,16 @@ module Cornix
 
       # 右手
       # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
+      # row3も含めて全行で逆順処理を適用
       ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
         row = @position_map_template['right_hand'][row_key]
         row.each_with_index do |symbol, col_idx|
           next if symbol.nil? || symbol.to_s.empty?
-          # position_mapの左から右の順序を、ハードウェアの右から左に変換
-          hardware_col_idx = 5 - col_idx
+
+          # 全行で逆順: position_mapの左から右の順序を、ハードウェアの右から左に変換
+          # ただし、row3は3要素しかないため、5 - col_idxではなく、(row.size - 1) - col_idxを使用
+          hardware_col_idx = (row.size - 1) - col_idx
+
           keycode = layer_data[row_idx + 4][hardware_col_idx]
           base_keycode = base_layer[row_idx + 4][hardware_col_idx]
 
@@ -292,6 +315,27 @@ module Cornix
       if encoder_data[1] != base_encoder[1]
         overrides['r_rotary_ccw'] = resolve_to_alias(encoder_data[1][0])
         overrides['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1])
+      end
+
+      # 親指キーの差分をチェック
+      # 左手親指キー
+      @position_map_template['thumb_keys']['left'].each_with_index do |symbol, idx|
+        col_idx = 3 + idx
+        keycode = layer_data[3][col_idx]
+        base_keycode = base_layer[3][col_idx]
+        if keycode != base_keycode && keycode != -1
+          overrides[symbol] = resolve_to_alias(keycode)
+        end
+      end
+
+      # 右手親指キー
+      @position_map_template['thumb_keys']['right'].each_with_index do |symbol, idx|
+        col_idx = 5 - idx  # 逆順
+        keycode = layer_data[7][col_idx]
+        base_keycode = base_layer[7][col_idx]
+        if keycode != base_keycode && keycode != -1
+          overrides[symbol] = resolve_to_alias(keycode)
+        end
       end
 
       return if overrides.empty?  # 空のレイヤーはスキップ
@@ -444,6 +488,14 @@ module Cornix
           else
             yaml_lines << "  #{row_key}: #{row_data}"
           end
+        end
+      end
+
+      # thumb_keys
+      yaml_lines << "thumb_keys:"
+      if data['thumb_keys'].is_a?(Hash)
+        data['thumb_keys'].each do |side, keys|
+          yaml_lines << "  #{side}: [#{keys.join(', ')}]"
         end
       end
 

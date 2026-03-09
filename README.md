@@ -1180,6 +1180,14 @@ overrides:
   # レイヤータップ
   space: LT(1, Space)         # 長押しでレイヤー1、タップでSpace
 
+  # 親指キー（position_map.yamlのthumb_keysセクションで定義）
+  thumb_l_left: LGUI_T(KC_LANG2)    # 左親指・左: 長押しでGUI、タップでLANG2
+  thumb_l_middle: LT(1, Space)      # 左親指・中央: 長押しでレイヤー1、タップでSpace
+  thumb_l_right: LT(2, Escape)      # 左親指・右: 長押しでレイヤー2、タップでEscape
+  thumb_r_left: LT(2, Enter)        # 右親指・左: 長押しでレイヤー2、タップでEnter
+  thumb_r_middle: MO(1)             # 右親指・中央: 押している間レイヤー1
+  thumb_r_right: LT(3, KC_LANG1)    # 右親指・右: 長押しでレイヤー3、タップでLANG1
+
   # 透過キー（下のレイヤーを通す）
   B: Trans                    # または Transparent, ___
 ```
@@ -1225,16 +1233,20 @@ overrides:
 
 ```yaml
 left_hand:
-  row0: [tab, Q, W, E, R, T]
-  row1: [lctrl, A, S, D, F, G]
-  row2: [lshift, Z, X, C, V, B]
-  row3: [caps, fn, option, command, space, esc]
+  row0: [tab, Q, W, E, R, T]          # 6要素
+  row1: [caps, A, S, D, F, G]         # 6要素
+  row2: [lshift, Z, X, C, V, B]       # 6要素
+  row3: [lctrl, option, command]      # 3要素（標準グリッドキーのみ）
 
 right_hand:
-  row0: [Y, U, I, O, P, backspace]
-  row1: [H, J, K, L, colon, backslash]
-  row2: [N, M, comma, dot, up, rshift]
-  row3: [enter, raise, lang, left, down, right]
+  row0: [Y, U, I, O, P, backspace]    # 6要素
+  row1: [H, J, K, L, colon, backslash]# 6要素
+  row2: [N, M, comma, dot, up, rshift]# 6要素
+  row3: [left, down, right]           # 3要素（標準グリッドキーのみ）
+
+thumb_keys:                           # 親指キー（エンコーダーの前に配置）
+  left: [thumb_l_left, thumb_l_middle, thumb_l_right]
+  right: [thumb_r_left, thumb_r_middle, thumb_r_right]
 
 encoders:
   left:
@@ -1247,15 +1259,37 @@ encoders:
     cw: r_rotary_cw
 ```
 
-### キーの配列順序
+### キーの配列順序と構造
 
+**標準グリッドキー**:
 - **left_hand**: 左手側のキーは**物理的に左から右**へ `col0`, `col1`, `col2`, ... と並びます
 - **right_hand**: 右手側のキーも**物理的に左から右**へ `col0`, `col1`, `col2`, ... と並びます
   - 例：`row0` は `Y` (左端) → `U` → `I` → `O` → `P` → `backspace` (右端)
 
-各行には6つのキーが含まれます。ロータリーエンコーダーのプッシュボタンは `encoders` セクションで別途定義されます。
+**行の構成**:
+- `row0`, `row1`, `row2`: 各6要素（標準グリッドキー）
+- `row3`: 各3要素（標準グリッドキーのみ、親指キーは別セクション）
 
-このマッピングにより、レイヤーファイルで `Q` や `A` などの直感的な名前でキーを参照できます。
+**親指キー**:
+- `thumb_keys`セクションで定義（左右各3キー）
+- 物理的には`row3`の後半（cols 3-5）に配置されますが、論理的には独立したセクションとして扱います
+- レイヤーファイルでは`thumb_l_left`, `thumb_r_middle`などのシンボル名で参照します
+
+**エンコーダー**:
+- ロータリーエンコーダーのプッシュボタンと回転は `encoders` セクションで別途定義されます
+
+このマッピングにより、レイヤーファイルで `Q` や `A`、`thumb_l_left` などの直感的な名前でキーを参照できます。
+
+### マイグレーションガイド
+
+v1.0より前のバージョンから移行する場合、position_map.yamlの構造が変更されています。詳細なマイグレーション手順については、以下のドキュメントを参照してください：
+
+**📖 [Position Map 親指キーセクション マイグレーションガイド](docs/migration_thumb_keys.md)**
+
+主な変更点：
+- row3が6要素から3要素に削減（標準グリッドキーのみ）
+- 親指キーを独立した`thumb_keys`セクションに分離
+- より明確で保守しやすい設定構造
 
 ## マクロで使用可能なアクション
 

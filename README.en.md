@@ -1153,6 +1153,14 @@ overrides:
   # Layer Tap
   space: LT(1, Space)         # Layer 1 when held, Space when tapped
 
+  # Thumb keys (defined in thumb_keys section of position_map.yaml)
+  thumb_l_left: LGUI_T(KC_LANG2)    # Left thumb, left: GUI when held, LANG2 when tapped
+  thumb_l_middle: LT(1, Space)      # Left thumb, middle: Layer 1 when held, Space when tapped
+  thumb_l_right: LT(2, Escape)      # Left thumb, right: Layer 2 when held, Escape when tapped
+  thumb_r_left: LT(2, Enter)        # Right thumb, left: Layer 2 when held, Enter when tapped
+  thumb_r_middle: MO(1)             # Right thumb, middle: Layer 1 while held
+  thumb_r_right: LT(3, KC_LANG1)    # Right thumb, right: Layer 3 when held, LANG1 when tapped
+
   # Transparent key (pass through to lower layer)
   B: Trans                    # or Transparent, ___
 ```
@@ -1198,19 +1206,52 @@ Defines the mapping between physical positions and symbol names.
 
 ```yaml
 left_hand:
-  row0: [tab, Q, W, E, R, T, null]
-  row1: [lctrl, A, S, D, F, G, null]
-  row2: [lshift, Z, X, C, V, B, l_rotary_push]
-  row3: [caps, fn, option, command, space, esc, null]
+  row0: [tab, Q, W, E, R, T]          # 6 elements
+  row1: [caps, A, S, D, F, G]         # 6 elements
+  row2: [lshift, Z, X, C, V, B]       # 6 elements
+  row3: [lctrl, option, command]      # 3 elements (standard grid keys only)
 
 right_hand:
-  row0: [backspace, P, O, I, U, Y, null]
-  row1: [backslash, colon, L, K, J, H, layer9]
-  row2: [rshift, up, dot, comma, M, N, null]
-  row3: [right, down, left, lang, raise, enter, null]
+  row0: [Y, U, I, O, P, backspace]    # 6 elements
+  row1: [H, J, K, L, colon, backslash]# 6 elements
+  row2: [N, M, comma, dot, up, rshift]# 6 elements
+  row3: [left, down, right]           # 3 elements (standard grid keys only)
+
+thumb_keys:                           # Thumb keys (placed before encoders)
+  left: [thumb_l_left, thumb_l_middle, thumb_l_right]
+  right: [thumb_r_left, thumb_r_middle, thumb_r_right]
+
+encoders:
+  left:
+    push: l_rotary_push
+    ccw: l_rotary_ccw
+    cw: l_rotary_cw
+  right:
+    push: r_rotary_push
+    ccw: r_rotary_ccw
+    cw: r_rotary_cw
 ```
 
-This mapping allows you to reference keys with intuitive names like `Q` or `A` in layer files.
+### Key Array Order and Structure
+
+**Standard Grid Keys**:
+- **left_hand**: Keys are arranged **physically from left to right** as `col0`, `col1`, `col2`, ...
+- **right_hand**: Keys are also arranged **physically from left to right** as `col0`, `col1`, `col2`, ...
+  - Example: `row0` is `Y` (leftmost) → `U` → `I` → `O` → `P` → `backspace` (rightmost)
+
+**Row Structure**:
+- `row0`, `row1`, `row2`: 6 elements each (standard grid keys)
+- `row3`: 3 elements each (standard grid keys only, thumb keys are in separate section)
+
+**Thumb Keys**:
+- Defined in the `thumb_keys` section (3 keys each for left and right)
+- Physically located in the latter half of `row3` (cols 3-5), but logically treated as an independent section
+- Referenced in layer files with symbol names like `thumb_l_left`, `thumb_r_middle`, etc.
+
+**Encoders**:
+- Rotary encoder push buttons and rotations are defined separately in the `encoders` section
+
+This mapping allows you to reference keys with intuitive names like `Q`, `A`, or `thumb_l_left` in layer files.
 
 ## Available Macro Actions
 

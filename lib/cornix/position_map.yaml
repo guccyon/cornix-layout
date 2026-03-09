@@ -1,14 +1,17 @@
 ---
 left_hand:
   row0: [tab, Q, W, E, R, T]
-  row1: [lctrl, A, S, D, F, G]
+  row1: [caps, A, S, D, F, G]
   row2: [lshift, Z, X, C, V, B]
-  row3: [caps, fn, option, command, space, esc]
+  row3: [lctrl, option, command]
 right_hand:
   row0: [Y, U, I, O, P, backspace]
   row1: [H, J, K, L, colon, backslash]
   row2: [N, M, comma, dot, up, rshift]
-  row3: [enter, raise, lang, left, down, right]
+  row3: [left, down, right]
+thumb_keys:
+  left: [thumb_l_left, thumb_l_middle, thumb_l_right]
+  right: [thumb_r_left, thumb_r_middle, thumb_r_right]
 encoders:
   left:
     push: l_rotary_push

@@ -172,7 +172,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         macro_index = macro_data['index']
 
         # Update layer to use name-based reference
-        layer_path = "#{temp_config}/layers/0_base.yml"
+        layer_path = "#{temp_config}/layers/0_layer.yml"
         layer_data = YAML.load_file(layer_path)
         layer_data['mapping']['tab'] = "Macro('#{macro_name}')"  # Use existing position
         File.write(layer_path, YAML.dump(layer_data))
@@ -200,7 +200,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         td_index = td_data['index']
 
         # Update layer to use name-based reference
-        layer_path = "#{temp_config}/layers/0_base.yml"
+        layer_path = "#{temp_config}/layers/0_layer.yml"
         layer_data = YAML.load_file(layer_path)
         layer_data['mapping']['Q'] = "TapDance('#{td_name}')"  # Use existing position
         File.write(layer_path, YAML.dump(layer_data))
@@ -224,7 +224,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         FileUtils.cp_r("#{test_config_dir}/.", temp_config)
 
         # Update layer to use index-based references
-        layer_path = "#{temp_config}/layers/0_base.yml"
+        layer_path = "#{temp_config}/layers/0_layer.yml"
         layer_data = YAML.load_file(layer_path)
         layer_data['mapping']['tab'] = 'Macro(0)'
         layer_data['mapping']['Q'] = 'Macro(1)'
@@ -247,7 +247,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         FileUtils.cp_r("#{test_config_dir}/.", temp_config)
 
         # Update layer to use index-based references
-        layer_path = "#{temp_config}/layers/0_base.yml"
+        layer_path = "#{temp_config}/layers/0_layer.yml"
         layer_data = YAML.load_file(layer_path)
         layer_data['mapping']['W'] = 'TapDance(0)'
         layer_data['mapping']['E'] = 'TapDance(1)'
@@ -272,7 +272,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         FileUtils.cp_r("#{test_config_dir}/.", temp_config)
 
         # Update layer to use legacy references
-        layer_path = "#{temp_config}/layers/0_base.yml"
+        layer_path = "#{temp_config}/layers/0_layer.yml"
         layer_data = YAML.load_file(layer_path)
         layer_data['mapping']['R'] = 'M0'
         layer_data['mapping']['T'] = 'M1'
@@ -295,7 +295,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         FileUtils.cp_r("#{test_config_dir}/.", temp_config)
 
         # Update layer to use legacy references
-        layer_path = "#{temp_config}/layers/0_base.yml"
+        layer_path = "#{temp_config}/layers/0_layer.yml"
         layer_data = YAML.load_file(layer_path)
         layer_data['mapping']['Y'] = 'TD(0)'
         layer_data['mapping']['U'] = 'TD(1)'
@@ -371,7 +371,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         td0 = YAML.load_file(td_files[0])
 
         # Update layer to use mixed reference formats
-        layer_path = "#{temp_config}/layers/0_base.yml"
+        layer_path = "#{temp_config}/layers/0_layer.yml"
         layer_data = YAML.load_file(layer_path)
         layer_data['mapping']['tab'] = "Macro('#{macro0['name']}')"  # name-based
         layer_data['mapping']['Q'] = 'Macro(1)'                      # index-based
@@ -419,7 +419,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
       FileUtils.cp_r("#{test_config_dir}/.", temp_config)
 
       # Update layer to use modifier expressions
-      layer_path = "#{temp_config}/layers/0_base.yml"
+      layer_path = "#{temp_config}/layers/0_layer.yml"
       layer_data = YAML.load_file(layer_path)
       layer_data['mapping']['tab'] = 'Cmd + Q'
       layer_data['mapping']['Q'] = 'Shift + Cmd + W'
@@ -446,7 +446,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
       FileUtils.cp_r("#{test_config_dir}/.", temp_config)
 
       # Update layer to use modifier expressions
-      layer_path = "#{temp_config}/layers/0_base.yml"
+      layer_path = "#{temp_config}/layers/0_layer.yml"
       layer_data = YAML.load_file(layer_path)
       layer_data['mapping']['tab'] = 'Cmd + Q'
       File.write(layer_path, YAML.dump(layer_data))

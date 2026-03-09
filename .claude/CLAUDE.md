@@ -856,6 +856,55 @@ E: Cmd + Q               # 修飾キー表現（推奨）
 - ユーザーは`config/position_map.yaml`でシンボル名をカスタマイズ可能
 - Decompilerはテンプレートから生成（`layout.vil`の実データではない）
 
+**構造**:
+```yaml
+left_hand:
+  row0: [tab, Q, W, E, R, T]           # 6要素
+  row1: [caps, A, S, D, F, G]          # 6要素
+  row2: [lshift, Z, X, C, V, B]        # 6要素
+  row3: [lctrl, option, command]       # 3要素（標準グリッドキーのみ）
+right_hand:
+  row0: [Y, U, I, O, P, backspace]     # 6要素
+  row1: [H, J, K, L, colon, backslash] # 6要素
+  row2: [N, M, comma, dot, up, rshift] # 6要素
+  row3: [left, down, right]            # 3要素（標準グリッドキーのみ）
+thumb_keys:                            # 親指キー（エンコーダーの前に配置）
+  left: [thumb_l_left, thumb_l_middle, thumb_l_right]
+  right: [thumb_r_left, thumb_r_middle, thumb_r_right]
+encoders:
+  left:
+    push: l_rotary_push
+    ccw: l_rotary_ccw
+    cw: l_rotary_cw
+  right:
+    push: r_rotary_push
+    ccw: r_rotary_ccw
+    cw: r_rotary_cw
+```
+
+**ハードウェアマッピング**:
+
+**左手（Row 0-3）**:
+- Row 0-2: Cols 0-5（標準6要素、逆順なし）
+- Row 3, Cols 0-2: 標準グリッドキー（`lctrl`, `option`, `command`）
+- Row 3, Cols 3-5: 親指キー（順序通り）
+  - Col 3: `thumb_l_left`
+  - Col 4: `thumb_l_middle`
+  - Col 5: `thumb_l_right`
+
+**右手（Row 4-7、ハードウェアではRow 0-3に対応）**:
+- Row 0-2: Cols 0-5（標準6要素、**逆順処理あり**: `5 - col_idx`）
+- Row 3, Cols 0-2: 標準グリッドキー（**逆順処理あり**: `2 - col_idx`）
+  - Col 0: `right` (position_map順序: left → down → right)
+  - Col 1: `down`
+  - Col 2: `left`
+- Row 3, Cols 3-5: 親指キー（**逆順処理あり**: `5 - col_idx`）
+  - Col 5: `thumb_r_left`
+  - Col 4: `thumb_r_middle`
+  - Col 3: `thumb_r_right`
+
+**重要**: 右手は全行で逆順処理が適用されます。これはCornixキーボードのハードウェア特性です。
+
 **動作フロー**:
 1. Decompiler起動時: `lib/cornix/position_map.yaml`を`@position_map_template`に読み込み
 2. `extract_position_map()`: テンプレートから`config/position_map.yaml`を生成
@@ -885,11 +934,47 @@ def extract_position_map(output_dir)
 end
 
 def extract_base_layer(dir, layer_data, encoder_data)
-  # 旧: POSITION_MAP[:left].each_with_index
-  # 新: @position_map_template['left_hand']['row0'].each_with_index
+  # 左手（Row 0-3）
   ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
     row = @position_map_template['left_hand'][row_key]
-    # ...
+    row.each_with_index do |symbol, col_idx|
+      keycode = layer_data[row_idx][col_idx]
+      mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
+    end
+  end
+
+  # 右手（Row 0-3、逆順処理あり）
+  ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+    row = @position_map_template['right_hand'][row_key]
+    row.each_with_index do |symbol, col_idx|
+      # 全行で逆順: (row.size - 1) - col_idx
+      hardware_col_idx = (row.size - 1) - col_idx
+      keycode = layer_data[row_idx + 4][hardware_col_idx]
+      mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
+    end
+  end
+
+  # エンコーダー
+  mapping['l_rotary_push'] = resolve_to_alias(layer_data[2][6])
+  mapping['l_rotary_ccw'] = resolve_to_alias(encoder_data[0][0])
+  mapping['l_rotary_cw'] = resolve_to_alias(encoder_data[0][1])
+  mapping['r_rotary_push'] = resolve_to_alias(layer_data[5][6])
+  mapping['r_rotary_ccw'] = resolve_to_alias(encoder_data[1][0])
+  mapping['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1])
+
+  # 親指キー
+  # 左手親指キー（Row 3, Cols 3-5、順序通り）
+  @position_map_template['thumb_keys']['left'].each_with_index do |symbol, idx|
+    col_idx = 3 + idx
+    keycode = layer_data[3][col_idx]
+    mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
+  end
+
+  # 右手親指キー（Row 7, Cols 3-5、逆順）
+  @position_map_template['thumb_keys']['right'].each_with_index do |symbol, idx|
+    col_idx = 5 - idx  # 逆順: 5, 4, 3
+    keycode = layer_data[7][col_idx]
+    mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
   end
 end
 
@@ -906,7 +991,27 @@ def extract_override_layer(dir, index, layer_data, encoder_data)
   if r_push_keycode != r_push_base && r_push_keycode != -1
     overrides['r_rotary_push'] = resolve_to_alias(r_push_keycode)
   end
-  # ...
+
+  # 親指キーの差分も検出
+  # 左手親指キー
+  @position_map_template['thumb_keys']['left'].each_with_index do |symbol, idx|
+    col_idx = 3 + idx
+    keycode = layer_data[3][col_idx]
+    base_keycode = base_layer[3][col_idx]
+    if keycode != base_keycode && keycode != -1
+      overrides[symbol] = resolve_to_alias(keycode)
+    end
+  end
+
+  # 右手親指キー
+  @position_map_template['thumb_keys']['right'].each_with_index do |symbol, idx|
+    col_idx = 5 - idx  # 逆順
+    keycode = layer_data[7][col_idx]
+    base_keycode = base_layer[7][col_idx]
+    if keycode != base_keycode && keycode != -1
+      overrides[symbol] = resolve_to_alias(keycode)
+    end
+  end
 end
 ```
 
@@ -914,6 +1019,12 @@ end
 - 旧: decompiler.rb 11-24行目にハードコード
 - 新: 外部YAMLファイルから動的ロード
 - メリット: メンテナンス性向上、変更履歴追跡可能
+
+**右手の逆順処理**:
+- row0-2（6要素）: `5 - col_idx`（例: col 0 → hardware col 5）
+- row3（3要素）: `2 - col_idx`（例: col 0 → hardware col 2）
+- 親指キー: `5 - idx`（例: idx 0 → col 5）
+- 理由: Cornixキーボードのハードウェア特性（右手側は物理的に右から左にインデックスが振られている）
 
 ### 3. Compiler の参照パス
 

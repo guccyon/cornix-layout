@@ -643,11 +643,11 @@ RSpec.describe Cornix::Validator do
     it 'detects duplicate symbols in position_map.yaml' do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
-          'row0' => { 0 => 'LT1', 1 => 'LT2' },
-          'row1' => { 0 => 'LT1', 1 => 'LT3' }  # LT1が重複
+          'row0' => ['LT1', 'LT2'],
+          'row1' => ['LT1', 'LT3']  # LT1が重複
         },
         'right_hand' => {
-          'row0' => { 0 => 'RT1', 1 => 'RT2' }
+          'row0' => ['RT1', 'RT2']
         }
       }))
 
@@ -657,10 +657,10 @@ RSpec.describe Cornix::Validator do
     it 'detects duplicate symbols across hands' do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
-          'row0' => { 0 => 'KEY1', 1 => 'LT2' }
+          'row0' => ['KEY1', 'LT2']
         },
         'right_hand' => {
-          'row0' => { 0 => 'KEY1', 1 => 'RT2' }  # KEY1が左手と重複
+          'row0' => ['KEY1', 'RT2']  # KEY1が左手と重複
         }
       }))
 
@@ -670,12 +670,12 @@ RSpec.describe Cornix::Validator do
     it 'accepts position_map.yaml with unique symbols' do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
-          'row0' => { 0 => 'LT1', 1 => 'LT2' },
-          'row1' => { 0 => 'LH1', 1 => 'LH2' }
+          'row0' => ['LT1', 'LT2'],
+          'row1' => ['LH1', 'LH2']
         },
         'right_hand' => {
-          'row0' => { 0 => 'RT1', 1 => 'RT2' },
-          'row1' => { 0 => 'RH1', 1 => 'RH2' }
+          'row0' => ['RT1', 'RT2'],
+          'row1' => ['RH1', 'RH2']
         }
       }))
 

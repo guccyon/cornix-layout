@@ -60,6 +60,32 @@ module Cornix
 
     private
 
+    # 階層構造をフラット化（新構造の場合）、またはそのままフラット（旧構造の場合）
+    def extract_flat_mapping(mapping)
+      flat = {}
+
+      if mapping.is_a?(Hash)
+        mapping.each do |key, value|
+          if %w[left_hand right_hand].include?(key)
+            # 階層構造: row0, row1, ..., thumb_keys の下のマッピング
+            value.each do |row_key, row_data|
+              row_data.each { |symbol, keycode| flat[symbol] = keycode } if row_data.is_a?(Hash)
+            end
+          elsif key == 'encoders'
+            # encoders のみ left/right 構造を持つ
+            value.each do |side, side_data|
+              side_data.each { |symbol, keycode| flat[symbol] = keycode } if side_data.is_a?(Hash)
+            end
+          else
+            # フラット構造の直接マッピング（レガシー互換性）
+            flat[key] = value unless value.is_a?(Hash) || value.is_a?(Array)
+          end
+        end
+      end
+
+      flat
+    end
+
     # Levenshtein距離を計算（類似度判定用）
     def levenshtein_distance(str1, str2)
       return str2.length if str1.empty?
@@ -197,9 +223,12 @@ module Cornix
         next if @failed_yaml_files.include?(file)
 
         layer = YAML.load_file(file)
-        mapping = layer['mapping'] || layer['overrides'] || {}
+        mapping_or_overrides = layer['mapping'] || layer['overrides'] || {}
 
-        mapping.each do |symbol, keycode|
+        # 階層構造をフラット化
+        flat_mapping = extract_flat_mapping(mapping_or_overrides)
+
+        flat_mapping.each do |symbol, keycode|
           # Parse using KeycodeParser
           parsed = KeycodeParser.parse(keycode.to_s)
 
@@ -414,26 +443,6 @@ module Cornix
           end
         end
 
-        # 親指キーのチェック
-        if position_map_data['thumb_keys']
-          ['left', 'right'].each do |side|
-            if position_map_data['thumb_keys'][side].is_a?(Array)
-              position_map_data['thumb_keys'][side].each_with_index do |symbol, idx|
-                next if symbol.nil? || symbol.to_s.empty?
-
-                symbol_str = symbol.to_s
-                location = "thumb_keys.#{side}[#{idx}]"
-
-                if symbol_locations[symbol_str]
-                  symbol_locations[symbol_str] << location
-                else
-                  symbol_locations[symbol_str] = [location]
-                end
-              end
-            end
-          end
-        end
-
         # 重複しているシンボルを報告
         symbol_locations.each do |symbol, locations|
           if locations.size > 1
@@ -460,9 +469,12 @@ module Cornix
 
         begin
           layer = YAML.load_file(file)
-          mapping = layer['mapping'] || layer['overrides'] || {}
+          mapping_or_overrides = layer['mapping'] || layer['overrides'] || {}
 
-          mapping.each do |symbol, keycode|
+          # 階層構造をフラット化
+          flat_mapping = extract_flat_mapping(mapping_or_overrides)
+
+          flat_mapping.each do |symbol, keycode|
             next if keycode.nil? || keycode.to_s.empty?
 
             keycode_str = keycode.to_s
@@ -622,9 +634,12 @@ module Cornix
 
           begin
             layer = YAML.load_file(file)
-            mapping = layer['mapping'] || layer['overrides'] || {}
+            mapping_or_overrides = layer['mapping'] || layer['overrides'] || {}
 
-            mapping.keys.each do |symbol|
+            # 階層構造をフラット化
+            flat_mapping = extract_flat_mapping(mapping_or_overrides)
+
+            flat_mapping.keys.each do |symbol|
               unless valid_symbols.include?(symbol.to_s)
                 @errors << "Layer #{File.basename(file)}: Unknown position symbol '#{symbol}'"
               end
@@ -641,21 +656,26 @@ module Cornix
     def extract_all_symbols(position_map)
       symbols = []
 
-      # 左手と右手の全シンボルを抽出
-      [:left, :right].each do |hand|
-        4.times do |row|
-          7.times do |col|
-            symbol = position_map.symbol_at(hand, row, col)
-            symbols << symbol if symbol
-          end
-        end
-      end
-
-      # エンコーダーシンボルも抽出
+      # position_map.yamlから直接シンボルを抽出（親指キーも含む）
       position_map_path = "#{@config_dir}/position_map.yaml"
       if File.exist?(position_map_path)
         begin
           position_map_data = YAML.load_file(position_map_path)
+
+          # 左手と右手の全シンボルを抽出（row0, row1, ..., thumb_keys）
+          ['left_hand', 'right_hand'].each do |hand|
+            if position_map_data[hand]
+              position_map_data[hand].each do |row_key, row_data|
+                if row_data.is_a?(Array)
+                  symbols.concat(row_data.compact.reject(&:empty?))
+                elsif row_data.is_a?(Hash)
+                  symbols.concat(row_data.values.compact.reject(&:empty?).map(&:to_s))
+                end
+              end
+            end
+          end
+
+          # エンコーダーシンボルも抽出
           if position_map_data['encoders']
             ['left', 'right'].each do |side|
               if position_map_data['encoders'][side]
@@ -666,17 +686,8 @@ module Cornix
               end
             end
           end
-
-          # 親指キーシンボルも抽出
-          if position_map_data['thumb_keys']
-            ['left', 'right'].each do |side|
-              if position_map_data['thumb_keys'][side].is_a?(Array)
-                symbols.concat(position_map_data['thumb_keys'][side])
-              end
-            end
-          end
         rescue StandardError
-          # Ignore errors - position_map may not have encoders/thumb_keys section
+          # Ignore errors - position_map may not exist
         end
       end
 

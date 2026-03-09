@@ -31,15 +31,13 @@ RSpec.describe Cornix::Validator do
     File.write("#{config_dir}/position_map.yaml", YAML.dump({
       'left_hand' => {
         'row0' => { 0 => 'LT1', 1 => 'LT2' },
-        'row1' => { 0 => 'LH1', 1 => 'LH2' }
+        'row1' => { 0 => 'LH1', 1 => 'LH2' },
+        'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
       },
       'right_hand' => {
         'row0' => { 0 => 'RT1', 1 => 'RT2' },
-        'row1' => { 0 => 'RH1', 1 => 'RH2' }
-      },
-      'thumb_keys' => {
-        'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
-        'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+        'row1' => { 0 => 'RH1', 1 => 'RH2' },
+        'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
       }
     }))
   end
@@ -648,14 +646,12 @@ RSpec.describe Cornix::Validator do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
           'row0' => ['LT1', 'LT2'],
-          'row1' => ['LT1', 'LT3']  # LT1が重複
+          'row1' => ['LT1', 'LT3'],  # LT1が重複
+          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
         },
         'right_hand' => {
-          'row0' => ['RT1', 'RT2']
-        },
-        'thumb_keys' => {
-          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
-          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row0' => ['RT1', 'RT2'],
+          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 
@@ -665,14 +661,12 @@ RSpec.describe Cornix::Validator do
     it 'detects duplicate symbols across hands' do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
-          'row0' => ['KEY1', 'LT2']
+          'row0' => ['KEY1', 'LT2'],
+          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
         },
         'right_hand' => {
-          'row0' => ['KEY1', 'RT2']  # KEY1が左手と重複
-        },
-        'thumb_keys' => {
-          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
-          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row0' => ['KEY1', 'RT2'],  # KEY1が左手と重複
+          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 
@@ -683,15 +677,13 @@ RSpec.describe Cornix::Validator do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
           'row0' => ['LT1', 'LT2'],
-          'row1' => ['LH1', 'LH2']
+          'row1' => ['LH1', 'LH2'],
+          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
         },
         'right_hand' => {
           'row0' => ['RT1', 'RT2'],
-          'row1' => ['RH1', 'RH2']
-        },
-        'thumb_keys' => {
-          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
-          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row1' => ['RH1', 'RH2'],
+          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 
@@ -701,14 +693,12 @@ RSpec.describe Cornix::Validator do
     it 'ignores nil and empty symbols' do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
-          'row0' => { 0 => 'LT1', 1 => nil, 2 => '', 3 => 'LT2' }
+          'row0' => { 0 => 'LT1', 1 => nil, 2 => '', 3 => 'LT2' },
+          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
         },
         'right_hand' => {
-          'row0' => { 0 => 'RT1', 1 => nil }
-        },
-        'thumb_keys' => {
-          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
-          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row0' => { 0 => 'RT1', 1 => nil },
+          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 
@@ -719,14 +709,12 @@ RSpec.describe Cornix::Validator do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
           'row0' => ['LT1', 'LT2'],
-          'row1' => ["'", 'LT3']  # Single quote requires YAML quotes
+          'row1' => ["'", 'LT3'],  # Single quote requires YAML quotes
+          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
         },
         'right_hand' => {
-          'row0' => ['RT1', 'RT2']
-        },
-        'thumb_keys' => {
-          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
-          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row0' => ['RT1', 'RT2'],
+          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 
@@ -737,14 +725,12 @@ RSpec.describe Cornix::Validator do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
           'row0' => ['LT1', 'key-2', 'key_3'],
-          'row1' => ['ABC123', 'test-key', 'test_key']
+          'row1' => ['ABC123', 'test-key', 'test_key'],
+          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
         },
         'right_hand' => {
-          'row0' => ['RT1', 'RT2']
-        },
-        'thumb_keys' => {
-          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
-          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row0' => ['RT1', 'RT2'],
+          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 

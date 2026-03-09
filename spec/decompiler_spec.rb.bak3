@@ -23,12 +23,10 @@ RSpec.describe Cornix::Decompiler do
     if mapping.is_a?(Hash)
       mapping.each do |key, value|
         if %w[left_hand right_hand].include?(key)
-          # row0, row1, ..., thumb_keys の下のマッピングを展開
           value.each do |row_key, row_data|
             row_data.each { |symbol, keycode| flat[symbol] = keycode } if row_data.is_a?(Hash)
           end
-        elsif key == 'encoders'
-          # encoders のみ left/right 構造を持つ
+        elsif %w[thumb_keys encoders].include?(key)
           value.each do |side, side_data|
             side_data.each { |symbol, keycode| flat[symbol] = keycode } if side_data.is_a?(Hash)
           end
@@ -75,17 +73,16 @@ RSpec.describe Cornix::Decompiler do
 
       expect(position_map).to have_key('left_hand')
       expect(position_map).to have_key('right_hand')
+      expect(position_map).to have_key('thumb_keys')
       expect(position_map).to have_key('encoders')
 
       # Check structure
       expect(position_map['left_hand']).to have_key('row0')
       expect(position_map['left_hand']['row0']).to be_an(Array)
 
-      # Check thumb keys (now inside left_hand/right_hand)
-      expect(position_map['left_hand']).to have_key('thumb_keys')
-      expect(position_map['left_hand']['thumb_keys']).to eq(['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'])
-      expect(position_map['right_hand']).to have_key('thumb_keys')
-      expect(position_map['right_hand']['thumb_keys']).to eq(['r_thumb_left', 'r_thumb_middle', 'r_thumb_right'])
+      # Check thumb keys
+      expect(position_map['thumb_keys']['left']).to eq(['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'])
+      expect(position_map['thumb_keys']['right']).to eq(['r_thumb_left', 'r_thumb_middle', 'r_thumb_right'])
     end
 
     it 'extracts QMK settings correctly' do
@@ -117,7 +114,7 @@ RSpec.describe Cornix::Decompiler do
         decompiler.decompile(output_dir)
 
         # Look for Trans in layer 1
-        layer1_path = "#{output_dir}/layers/1_layer.yml"
+        layer1_path = "#{output_dir}/layers/1_layer.yaml"
         if File.exist?(layer1_path)
           layer1 = YAML.load_file(layer1_path)
           overrides = layer1['overrides']
@@ -132,7 +129,7 @@ RSpec.describe Cornix::Decompiler do
       it 'converts modifier functions with KC_* arguments to simple format' do
         decompiler.decompile(output_dir)
 
-        layer1_path = "#{output_dir}/layers/1_layer.yml"
+        layer1_path = "#{output_dir}/layers/1_layer.yaml"
         if File.exist?(layer1_path)
           layer1 = YAML.load_file(layer1_path)
           overrides = layer1['overrides']
@@ -177,11 +174,8 @@ RSpec.describe Cornix::Decompiler do
       # 階層構造の検証
       expect(mapping).to have_key('left_hand')
       expect(mapping).to have_key('right_hand')
+      expect(mapping).to have_key('thumb_keys')
       expect(mapping).to have_key('encoders')
-
-      # Check thumb keys are inside left_hand/right_hand
-      expect(mapping['left_hand']).to have_key('thumb_keys')
-      expect(mapping['right_hand']).to have_key('thumb_keys')
 
       # Should have all keys including encoders
       expect(mapping['left_hand']['row0']).to have_key('tab')
@@ -197,7 +191,7 @@ RSpec.describe Cornix::Decompiler do
     it 'extracts override layers with only differences' do
       decompiler.decompile(output_dir)
 
-      layer1_path = "#{output_dir}/layers/1_layer.yml"
+      layer1_path = "#{output_dir}/layers/1_layer.yaml"
       if File.exist?(layer1_path)
         layer1 = YAML.load_file(layer1_path)
 
@@ -233,8 +227,8 @@ RSpec.describe Cornix::Decompiler do
 
       layer_files.each do |file|
         basename = File.basename(file)
-        # ベースレイヤーは 0_base.yml、オーバーライドは N_layer.yml
-        expect(basename).to match(/^\d+_(base|layer)\.yml$/)
+        # ベースレイヤーは 0_base.yml、オーバーライドは N_layer.yaml
+        expect(basename).to match(/^\d+_(base|layer)\.yaml$/)
 
         layer = YAML.load_file(file)
         index = basename.match(/^(\d+)_/)[1].to_i
@@ -467,7 +461,7 @@ RSpec.describe Cornix::Decompiler do
       decompiler.decompile(output_dir)
 
       # Layer 1 should have special chars
-      layer1_path = "#{output_dir}/layers/1_layer.yml"
+      layer1_path = "#{output_dir}/layers/1_layer.yaml"
       if File.exist?(layer1_path)
         layer1 = YAML.load_file(layer1_path)
         overrides = layer1['overrides']
@@ -525,7 +519,7 @@ RSpec.describe Cornix::Decompiler do
       decompiler.decompile(output_dir)
 
       # Check if layers contain Macro references instead of M0
-      layer_files = Dir.glob("#{output_dir}/layers/*.{yaml,yml}")
+      layer_files = Dir.glob("#{output_dir}/layers/*.yaml")
       layer_contents = layer_files.map { |f| File.read(f) }.join
 
       # Should contain name-based Macro references
@@ -536,7 +530,7 @@ RSpec.describe Cornix::Decompiler do
       decompiler.decompile(output_dir)
 
       # Check if layers contain TapDance references instead of TD(0)
-      layer_files = Dir.glob("#{output_dir}/layers/*.{yaml,yml}")
+      layer_files = Dir.glob("#{output_dir}/layers/*.yaml")
       layer_contents = layer_files.map { |f| File.read(f) }.join
 
       # Should contain name-based TapDance references

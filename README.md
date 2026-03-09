@@ -1180,7 +1180,7 @@ overrides:
   # レイヤータップ
   space: LT(1, Space)         # 長押しでレイヤー1、タップでSpace
 
-  # 親指キー（position_map.yamlのthumb_keysセクションで定義）
+  # 親指キー（position_map.yaml の left_hand/right_hand 内 thumb_keys で定義）
   l_thumb_left: LGUI_T(KC_LANG2)    # 左親指・左: 長押しでGUI、タップでLANG2
   l_thumb_middle: LT(1, Space)      # 左親指・中央: 長押しでレイヤー1、タップでSpace
   l_thumb_right: LT(2, Escape)      # 左親指・右: 長押しでレイヤー2、タップでEscape
@@ -1237,16 +1237,14 @@ left_hand:
   row1: [caps, A, S, D, F, G]         # 6要素
   row2: [lshift, Z, X, C, V, B]       # 6要素
   row3: [lctrl, command, option]      # 3要素（標準グリッドキーのみ）
+  thumb_keys: [l_thumb_left, l_thumb_middle, l_thumb_right]  # row3の直後
 
 right_hand:
   row0: [Y, U, I, O, P, backspace]    # 6要素
   row1: [H, J, K, L, colon, enter]    # 6要素
   row2: [N, M, comma, dot, up, rshift]# 6要素
   row3: [left, down, right]           # 3要素（標準グリッドキーのみ）
-
-thumb_keys:                           # 親指キー（エンコーダーの前に配置）
-  left: [l_thumb_left, l_thumb_middle, l_thumb_right]
-  right: [r_thumb_left, r_thumb_middle, r_thumb_right]
+  thumb_keys: [r_thumb_left, r_thumb_middle, r_thumb_right]  # row3の直後
 
 encoders:
   left:
@@ -1268,28 +1266,19 @@ encoders:
 
 **行の構成**:
 - `row0`, `row1`, `row2`: 各6要素（標準グリッドキー）
-- `row3`: 各3要素（標準グリッドキーのみ、親指キーは別セクション）
+- `row3`: 各3要素（標準グリッドキーのみ）
 
 **親指キー**:
-- `thumb_keys`セクションで定義（左右各3キー）
-- 物理的には`row3`の後半（cols 3-5）に配置されますが、論理的には独立したセクションとして扱います
+- `left_hand`/`right_hand`内の`thumb_keys`として定義（左右各3キー）
+- 物理的には`row3`の後半（cols 3-5）に配置されますが、論理的には各ハンド内の独立したセクションとして扱います
+- row3の直後に配置されることで、物理的な配置と構造が一致します
 - レイヤーファイルでは`l_thumb_left`, `r_thumb_middle`などのシンボル名で参照します
 
 **エンコーダー**:
 - ロータリーエンコーダーのプッシュボタンと回転は `encoders` セクションで別途定義されます
+- キーとは明確に異なる位置にあるため、独立したセクションとして維持されます
 
 このマッピングにより、レイヤーファイルで `Q` や `A`、`l_thumb_left` などの直感的な名前でキーを参照できます。
-
-### マイグレーションガイド
-
-v1.0より前のバージョンから移行する場合、position_map.yamlの構造が変更されています。詳細なマイグレーション手順については、以下のドキュメントを参照してください：
-
-**📖 [Position Map 親指キーセクション マイグレーションガイド](docs/migration_thumb_keys.md)**
-
-主な変更点：
-- row3が6要素から3要素に削減（標準グリッドキーのみ）
-- 親指キーを独立した`thumb_keys`セクションに分離
-- より明確で保守しやすい設定構造
 
 ## マクロで使用可能なアクション
 

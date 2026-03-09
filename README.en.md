@@ -1153,7 +1153,7 @@ overrides:
   # Layer Tap
   space: LT(1, Space)         # Layer 1 when held, Space when tapped
 
-  # Thumb keys (defined in thumb_keys section of position_map.yaml)
+  # Thumb keys (defined within left_hand/right_hand thumb_keys in position_map.yaml)
   l_thumb_left: LGUI_T(KC_LANG2)    # Left thumb, left: GUI when held, LANG2 when tapped
   l_thumb_middle: LT(1, Space)      # Left thumb, middle: Layer 1 when held, Space when tapped
   l_thumb_right: LT(2, Escape)      # Left thumb, right: Layer 2 when held, Escape when tapped
@@ -1210,16 +1210,14 @@ left_hand:
   row1: [caps, A, S, D, F, G]         # 6 elements
   row2: [lshift, Z, X, C, V, B]       # 6 elements
   row3: [lctrl, command, option]      # 3 elements (standard grid keys only)
+  thumb_keys: [l_thumb_left, l_thumb_middle, l_thumb_right]  # immediately after row3
 
 right_hand:
   row0: [Y, U, I, O, P, backspace]    # 6 elements
   row1: [H, J, K, L, colon, enter]    # 6 elements
   row2: [N, M, comma, dot, up, rshift]# 6 elements
   row3: [left, down, right]           # 3 elements (standard grid keys only)
-
-thumb_keys:                           # Thumb keys (placed before encoders)
-  left: [l_thumb_left, l_thumb_middle, l_thumb_right]
-  right: [r_thumb_left, r_thumb_middle, r_thumb_right]
+  thumb_keys: [r_thumb_left, r_thumb_middle, r_thumb_right]  # immediately after row3
 
 encoders:
   left:
@@ -1241,15 +1239,17 @@ encoders:
 
 **Row Structure**:
 - `row0`, `row1`, `row2`: 6 elements each (standard grid keys)
-- `row3`: 3 elements each (standard grid keys only, thumb keys are in separate section)
+- `row3`: 3 elements each (standard grid keys only)
 
 **Thumb Keys**:
-- Defined in the `thumb_keys` section (3 keys each for left and right)
-- Physically located in the latter half of `row3` (cols 3-5), but logically treated as an independent section
+- Defined as `thumb_keys` within `left_hand`/`right_hand` sections (3 keys each)
+- Physically located in the latter half of `row3` (cols 3-5), but logically treated as an independent section within each hand
+- Placed immediately after row3, aligning the physical placement with the structure
 - Referenced in layer files with symbol names like `l_thumb_left`, `r_thumb_middle`, etc.
 
 **Encoders**:
 - Rotary encoder push buttons and rotations are defined separately in the `encoders` section
+- Kept as an independent section since they are clearly at a different physical location from keys
 
 This mapping allows you to reference keys with intuitive names like `Q`, `A`, or `l_thumb_left` in layer files.
 

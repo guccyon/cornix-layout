@@ -190,57 +190,7 @@ module Cornix
     end
 
     def extract_base_layer(dir, layer_data, encoder_data)
-      mapping = {}
-
-      # 左手
-      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
-        row = @position_map_template['left_hand'][row_key]
-        row.each_with_index do |symbol, col_idx|
-          next if symbol.nil? || symbol.to_s.empty?
-          keycode = layer_data[row_idx][col_idx]
-          mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
-        end
-      end
-
-      # 右手
-      # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
-      # row3も含めて全行で逆順処理を適用
-      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
-        row = @position_map_template['right_hand'][row_key]
-        row.each_with_index do |symbol, col_idx|
-          next if symbol.nil? || symbol.to_s.empty?
-
-          # 全行で逆順: position_mapの左から右の順序を、ハードウェアの右から左に変換
-          # ただし、row3は3要素しかないため、5 - col_idxではなく、(row.size - 1) - col_idxを使用
-          hardware_col_idx = (row.size - 1) - col_idx
-
-          keycode = layer_data[row_idx + 4][hardware_col_idx]
-          mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
-        end
-      end
-
-      # エンコーダー
-      mapping['l_rotary_push'] = resolve_to_alias(layer_data[2][6])  # Row 2, Col 6
-      mapping['l_rotary_ccw'] = resolve_to_alias(encoder_data[0][0])
-      mapping['l_rotary_cw'] = resolve_to_alias(encoder_data[0][1])
-      mapping['r_rotary_push'] = resolve_to_alias(layer_data[5][6])  # Row 5, Col 6
-      mapping['r_rotary_ccw'] = resolve_to_alias(encoder_data[1][0])
-      mapping['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1])
-
-      # 親指キー
-      # 左手親指キー（Row 3, Cols 3-5）
-      @position_map_template['thumb_keys']['left'].each_with_index do |symbol, idx|
-        col_idx = 3 + idx
-        keycode = layer_data[3][col_idx]
-        mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
-      end
-
-      # 右手親指キー（Row 7, Cols 5-3 逆順）
-      @position_map_template['thumb_keys']['right'].each_with_index do |symbol, idx|
-        col_idx = 5 - idx  # 逆順: 5, 4, 3
-        keycode = layer_data[7][col_idx]
-        mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
-      end
+      mapping = build_hierarchical_mapping(layer_data, encoder_data)
 
       layer = {
         'name' => 'Layer 0',
@@ -248,95 +198,99 @@ module Cornix
         'mapping' => mapping
       }
 
-      write_yaml("#{dir}/0_layer.yml", layer)
+      write_yaml("#{dir}/0_base.yml", layer)
+    end
+
+    def build_hierarchical_mapping(layer_data, encoder_data)
+      mapping = {
+        'left_hand' => build_left_hand_section(layer_data),
+        'right_hand' => build_right_hand_section(layer_data),
+        'encoders' => build_encoders_section(layer_data, encoder_data)
+      }
+      mapping
+    end
+
+    def build_left_hand_section(layer_data)
+      left = {}
+      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+        left[row_key] = {}
+        row = @position_map_template['left_hand'][row_key]
+        row.each_with_index do |symbol, col_idx|
+          next if symbol.nil? || symbol.to_s.empty?
+          keycode = layer_data[row_idx][col_idx]
+          left[row_key][symbol] = resolve_to_alias(keycode) unless keycode == -1
+        end
+      end
+
+      # 親指キーを追加
+      left['thumb_keys'] = {}
+      @position_map_template['left_hand']['thumb_keys'].each_with_index do |symbol, idx|
+        col_idx = 3 + idx
+        keycode = layer_data[3][col_idx]
+        left['thumb_keys'][symbol] = resolve_to_alias(keycode) unless keycode == -1
+      end
+
+      left
+    end
+
+    def build_right_hand_section(layer_data)
+      right = {}
+      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+        right[row_key] = {}
+        row = @position_map_template['right_hand'][row_key]
+        row.each_with_index do |symbol, col_idx|
+          next if symbol.nil? || symbol.to_s.empty?
+          hardware_col_idx = (row.size - 1) - col_idx
+          keycode = layer_data[row_idx + 4][hardware_col_idx]
+          right[row_key][symbol] = resolve_to_alias(keycode) unless keycode == -1
+        end
+      end
+
+      # 親指キーを追加
+      right['thumb_keys'] = {}
+      @position_map_template['right_hand']['thumb_keys'].each_with_index do |symbol, idx|
+        col_idx = 5 - idx  # 逆順
+        keycode = layer_data[7][col_idx]
+        right['thumb_keys'][symbol] = resolve_to_alias(keycode) unless keycode == -1
+      end
+
+      right
+    end
+
+    def build_encoders_section(layer_data, encoder_data)
+      encoders = {}
+
+      encoders['left'] = {
+        'l_rotary_push' => resolve_to_alias(layer_data[2][6]),
+        'l_rotary_ccw' => resolve_to_alias(encoder_data[0][0]),
+        'l_rotary_cw' => resolve_to_alias(encoder_data[0][1])
+      }
+
+      encoders['right'] = {
+        'r_rotary_push' => resolve_to_alias(layer_data[5][6]),
+        'r_rotary_ccw' => resolve_to_alias(encoder_data[1][0]),
+        'r_rotary_cw' => resolve_to_alias(encoder_data[1][1])
+      }
+
+      encoders
     end
 
     def extract_override_layer(dir, index, layer_data, encoder_data)
       overrides = {}
       base_layer = @data['layout'][0]
-
-      # 左手
-      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
-        row = @position_map_template['left_hand'][row_key]
-        row.each_with_index do |symbol, col_idx|
-          next if symbol.nil? || symbol.to_s.empty?
-          keycode = layer_data[row_idx][col_idx]
-          base_keycode = base_layer[row_idx][col_idx]
-
-          # 差分のみ記録（-1は除外、KC_TRNSは含める）
-          if keycode != base_keycode && keycode != -1
-            overrides[symbol] = resolve_to_alias(keycode)
-          end
-        end
-      end
-
-      # 右手
-      # Cornixの右手側は物理的に右から左にインデックスが振られているため、列を逆転
-      # row3も含めて全行で逆順処理を適用
-      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
-        row = @position_map_template['right_hand'][row_key]
-        row.each_with_index do |symbol, col_idx|
-          next if symbol.nil? || symbol.to_s.empty?
-
-          # 全行で逆順: position_mapの左から右の順序を、ハードウェアの右から左に変換
-          # ただし、row3は3要素しかないため、5 - col_idxではなく、(row.size - 1) - col_idxを使用
-          hardware_col_idx = (row.size - 1) - col_idx
-
-          keycode = layer_data[row_idx + 4][hardware_col_idx]
-          base_keycode = base_layer[row_idx + 4][hardware_col_idx]
-
-          if keycode != base_keycode && keycode != -1
-            overrides[symbol] = resolve_to_alias(keycode)
-          end
-        end
-      end
-
-      # エンコーダーの差分
       base_encoder = @data['encoder_layout'][0]
 
-      # エンコーダープッシュボタンの差分をチェック
-      l_push_keycode = layer_data[2][6]
-      l_push_base = base_layer[2][6]
-      if l_push_keycode != l_push_base && l_push_keycode != -1
-        overrides['l_rotary_push'] = resolve_to_alias(l_push_keycode)
-      end
+      # 左手の差分を検出
+      left_diff = detect_left_hand_diff(layer_data, base_layer)
+      overrides['left_hand'] = left_diff unless left_diff.empty?
 
-      r_push_keycode = layer_data[5][6]
-      r_push_base = base_layer[5][6]
-      if r_push_keycode != r_push_base && r_push_keycode != -1
-        overrides['r_rotary_push'] = resolve_to_alias(r_push_keycode)
-      end
+      # 右手の差分を検出
+      right_diff = detect_right_hand_diff(layer_data, base_layer)
+      overrides['right_hand'] = right_diff unless right_diff.empty?
 
-      # エンコーダー回転の差分をチェック
-      if encoder_data[0] != base_encoder[0]
-        overrides['l_rotary_ccw'] = resolve_to_alias(encoder_data[0][0])
-        overrides['l_rotary_cw'] = resolve_to_alias(encoder_data[0][1])
-      end
-      if encoder_data[1] != base_encoder[1]
-        overrides['r_rotary_ccw'] = resolve_to_alias(encoder_data[1][0])
-        overrides['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1])
-      end
-
-      # 親指キーの差分をチェック
-      # 左手親指キー
-      @position_map_template['thumb_keys']['left'].each_with_index do |symbol, idx|
-        col_idx = 3 + idx
-        keycode = layer_data[3][col_idx]
-        base_keycode = base_layer[3][col_idx]
-        if keycode != base_keycode && keycode != -1
-          overrides[symbol] = resolve_to_alias(keycode)
-        end
-      end
-
-      # 右手親指キー
-      @position_map_template['thumb_keys']['right'].each_with_index do |symbol, idx|
-        col_idx = 5 - idx  # 逆順
-        keycode = layer_data[7][col_idx]
-        base_keycode = base_layer[7][col_idx]
-        if keycode != base_keycode && keycode != -1
-          overrides[symbol] = resolve_to_alias(keycode)
-        end
-      end
+      # エンコーダーの差分を検出
+      encoder_diff = detect_encoders_diff(layer_data, base_layer, encoder_data, base_encoder)
+      overrides['encoders'] = encoder_diff unless encoder_diff.empty?
 
       return if overrides.empty?  # 空のレイヤーはスキップ
 
@@ -347,6 +301,182 @@ module Cornix
       }
 
       write_yaml("#{dir}/#{index}_layer.yml", layer)
+    end
+
+    def detect_left_hand_diff(layer_data, base_layer)
+      diff = {}
+
+      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+        row = @position_map_template['left_hand'][row_key]
+        row_diff = {}
+        has_diff = false
+
+        row.each_with_index do |symbol, col_idx|
+          next if symbol.nil? || symbol.to_s.empty?
+          keycode = layer_data[row_idx][col_idx]
+          base_keycode = base_layer[row_idx][col_idx]
+
+          # 差分があるかチェック
+          if keycode != base_keycode && keycode != -1
+            has_diff = true
+          end
+        end
+
+        # 差分がある場合、そのrow全体を出力
+        if has_diff
+          row.each_with_index do |symbol, col_idx|
+            next if symbol.nil? || symbol.to_s.empty?
+            keycode = layer_data[row_idx][col_idx]
+            row_diff[symbol] = resolve_to_alias(keycode) unless keycode == -1
+          end
+
+          # rowを出力（NoKeyであっても差分があれば出力）
+          diff[row_key] = row_diff unless row_diff.empty?
+        end
+      end
+
+      # 親指キーの差分検出
+      left_thumb_diff = {}
+      thumb_has_diff = false
+
+      # 差分チェック
+      @position_map_template['left_hand']['thumb_keys'].each_with_index do |symbol, idx|
+        col_idx = 3 + idx
+        keycode = layer_data[3][col_idx]
+        base_keycode = base_layer[3][col_idx]
+        if keycode != base_keycode && keycode != -1
+          thumb_has_diff = true
+        end
+      end
+
+      # 差分があれば全体を出力
+      if thumb_has_diff
+        @position_map_template['left_hand']['thumb_keys'].each_with_index do |symbol, idx|
+          col_idx = 3 + idx
+          keycode = layer_data[3][col_idx]
+          left_thumb_diff[symbol] = resolve_to_alias(keycode) unless keycode == -1
+        end
+        diff['thumb_keys'] = left_thumb_diff unless left_thumb_diff.empty?
+      end
+
+      diff
+    end
+
+    def detect_right_hand_diff(layer_data, base_layer)
+      diff = {}
+
+      ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
+        row = @position_map_template['right_hand'][row_key]
+        row_diff = {}
+        has_diff = false
+
+        row.each_with_index do |symbol, col_idx|
+          next if symbol.nil? || symbol.to_s.empty?
+          hardware_col_idx = (row.size - 1) - col_idx
+          keycode = layer_data[row_idx + 4][hardware_col_idx]
+          base_keycode = base_layer[row_idx + 4][hardware_col_idx]
+
+          # 差分があるかチェック
+          if keycode != base_keycode && keycode != -1
+            has_diff = true
+          end
+        end
+
+        # 差分がある場合、そのrow全体を出力
+        if has_diff
+          row.each_with_index do |symbol, col_idx|
+            next if symbol.nil? || symbol.to_s.empty?
+            hardware_col_idx = (row.size - 1) - col_idx
+            keycode = layer_data[row_idx + 4][hardware_col_idx]
+            row_diff[symbol] = resolve_to_alias(keycode) unless keycode == -1
+          end
+
+          # rowを出力（NoKeyであっても差分があれば出力）
+          diff[row_key] = row_diff unless row_diff.empty?
+        end
+      end
+
+      # 親指キーの差分検出
+      right_thumb_diff = {}
+      thumb_has_diff = false
+
+      # 差分チェック
+      @position_map_template['right_hand']['thumb_keys'].each_with_index do |symbol, idx|
+        col_idx = 5 - idx  # 逆順
+        keycode = layer_data[7][col_idx]
+        base_keycode = base_layer[7][col_idx]
+        if keycode != base_keycode && keycode != -1
+          thumb_has_diff = true
+        end
+      end
+
+      # 差分があれば全体を出力
+      if thumb_has_diff
+        @position_map_template['right_hand']['thumb_keys'].each_with_index do |symbol, idx|
+          col_idx = 5 - idx  # 逆順
+          keycode = layer_data[7][col_idx]
+          right_thumb_diff[symbol] = resolve_to_alias(keycode) unless keycode == -1
+        end
+        diff['thumb_keys'] = right_thumb_diff unless right_thumb_diff.empty?
+      end
+
+      diff
+    end
+
+    def detect_encoders_diff(layer_data, base_layer, encoder_data, base_encoder)
+      diff = {}
+
+      # 左エンコーダー
+      left_encoder_diff = {}
+      left_has_diff = false
+
+      # プッシュボタン
+      l_push = layer_data[2][6]
+      l_push_base = base_layer[2][6]
+      if l_push != l_push_base && l_push != -1
+        left_has_diff = true
+      end
+
+      # 回転
+      if encoder_data[0][0] != base_encoder[0][0]
+        left_has_diff = true
+      end
+      if encoder_data[0][1] != base_encoder[0][1]
+        left_has_diff = true
+      end
+
+      if left_has_diff
+        left_encoder_diff['l_rotary_push'] = resolve_to_alias(l_push) if l_push != l_push_base && l_push != -1
+        left_encoder_diff['l_rotary_ccw'] = resolve_to_alias(encoder_data[0][0]) if encoder_data[0][0] != base_encoder[0][0]
+        left_encoder_diff['l_rotary_cw'] = resolve_to_alias(encoder_data[0][1]) if encoder_data[0][1] != base_encoder[0][1]
+        diff['left'] = left_encoder_diff unless left_encoder_diff.empty?
+      end
+
+      # 右エンコーダー
+      right_encoder_diff = {}
+      right_has_diff = false
+
+      r_push = layer_data[5][6]
+      r_push_base = base_layer[5][6]
+      if r_push != r_push_base && r_push != -1
+        right_has_diff = true
+      end
+
+      if encoder_data[1][0] != base_encoder[1][0]
+        right_has_diff = true
+      end
+      if encoder_data[1][1] != base_encoder[1][1]
+        right_has_diff = true
+      end
+
+      if right_has_diff
+        right_encoder_diff['r_rotary_push'] = resolve_to_alias(r_push) if r_push != r_push_base && r_push != -1
+        right_encoder_diff['r_rotary_ccw'] = resolve_to_alias(encoder_data[1][0]) if encoder_data[1][0] != base_encoder[1][0]
+        right_encoder_diff['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1]) if encoder_data[1][1] != base_encoder[1][1]
+        diff['right'] = right_encoder_diff unless right_encoder_diff.empty?
+      end
+
+      diff
     end
 
     def extract_macros(output_dir)
@@ -542,7 +672,10 @@ module Cornix
       yaml_lines << "left_hand:"
       if data['left_hand'].is_a?(Hash)
         data['left_hand'].each do |row_key, row_data|
-          if row_data.is_a?(Array)
+          if row_key == 'thumb_keys' && row_data.is_a?(Array)
+            # 親指キーは配列形式
+            yaml_lines << "  thumb_keys: [#{row_data.join(', ')}]"
+          elsif row_data.is_a?(Array)
             yaml_lines << "  #{row_key}: [#{row_data.join(', ')}]"
           else
             yaml_lines << "  #{row_key}: #{row_data}"
@@ -554,19 +687,14 @@ module Cornix
       yaml_lines << "right_hand:"
       if data['right_hand'].is_a?(Hash)
         data['right_hand'].each do |row_key, row_data|
-          if row_data.is_a?(Array)
+          if row_key == 'thumb_keys' && row_data.is_a?(Array)
+            # 親指キーは配列形式
+            yaml_lines << "  thumb_keys: [#{row_data.join(', ')}]"
+          elsif row_data.is_a?(Array)
             yaml_lines << "  #{row_key}: [#{row_data.join(', ')}]"
           else
             yaml_lines << "  #{row_key}: #{row_data}"
           end
-        end
-      end
-
-      # thumb_keys
-      yaml_lines << "thumb_keys:"
-      if data['thumb_keys'].is_a?(Hash)
-        data['thumb_keys'].each do |side, keys|
-          yaml_lines << "  #{side}: [#{keys.join(', ')}]"
         end
       end
 

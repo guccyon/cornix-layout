@@ -872,14 +872,13 @@ left_hand:
   row1: [caps, A, S, D, F, G]          # 6要素
   row2: [lshift, Z, X, C, V, B]        # 6要素
   row3: [lctrl, command, option]       # 3要素（標準グリッドキーのみ）
+  thumb_keys: [l_thumb_left, l_thumb_middle, l_thumb_right]  # row3の直後
 right_hand:
   row0: [Y, U, I, O, P, backspace]     # 6要素
   row1: [H, J, K, L, colon, enter]     # 6要素
   row2: [N, M, comma, dot, up, rshift] # 6要素
   row3: [left, down, right]            # 3要素（標準グリッドキーのみ）
-thumb_keys:                            # 親指キー（エンコーダーの前に配置）
-  left: [l_thumb_left, l_thumb_middle, l_thumb_right]
-  right: [r_thumb_left, r_thumb_middle, r_thumb_right]
+  thumb_keys: [r_thumb_left, r_thumb_middle, r_thumb_right]  # row3の直後
 encoders:
   left:
     push: l_rotary_push
@@ -891,7 +890,17 @@ encoders:
     cw: r_rotary_cw
 ```
 
+**設計理由**:
+- 親指キーは物理的にキーボードの一部であり、左手・右手それぞれのセクション内に配置
+- row3の直後に配置することで、物理的な配置と構造が一致
+- エンコーダーは明確にキーと異なる位置にあるため、別グループで維持
+
+
 **ハードウェアマッピング**:
+
+**親指キーの配置** (重要):
+- 親指キーは論理的には left_hand/right_hand 内の thumb_keys として定義
+- 物理的には Row 3 の Cols 3-5 に配置（標準グリッドキーの右側）
 
 **左手（Row 0-3）**:
 - Row 0-2: Cols 0-5（標準6要素、逆順なし）
@@ -971,16 +980,16 @@ def extract_base_layer(dir, layer_data, encoder_data)
   mapping['r_rotary_ccw'] = resolve_to_alias(encoder_data[1][0])
   mapping['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1])
 
-  # 親指キー
+  # 親指キー（left_hand/right_hand内のthumb_keysとして処理）
   # 左手親指キー（Row 3, Cols 3-5、順序通り）
-  @position_map_template['thumb_keys']['left'].each_with_index do |symbol, idx|
+  @position_map_template['left_hand']['thumb_keys'].each_with_index do |symbol, idx|
     col_idx = 3 + idx
     keycode = layer_data[3][col_idx]
     mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
   end
 
   # 右手親指キー（Row 7, Cols 3-5、逆順）
-  @position_map_template['thumb_keys']['right'].each_with_index do |symbol, idx|
+  @position_map_template['right_hand']['thumb_keys'].each_with_index do |symbol, idx|
     col_idx = 5 - idx  # 逆順: 5, 4, 3
     keycode = layer_data[7][col_idx]
     mapping[symbol] = resolve_to_alias(keycode) unless keycode == -1
@@ -1001,26 +1010,8 @@ def extract_override_layer(dir, index, layer_data, encoder_data)
     overrides['r_rotary_push'] = resolve_to_alias(r_push_keycode)
   end
 
-  # 親指キーの差分も検出
-  # 左手親指キー
-  @position_map_template['thumb_keys']['left'].each_with_index do |symbol, idx|
-    col_idx = 3 + idx
-    keycode = layer_data[3][col_idx]
-    base_keycode = base_layer[3][col_idx]
-    if keycode != base_keycode && keycode != -1
-      overrides[symbol] = resolve_to_alias(keycode)
-    end
-  end
-
-  # 右手親指キー
-  @position_map_template['thumb_keys']['right'].each_with_index do |symbol, idx|
-    col_idx = 5 - idx  # 逆順
-    keycode = layer_data[7][col_idx]
-    base_keycode = base_layer[7][col_idx]
-    if keycode != base_keycode && keycode != -1
-      overrides[symbol] = resolve_to_alias(keycode)
-    end
-  end
+  # 親指キーの差分は detect_left_hand_diff() / detect_right_hand_diff() で統合的に処理
+  # （thumb_keysは left_hand/right_hand 内の一部として検出される）
 end
 ```
 

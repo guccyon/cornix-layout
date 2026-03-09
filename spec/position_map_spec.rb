@@ -93,7 +93,11 @@ RSpec.describe Cornix::PositionMap do
       yaml_data = YAML.load_file(yaml_path)
 
       ['left_hand', 'right_hand'].each do |hand_key|
-        yaml_data[hand_key].each do |_row_key, symbols|
+        yaml_data[hand_key].each do |row_key, symbols|
+          # Skip thumb_keys as they don't have physical row/col positions
+          next if row_key == 'thumb_keys'
+          next unless symbols.is_a?(Array)
+
           symbols.each do |symbol|
             next if symbol == 'null'
 

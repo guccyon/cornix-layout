@@ -142,7 +142,10 @@ module Cornix
 
     def compile_base_layer(config)
       layer = empty_layer
-      mapping = config['mapping']
+      mapping = config['mapping'] || {}
+
+      # 階層構造をフラット化
+      flat_mapping = extract_flat_mapping(mapping)
 
       # 左手（通常キー）
       4.times do |row_idx|
@@ -150,13 +153,13 @@ module Cornix
           symbol = @position_map.symbol_at(:left, row_idx, col_idx)
           next unless symbol
 
-          keycode = mapping[symbol]
+          keycode = flat_mapping[symbol]
           layer[row_idx][col_idx] = resolve_to_qmk(keycode || 'KC_NO')
         end
       end
 
       # 左手ロータリープッシュ (row2, col6)
-      layer[2][6] = resolve_to_qmk(mapping['l_rotary_push']) if mapping['l_rotary_push']
+      layer[2][6] = resolve_to_qmk(flat_mapping['l_rotary_push']) if flat_mapping['l_rotary_push']
       layer[2][6] ||= -1
 
       # 右手（通常キー）
@@ -170,7 +173,7 @@ module Cornix
           symbol = @position_map.symbol_at(:right, row_idx, col_idx)
           next unless symbol
 
-          keycode = mapping[symbol]
+          keycode = flat_mapping[symbol]
 
           # 全行で逆順処理
           # row0-2: 5 - col_idx (6要素の場合)
@@ -186,15 +189,15 @@ module Cornix
       end
 
       # 右手ロータリープッシュ (row1, col6)
-      layer[5][6] = resolve_to_qmk(mapping['r_rotary_push']) if mapping['r_rotary_push']
+      layer[5][6] = resolve_to_qmk(flat_mapping['r_rotary_push']) if flat_mapping['r_rotary_push']
       layer[5][6] ||= -1
 
       # 親指キー
       # 左手親指キー（Row 3, Cols 3-5）
       ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'].each_with_index do |symbol, idx|
         col_idx = 3 + idx
-        if mapping[symbol]
-          layer[3][col_idx] = resolve_to_qmk(mapping[symbol])
+        if flat_mapping[symbol]
+          layer[3][col_idx] = resolve_to_qmk(flat_mapping[symbol])
         else
           layer[3][col_idx] = resolve_to_qmk('KC_NO')
         end
@@ -203,8 +206,8 @@ module Cornix
       # 右手親指キー（Row 7, Cols 5-3 逆順）
       ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right'].each_with_index do |symbol, idx|
         col_idx = 5 - idx  # 逆順: 5, 4, 3
-        if mapping[symbol]
-          layer[7][col_idx] = resolve_to_qmk(mapping[symbol])
+        if flat_mapping[symbol]
+          layer[7][col_idx] = resolve_to_qmk(flat_mapping[symbol])
         else
           layer[7][col_idx] = resolve_to_qmk('KC_NO')
         end
@@ -217,14 +220,17 @@ module Cornix
       layer = deep_copy(base_layer)
       overrides = config['overrides'] || {}
 
+      # 階層構造をフラット化
+      flat_overrides = extract_flat_mapping(overrides)
+
       # 左手（通常キー）
       4.times do |row_idx|
         6.times do |col_idx|
           symbol = @position_map.symbol_at(:left, row_idx, col_idx)
           next unless symbol
 
-          if overrides.key?(symbol)
-            value = overrides[symbol]
+          if flat_overrides.key?(symbol)
+            value = flat_overrides[symbol]
             # "Trans" や "Transparent" は KC_TRNS に変換
             layer[row_idx][col_idx] = resolve_to_qmk(value)
           end
@@ -232,15 +238,15 @@ module Cornix
       end
 
       # 左手ロータリープッシュ (row2, col6)
-      if overrides.key?('l_rotary_push')
-        layer[2][6] = resolve_to_qmk(overrides['l_rotary_push'])
+      if flat_overrides.key?('l_rotary_push')
+        layer[2][6] = resolve_to_qmk(flat_overrides['l_rotary_push'])
       end
 
       # 左手親指キー
       ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'].each_with_index do |symbol, idx|
-        if overrides.key?(symbol)
+        if flat_overrides.key?(symbol)
           col_idx = 3 + idx
-          layer[3][col_idx] = resolve_to_qmk(overrides[symbol])
+          layer[3][col_idx] = resolve_to_qmk(flat_overrides[symbol])
         end
       end
 
@@ -255,8 +261,8 @@ module Cornix
           symbol = @position_map.symbol_at(:right, row_idx, col_idx)
           next unless symbol
 
-          if overrides.key?(symbol)
-            value = overrides[symbol]
+          if flat_overrides.key?(symbol)
+            value = flat_overrides[symbol]
 
             # 全行で逆順処理
             # row0-2: 5 - col_idx (6要素の場合)
@@ -274,15 +280,15 @@ module Cornix
 
       # 右手親指キー
       ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right'].each_with_index do |symbol, idx|
-        if overrides.key?(symbol)
+        if flat_overrides.key?(symbol)
           col_idx = 5 - idx  # 逆順
-          layer[7][col_idx] = resolve_to_qmk(overrides[symbol])
+          layer[7][col_idx] = resolve_to_qmk(flat_overrides[symbol])
         end
       end
 
       # 右手ロータリープッシュ (row1, col6)
-      if overrides.key?('r_rotary_push')
-        layer[5][6] = resolve_to_qmk(overrides['r_rotary_push'])
+      if flat_overrides.key?('r_rotary_push')
+        layer[5][6] = resolve_to_qmk(flat_overrides['r_rotary_push'])
       end
 
       layer
@@ -298,26 +304,57 @@ module Cornix
       layer_files.each do |file|
         index = File.basename(file).match(/^(\d+)_/)[1].to_i
         layer_config = YAML.load_file(file)
-        mapping = layer_config['mapping'] || layer_config['overrides'] || {}
+        mapping_or_overrides = layer_config['mapping'] || layer_config['overrides'] || {}
+
+        # 階層構造をフラット化
+        flat_mapping = extract_flat_mapping(mapping_or_overrides)
 
         # 左エンコーダー
-        if mapping['l_rotary_ccw'] && mapping['l_rotary_cw']
+        if flat_mapping['l_rotary_ccw'] && flat_mapping['l_rotary_cw']
           encoders[index][0] = [
-            resolve_to_qmk(mapping['l_rotary_ccw']),
-            resolve_to_qmk(mapping['l_rotary_cw'])
+            resolve_to_qmk(flat_mapping['l_rotary_ccw']),
+            resolve_to_qmk(flat_mapping['l_rotary_cw'])
           ]
         end
 
         # 右エンコーダー
-        if mapping['r_rotary_ccw'] && mapping['r_rotary_cw']
+        if flat_mapping['r_rotary_ccw'] && flat_mapping['r_rotary_cw']
           encoders[index][1] = [
-            resolve_to_qmk(mapping['r_rotary_ccw']),
-            resolve_to_qmk(mapping['r_rotary_cw'])
+            resolve_to_qmk(flat_mapping['r_rotary_ccw']),
+            resolve_to_qmk(flat_mapping['r_rotary_cw'])
           ]
         end
       end
 
       encoders
+    end
+
+    private
+
+    # 階層構造をフラット化（新構造の場合）、またはそのままフラット（旧構造の場合）
+    def extract_flat_mapping(mapping)
+      flat = {}
+
+      if mapping.is_a?(Hash)
+        mapping.each do |key, value|
+          if %w[left_hand right_hand].include?(key)
+            # 階層構造: row0, row1, ..., thumb_keys の下のマッピング
+            value.each do |row_key, row_data|
+              row_data.each { |symbol, keycode| flat[symbol] = keycode } if row_data.is_a?(Hash)
+            end
+          elsif key == 'encoders'
+            # encoders のみ left/right 構造を持つ
+            value.each do |side, side_data|
+              side_data.each { |symbol, keycode| flat[symbol] = keycode } if side_data.is_a?(Hash)
+            end
+          else
+            # フラット構造の直接マッピング（レガシー互換性）
+            flat[key] = value unless value.is_a?(Hash) || value.is_a?(Array)
+          end
+        end
+      end
+
+      flat
     end
 
     def compile_macros

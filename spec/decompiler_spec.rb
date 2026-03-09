@@ -50,11 +50,16 @@ RSpec.describe Cornix::Decompiler do
 
       expect(position_map).to have_key('left_hand')
       expect(position_map).to have_key('right_hand')
+      expect(position_map).to have_key('thumb_keys')
       expect(position_map).to have_key('encoders')
 
       # Check structure
       expect(position_map['left_hand']).to have_key('row0')
       expect(position_map['left_hand']['row0']).to be_an(Array)
+
+      # Check thumb keys
+      expect(position_map['thumb_keys']['left']).to eq(['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'])
+      expect(position_map['thumb_keys']['right']).to eq(['r_thumb_left', 'r_thumb_middle', 'r_thumb_right'])
     end
 
     it 'extracts QMK settings correctly' do

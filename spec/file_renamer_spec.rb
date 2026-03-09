@@ -44,6 +44,10 @@ RSpec.describe Cornix::FileRenamer do
         'row1' => [nil, nil, nil, nil, nil, nil, nil],
         'row2' => [nil, nil, nil, nil, nil, nil, nil],
         'row3' => [nil, nil, nil, nil, nil, nil, nil]
+      },
+      'thumb_keys' => {
+        'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
+        'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
       }
     }))
 

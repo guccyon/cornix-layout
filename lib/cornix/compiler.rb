@@ -191,7 +191,7 @@ module Cornix
 
       # 親指キー
       # 左手親指キー（Row 3, Cols 3-5）
-      ['thumb_l_left', 'thumb_l_middle', 'thumb_l_right'].each_with_index do |symbol, idx|
+      ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'].each_with_index do |symbol, idx|
         col_idx = 3 + idx
         if mapping[symbol]
           layer[3][col_idx] = resolve_to_qmk(mapping[symbol])
@@ -201,7 +201,7 @@ module Cornix
       end
 
       # 右手親指キー（Row 7, Cols 5-3 逆順）
-      ['thumb_r_left', 'thumb_r_middle', 'thumb_r_right'].each_with_index do |symbol, idx|
+      ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right'].each_with_index do |symbol, idx|
         col_idx = 5 - idx  # 逆順: 5, 4, 3
         if mapping[symbol]
           layer[7][col_idx] = resolve_to_qmk(mapping[symbol])
@@ -237,7 +237,7 @@ module Cornix
       end
 
       # 左手親指キー
-      ['thumb_l_left', 'thumb_l_middle', 'thumb_l_right'].each_with_index do |symbol, idx|
+      ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'].each_with_index do |symbol, idx|
         if overrides.key?(symbol)
           col_idx = 3 + idx
           layer[3][col_idx] = resolve_to_qmk(overrides[symbol])
@@ -273,7 +273,7 @@ module Cornix
       end
 
       # 右手親指キー
-      ['thumb_r_left', 'thumb_r_middle', 'thumb_r_right'].each_with_index do |symbol, idx|
+      ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right'].each_with_index do |symbol, idx|
         if overrides.key?(symbol)
           col_idx = 5 - idx  # 逆順
           layer[7][col_idx] = resolve_to_qmk(overrides[symbol])

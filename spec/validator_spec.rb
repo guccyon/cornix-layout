@@ -36,6 +36,10 @@ RSpec.describe Cornix::Validator do
       'right_hand' => {
         'row0' => { 0 => 'RT1', 1 => 'RT2' },
         'row1' => { 0 => 'RH1', 1 => 'RH2' }
+      },
+      'thumb_keys' => {
+        'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
+        'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
       }
     }))
   end
@@ -648,6 +652,10 @@ RSpec.describe Cornix::Validator do
         },
         'right_hand' => {
           'row0' => ['RT1', 'RT2']
+        },
+        'thumb_keys' => {
+          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
+          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 
@@ -661,6 +669,10 @@ RSpec.describe Cornix::Validator do
         },
         'right_hand' => {
           'row0' => ['KEY1', 'RT2']  # KEY1が左手と重複
+        },
+        'thumb_keys' => {
+          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
+          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 
@@ -676,6 +688,10 @@ RSpec.describe Cornix::Validator do
         'right_hand' => {
           'row0' => ['RT1', 'RT2'],
           'row1' => ['RH1', 'RH2']
+        },
+        'thumb_keys' => {
+          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
+          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 
@@ -689,6 +705,10 @@ RSpec.describe Cornix::Validator do
         },
         'right_hand' => {
           'row0' => { 0 => 'RT1', 1 => nil }
+        },
+        'thumb_keys' => {
+          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
+          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
         }
       }))
 

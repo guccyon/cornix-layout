@@ -7,7 +7,7 @@
 - よくある間違いとその解決方法
 - システムの制約や設計上の重要な決定事項
 - ドキュメント更新: `README.md` と `README.en.md` は**常に一緒に更新**すること
-- プロンプトは日本語で行うこと
+- プロンプト及び計画、作業結果の報告は全て日本語で行うこと
 
 ## Project Overview
 
@@ -862,15 +862,15 @@ left_hand:
   row0: [tab, Q, W, E, R, T]           # 6要素
   row1: [caps, A, S, D, F, G]          # 6要素
   row2: [lshift, Z, X, C, V, B]        # 6要素
-  row3: [lctrl, option, command]       # 3要素（標準グリッドキーのみ）
+  row3: [lctrl, command, option]       # 3要素（標準グリッドキーのみ）
 right_hand:
   row0: [Y, U, I, O, P, backspace]     # 6要素
-  row1: [H, J, K, L, colon, backslash] # 6要素
+  row1: [H, J, K, L, colon, enter]     # 6要素
   row2: [N, M, comma, dot, up, rshift] # 6要素
   row3: [left, down, right]            # 3要素（標準グリッドキーのみ）
 thumb_keys:                            # 親指キー（エンコーダーの前に配置）
-  left: [thumb_l_left, thumb_l_middle, thumb_l_right]
-  right: [thumb_r_left, thumb_r_middle, thumb_r_right]
+  left: [l_thumb_left, l_thumb_middle, l_thumb_right]
+  right: [r_thumb_left, r_thumb_middle, r_thumb_right]
 encoders:
   left:
     push: l_rotary_push
@@ -886,11 +886,11 @@ encoders:
 
 **左手（Row 0-3）**:
 - Row 0-2: Cols 0-5（標準6要素、逆順なし）
-- Row 3, Cols 0-2: 標準グリッドキー（`lctrl`, `option`, `command`）
+- Row 3, Cols 0-2: 標準グリッドキー（`lctrl`, `command`, `option`）
 - Row 3, Cols 3-5: 親指キー（順序通り）
-  - Col 3: `thumb_l_left`
-  - Col 4: `thumb_l_middle`
-  - Col 5: `thumb_l_right`
+  - Col 3: `l_thumb_left`
+  - Col 4: `l_thumb_middle`
+  - Col 5: `l_thumb_right`
 
 **右手（Row 4-7、ハードウェアではRow 0-3に対応）**:
 - Row 0-2: Cols 0-5（標準6要素、**逆順処理あり**: `5 - col_idx`）
@@ -899,9 +899,9 @@ encoders:
   - Col 1: `down`
   - Col 2: `left`
 - Row 3, Cols 3-5: 親指キー（**逆順処理あり**: `5 - col_idx`）
-  - Col 5: `thumb_r_left`
-  - Col 4: `thumb_r_middle`
-  - Col 3: `thumb_r_right`
+  - Col 5: `r_thumb_left`
+  - Col 4: `r_thumb_middle`
+  - Col 3: `r_thumb_right`
 
 **重要**: 右手は全行で逆順処理が適用されます。これはCornixキーボードのハードウェア特性です。
 

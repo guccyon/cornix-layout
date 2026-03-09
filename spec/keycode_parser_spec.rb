@@ -773,6 +773,31 @@ RSpec.describe Cornix::KeycodeParser do
         unparsed = described_class.unparse(parsed)
         expect(unparsed).to eq('Shift + `')
       end
+
+      it 'accepts unquoted special characters' do
+        # Test unquoted bracket
+        original = 'Cmd + ]'
+        parsed = described_class.parse(original)
+        unparsed = described_class.unparse(parsed)
+        expect(unparsed).to eq('Cmd + ]')
+      end
+
+      it 'accepts both quoted and unquoted forms' do
+        # Both forms should produce the same result
+        quoted = 'Cmd + "]"'
+        unquoted = 'Cmd + ]'
+
+        parsed_quoted = described_class.parse(quoted)
+        parsed_unquoted = described_class.parse(unquoted)
+
+        # Both should have the same key (unquoted)
+        expect(parsed_quoted[:key]).to eq(']')
+        expect(parsed_unquoted[:key]).to eq(']')
+
+        # Unparse should produce unquoted form
+        expect(described_class.unparse(parsed_quoted)).to eq('Cmd + ]')
+        expect(described_class.unparse(parsed_unquoted)).to eq('Cmd + ]')
+      end
     end
   end
 end

@@ -459,8 +459,79 @@ module Cornix
     end
 
     def write_yaml(path, data)
-      File.write(path, YAML.dump(data))
+      yaml_content = YAML.dump(data)
+      # 不要なクォートを削除
+      yaml_content = minimize_quotes(yaml_content)
+      File.write(path, yaml_content)
       puts "  Created: #{path}"
+    end
+
+    # YAML仕様上不要なダブルクォートを削除
+    def minimize_quotes(yaml_str)
+      lines = yaml_str.split("\n")
+
+      lines.map do |line|
+        # キー: 値のパターンをマッチ
+        if line =~ /^(\s*)("?)([^:"]+)\2:\s+("?)(.+)\4$/
+          indent = $1
+          key_quote = $2
+          key = $3
+          value_quote = $4
+          value = $5
+
+          # キーのクォート削除判定
+          # - 英数字とアンダースコアのみ → クォート不要
+          # - YAMLの特殊文字（:, -, ?, |, >, #, &, *, !, %, @, `）を含む → クォート必要
+          # - スペースを含む → クォート必要
+          new_key_quote = ''
+          if key_quote == '"'
+            # 単純な識別子（英数字、アンダースコア、ハイフン）のみならクォート不要
+            new_key_quote = '' if key =~ /^[a-zA-Z0-9_-]+$/
+          end
+
+          # 値のクォート削除判定
+          new_value_quote = ''
+          if value_quote == '"'
+            # エスケープシーケンスを含む場合はクォート必要
+            if value.include?('\\')
+              new_value_quote = '"'
+            # YAMLの特殊文字（単独で使われる場合）はクォート必要
+            # ハイフン(-), コロン(:), 疑問符(?), アンパサンド(&), アスタリスク(*), カンマ(,), セミコロン(;), パイプ(|), 大なり(>), シャープ(#), アットマーク(@), バッククォート(`)
+            elsif value.length == 1 && value =~ /^[-:?&*,;|>#@`]$/
+              new_value_quote = '"'
+            # YAMLの予約語（true, false, null, yes, no, on, off）はクォート必要
+            elsif value =~ /^(true|false|null|yes|no|on|off|True|False|Null|Yes|No|On|Off|TRUE|FALSE|NULL|YES|NO|ON|OFF)$/
+              new_value_quote = '"'
+            # 数値に見える文字列はクォート必要
+            elsif value =~ /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/
+              new_value_quote = '"'
+            # 単純な文字列（英数字、基本記号）のみならクォート不要
+            # ただし、関数呼び出し形式 (例: MO(3)) やパス (例: /) は許可
+            elsif value =~ /^[a-zA-Z0-9_\-\/\.\+\(\)]+$/
+              new_value_quote = ''
+            # 単一文字の場合でも特殊文字でなければクォート不要
+            elsif value.length == 1 && value =~ /^[a-zA-Z0-9\/\.]$/
+              new_value_quote = ''
+            else
+              new_value_quote = '"'
+            end
+          end
+
+          # 再構築
+          if new_key_quote.empty? && new_value_quote.empty?
+            "#{indent}#{key}: #{value}"
+          elsif new_key_quote.empty?
+            "#{indent}#{key}: #{new_value_quote}#{value}#{new_value_quote}"
+          elsif new_value_quote.empty?
+            "#{indent}#{new_key_quote}#{key}#{new_key_quote}: #{value}"
+          else
+            "#{indent}#{new_key_quote}#{key}#{new_key_quote}: #{new_value_quote}#{value}#{new_value_quote}"
+          end
+        else
+          # パターンにマッチしない行はそのまま
+          line
+        end
+      end.join("\n")
     end
 
     def write_yaml_with_flow_arrays(path, data)

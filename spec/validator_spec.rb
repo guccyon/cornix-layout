@@ -715,6 +715,42 @@ RSpec.describe Cornix::Validator do
       expect(validator.validate).to be true
     end
 
+    it 'detects invalid symbol characters (quote required symbols)' do
+      File.write("#{config_dir}/position_map.yaml", YAML.dump({
+        'left_hand' => {
+          'row0' => ['LT1', 'LT2'],
+          'row1' => ["'", 'LT3']  # Single quote requires YAML quotes
+        },
+        'right_hand' => {
+          'row0' => ['RT1', 'RT2']
+        },
+        'thumb_keys' => {
+          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
+          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+        }
+      }))
+
+      expect(validator.validate).to be false
+    end
+
+    it 'accepts valid symbols (alphanumeric, underscore, hyphen)' do
+      File.write("#{config_dir}/position_map.yaml", YAML.dump({
+        'left_hand' => {
+          'row0' => ['LT1', 'key-2', 'key_3'],
+          'row1' => ['ABC123', 'test-key', 'test_key']
+        },
+        'right_hand' => {
+          'row0' => ['RT1', 'RT2']
+        },
+        'thumb_keys' => {
+          'left' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'],
+          'right' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+        }
+      }))
+
+      expect(validator.validate).to be true
+    end
+
     it 'warns when position_map.yaml is missing' do
       FileUtils.rm_f("#{config_dir}/position_map.yaml")
 

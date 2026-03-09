@@ -74,10 +74,10 @@ module Cornix
         return { type: :legacy_tap_dance, value: keycode_str }
       end
 
-      # Pattern 3: Modifier expressions - Cmd + Q, Shift + Ctrl + A, Shift + "="
+      # Pattern 3: Modifier expressions - Cmd + Q, Shift + Ctrl + A, Shift + "=", Shift + ]
       # Must come before generic function pattern to avoid false positives
-      # Support: word characters, quoted strings (", '), and special chars
-      if keycode_str.match?(/^(\w+)(\s*\+\s*(?:\w+|"[^"]*"|'[^']*'))+$/)
+      # Support: word characters, quoted strings (", '), and unquoted special chars
+      if keycode_str.match?(/^(\w+)(\s*\+\s*(?:\w+|"[^"]*"|'[^']*'|[^\s+]))+$/)
         return parse_modifier_expression(keycode_str)
       end
 
@@ -120,7 +120,7 @@ module Cornix
       { type: :alias, value: keycode_str }
     end
 
-    # Parse modifier expression (e.g., "Cmd + Q", "Shift + Ctrl + A", "Shift + '='")
+    # Parse modifier expression (e.g., "Cmd + Q", "Shift + Ctrl + A", "Shift + '='", "Shift + ]")
     #
     # @param expr [String] The modifier expression string
     # @return [Hash] Structured token with modifiers and key
@@ -137,11 +137,14 @@ module Cornix
           if !in_string
             in_string = true
             string_char = char
+            current_part << char
           elsif char == string_char
             in_string = false
             string_char = nil
+            current_part << char
+          else
+            current_part << char
           end
-          current_part << char
 
         when '+'
           if in_string
@@ -162,8 +165,8 @@ module Cornix
       modifiers = parts[0..-2]
       key = parts[-1]
 
-      # Strip quotes from key if present
-      if key.match?(/^["'](.*)["']$/)
+      # Strip quotes from key if present (both single and double quotes)
+      if key.match?(/^(["'])(.*)\1$/)
         key = key[1..-2]
       end
 

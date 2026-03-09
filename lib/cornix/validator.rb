@@ -440,6 +440,13 @@ module Cornix
             @errors << "position_map.yaml: Duplicate symbol '#{symbol}' at: #{locations.join(', ')}"
           end
         end
+
+        # シンボル名がYAMLクォート不要な文字のみで構成されているかチェック
+        symbol_locations.keys.each do |symbol|
+          unless valid_position_symbol?(symbol)
+            @errors << "position_map.yaml: Invalid symbol '#{symbol}' - only alphanumeric characters, underscores, and hyphens are allowed (YAML quote-free symbols only)"
+          end
+        end
       rescue StandardError => e
         @errors << "position_map.yaml: Error reading file: #{e.message}"
       end
@@ -581,6 +588,13 @@ module Cornix
     def valid_modifier?(modifier)
       # Check if modifier name is recognized by ModifierExpressionCompiler
       Cornix::ModifierExpressionCompiler::MODIFIER_TO_FUNCTION.key?(modifier)
+    end
+
+    def valid_position_symbol?(symbol)
+      # Position map symbols must be quote-free in YAML
+      # Only alphanumeric characters, underscores, and hyphens are allowed
+      # This prevents symbols like "'", ";", "-" (standalone), etc.
+      symbol.match?(/^[a-zA-Z0-9_-]+$/)
     end
 
     def validate_position_references

@@ -1,5 +1,46 @@
 # Cornix Keyboard Layout Manager - Development Guide
 
+## Recent Changes
+
+### v2.0 - 階層化レイヤーYAML構造への移行 (2026-03-10)
+
+**Breaking Change**: レイヤーYAMLファイルとposition_mapの構造が階層化されました。
+
+**主な変更**:
+1. **シンボル名の簡略化**
+   - 親指キー: `l_thumb_left` → `left`, `r_thumb_middle` → `middle`
+   - エンコーダー: `l_rotary_push` → `push`, `r_rotary_ccw` → `ccw`
+
+2. **階層パスによる一意性保証**
+   - 例：`left_hand.thumb_keys.left`, `encoders.left.push`
+   - 冗長なプレフィックス（`l_`, `r_`）が不要になりました
+
+3. **レイヤーファイルの階層構造**
+   ```yaml
+   # Before (v1.x)
+   mapping:
+     l_thumb_left: Space
+     r_rotary_push: KC_MUTE
+
+   # After (v2.0)
+   mapping:
+     left_hand:
+       thumb_keys:
+         left: Space
+     encoders:
+       right:
+         push: KC_MUTE
+   ```
+
+4. **影響範囲**
+   - 全コアファイル: compiler.rb, decompiler.rb, position_map.rb, validator.rb
+   - 全テストスイート: 493テスト対応完了
+   - Round-trip check: 完全互換性維持
+
+**Migration**: 既存の設定は`cornix decompile`で自動的に新形式に変換されます。
+
+---
+
 ## Development Instructions
 
 **重要**: 作業完了時には、得られた知見やシステムのコンテキストを必ず `.claude/` ディレクトリに記録すること。
@@ -865,35 +906,41 @@ E: Cmd + Q               # 修飾キー表現（推奨）
 - ユーザーは`config/position_map.yaml`でシンボル名をカスタマイズ可能
 - Decompilerはテンプレートから生成（`layout.vil`の実データではない）
 
-**構造**:
+**構造（v2.0以降）**:
 ```yaml
 left_hand:
   row0: [tab, Q, W, E, R, T]           # 6要素
   row1: [caps, A, S, D, F, G]          # 6要素
   row2: [lshift, Z, X, C, V, B]        # 6要素
   row3: [lctrl, command, option]       # 3要素（標準グリッドキーのみ）
-  thumb_keys: [l_thumb_left, l_thumb_middle, l_thumb_right]  # row3の直後
+  thumb_keys: [left, middle, right]    # 簡略化されたシンボル名
 right_hand:
   row0: [Y, U, I, O, P, backspace]     # 6要素
   row1: [H, J, K, L, colon, enter]     # 6要素
   row2: [N, M, comma, dot, up, rshift] # 6要素
   row3: [left, down, right]            # 3要素（標準グリッドキーのみ）
-  thumb_keys: [r_thumb_left, r_thumb_middle, r_thumb_right]  # row3の直後
+  thumb_keys: [left, middle, right]    # 簡略化されたシンボル名
 encoders:
   left:
-    push: l_rotary_push
-    ccw: l_rotary_ccw
-    cw: l_rotary_cw
+    push: push     # 簡略化されたシンボル名
+    ccw: ccw
+    cw: cw
   right:
-    push: r_rotary_push
-    ccw: r_rotary_ccw
-    cw: r_rotary_cw
+    push: push
+    ccw: ccw
+    cw: cw
 ```
+
+**重要な変更（v2.0）**:
+- シンボル名の簡略化：`l_thumb_left` → `left`, `l_rotary_push` → `push`
+- 階層パスによる一意性保証：`left_hand.thumb_keys.left`, `encoders.left.push`
+- 冗長なプレフィックス（`l_`, `r_`）が不要になりました
 
 **設計理由**:
 - 親指キーは物理的にキーボードの一部であり、左手・右手それぞれのセクション内に配置
 - row3の直後に配置することで、物理的な配置と構造が一致
 - エンコーダーは明確にキーと異なる位置にあるため、別グループで維持
+- 階層構造により、同じシンボル名（`left`, `push`等）を異なるコンテキストで再利用可能
 
 
 **ハードウェアマッピング**:
@@ -906,9 +953,9 @@ encoders:
 - Row 0-2: Cols 0-5（標準6要素、逆順なし）
 - Row 3, Cols 0-2: 標準グリッドキー（`lctrl`, `command`, `option`）
 - Row 3, Cols 3-5: 親指キー（順序通り）
-  - Col 3: `l_thumb_left`
-  - Col 4: `l_thumb_middle`
-  - Col 5: `l_thumb_right`
+  - Col 3: `left` (v2.0: 旧`l_thumb_left`)
+  - Col 4: `middle` (v2.0: 旧`l_thumb_middle`)
+  - Col 5: `right` (v2.0: 旧`l_thumb_right`)
 
 **右手（Row 4-7、ハードウェアではRow 0-3に対応）**:
 - Row 0-2: Cols 0-5（標準6要素、**逆順処理あり**: `5 - col_idx`）
@@ -917,9 +964,9 @@ encoders:
   - Col 1: `down`
   - Col 2: `left`
 - Row 3, Cols 3-5: 親指キー（**逆順処理あり**: `5 - col_idx`）
-  - Col 5: `r_thumb_left`
-  - Col 4: `r_thumb_middle`
-  - Col 3: `r_thumb_right`
+  - Col 5: `left` (v2.0: 旧`r_thumb_left`)
+  - Col 4: `middle` (v2.0: 旧`r_thumb_middle`)
+  - Col 3: `right` (v2.0: 旧`r_thumb_right`)
 
 **重要**: 右手は全行で逆順処理が適用されます。これはCornixキーボードのハードウェア特性です。
 
@@ -972,7 +1019,8 @@ def extract_base_layer(dir, layer_data, encoder_data)
     end
   end
 
-  # エンコーダー
+  # エンコーダー（階層構造で参照）
+  # v2.0以降: 階層パスで参照（encoders.left.push, encoders.right.cw等）
   mapping['l_rotary_push'] = resolve_to_alias(layer_data[2][6])
   mapping['l_rotary_ccw'] = resolve_to_alias(encoder_data[0][0])
   mapping['l_rotary_cw'] = resolve_to_alias(encoder_data[0][1])
@@ -981,6 +1029,7 @@ def extract_base_layer(dir, layer_data, encoder_data)
   mapping['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1])
 
   # 親指キー（left_hand/right_hand内のthumb_keysとして処理）
+  # v2.0以降: シンボル名は簡略化（left, middle, right）、階層パスで一意性保証
   # 左手親指キー（Row 3, Cols 3-5、順序通り）
   @position_map_template['left_hand']['thumb_keys'].each_with_index do |symbol, idx|
     col_idx = 3 + idx
@@ -998,6 +1047,7 @@ end
 
 def extract_override_layer(dir, index, layer_data, encoder_data)
   # エンコーダープッシュボタンの差分も検出（重要）
+  # v2.0以降: 階層構造のYAMLファイルに出力
   l_push_keycode = layer_data[2][6]
   l_push_base = base_layer[2][6]
   if l_push_keycode != l_push_base && l_push_keycode != -1

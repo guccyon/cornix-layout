@@ -1163,34 +1163,109 @@ aliases:
 
 ### レイヤーファイルでの使用例
 
+**階層構造形式**（v2.0以降）：
+
 ```yaml
-# config/layers/1_symbol.yaml
+# config/layers/0_base.yaml
+name: Base Layer
+description: Default base layer
+mapping:
+  left_hand:
+    row0:
+      tab: Tab
+      Q: Q
+      W: W
+      E: E
+      R: R
+      T: T
+    row1:
+      caps: Escape                    # Caps LockをEscapeに変更
+      A: LCTL_T(A)                    # 長押しでCtrl、タップでA
+      S: S
+      D: D
+      F: F
+      G: G
+    row2:
+      lshift: LShift
+      Z: Z
+      X: X
+      C: C
+      V: V
+      B: B
+    row3:
+      lctrl: LCtrl
+      command: LCmd
+      option: LAlt
+    thumb_keys:
+      left: LGUI_T(KC_LANG2)          # 左親指・左: 長押しでGUI、タップでLANG2
+      middle: LT(1, Space)            # 左親指・中央: 長押しでレイヤー1、タップでSpace
+      right: LT(2, Escape)            # 左親指・右: 長押しでレイヤー2、タップでEscape
+  right_hand:
+    row0:
+      Y: Y
+      U: U
+      I: I
+      O: O
+      P: P
+      backspace: Backspace
+    row1:
+      H: H
+      J: J
+      K: K
+      L: L
+      colon: Colon
+      enter: Enter
+    row2:
+      N: N
+      M: M
+      comma: Comma
+      dot: Dot
+      up: Up
+      rshift: RShift
+    row3:
+      left: Left
+      down: Down
+      right: Right
+    thumb_keys:
+      left: LT(2, Enter)              # 右親指・左: 長押しでレイヤー2、タップでEnter
+      middle: MO(1)                   # 右親指・中央: 押している間レイヤー1
+      right: LT(3, KC_LANG1)          # 右親指・右: 長押しでレイヤー3、タップでLANG1
+  encoders:
+    left:
+      push: KC_MUTE
+      ccw: KC_VOLD
+      cw: KC_VOLU
+    right:
+      push: KC_MPLY
+      ccw: KC_MPRV
+      cw: KC_MNXT
+
+# config/layers/1_symbol.yaml（オーバーライドレイヤー）
+name: Symbol Layer
+description: Symbols and numbers
 overrides:
-  # 基本的なキー
-  Q: LShift
-  W: Space
-
-  # レイヤー切り替え
-  fn: MO(1)                    # 押している間レイヤー1
-  raise: TG(2)                 # レイヤー2をトグル
-
-  # Mod-Tap (長押しで修飾キー、タップで通常キー)
-  A: LCTL_T(A)                # 長押しでCtrl、タップでA
-
-  # レイヤータップ
-  space: LT(1, Space)         # 長押しでレイヤー1、タップでSpace
-
-  # 親指キー（position_map.yaml の left_hand/right_hand 内 thumb_keys で定義）
-  l_thumb_left: LGUI_T(KC_LANG2)    # 左親指・左: 長押しでGUI、タップでLANG2
-  l_thumb_middle: LT(1, Space)      # 左親指・中央: 長押しでレイヤー1、タップでSpace
-  l_thumb_right: LT(2, Escape)      # 左親指・右: 長押しでレイヤー2、タップでEscape
-  r_thumb_left: LT(2, Enter)        # 右親指・左: 長押しでレイヤー2、タップでEnter
-  r_thumb_middle: MO(1)             # 右親指・中央: 押している間レイヤー1
-  r_thumb_right: LT(3, KC_LANG1)    # 右親指・右: 長押しでレイヤー3、タップでLANG1
-
-  # 透過キー（下のレイヤーを通す）
-  B: Trans                    # または Transparent, ___
+  left_hand:
+    row0:
+      Q: "1"                          # 数字行
+      W: "2"
+      E: "3"
+    row1:
+      A: "!"                          # シンボル
+      S: "@"
+      D: "#"
+  right_hand:
+    row0:
+      Y: LSFT(9)                      # LSFT(9) = (
+      U: LSFT(0)                      # LSFT(0) = )
+  encoders:
+    left:
+      push: Trans                     # 透過（ベースレイヤーの設定を使用）
 ```
+
+**重要な変更点**:
+- シンボル名が簡略化されました（`l_thumb_left` → `left`, `l_rotary_push` → `push`）
+- 階層パスで一意性を保証（`left_hand.thumb_keys.left`, `encoders.left.push`）
+- `encoders`セクションは`mapping`内に配置されます
 
 **注意**: `decompile`で生成されるファイルは自動的にエイリアス形式を使用しますが、手動で`KC_A`や`Transparent`などを記述しても動作します（compile時に同等に扱われます）。
 
@@ -1237,24 +1312,24 @@ left_hand:
   row1: [caps, A, S, D, F, G]         # 6要素
   row2: [lshift, Z, X, C, V, B]       # 6要素
   row3: [lctrl, command, option]      # 3要素（標準グリッドキーのみ）
-  thumb_keys: [l_thumb_left, l_thumb_middle, l_thumb_right]  # row3の直後
+  thumb_keys: [left, middle, right]   # row3の直後（簡略化されたシンボル名）
 
 right_hand:
   row0: [Y, U, I, O, P, backspace]    # 6要素
   row1: [H, J, K, L, colon, enter]    # 6要素
   row2: [N, M, comma, dot, up, rshift]# 6要素
   row3: [left, down, right]           # 3要素（標準グリッドキーのみ）
-  thumb_keys: [r_thumb_left, r_thumb_middle, r_thumb_right]  # row3の直後
+  thumb_keys: [left, middle, right]   # row3の直後（簡略化されたシンボル名）
 
 encoders:
   left:
-    push: l_rotary_push
-    ccw: l_rotary_ccw
-    cw: l_rotary_cw
+    push: push    # 簡略化されたシンボル名（階層パスで一意性を保証）
+    ccw: ccw
+    cw: cw
   right:
-    push: r_rotary_push
-    ccw: r_rotary_ccw
-    cw: r_rotary_cw
+    push: push
+    ccw: ccw
+    cw: cw
 ```
 
 ### キーの配列順序と構造
@@ -1272,13 +1347,25 @@ encoders:
 - `left_hand`/`right_hand`内の`thumb_keys`として定義（左右各3キー）
 - 物理的には`row3`の後半（cols 3-5）に配置されますが、論理的には各ハンド内の独立したセクションとして扱います
 - row3の直後に配置されることで、物理的な配置と構造が一致します
-- レイヤーファイルでは`l_thumb_left`, `r_thumb_middle`などのシンボル名で参照します
+- シンボル名は簡略化されています（`left`, `middle`, `right`）
+- レイヤーファイルでは階層パスで参照します：
+  - 左親指キー: `left_hand.thumb_keys.left`, `left_hand.thumb_keys.middle`, `left_hand.thumb_keys.right`
+  - 右親指キー: `right_hand.thumb_keys.left`, `right_hand.thumb_keys.middle`, `right_hand.thumb_keys.right`
 
 **エンコーダー**:
 - ロータリーエンコーダーのプッシュボタンと回転は `encoders` セクションで別途定義されます
 - キーとは明確に異なる位置にあるため、独立したセクションとして維持されます
+- シンボル名は簡略化されています（`push`, `ccw`, `cw`）
+- レイヤーファイルでは階層パスで参照します：
+  - 左エンコーダー: `encoders.left.push`, `encoders.left.ccw`, `encoders.left.cw`
+  - 右エンコーダー: `encoders.right.push`, `encoders.right.ccw`, `encoders.right.cw`
 
-このマッピングにより、レイヤーファイルで `Q` や `A`、`l_thumb_left` などの直感的な名前でキーを参照できます。
+**階層パスによる一意性保証**:
+- v2.0以降、シンボル名は階層パス全体で一意性が保証されます
+- 例：`left_hand.thumb_keys.left` と `right_hand.thumb_keys.left` は異なるキーとして認識されます
+- これにより、シンボル名の冗長なプレフィックス（`l_`, `r_`等）が不要になりました
+
+このマッピングにより、レイヤーファイルで直感的な階層構造でキーを参照できます。
 
 ## マクロで使用可能なアクション
 

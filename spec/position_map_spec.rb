@@ -19,10 +19,10 @@ RSpec.describe Cornix::PositionMap do
       end
 
       it 'returns encoder symbols correctly' do
-        # l_rotary_push should not be in normal position
-        # It's handled separately in the compiler
+        # encoder push should be in normal position (row2, col6)
+        # But now returns simple name 'push' instead of 'l_rotary_push'
         result = position_map.symbol_at(:left, 2, 6)
-        expect(result).to be_nil.or eq('l_rotary_push')
+        expect(result).to eq('push')
       end
     end
 

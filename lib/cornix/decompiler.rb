@@ -261,15 +261,15 @@ module Cornix
       encoders = {}
 
       encoders['left'] = {
-        'l_rotary_push' => resolve_to_alias(layer_data[2][6]),
-        'l_rotary_ccw' => resolve_to_alias(encoder_data[0][0]),
-        'l_rotary_cw' => resolve_to_alias(encoder_data[0][1])
+        'push' => resolve_to_alias(layer_data[2][6]),
+        'ccw' => resolve_to_alias(encoder_data[0][0]),
+        'cw' => resolve_to_alias(encoder_data[0][1])
       }
 
       encoders['right'] = {
-        'r_rotary_push' => resolve_to_alias(layer_data[5][6]),
-        'r_rotary_ccw' => resolve_to_alias(encoder_data[1][0]),
-        'r_rotary_cw' => resolve_to_alias(encoder_data[1][1])
+        'push' => resolve_to_alias(layer_data[5][6]),
+        'ccw' => resolve_to_alias(encoder_data[1][0]),
+        'cw' => resolve_to_alias(encoder_data[1][1])
       }
 
       encoders
@@ -446,9 +446,9 @@ module Cornix
       end
 
       if left_has_diff
-        left_encoder_diff['l_rotary_push'] = resolve_to_alias(l_push) if l_push != l_push_base && l_push != -1
-        left_encoder_diff['l_rotary_ccw'] = resolve_to_alias(encoder_data[0][0]) if encoder_data[0][0] != base_encoder[0][0]
-        left_encoder_diff['l_rotary_cw'] = resolve_to_alias(encoder_data[0][1]) if encoder_data[0][1] != base_encoder[0][1]
+        left_encoder_diff['push'] = resolve_to_alias(l_push) if l_push != l_push_base && l_push != -1
+        left_encoder_diff['ccw'] = resolve_to_alias(encoder_data[0][0]) if encoder_data[0][0] != base_encoder[0][0]
+        left_encoder_diff['cw'] = resolve_to_alias(encoder_data[0][1]) if encoder_data[0][1] != base_encoder[0][1]
         diff['left'] = left_encoder_diff unless left_encoder_diff.empty?
       end
 
@@ -470,9 +470,9 @@ module Cornix
       end
 
       if right_has_diff
-        right_encoder_diff['r_rotary_push'] = resolve_to_alias(r_push) if r_push != r_push_base && r_push != -1
-        right_encoder_diff['r_rotary_ccw'] = resolve_to_alias(encoder_data[1][0]) if encoder_data[1][0] != base_encoder[1][0]
-        right_encoder_diff['r_rotary_cw'] = resolve_to_alias(encoder_data[1][1]) if encoder_data[1][1] != base_encoder[1][1]
+        right_encoder_diff['push'] = resolve_to_alias(r_push) if r_push != r_push_base && r_push != -1
+        right_encoder_diff['ccw'] = resolve_to_alias(encoder_data[1][0]) if encoder_data[1][0] != base_encoder[1][0]
+        right_encoder_diff['cw'] = resolve_to_alias(encoder_data[1][1]) if encoder_data[1][1] != base_encoder[1][1]
         diff['right'] = right_encoder_diff unless right_encoder_diff.empty?
       end
 

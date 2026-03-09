@@ -38,14 +38,18 @@ RSpec.describe Cornix::FileRenamer do
         'row1' => [nil, nil, nil, nil, nil, nil, nil],
         'row2' => [nil, nil, nil, nil, nil, nil, nil],
         'row3' => [nil, nil, nil, nil, nil, nil, nil],
-        'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
+        'thumb_keys' => ['left', 'middle', 'right']
       },
       'right_hand' => {
         'row0' => [nil, nil, nil, nil, nil, nil, nil],
         'row1' => [nil, nil, nil, nil, nil, nil, nil],
         'row2' => [nil, nil, nil, nil, nil, nil, nil],
         'row3' => [nil, nil, nil, nil, nil, nil, nil],
-        'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+        'thumb_keys' => ['left', 'middle', 'right']
+      },
+      'encoders' => {
+        'left' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' },
+        'right' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' }
       }
     }))
 
@@ -58,10 +62,17 @@ RSpec.describe Cornix::FileRenamer do
     File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
       'index' => 0,
       'name' => 'Base',
-      'mapping' => {},
-      'encoders' => {
-        'left' => { 'cw' => 'KC_VOLU', 'ccw' => 'KC_VOLD' },
-        'right' => { 'cw' => 'KC_VOLU', 'ccw' => 'KC_VOLD' }
+      'mapping' => {
+        'left_hand' => {
+          'row0' => {}, 'row1' => {}, 'row2' => {}, 'row3' => {}, 'thumb_keys' => {}
+        },
+        'right_hand' => {
+          'row0' => {}, 'row1' => {}, 'row2' => {}, 'row3' => {}, 'thumb_keys' => {}
+        },
+        'encoders' => {
+          'left' => { 'cw' => 'KC_VOLU', 'ccw' => 'KC_VOLD', 'push' => 'KC_MUTE' },
+          'right' => { 'cw' => 'KC_VOLU', 'ccw' => 'KC_VOLD', 'push' => 'KC_MPLY' }
+        }
       }
     }))
   end

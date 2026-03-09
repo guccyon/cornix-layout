@@ -174,7 +174,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         # Update layer to use name-based reference
         layer_path = "#{temp_config}/layers/0_base.yml"
         layer_data = YAML.load_file(layer_path)
-        layer_data['mapping']['tab'] = "Macro('#{macro_name}')"  # Use existing position
+        layer_data['mapping']['left_hand']['row0']['tab'] = "Macro('#{macro_name}')"  # Hierarchical structure
         File.write(layer_path, YAML.dump(layer_data))
 
         compiler = Cornix::Compiler.new(temp_config)
@@ -202,7 +202,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         # Update layer to use name-based reference
         layer_path = "#{temp_config}/layers/0_base.yml"
         layer_data = YAML.load_file(layer_path)
-        layer_data['mapping']['Q'] = "TapDance('#{td_name}')"  # Use existing position
+        layer_data['mapping']['left_hand']['row0']['Q'] = "TapDance('#{td_name}')"  # Hierarchical structure
         File.write(layer_path, YAML.dump(layer_data))
 
         compiler = Cornix::Compiler.new(temp_config)
@@ -226,8 +226,8 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         # Update layer to use index-based references
         layer_path = "#{temp_config}/layers/0_base.yml"
         layer_data = YAML.load_file(layer_path)
-        layer_data['mapping']['tab'] = 'Macro(0)'
-        layer_data['mapping']['Q'] = 'Macro(1)'
+        layer_data['mapping']['left_hand']['row0']['tab'] = 'Macro(0)'
+        layer_data['mapping']['left_hand']['row0']['Q'] = 'Macro(1)'
         File.write(layer_path, YAML.dump(layer_data))
 
         compiler = Cornix::Compiler.new(temp_config)
@@ -249,8 +249,8 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         # Update layer to use index-based references
         layer_path = "#{temp_config}/layers/0_base.yml"
         layer_data = YAML.load_file(layer_path)
-        layer_data['mapping']['W'] = 'TapDance(0)'
-        layer_data['mapping']['E'] = 'TapDance(1)'
+        layer_data['mapping']['left_hand']['row0']['W'] = 'TapDance(0)'
+        layer_data['mapping']['left_hand']['row0']['E'] = 'TapDance(1)'
         File.write(layer_path, YAML.dump(layer_data))
 
         compiler = Cornix::Compiler.new(temp_config)
@@ -274,8 +274,8 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         # Update layer to use legacy references
         layer_path = "#{temp_config}/layers/0_base.yml"
         layer_data = YAML.load_file(layer_path)
-        layer_data['mapping']['R'] = 'M0'
-        layer_data['mapping']['T'] = 'M1'
+        layer_data['mapping']['left_hand']['row0']['R'] = 'M0'
+        layer_data['mapping']['left_hand']['row0']['T'] = 'M1'
         File.write(layer_path, YAML.dump(layer_data))
 
         compiler = Cornix::Compiler.new(temp_config)
@@ -297,8 +297,8 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         # Update layer to use legacy references
         layer_path = "#{temp_config}/layers/0_base.yml"
         layer_data = YAML.load_file(layer_path)
-        layer_data['mapping']['Y'] = 'TD(0)'
-        layer_data['mapping']['U'] = 'TD(1)'
+        layer_data['mapping']['right_hand']['row0']['Y'] = 'TD(0)'
+        layer_data['mapping']['right_hand']['row0']['U'] = 'TD(1)'
         File.write(layer_path, YAML.dump(layer_data))
 
         compiler = Cornix::Compiler.new(temp_config)
@@ -373,12 +373,12 @@ RSpec.describe 'Compiler and Decompiler Integration' do
         # Update layer to use mixed reference formats
         layer_path = "#{temp_config}/layers/0_base.yml"
         layer_data = YAML.load_file(layer_path)
-        layer_data['mapping']['tab'] = "Macro('#{macro0['name']}')"  # name-based
+        layer_data['mapping']['left_hand']['row0']['tab'] = "Macro('#{macro0['name']}')"  # name-based
         layer_data['mapping']['Q'] = 'Macro(1)'                      # index-based
-        layer_data['mapping']['W'] = 'M2'                            # legacy
-        layer_data['mapping']['E'] = "TapDance('#{td0['name']}')"   # name-based
-        layer_data['mapping']['R'] = 'TapDance(1)'                   # index-based
-        layer_data['mapping']['T'] = 'TD(2)'                         # legacy
+        layer_data['mapping']['left_hand']['row0']['W'] = 'M2'                            # legacy
+        layer_data['mapping']['left_hand']['row0']['E'] = "TapDance('#{td0['name']}')"   # name-based
+        layer_data['mapping']['left_hand']['row0']['R'] = 'TapDance(1)'                   # index-based
+        layer_data['mapping']['left_hand']['row0']['T'] = 'TD(2)'                         # legacy
         File.write(layer_path, YAML.dump(layer_data))
 
         # Compile
@@ -421,9 +421,9 @@ RSpec.describe 'Compiler and Decompiler Integration' do
       # Update layer to use modifier expressions
       layer_path = "#{temp_config}/layers/0_base.yml"
       layer_data = YAML.load_file(layer_path)
-      layer_data['mapping']['tab'] = 'Cmd + Q'
-      layer_data['mapping']['Q'] = 'Shift + Cmd + W'
-      layer_data['mapping']['W'] = 'Ctrl + Shift + Alt + E'
+      layer_data['mapping']['left_hand']['row0']['tab'] = 'Cmd + Q'
+      layer_data['mapping']['left_hand']['row0']['Q'] = 'Shift + Cmd + W'
+      layer_data['mapping']['left_hand']['row0']['W'] = 'Ctrl + Shift + Alt + E'
       File.write(layer_path, YAML.dump(layer_data))
 
       # Compile
@@ -448,7 +448,7 @@ RSpec.describe 'Compiler and Decompiler Integration' do
       # Update layer to use modifier expressions
       layer_path = "#{temp_config}/layers/0_base.yml"
       layer_data = YAML.load_file(layer_path)
-      layer_data['mapping']['tab'] = 'Cmd + Q'
+      layer_data['mapping']['left_hand']['row0']['tab'] = 'Cmd + Q'
       File.write(layer_path, YAML.dump(layer_data))
 
       # Compile

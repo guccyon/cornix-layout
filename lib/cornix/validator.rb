@@ -69,12 +69,24 @@ module Cornix
           if %w[left_hand right_hand].include?(key)
             # 階層構造: row0, row1, ..., thumb_keys の下のマッピング
             value.each do |row_key, row_data|
-              row_data.each { |symbol, keycode| flat[symbol] = keycode } if row_data.is_a?(Hash)
+              if row_data.is_a?(Hash)
+                row_data.each do |symbol, keycode|
+                  # 階層パスとして保存: "left_hand.thumb_keys.left"
+                  path = "#{key}.#{row_key}.#{symbol}"
+                  flat[path] = keycode
+                end
+              end
             end
           elsif key == 'encoders'
             # encoders のみ left/right 構造を持つ
             value.each do |side, side_data|
-              side_data.each { |symbol, keycode| flat[symbol] = keycode } if side_data.is_a?(Hash)
+              if side_data.is_a?(Hash)
+                side_data.each do |action, keycode|
+                  # 階層パスとして保存: "encoders.left.push"
+                  path = "encoders.#{side}.#{action}"
+                  flat[path] = keycode
+                end
+              end
             end
           else
             # フラット構造の直接マッピング（レガシー互換性）
@@ -444,11 +456,13 @@ module Cornix
         end
 
         # 重複しているシンボルを報告
-        symbol_locations.each do |symbol, locations|
-          if locations.size > 1
-            @errors << "position_map.yaml: Duplicate symbol '#{symbol}' at: #{locations.join(', ')}"
-          end
-        end
+        # Note: 階層構造では同じシンボル名が異なるパスで使用されることは有効
+        # 例: left_hand.thumb_keys.left と right_hand.row3.left は異なるパス
+        # symbol_locations.each do |symbol, locations|
+        #   if locations.size > 1
+        #     @errors << "position_map.yaml: Duplicate symbol '#{symbol}' at: #{locations.join(', ')}"
+        #   end
+        # end
 
         # シンボル名がYAMLクォート不要な文字のみで構成されているかチェック
         symbol_locations.keys.each do |symbol|
@@ -654,35 +668,44 @@ module Cornix
     end
 
     def extract_all_symbols(position_map)
-      symbols = []
+      paths = []
 
-      # position_map.yamlから直接シンボルを抽出（親指キーも含む）
+      # position_map.yamlから階層パスを抽出
       position_map_path = "#{@config_dir}/position_map.yaml"
       if File.exist?(position_map_path)
         begin
           position_map_data = YAML.load_file(position_map_path)
 
-          # 左手と右手の全シンボルを抽出（row0, row1, ..., thumb_keys）
+          # 左手と右手の全階層パスを抽出（row0, row1, ..., thumb_keys）
           ['left_hand', 'right_hand'].each do |hand|
             if position_map_data[hand]
               position_map_data[hand].each do |row_key, row_data|
                 if row_data.is_a?(Array)
-                  symbols.concat(row_data.compact.reject(&:empty?))
+                  row_data.each do |symbol|
+                    next if symbol.nil? || symbol.to_s.empty?
+                    paths << "#{hand}.#{row_key}.#{symbol}"
+                  end
                 elsif row_data.is_a?(Hash)
-                  symbols.concat(row_data.values.compact.reject(&:empty?).map(&:to_s))
+                  # 親指キーのような構造
+                  row_data.each do |key, symbol|
+                    next if symbol.nil? || symbol.to_s.empty?
+                    paths << "#{hand}.#{row_key}.#{symbol}"
+                  end
                 end
               end
             end
           end
 
-          # エンコーダーシンボルも抽出
+          # エンコーダー階層パスも抽出
           if position_map_data['encoders']
             ['left', 'right'].each do |side|
               if position_map_data['encoders'][side]
                 encoder = position_map_data['encoders'][side]
-                symbols << encoder['push'] if encoder['push']
-                symbols << encoder['ccw'] if encoder['ccw']
-                symbols << encoder['cw'] if encoder['cw']
+                ['push', 'ccw', 'cw'].each do |action|
+                  if encoder[action]
+                    paths << "encoders.#{side}.#{action}"
+                  end
+                end
               end
             end
           end
@@ -691,7 +714,7 @@ module Cornix
         end
       end
 
-      symbols.uniq
+      paths.uniq
     end
   end
 end

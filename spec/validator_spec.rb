@@ -27,17 +27,25 @@ RSpec.describe Cornix::Validator do
       'via_protocol' => 9
     }))
 
-    # Create valid position_map.yaml
+    # Create valid position_map.yaml with hierarchical structure
     File.write("#{config_dir}/position_map.yaml", YAML.dump({
       'left_hand' => {
-        'row0' => { 0 => 'LT1', 1 => 'LT2' },
-        'row1' => { 0 => 'LH1', 1 => 'LH2' },
-        'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
+        'row0' => ['LT1', 'LT2'],
+        'row1' => ['LH1', 'LH2'],
+        'row2' => [],
+        'row3' => [],
+        'thumb_keys' => ['left', 'middle', 'right']
       },
       'right_hand' => {
-        'row0' => { 0 => 'RT1', 1 => 'RT2' },
-        'row1' => { 0 => 'RH1', 1 => 'RH2' },
-        'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+        'row0' => ['RT1', 'RT2'],
+        'row1' => ['RH1', 'RH2'],
+        'row2' => [],
+        'row3' => [],
+        'thumb_keys' => ['left', 'middle', 'right']
+      },
+      'encoders' => {
+        'left' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' },
+        'right' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' }
       }
     }))
   end
@@ -52,12 +60,12 @@ RSpec.describe Cornix::Validator do
         # Create valid layer files
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => { 'LT1' => 'A', 'LT2' => 'B' }
+          'mapping' => hierarchical_mapping({ 'LT1' => 'A', 'LT2' => 'B' })
         }))
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => 'C' }
+          'overrides' => hierarchical_mapping({ 'LT1' => 'C' })
         }))
 
         # Create valid macro
@@ -229,7 +237,7 @@ RSpec.describe Cornix::Validator do
       it 'detects unknown macro references' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => "Macro('nonexistent')" }
+          'overrides' => hierarchical_mapping({ 'LT1' => "Macro('nonexistent')" })
         }))
 
         expect(validator.validate).to be false
@@ -238,7 +246,7 @@ RSpec.describe Cornix::Validator do
       it 'detects unknown tap dance references' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => "TapDance('nonexistent')" }
+          'overrides' => hierarchical_mapping({ 'LT1' => "TapDance('nonexistent')" })
         }))
 
         expect(validator.validate).to be false
@@ -253,7 +261,7 @@ RSpec.describe Cornix::Validator do
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => "Macro('test')" }
+          'overrides' => hierarchical_mapping({ 'LT1' => "Macro('test')" })
         }))
 
         expect(validator.validate).to be true
@@ -268,7 +276,7 @@ RSpec.describe Cornix::Validator do
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => "TapDance('test')" }
+          'overrides' => hierarchical_mapping({ 'LT1' => "TapDance('test')" })
         }))
 
         expect(validator.validate).to be true
@@ -277,7 +285,7 @@ RSpec.describe Cornix::Validator do
       it 'allows macro references by index' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => 'MACRO(0)' }
+          'overrides' => hierarchical_mapping({ 'LT1' => 'MACRO(0)' })
         }))
 
         # Index references are allowed even without defined macros
@@ -288,7 +296,7 @@ RSpec.describe Cornix::Validator do
       it 'allows tap dance references by index' do
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'LT1' => 'TD(0)' }
+          'overrides' => hierarchical_mapping({ 'LT1' => 'TD(0)' })
         }))
 
         # Index references are allowed even without defined tap dances
@@ -413,7 +421,7 @@ RSpec.describe Cornix::Validator do
     it 'passes with valid YAML files' do
       File.write("#{config_dir}/layers/0_valid.yaml", YAML.dump({
         'name' => 'Valid Layer',
-        'mapping' => { 'LT1' => 'A' }
+        'mapping' => hierarchical_mapping({ 'LT1' => 'A' })
       }))
 
       expect(validator.validate).to be true
@@ -499,10 +507,10 @@ RSpec.describe Cornix::Validator do
     it 'detects invalid keycodes in layers' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'InvalidKeycode',
           'LT2' => 'B'
-        }
+        })
       }))
 
       expect(validator.validate).to be false
@@ -511,10 +519,10 @@ RSpec.describe Cornix::Validator do
     it 'accepts valid QMK keycodes' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'KC_A',
           'LT2' => 'KC_TAB'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -523,11 +531,11 @@ RSpec.describe Cornix::Validator do
     it 'accepts valid aliases' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'A',
           'LT2' => 'Tab',
           'RT1' => 'Space'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -536,11 +544,11 @@ RSpec.describe Cornix::Validator do
     it 'accepts function-style keycodes with layer numbers' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'MO(1)',
           'LT2' => 'LT(2, Space)',
           'RT1' => 'TD(0)'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -549,10 +557,10 @@ RSpec.describe Cornix::Validator do
     it 'accepts modifier functions with keycodes' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'LSFT(A)',
           'LT2' => 'LCTL_T(Esc)'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -561,9 +569,9 @@ RSpec.describe Cornix::Validator do
     it 'detects invalid keycodes in function arguments' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'LSFT(InvalidKey)'
-        }
+        })
       }))
 
       expect(validator.validate).to be false
@@ -572,9 +580,9 @@ RSpec.describe Cornix::Validator do
     it 'accepts nested function calls' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'LT(1, LSFT(A))'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -585,10 +593,10 @@ RSpec.describe Cornix::Validator do
     it 'detects unknown position symbols in layers' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'UnknownSymbol' => 'A',
           'LT1' => 'B'
-        }
+        })
       }))
 
       expect(validator.validate).to be false
@@ -597,11 +605,11 @@ RSpec.describe Cornix::Validator do
     it 'accepts valid position symbols' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'A',
           'LT2' => 'B',
           'RT1' => 'C'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -612,7 +620,7 @@ RSpec.describe Cornix::Validator do
 
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => { 'LT1' => 'A' }
+        'mapping' => hierarchical_mapping({ 'LT1' => 'A' })
       }))
 
       # Capture output to check for warning
@@ -647,11 +655,11 @@ RSpec.describe Cornix::Validator do
         'left_hand' => {
           'row0' => ['LT1', 'LT2'],
           'row1' => ['LT1', 'LT3'],  # LT1が重複
-          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
+          'thumb_keys' => ['left', 'middle', 'right']
         },
         'right_hand' => {
           'row0' => ['RT1', 'RT2'],
-          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'thumb_keys' => ['left', 'middle', 'right']
         }
       }))
 
@@ -662,11 +670,11 @@ RSpec.describe Cornix::Validator do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
           'row0' => ['KEY1', 'LT2'],
-          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
+          'thumb_keys' => ['left', 'middle', 'right']
         },
         'right_hand' => {
           'row0' => ['KEY1', 'RT2'],  # KEY1が左手と重複
-          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'thumb_keys' => ['left', 'middle', 'right']
         }
       }))
 
@@ -678,12 +686,20 @@ RSpec.describe Cornix::Validator do
         'left_hand' => {
           'row0' => ['LT1', 'LT2'],
           'row1' => ['LH1', 'LH2'],
-          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
+          'row2' => [],
+          'row3' => [],
+          'thumb_keys' => ['left', 'middle', 'right']
         },
         'right_hand' => {
           'row0' => ['RT1', 'RT2'],
           'row1' => ['RH1', 'RH2'],
-          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row2' => [],
+          'row3' => [],
+          'thumb_keys' => ['left', 'middle', 'right']
+        },
+        'encoders' => {
+          'left' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' },
+          'right' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' }
         }
       }))
 
@@ -693,12 +709,22 @@ RSpec.describe Cornix::Validator do
     it 'ignores nil and empty symbols' do
       File.write("#{config_dir}/position_map.yaml", YAML.dump({
         'left_hand' => {
-          'row0' => { 0 => 'LT1', 1 => nil, 2 => '', 3 => 'LT2' },
-          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
+          'row0' => ['LT1', nil, '', 'LT2'],
+          'row1' => [],
+          'row2' => [],
+          'row3' => [],
+          'thumb_keys' => ['left', 'middle', 'right']
         },
         'right_hand' => {
-          'row0' => { 0 => 'RT1', 1 => nil },
-          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row0' => ['RT1', nil],
+          'row1' => [],
+          'row2' => [],
+          'row3' => [],
+          'thumb_keys' => ['left', 'middle', 'right']
+        },
+        'encoders' => {
+          'left' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' },
+          'right' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' }
         }
       }))
 
@@ -710,11 +736,20 @@ RSpec.describe Cornix::Validator do
         'left_hand' => {
           'row0' => ['LT1', 'LT2'],
           'row1' => ["'", 'LT3'],  # Single quote requires YAML quotes
-          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
+          'row2' => [],
+          'row3' => [],
+          'thumb_keys' => ['left', 'middle', 'right']
         },
         'right_hand' => {
           'row0' => ['RT1', 'RT2'],
-          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row1' => [],
+          'row2' => [],
+          'row3' => [],
+          'thumb_keys' => ['left', 'middle', 'right']
+        },
+        'encoders' => {
+          'left' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' },
+          'right' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' }
         }
       }))
 
@@ -726,11 +761,20 @@ RSpec.describe Cornix::Validator do
         'left_hand' => {
           'row0' => ['LT1', 'key-2', 'key_3'],
           'row1' => ['ABC123', 'test-key', 'test_key'],
-          'thumb_keys' => ['l_thumb_left', 'l_thumb_middle', 'l_thumb_right']
+          'row2' => [],
+          'row3' => [],
+          'thumb_keys' => ['left', 'middle', 'right']
         },
         'right_hand' => {
           'row0' => ['RT1', 'RT2'],
-          'thumb_keys' => ['r_thumb_left', 'r_thumb_middle', 'r_thumb_right']
+          'row1' => [],
+          'row2' => [],
+          'row3' => [],
+          'thumb_keys' => ['left', 'middle', 'right']
+        },
+        'encoders' => {
+          'left' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' },
+          'right' => { 'push' => 'push', 'ccw' => 'ccw', 'cw' => 'cw' }
         }
       }))
 
@@ -767,9 +811,9 @@ RSpec.describe Cornix::Validator do
 
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => "Macro('TestMacro')"
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -784,9 +828,9 @@ RSpec.describe Cornix::Validator do
 
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => "TapDance('TestTapDance')"
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -795,11 +839,11 @@ RSpec.describe Cornix::Validator do
       it 'validates index-based Macro references' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'Macro(0)',
             'LT2' => 'Macro(15)',
             'RT1' => 'Macro(31)'
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -808,11 +852,11 @@ RSpec.describe Cornix::Validator do
       it 'validates index-based TapDance references' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'TapDance(0)',
             'LT2' => 'TapDance(15)',
             'RT1' => 'TapDance(31)'
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -821,9 +865,9 @@ RSpec.describe Cornix::Validator do
       it 'detects invalid index out of range' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'Macro(32)'
-          }
+          })
         }))
 
         expect(validator.validate).to be false
@@ -832,9 +876,9 @@ RSpec.describe Cornix::Validator do
       it 'detects non-existent name references' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => "Macro('NonExistent')"
-          }
+          })
         }))
 
         expect(validator.validate).to be false
@@ -843,10 +887,10 @@ RSpec.describe Cornix::Validator do
       it 'validates legacy M0 format' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'M0',
             'LT2' => 'M15'
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -855,10 +899,10 @@ RSpec.describe Cornix::Validator do
       it 'validates legacy TD(0) format' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'TD(0)',
             'LT2' => 'TD(15)'
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -869,11 +913,11 @@ RSpec.describe Cornix::Validator do
       it 'validates nested function calls' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'LT(1, Space)',
             'LT2' => 'LSFT(Tab)',
             'RT1' => 'LCTL_T(Esc)'
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -882,11 +926,11 @@ RSpec.describe Cornix::Validator do
       it 'validates layer switching functions with numbers' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'MO(3)',
             'LT2' => 'TO(5)',
             'RT1' => 'OSL(7)'
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -895,9 +939,9 @@ RSpec.describe Cornix::Validator do
       it 'detects invalid function arguments' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'LSFT(InvalidAlias)'
-          }
+          })
         }))
 
         expect(validator.validate).to be false
@@ -908,11 +952,11 @@ RSpec.describe Cornix::Validator do
       it 'validates QMK keycodes with parser' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'KC_A',
             'LT2' => 'KC_TAB',
             'RT1' => 'KC_SPACE'
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -921,12 +965,12 @@ RSpec.describe Cornix::Validator do
       it 'validates aliases with parser' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'A',
             'LT2' => 'Tab',
             'RT1' => 'Space',
             'RT2' => 'Esc'
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -935,9 +979,9 @@ RSpec.describe Cornix::Validator do
       it 'detects invalid aliases' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 'NotAValidAlias'
-          }
+          })
         }))
 
         expect(validator.validate).to be false
@@ -946,10 +990,10 @@ RSpec.describe Cornix::Validator do
       it 'validates numbers as layer indices' do
         File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
           'name' => 'Base',
-          'mapping' => {
+          'mapping' => hierarchical_mapping({
             'LT1' => 1,
             'LT2' => 5
-          }
+          })
         }))
 
         expect(validator.validate).to be true
@@ -990,9 +1034,9 @@ RSpec.describe Cornix::Validator do
     it 'detects typo in reference function name and suggests correction' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => "Maacro('Bracket Pair')"  # Typo: Maacro -> Macro
-        }
+        })
       }))
 
       output = StringIO.new
@@ -1013,9 +1057,9 @@ RSpec.describe Cornix::Validator do
     it 'detects non-existent reference name and suggests similar names' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => "Macro('Bracket Pir')"  # Typo: Pir -> Pair
-        }
+        })
       }))
 
       output = StringIO.new
@@ -1036,9 +1080,9 @@ RSpec.describe Cornix::Validator do
     it 'suggests multiple similar names when available' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => "Macro('Bracket')"  # Similar to both "Bracket Pair" and "Curly Bracket Pair"
-        }
+        })
       }))
 
       output = StringIO.new
@@ -1060,9 +1104,9 @@ RSpec.describe Cornix::Validator do
     it 'detects typo "TapDannce"' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => "TapDannce('Layer Switch')"  # Typo: TapDannce -> TapDance
-        }
+        })
       }))
 
       output = StringIO.new
@@ -1083,9 +1127,9 @@ RSpec.describe Cornix::Validator do
     it 'detects completely non-existent macro name without similar names' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => "Macro('Xyz123')"  # Completely different name
-        }
+        })
       }))
 
       output = StringIO.new
@@ -1106,10 +1150,10 @@ RSpec.describe Cornix::Validator do
     it 'accepts valid reference with correct name' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => "Macro('Bracket Pair')",
           'LT2' => "TapDance('Layer Switch')"
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -1135,7 +1179,7 @@ RSpec.describe Cornix::Validator do
       # Use encoder symbols in layer
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'A',
           'l_rotary_push' => 'Enter',
           'l_rotary_ccw' => 'KC_VOLU',
@@ -1143,7 +1187,7 @@ RSpec.describe Cornix::Validator do
           'r_rotary_push' => 'Space',
           'r_rotary_ccw' => 'KC_PGUP',
           'r_rotary_cw' => 'KC_PGDN'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -1154,9 +1198,9 @@ RSpec.describe Cornix::Validator do
     it 'accepts valid simple modifier expression' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'Cmd + Q'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -1165,9 +1209,9 @@ RSpec.describe Cornix::Validator do
     it 'accepts valid two modifier expression' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'Shift + Cmd + Q'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -1176,9 +1220,9 @@ RSpec.describe Cornix::Validator do
     it 'accepts valid three modifier expression (MEH)' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'Ctrl + Shift + Alt + Q'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -1187,9 +1231,9 @@ RSpec.describe Cornix::Validator do
     it 'accepts modifier aliases' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'Command + Q'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -1198,9 +1242,9 @@ RSpec.describe Cornix::Validator do
     it 'accepts right-side modifiers' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'RShift + Q'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -1209,9 +1253,9 @@ RSpec.describe Cornix::Validator do
     it 'rejects invalid modifier name' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'InvalidMod + Q'
-        }
+        })
       }))
 
       expect(validator.validate).to be false
@@ -1220,9 +1264,9 @@ RSpec.describe Cornix::Validator do
     it 'accepts key aliases in modifier expressions' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'Cmd + Space'
-        }
+        })
       }))
 
       expect(validator.validate).to be true
@@ -1231,9 +1275,9 @@ RSpec.describe Cornix::Validator do
     it 'accepts KC_ prefixed keys in modifier expressions' do
       File.write("#{config_dir}/layers/0_base.yaml", YAML.dump({
         'name' => 'Base',
-        'mapping' => {
+        'mapping' => hierarchical_mapping({
           'LT1' => 'Cmd + KC_ENTER'
-        }
+        })
       }))
 
       expect(validator.validate).to be true

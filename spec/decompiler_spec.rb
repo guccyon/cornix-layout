@@ -81,11 +81,11 @@ RSpec.describe Cornix::Decompiler do
       expect(position_map['left_hand']).to have_key('row0')
       expect(position_map['left_hand']['row0']).to be_an(Array)
 
-      # Check thumb keys (now inside left_hand/right_hand)
+      # Check thumb keys (now inside left_hand/right_hand with simplified names)
       expect(position_map['left_hand']).to have_key('thumb_keys')
-      expect(position_map['left_hand']['thumb_keys']).to eq(['l_thumb_left', 'l_thumb_middle', 'l_thumb_right'])
+      expect(position_map['left_hand']['thumb_keys']).to eq(['left', 'middle', 'right'])
       expect(position_map['right_hand']).to have_key('thumb_keys')
-      expect(position_map['right_hand']['thumb_keys']).to eq(['r_thumb_left', 'r_thumb_middle', 'r_thumb_right'])
+      expect(position_map['right_hand']['thumb_keys']).to eq(['left', 'middle', 'right'])
     end
 
     it 'extracts QMK settings correctly' do
@@ -183,15 +183,15 @@ RSpec.describe Cornix::Decompiler do
       expect(mapping['left_hand']).to have_key('thumb_keys')
       expect(mapping['right_hand']).to have_key('thumb_keys')
 
-      # Should have all keys including encoders
+      # Should have all keys including encoders (with simplified names)
       expect(mapping['left_hand']['row0']).to have_key('tab')
       expect(mapping['left_hand']['row0']).to have_key('Q')
-      expect(mapping['encoders']['left']).to have_key('l_rotary_push')
-      expect(mapping['encoders']['left']).to have_key('l_rotary_ccw')
-      expect(mapping['encoders']['left']).to have_key('l_rotary_cw')
-      expect(mapping['encoders']['right']).to have_key('r_rotary_push')
-      expect(mapping['encoders']['right']).to have_key('r_rotary_ccw')
-      expect(mapping['encoders']['right']).to have_key('r_rotary_cw')
+      expect(mapping['encoders']['left']).to have_key('push')
+      expect(mapping['encoders']['left']).to have_key('ccw')
+      expect(mapping['encoders']['left']).to have_key('cw')
+      expect(mapping['encoders']['right']).to have_key('push')
+      expect(mapping['encoders']['right']).to have_key('ccw')
+      expect(mapping['encoders']['right']).to have_key('cw')
     end
 
     it 'extracts override layers with only differences' do

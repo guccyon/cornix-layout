@@ -1210,24 +1210,24 @@ left_hand:
   row1: [caps, A, S, D, F, G]         # 6 elements
   row2: [lshift, Z, X, C, V, B]       # 6 elements
   row3: [lctrl, command, option]      # 3 elements (standard grid keys only)
-  thumb_keys: [l_thumb_left, l_thumb_middle, l_thumb_right]  # immediately after row3
+  thumb_keys: [left, middle, right]   # simplified symbol names
 
 right_hand:
   row0: [Y, U, I, O, P, backspace]    # 6 elements
   row1: [H, J, K, L, colon, enter]    # 6 elements
   row2: [N, M, comma, dot, up, rshift]# 6 elements
   row3: [left, down, right]           # 3 elements (standard grid keys only)
-  thumb_keys: [r_thumb_left, r_thumb_middle, r_thumb_right]  # immediately after row3
+  thumb_keys: [left, middle, right]   # simplified symbol names
 
 encoders:
   left:
-    push: l_rotary_push
-    ccw: l_rotary_ccw
-    cw: l_rotary_cw
+    push: push    # simplified symbol names (uniqueness guaranteed by hierarchical path)
+    ccw: ccw
+    cw: cw
   right:
-    push: r_rotary_push
-    ccw: r_rotary_ccw
-    cw: r_rotary_cw
+    push: push
+    ccw: ccw
+    cw: cw
 ```
 
 ### Key Array Order and Structure
@@ -1245,13 +1245,25 @@ encoders:
 - Defined as `thumb_keys` within `left_hand`/`right_hand` sections (3 keys each)
 - Physically located in the latter half of `row3` (cols 3-5), but logically treated as an independent section within each hand
 - Placed immediately after row3, aligning the physical placement with the structure
-- Referenced in layer files with symbol names like `l_thumb_left`, `r_thumb_middle`, etc.
+- Symbol names are simplified (`left`, `middle`, `right`)
+- Referenced in layer files with hierarchical paths:
+  - Left thumb keys: `left_hand.thumb_keys.left`, `left_hand.thumb_keys.middle`, `left_hand.thumb_keys.right`
+  - Right thumb keys: `right_hand.thumb_keys.left`, `right_hand.thumb_keys.middle`, `right_hand.thumb_keys.right`
 
 **Encoders**:
 - Rotary encoder push buttons and rotations are defined separately in the `encoders` section
 - Kept as an independent section since they are clearly at a different physical location from keys
+- Symbol names are simplified (`push`, `ccw`, `cw`)
+- Referenced in layer files with hierarchical paths:
+  - Left encoder: `encoders.left.push`, `encoders.left.ccw`, `encoders.left.cw`
+  - Right encoder: `encoders.right.push`, `encoders.right.ccw`, `encoders.right.cw`
 
-This mapping allows you to reference keys with intuitive names like `Q`, `A`, or `l_thumb_left` in layer files.
+**Uniqueness Guaranteed by Hierarchical Paths**:
+- Since v2.0, symbol names are guaranteed unique by their full hierarchical path
+- Example: `left_hand.thumb_keys.left` and `right_hand.thumb_keys.left` are recognized as different keys
+- This eliminates the need for redundant prefixes (`l_`, `r_`, etc.) in symbol names
+
+This mapping allows you to reference keys with an intuitive hierarchical structure in layer files.
 
 ## Available Macro Actions
 

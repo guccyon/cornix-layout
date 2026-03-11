@@ -81,7 +81,7 @@ Decompilerクラスの機能テスト。
 
 ### 3. keycode_resolver_spec.rb (174行, 21テスト)
 
-KeycodeResolverクラスのエイリアス解決テスト。
+KeycodeConverterクラスのエイリアス解決テスト。
 
 **テスト項目**:
 - resolve (エイリアス → QMK):
@@ -230,7 +230,7 @@ bundle exec rspec spec/compiler_spec.rb --example "converts basic aliases"
 - **カバー範囲**:
   - Compiler: キーコード変換、レイヤー生成、マクロ/タップダンス/コンボ処理
   - Decompiler: QMK→エイリアス変換、YAML生成、ラウンドトリップ
-  - KeycodeResolver: 双方向エイリアス解決
+  - KeycodeConverter: 双方向エイリアス解決
   - PositionMap: 物理位置マッピング
   - Validator: 設定ファイル妥当性検証
   - Integration: エンドツーエンドのラウンドトリップ

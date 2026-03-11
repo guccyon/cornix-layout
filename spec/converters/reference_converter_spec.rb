@@ -2,9 +2,9 @@
 
 require 'fileutils'
 require 'tmpdir'
-require_relative '../lib/cornix/reference_resolver'
+require_relative '../../lib/cornix/converters/reference_converter'
 
-RSpec.describe Cornix::ReferenceResolver do
+RSpec.describe Cornix::Converters::ReferenceConverter do
   let(:temp_dir) { Dir.mktmpdir }
   let(:config_dir) { File.join(temp_dir, 'config') }
   let(:resolver) { described_class.new(config_dir) }

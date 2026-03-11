@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require_relative 'spec_helper'
-require_relative '../lib/cornix/keycode_resolver'
+require_relative '../spec_helper'
+require_relative '../../lib/cornix/converters/keycode_converter'
 require 'tempfile'
 require 'yaml'
 
-RSpec.describe Cornix::KeycodeResolver do
+RSpec.describe Cornix::Converters::KeycodeConverter do
   let(:test_aliases) do
     {
       'aliases' => {
@@ -88,7 +88,7 @@ RSpec.describe Cornix::KeycodeResolver do
 
   describe 'with system keycode_aliases.yaml' do
     let(:system_resolver) do
-      aliases_path = File.join(__dir__, '../lib/cornix/keycode_aliases.yaml')
+      aliases_path = File.join(__dir__, '../../lib/cornix/keycode_aliases.yaml')
       described_class.new(aliases_path)
     end
 

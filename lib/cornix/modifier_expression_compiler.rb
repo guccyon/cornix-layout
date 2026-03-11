@@ -15,7 +15,7 @@ module Cornix
   #
   # Example:
   #   token = { type: :modifier_expression, modifiers: ['Cmd', 'Shift'], key: 'Q' }
-  #   qmk = ModifierExpressionCompiler.to_qmk(token, keycode_resolver)
+  #   qmk = ModifierExpressionCompiler.to_qmk(token, keycode_converter)
   #   # => "LSG(KC_Q)"
   #
   class ModifierExpressionCompiler
@@ -82,9 +82,9 @@ module Cornix
     # Convert modifier expression token to QMK format
     #
     # @param token [Hash] Parsed modifier expression token
-    # @param keycode_resolver [KeycodeResolver] Resolver for key resolution
+    # @param keycode_converter [KeycodeConverter] Converter for key resolution
     # @return [String] QMK format (e.g., "LSG(KC_Q)" or "LGUI(LSFT(KC_Q))")
-    def self.to_qmk(token, keycode_resolver)
+    def self.to_qmk(token, keycode_converter)
       modifiers = token[:modifiers]
       key = token[:key]
 
@@ -92,7 +92,7 @@ module Cornix
       mod_functions = modifiers.map { |mod| resolve_modifier(mod) }
 
       # Resolve key to QMK keycode
-      resolved_key = resolve_key(key, keycode_resolver)
+      resolved_key = resolve_key(key, keycode_converter)
 
       # Try to find a QMK shortcut (order-independent)
       shortcut = find_shortcut(mod_functions)
@@ -141,14 +141,14 @@ module Cornix
     # Resolve key to QMK keycode
     #
     # @param key [String] Key name (can be alias or QMK keycode)
-    # @param resolver [KeycodeResolver] Resolver for aliases
+    # @param converter [KeycodeConverter] Converter for aliases
     # @return [String] QMK keycode (e.g., 'KC_Q', 'KC_SPACE')
-    def self.resolve_key(key, resolver)
+    def self.resolve_key(key, converter)
       # If already QMK format, return as-is
       return key if key.start_with?('KC_')
 
-      # Otherwise, resolve via KeycodeResolver
-      resolved = resolver.resolve(key)
+      # Otherwise, resolve via KeycodeConverter
+      resolved = converter.resolve(key)
 
       # If resolution failed, assume it's a raw keycode
       resolved || key

@@ -3,38 +3,39 @@
 require 'yaml'
 
 module Cornix
-  # ReferenceResolver - Resolve macro/tap dance/combo references
-  #
-  # Purpose:
-  #   Resolve references to macros, tap dances, and combos using name or index.
-  #   Provides bidirectional resolution (name↔index) and validation.
-  #
-  # Responsibilities:
-  #   1. Load and cache metadata from config files (macros, tap_dance, combos)
-  #   2. Build bidirectional mappings: name↔index
-  #   3. Resolve references (name/index → QMK format)
-  #   4. Reverse-resolve (QMK format → name/index)
-  #   5. Validate references exist and are well-formed
-  #
-  # Caching Strategy:
-  #   - Lazy load: Only load files when first reference is resolved
-  #   - Cache lifetime: Persists for instance lifetime
-  #   - Cache invalidation: clear_cache() method for FileRenamer
-  #   - Memory footprint: ~7 KB (30 macros × 50 bytes × 3 types)
-  #
-  # Example:
-  #   resolver = ReferenceResolver.new('config')
-  #
-  #   # Resolve reference to QMK format
-  #   token = { type: :reference, function: 'Macro', args: [{type: :string, value: 'End of Line'}] }
-  #   qmk = resolver.resolve(token)  # => "M5"
+  module Converters
+    # ReferenceConverter - Resolve macro/tap dance/combo references
+    #
+    # Purpose:
+    #   Resolve references to macros, tap dances, and combos using name or index.
+    #   Provides bidirectional resolution (name↔index) and validation.
+    #
+    # Responsibilities:
+    #   1. Load and cache metadata from config files (macros, tap_dance, combos)
+    #   2. Build bidirectional mappings: name↔index
+    #   3. Resolve references (name/index → QMK format)
+    #   4. Reverse-resolve (QMK format → name/index)
+    #   5. Validate references exist and are well-formed
+    #
+    # Caching Strategy:
+    #   - Lazy load: Only load files when first reference is resolved
+    #   - Cache lifetime: Persists for instance lifetime
+    #   - Cache invalidation: clear_cache() method for FileRenamer
+    #   - Memory footprint: ~7 KB (30 macros × 50 bytes × 3 types)
+    #
+    # Example:
+    #   resolver = ReferenceConverter.new('config')
+    #
+    #   # Resolve reference to QMK format
+    #   token = { type: :reference, function: 'Macro', args: [{type: :string, value: 'End of Line'}] }
+    #   qmk = resolver.resolve(token)  # => "M5"
   #
   #   # Reverse resolve QMK to name-based token
   #   token = resolver.reverse_resolve("M5", prefer_name: true)
   #   # => { type: :reference, function: 'Macro', args: [{type: :string, value: 'End of Line'}] }
-  #
-  class ReferenceResolver
-    # Initialize resolver with config directory
+    #
+    class ReferenceConverter
+      # Initialize resolver with config directory
     #
     # @param config_dir [String] Path to config directory
     def initialize(config_dir)
@@ -265,8 +266,9 @@ module Cornix
       {
         type: :reference,
         function: 'TapDance',
-        args: [{ type: :number, value: index }]
+                args: [{ type: :number, value: index }]
       }
     end
   end
+end
 end

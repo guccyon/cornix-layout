@@ -155,4 +155,112 @@ RSpec.describe Cornix::PositionMap do
       expect(position_map.find_position(bottom_right)).not_to be_nil if bottom_right
     end
   end
+
+  # === Phase 1拡張: 座標変換メソッドのテスト ===
+
+  describe '#physical_row' do
+    it '左手の論理行を物理行に変換' do
+      expect(position_map.physical_row(:left, 0)).to eq(0)
+      expect(position_map.physical_row(:left, 1)).to eq(1)
+      expect(position_map.physical_row(:left, 2)).to eq(2)
+      expect(position_map.physical_row(:left, 3)).to eq(3)
+    end
+
+    it '右手の論理行を物理行に変換（+4）' do
+      expect(position_map.physical_row(:right, 0)).to eq(4)
+      expect(position_map.physical_row(:right, 1)).to eq(5)
+      expect(position_map.physical_row(:right, 2)).to eq(6)
+      expect(position_map.physical_row(:right, 3)).to eq(7)
+    end
+
+    it '無効な hand でエラー' do
+      expect { position_map.physical_row(:invalid, 0) }.to raise_error(ArgumentError, /Invalid hand/)
+    end
+
+    it '無効な logical_row でエラー' do
+      expect { position_map.physical_row(:left, 4) }.to raise_error(ArgumentError, /Invalid logical_row/)
+      expect { position_map.physical_row(:left, -1) }.to raise_error(ArgumentError, /Invalid logical_row/)
+    end
+  end
+
+  describe '#physical_col' do
+    context '左手' do
+      it '論理列をそのまま物理列に変換' do
+        expect(position_map.physical_col(:left, 0, 0)).to eq(0)
+        expect(position_map.physical_col(:left, 0, 1)).to eq(1)
+        expect(position_map.physical_col(:left, 0, 5)).to eq(5)
+        expect(position_map.physical_col(:left, 3, 0)).to eq(0)
+        expect(position_map.physical_col(:left, 3, 2)).to eq(2)
+      end
+    end
+
+    context '右手 row0-2（6要素）' do
+      it '論理列を物理列に変換（逆順、max=5）' do
+        expect(position_map.physical_col(:right, 0, 0)).to eq(5)  # 5 - 0
+        expect(position_map.physical_col(:right, 0, 1)).to eq(4)  # 5 - 1
+        expect(position_map.physical_col(:right, 0, 5)).to eq(0)  # 5 - 5
+        expect(position_map.physical_col(:right, 1, 2)).to eq(3)  # 5 - 2
+        expect(position_map.physical_col(:right, 2, 3)).to eq(2)  # 5 - 3
+      end
+    end
+
+    context '右手 row3（3要素）' do
+      it '論理列を物理列に変換（逆順、max=2）' do
+        expect(position_map.physical_col(:right, 3, 0)).to eq(2)  # 2 - 0
+        expect(position_map.physical_col(:right, 3, 1)).to eq(1)  # 2 - 1
+        expect(position_map.physical_col(:right, 3, 2)).to eq(0)  # 2 - 2
+      end
+    end
+  end
+
+  describe '#thumb_physical_row' do
+    it '左手親指キーの物理行を返す' do
+      expect(position_map.thumb_physical_row(:left)).to eq(3)
+    end
+
+    it '右手親指キーの物理行を返す' do
+      expect(position_map.thumb_physical_row(:right)).to eq(7)
+    end
+
+    it '無効な hand でエラー' do
+      expect { position_map.thumb_physical_row(:invalid) }.to raise_error(ArgumentError)
+    end
+  end
+
+  describe '#thumb_physical_col' do
+    context '左手' do
+      it '親指キーの物理列を返す（順序通り）' do
+        expect(position_map.thumb_physical_col(:left, 0)).to eq(3)  # 3 + 0
+        expect(position_map.thumb_physical_col(:left, 1)).to eq(4)  # 3 + 1
+        expect(position_map.thumb_physical_col(:left, 2)).to eq(5)  # 3 + 2
+      end
+    end
+
+    context '右手' do
+      it '親指キーの物理列を返す（逆順）' do
+        expect(position_map.thumb_physical_col(:right, 0)).to eq(5)  # 5 - 0
+        expect(position_map.thumb_physical_col(:right, 1)).to eq(4)  # 5 - 1
+        expect(position_map.thumb_physical_col(:right, 2)).to eq(3)  # 5 - 2
+      end
+    end
+
+    it '無効な thumb_idx でエラー' do
+      expect { position_map.thumb_physical_col(:left, 3) }.to raise_error(ArgumentError, /Invalid thumb_idx/)
+      expect { position_map.thumb_physical_col(:left, -1) }.to raise_error(ArgumentError, /Invalid thumb_idx/)
+    end
+  end
+
+  describe '#encoder_push_position' do
+    it '左エンコーダープッシュの物理位置を返す' do
+      expect(position_map.encoder_push_position(:left)).to eq({ row: 2, col: 6 })
+    end
+
+    it '右エンコーダープッシュの物理位置を返す' do
+      expect(position_map.encoder_push_position(:right)).to eq({ row: 5, col: 6 })
+    end
+
+    it '無効な side でエラー' do
+      expect { position_map.encoder_push_position(:invalid) }.to raise_error(ArgumentError, /Invalid side/)
+    end
+  end
 end

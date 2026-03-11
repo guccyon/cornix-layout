@@ -72,7 +72,7 @@ module Cornix
       end
 
       # 強制実行時の確認プロンプト
-      if force && has_lock
+      if !force && has_lock
         lock_data = YAML.load_file(lock_file)
         puts "⚠️  WARNING: This will delete all config files and the lock file"
         puts ""
@@ -81,7 +81,7 @@ module Cornix
         puts "  Source: #{lock_data['source_file']}"
         puts ""
         print "Are you sure you want to continue? [y/N]: "
-        confirmation = $stdin.gets.chomp.downcase
+        confirmation = $stdin.gets&.chomp&.downcase || ''
 
         unless ['y', 'yes'].include?(confirmation)
           puts "✓ Cleanup cancelled"

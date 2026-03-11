@@ -7,7 +7,7 @@ require 'pathname'
 require 'tmpdir'
 require_relative 'compiler'
 require_relative 'keycode_parser'
-require_relative 'reference_resolver'
+require_relative 'converters/reference_converter'
 
 module Cornix
   # YAML設定ファイルのリネームとバックアップを管理するクラス
@@ -26,14 +26,16 @@ module Cornix
     #
     # @param config_dir [String] 設定ファイルのディレクトリパス（通常は'config'）
     # @param backup_on_init [Boolean] 初期化時にバックアップを作成するか
-    def initialize(config_dir, backup_on_init: true)
+    # @param skip_compilation_verification [Boolean] コンパイル検証をスキップするか（テスト用）
+    def initialize(config_dir, backup_on_init: true, skip_compilation_verification: false)
       @config_dir = File.expand_path(config_dir)
       @backup_path = nil
+      @skip_compilation_verification = skip_compilation_verification
 
       raise ArgumentError, "Config directory not found: #{@config_dir}" unless Dir.exist?(@config_dir)
 
-      # ReferenceResolver を初期化（レイヤー参照の更新用）
-      @reference_resolver = ReferenceResolver.new(@config_dir)
+      # ReferenceConverter を初期化（レイヤー参照の更新用）
+      @reference_converter = Converters::ReferenceConverter.new(@config_dir)
 
       create_backup if backup_on_init
     end
@@ -96,8 +98,8 @@ module Cornix
           new_name = content_updates['name']
           updated_layers = update_layer_references(old_name, new_name, file_type)
 
-          # ReferenceResolver のキャッシュをクリア
-          @reference_resolver.clear_cache
+          # ReferenceConverter のキャッシュをクリア
+          @reference_converter.clear_cache
 
           # デバッグ情報
           puts "  Updated #{updated_layers.size} layer(s) with new reference: #{new_name}" if updated_layers.any?
@@ -166,13 +168,15 @@ module Cornix
       end
 
       # コンパイル検証
-      verification = verify_compilation
-      unless verification[:success]
-        results[:errors] << "Compilation verification failed: #{verification[:error]}"
-        results[:errors] << "Rolling back..."
-        rollback_success = rollback(@backup_path)
-        results[:rollback_completed] = rollback_success
-        return results
+      unless @skip_compilation_verification
+        verification = verify_compilation
+        unless verification[:success]
+          results[:errors] << "Compilation verification failed: #{verification[:error]}"
+          results[:errors] << "Rolling back..."
+          rollback_success = rollback(@backup_path)
+          results[:rollback_completed] = rollback_success
+          return results
+        end
       end
 
       # すべて成功

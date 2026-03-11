@@ -1,16 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ruby bin/decompile)",
-      "Bash(ruby bin/compile)",
+      "Bash(bin/cornix:*)",
       "Bash(ruby:*)",
       "Bash(bundle exec:*)",
       "Bash(rspec:*)",
       "Bash(ls:*)",
       "Bash(spec/README.md:*)",
       "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(*$(*)*)",
       "Update(.claude/CLAUDE.md)",
-      "WebFetch(domain:docs.qmk.fm)"
+      "WebFetch(domain:docs.qmk.fm)",
+      "Bash(wc:*)"
     ]
   }
 }

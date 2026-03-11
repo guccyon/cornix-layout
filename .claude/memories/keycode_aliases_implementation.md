@@ -25,7 +25,7 @@ def initialize(config_dir)
   @config_dir = config_dir
   # lib/cornix/keycode_aliases.yaml を直接参照
   aliases_path = File.join(__dir__, 'keycode_aliases.yaml')
-  @keycode_resolver = KeycodeResolver.new(aliases_path)
+  @keycode_resolver = KeycodeConverter.new(aliases_path)
   @position_map = PositionMap.new("#{config_dir}/position_map.yaml")
 end
 ```

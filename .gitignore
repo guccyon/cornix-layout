@@ -2,6 +2,7 @@
 layout.vil
 tmp/
 config/.decompile.lock
+.refactor/
 
 # Ruby
 *.gem
@@ -24,3 +25,5 @@ spec/examples.txt
 # OS
 .DS_Store
 Thumbs.db
+
+config

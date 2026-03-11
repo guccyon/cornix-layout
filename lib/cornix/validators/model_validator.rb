@@ -1,33 +1,36 @@
 # frozen_string_literal: true
 
 require 'yaml'
-require_relative 'position_map'
-require_relative 'keycode_resolver'
-require_relative 'keycode_parser'
-require_relative 'reference_resolver'
-require_relative 'modifier_expression_compiler'
+require_relative '../position_map'
+require_relative '../converters/keycode_converter'
+require_relative '../keycode_parser'
+require_relative '../converters/reference_converter'
+require_relative '../modifier_expression_compiler'
+require_relative '../models/metadata'
+require_relative '../models/layer'
 
 module Cornix
-  # 設定ファイルの妥当性を検証
-  class Validator
-    def initialize(config_dir)
-      @config_dir = config_dir
-      @errors = []
-      @warnings = []
+  module Validators
+    # 設定ファイルの妥当性を検証
+    class ModelValidator
+      def initialize(config_dir)
+        @config_dir = config_dir
+        @errors = []
+        @warnings = []
 
-      # KeycodeResolverの初期化
-      aliases_path = File.join(File.dirname(__FILE__), 'keycode_aliases.yaml')
-      @keycode_resolver = KeycodeResolver.new(aliases_path)
+        # KeycodeConverterの初期化
+        aliases_path = File.join(File.dirname(__FILE__), '../keycode_aliases.yaml')
+        @keycode_converter = Converters::KeycodeConverter.new(aliases_path)
 
-      # ReferenceResolverの初期化
-      @reference_resolver = ReferenceResolver.new(config_dir)
+        # ReferenceConverterの初期化
+        @reference_converter = Converters::ReferenceConverter.new(config_dir)
 
-      # PositionMapの初期化（遅延ロード）
-      @position_map = nil
+        # PositionMapの初期化（遅延ロード）
+        @position_map = nil
 
-      # YAMLパースエラーがあったファイルを記録
-      @failed_yaml_files = []
-    end
+        # YAMLパースエラーがあったファイルを記録
+        @failed_yaml_files = []
+      end
 
     def validate
       @errors = []
@@ -58,7 +61,97 @@ module Cornix
       end
     end
 
+    # モデルインスタンスの検証（新規）
+    #
+    # @param model [Object] Validatableを含むモデルインスタンス
+    # @param file_path [String, nil] エラーメッセージ用のファイルパス
+    # @return [Boolean] 検証が成功した場合true
+    def validate_model(model, file_path: nil)
+      context = build_validation_context(file_path)
+
+      # 構造検証
+      structural_errors = model.structural_errors
+      structural_errors.each do |error|
+        add_error(file_path, error)
+      end
+
+      # 意味検証
+      semantic_errors = model.semantic_errors(context)
+      semantic_errors.each do |error|
+        add_error(file_path, error)
+      end
+
+      structural_errors.empty? && semantic_errors.empty?
+    end
+
+    # バッチモデル検証（新規）
+    #
+    # @param models_with_paths [Array<Array(Object, String)>] [[model, file_path], ...]
+    # @return [Boolean] 全ての検証が成功した場合true
+    def validate_models(models_with_paths)
+      @errors = []
+      @warnings = []
+
+      models_with_paths.each do |model, file_path|
+        validate_model(model, file_path: file_path)
+      end
+
+      report_results
+    end
+
     private
+
+    # 検証コンテキストを構築
+    #
+    # @param file_path [String, nil] エラーメッセージ用のファイルパス
+    # @return [Hash] 検証コンテキスト
+    def build_validation_context(file_path)
+      {
+        keycode_converter: @keycode_converter,
+        reference_converter: @reference_converter,
+        position_map: load_position_map,
+        file_path: file_path
+      }
+    end
+
+    # 検証結果を報告
+    #
+    # @return [Boolean] エラーがない場合true
+    def report_results
+      if @errors.empty?
+        puts "✓ All validations passed"
+        @warnings.each { |w| puts "⚠  Warning: #{w}" }
+        true
+      else
+        puts "✗ Validation failed:"
+        @errors.each { |e| puts "  Error: #{e}" }
+        @warnings.each { |w| puts "  Warning: #{w}" }
+        false
+      end
+    end
+
+    # エラーを追加
+    #
+    # @param file_path [String, nil] ファイルパス
+    # @param message [String] エラーメッセージ
+    def add_error(file_path, message)
+      if file_path
+        @errors << "#{file_path}: #{message}"
+      else
+        @errors << message
+      end
+    end
+
+    # PositionMapを遅延ロード
+    #
+    # @return [PositionMap, nil]
+    def load_position_map
+      return @position_map if @position_map
+
+      position_map_path = File.join(@config_dir, 'position_map.yaml')
+      @position_map = PositionMap.new(position_map_path) if File.exist?(position_map_path)
+      @position_map
+    end
 
     # 階層構造をフラット化（新構造の場合）、またはそのままフラット（旧構造の場合）
     def extract_flat_mapping(mapping)
@@ -261,7 +354,7 @@ module Cornix
 
             # 2. Name-based参照の存在チェック
             if arg[:type] == :string
-              result = @reference_resolver.validate_reference(parsed)
+              result = @reference_converter.validate_reference(parsed)
 
               unless result[:valid]
                 error_msg = "Layer #{File.basename(file)}, symbol '#{symbol}': #{result[:error]}"
@@ -594,8 +687,8 @@ module Cornix
     end
 
     def valid_simple_keycode?(keycode)
-      # KeycodeResolverで解決を試行
-      resolved = @keycode_resolver.resolve(keycode)
+      # KeycodeConverterで解決を試行
+      resolved = @keycode_converter.resolve(keycode)
 
       # エイリアスが解決された場合、またはQMK形式のキーコード
       if resolved != keycode || keycode.start_with?('KC_') || keycode == 'NO'
@@ -715,6 +808,7 @@ module Cornix
       end
 
       paths.uniq
+    end
     end
   end
 end

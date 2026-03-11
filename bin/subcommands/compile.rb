@@ -3,7 +3,7 @@
 
 require_relative '../../lib/cornix/cli_helpers'
 require_relative '../../lib/cornix/compiler'
-require_relative '../../lib/cornix/validator'
+require_relative '../../lib/cornix/validators/model_validator'
 
 config_dir = File.expand_path('../../config', __dir__)
 output_file = File.expand_path('../../layout.vil', __dir__)
@@ -15,7 +15,7 @@ end
 
 # NEW: Auto-validate before compiling
 puts "🔍 Validating configuration..."
-validator = Cornix::Validator.new(config_dir)
+validator = Cornix::Validators::ModelValidator.new(config_dir)
 unless validator.validate
   puts "\n❌ Validation failed. Fix errors before compiling."
   exit 1

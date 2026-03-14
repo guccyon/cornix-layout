@@ -1,0 +1,10 @@
+---
+index: 2
+name: Combo 2
+description: ''
+trigger_keys:
+- KC_C
+- KC_V
+- KC_NO
+- KC_NO
+output_key: LSFT(KC_LBRACKET)

@@ -12,7 +12,11 @@ module Cornix
       end
 
       # config/ ディレクトリから YAML ファイルを読み込んで VialConfig に変換
-      def load(position_map:, keycode_converter:, reference_converter:)
+      # @param position_map [PositionMap] ポジションマップ
+      # @param keycode_converter [Converters::KeycodeConverter] キーコード変換器
+      # @param reference_converter [Converters::ReferenceConverter] 参照変換器
+      # @param validate [Boolean] ロード後に自動バリデーションを実行するか（デフォルト: true、strict mode）
+      def load(position_map:, keycode_converter:, reference_converter:, validate: true)
         unless Dir.exist?(@config_dir)
           raise "Config directory not found: #{@config_dir}"
         end
@@ -35,7 +39,7 @@ module Cornix
         # コンボ
         combos_hashes = load_collection("#{@config_dir}/combos")
 
-        Models::VialConfig.from_yaml_hashes(
+        vial_config = Models::VialConfig.from_yaml_hashes(
           metadata_hash: metadata_hash,
           settings_hash: settings_hash,
           layers_hashes: layers_hashes,
@@ -46,13 +50,33 @@ module Cornix
           keycode_converter: keycode_converter,
           reference_converter: reference_converter
         )
+
+        # Auto-validate (デフォルト: strict mode)
+        if validate
+          context = {
+            position_map: position_map,
+            keycode_converter: keycode_converter,
+            reference_converter: reference_converter
+          }
+          vial_config.validate!(context, mode: :strict)
+        end
+
+        vial_config
       end
 
       private
 
       def load_yaml_file(path)
         return {} unless File.exist?(path)
-        YAML.load_file(path) || {}
+
+        hash = YAML.load_file(path) || {}
+
+        # Singleton methodでメタ情報を非侵襲的に付与
+        hash.define_singleton_method(:__metadata) do
+          { file_path: path }
+        end
+
+        hash
       end
 
       def load_layers

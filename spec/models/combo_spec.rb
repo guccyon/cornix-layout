@@ -2,6 +2,9 @@
 
 require_relative '../spec_helper'
 require_relative '../../lib/cornix/models/combo'
+require_relative '../../lib/cornix/converters/keycode_converter'
+require 'tempfile'
+require 'yaml'
 
 RSpec.describe Cornix::Models::Combo do
   let(:sample_qmk_array) { [20, 8, 0, 0, 47] } # Q + E → [
@@ -242,6 +245,144 @@ RSpec.describe Cornix::Models::Combo do
       )
 
       expect(combo.to_qmk).to eq([65535, 65534, 0, 0, 65533])
+    end
+  end
+
+  describe 'validation' do
+    let(:test_aliases) do
+      {
+        'aliases' => {
+          'A' => 'KC_A',
+          'B' => 'KC_B',
+          'C' => 'KC_C',
+          'Enter' => 'KC_ENT'
+        }
+      }
+    end
+
+    let(:yaml_file) do
+      file = Tempfile.new(['keycode_aliases', '.yaml'])
+      file.write(YAML.dump(test_aliases))
+      file.close
+      file
+    end
+
+    let(:keycode_converter) { Cornix::Converters::KeycodeConverter.new(yaml_file.path) }
+    let(:context) { { keycode_converter: keycode_converter } }
+
+    after do
+      yaml_file.unlink
+    end
+
+    describe 'structural validations' do
+      it 'output_key が nil の場合にエラー' do
+        combo = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          trigger_keys: ['A', 'B'],
+          output_key: nil
+        )
+        errors = combo.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('output_key')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
+      end
+
+      it 'output_key が存在する場合は構造検証合格' do
+        combo = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          trigger_keys: ['A', 'B'],
+          output_key: 'Enter'
+        )
+        errors = combo.structural_errors
+        expect(errors).to be_empty
+      end
+
+      it 'trigger_keys が空配列の場合にエラー' do
+        combo = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          trigger_keys: [],
+          output_key: 'Enter'
+        )
+        errors = combo.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('trigger_keys')
+        expect(errors.join).to match(/cannot be (blank|empty)/i)
+      end
+    end
+
+    describe 'semantic validations' do
+      it '有効なキーコードを持つComboを検証' do
+        combo = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          trigger_keys: ['A', 'B'],
+          output_key: 'Enter'
+        )
+        errors = combo.semantic_errors(context)
+        expect(errors).to be_empty
+      end
+
+      it '無効なキーコードを含むComboでエラー（trigger_keys）' do
+        combo = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          trigger_keys: ['A', 'InvalidKey', 'C'],
+          output_key: 'Enter'
+        )
+        errors = combo.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to include("Invalid keycode 'InvalidKey'")
+        expect(errors.join).to include('trigger_keys[1]')
+      end
+
+      it '無効なキーコードを含むComboでエラー（output_key）' do
+        combo = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          trigger_keys: ['A', 'B'],
+          output_key: 'BadKey'
+        )
+        errors = combo.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to include("Invalid keycode 'BadKey'")
+        expect(errors.join).to include('output_key')
+      end
+
+      it '空値（0, -1, nil）は許可' do
+        combo = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          trigger_keys: ['A', 0, -1],
+          output_key: nil
+        )
+        errors = combo.semantic_errors(context)
+        expect(errors).to be_empty
+      end
+
+      it '複数の無効なキーコードでエラー' do
+        combo = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          trigger_keys: ['Invalid1', 'B', 'Invalid2'],
+          output_key: 'BadOutput'
+        )
+        errors = combo.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to include("Invalid keycode 'Invalid1'")
+        expect(errors.join).to include("Invalid keycode 'Invalid2'")
+        expect(errors.join).to include("Invalid keycode 'BadOutput'")
+      end
     end
   end
 end

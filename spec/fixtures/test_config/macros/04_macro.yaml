@@ -1,0 +1,29 @@
+---
+index: 4
+name: Macro 4
+description: ''
+sequence:
+- action: down
+  keys:
+  - KC_LGUI
+- action: tap
+  keys:
+  - KC_LEFT
+- action: down
+  keys:
+  - KC_LSHIFT
+- action: tap
+  keys:
+  - KC_RIGHT
+- action: up
+  keys:
+  - KC_LSHIFT
+- action: tap
+  keys:
+  - KC_C
+- action: up
+  keys:
+  - KC_LGUI
+- action: tap
+  keys:
+  - KC_RIGHT

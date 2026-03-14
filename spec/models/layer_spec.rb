@@ -340,7 +340,7 @@ RSpec.describe Cornix::Models::Layer do
       expect(layer.right_hand.all_keys.all? { |k| k.is_a?(described_class::NullKeyMapping) }).to be true
     end
 
-    it 'nilマッピングを許容' do
+    it 'nilマッピングの場合はleft_hand/right_handもnilになる' do
       yaml_hash = {
         'name' => 'Empty',
         'description' => '',
@@ -350,8 +350,9 @@ RSpec.describe Cornix::Models::Layer do
 
       layer = described_class.from_yaml_hash(yaml_hash, position_map)
 
-      expect(layer.left_hand).to be_a(described_class::HandMapping)
-      expect(layer.right_hand).to be_a(described_class::HandMapping)
+      # mapping: nil の場合、キーが存在しないのでnilになる
+      expect(layer.left_hand).to be_nil
+      expect(layer.right_hand).to be_nil
     end
   end
 
@@ -397,6 +398,51 @@ RSpec.describe Cornix::Models::Layer do
           encoders: valid_encoders
         )
         expect(layer.structurally_valid?).to be false
+      end
+
+      it 'left_hand が nil の場合にエラー' do
+        layer = described_class.new(
+          name: 'Test Layer',
+          description: '',
+          index: 0,
+          left_hand: nil,
+          right_hand: valid_right_hand,
+          encoders: valid_encoders
+        )
+        errors = layer.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('left_hand')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
+      end
+
+      it 'right_hand が nil の場合にエラー' do
+        layer = described_class.new(
+          name: 'Test Layer',
+          description: '',
+          index: 0,
+          left_hand: valid_left_hand,
+          right_hand: nil,
+          encoders: valid_encoders
+        )
+        errors = layer.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('right_hand')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
+      end
+
+      it 'encoders が nil の場合にエラー' do
+        layer = described_class.new(
+          name: 'Test Layer',
+          description: '',
+          index: 0,
+          left_hand: valid_left_hand,
+          right_hand: valid_right_hand,
+          encoders: nil
+        )
+        errors = layer.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('encoders')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
       end
 
       it 'returns false when name is too long' do

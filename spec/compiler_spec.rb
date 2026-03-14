@@ -6,9 +6,8 @@ require 'tempfile'
 require 'json'
 
 RSpec.describe Cornix::Compiler do
-  let(:config_dir) { File.expand_path('../config', __dir__) }
+  let(:config_dir) { File.join(__dir__, 'fixtures/test_config') }
   let(:output_file) { Tempfile.new(['layout', '.vil']) }
-  let(:compiler) { described_class.new(config_dir) }
 
   after do
     output_file.close
@@ -17,6 +16,7 @@ RSpec.describe Cornix::Compiler do
 
   describe '#compile' do
     it 'generates a valid layout.vil file with correct structure' do
+      compiler = described_class.new(config_dir)
       compiler.compile(output_file.path)
 
       expect(File.exist?(output_file.path)).to be true
@@ -34,6 +34,7 @@ RSpec.describe Cornix::Compiler do
     end
 
     it 'includes exactly 10 layers' do
+      compiler = described_class.new(config_dir)
       compiler.compile(output_file.path)
       vil_data = JSON.parse(File.read(output_file.path))
 
@@ -41,6 +42,7 @@ RSpec.describe Cornix::Compiler do
     end
 
     it 'includes encoder layout for all 10 layers' do
+      compiler = described_class.new(config_dir)
       compiler.compile(output_file.path)
       vil_data = JSON.parse(File.read(output_file.path))
 
@@ -63,6 +65,7 @@ RSpec.describe Cornix::Compiler do
     end
 
     it 'outputs to specified file path' do
+      compiler = described_class.new(config_dir)
       custom_output = File.join(Dir.tmpdir, 'custom_layout.vil')
       compiler.compile(custom_output)
 

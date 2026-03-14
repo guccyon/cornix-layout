@@ -1,0 +1,20 @@
+---
+index: 11
+name: Macro 11
+description: ''
+sequence:
+- action: tap
+  keys:
+  - KC_ENTER
+  - KC_UP
+- action: down
+  keys:
+  - KC_LGUI
+  - KC_RIGHT
+- action: up
+  keys:
+  - KC_LGUI
+- action: tap
+  keys:
+  - KC_ENTER
+  - KC_TAB

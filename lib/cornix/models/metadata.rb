@@ -109,7 +109,10 @@ module Cornix
 
       # YAML Hash → Metadata
       def self.from_yaml_hash(hash)
-        new(
+        # メタ情報抽出（存在する場合）
+        metadata = hash.respond_to?(:__metadata) ? hash.__metadata : {}
+
+        instance = new(
           keyboard: hash['keyboard'],
           version: hash['version'],
           uid: hash['uid'],
@@ -119,6 +122,11 @@ module Cornix
           vial_protocol: hash['vial_protocol'],
           via_protocol: hash['via_protocol']
         )
+
+        # メタ情報保存
+        instance.instance_variable_set(:@metadata, metadata)
+
+        instance
       rescue ArgumentError => e
         raise ArgumentError, "Failed to create Metadata from YAML: #{e.message}"
       end

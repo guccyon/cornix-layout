@@ -50,7 +50,9 @@ module Cornix
             return { valid: true } if value.is_a?(NullKeyMapping)
 
             if value.respond_to?(:semantic_errors)
-              errors = value.semantic_errors(options)
+              # Extract only context keys, excluding validation-specific keys like :with
+              context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+              errors = value.semantic_errors(context)
               if errors.empty?
                 { valid: true }
               else

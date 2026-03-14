@@ -36,7 +36,8 @@ module Cornix
       vial_config = Loaders::YamlLoader.new(@config_dir).load(
         position_map: @position_map,
         keycode_converter: @keycode_converter,
-        reference_converter: @reference_converter
+        reference_converter: @reference_converter,
+        validate: true  # RE-ENABLE validation to see full error
       )
 
       # VialConfig → layout.vil

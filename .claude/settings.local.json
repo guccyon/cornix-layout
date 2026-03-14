@@ -8,11 +8,14 @@
       "Bash(ls:*)",
       "Bash(spec/README.md:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)",
       "Bash(*$(*)*)",
       "Update(.claude/CLAUDE.md)",
       "WebFetch(domain:docs.qmk.fm)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(tmp/*)",
+      "Bash(spec/models/combo_collection_spec_additions.rb:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

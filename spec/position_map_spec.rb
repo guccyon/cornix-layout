@@ -6,7 +6,7 @@ require 'tempfile'
 require 'yaml'
 
 RSpec.describe Cornix::PositionMap do
-  let(:yaml_path) { File.expand_path('../config/position_map.yaml', __dir__) }
+  let(:yaml_path) { File.join(__dir__, 'fixtures/position_map.yaml') }
   let(:position_map) { described_class.new(yaml_path) }
 
   describe '#symbol_at' do
@@ -250,7 +250,7 @@ RSpec.describe Cornix::PositionMap do
     end
   end
 
-  describe '#encoder_push_position' do
+    describe '#encoder_push_position' do
     it '左エンコーダープッシュの物理位置を返す' do
       expect(position_map.encoder_push_position(:left)).to eq({ row: 2, col: 6 })
     end
@@ -261,6 +261,434 @@ RSpec.describe Cornix::PositionMap do
 
     it '無効な side でエラー' do
       expect { position_map.encoder_push_position(:invalid) }.to raise_error(ArgumentError, /Invalid side/)
+    end
+  end
+
+  describe '#symbol_exists?' do
+    let(:temp_file) { Tempfile.new(['position_map', '.yaml']) }
+    let(:test_position_map) do
+      valid_data = {
+        'left_hand' => {
+          'row0' => ['tab', 'Q', 'W'],
+          'row1' => ['caps', 'A', 'S'],
+          'row2' => ['lshift', 'Z', 'X'],
+          'row3' => ['lctrl', 'lalt', 'lgui'],
+          'thumb_keys' => ['left', 'center', 'right']
+        },
+        'right_hand' => {
+          'row0' => ['Y', 'U', 'I'],
+          'row1' => ['H', 'J', 'K'],
+          'row2' => ['N', 'M', 'comma'],
+          'row3' => ['rgui', 'ralt', 'rctrl'],
+          'thumb_keys' => ['rleft', 'rcenter', 'rright']
+        },
+        'encoders' => {
+          'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+          'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+        }
+      }
+      temp_file.write(YAML.dump(valid_data))
+      temp_file.rewind
+      described_class.new(temp_file.path)
+    end
+
+    after do
+      temp_file.close
+      temp_file.unlink
+    end
+
+    it 'シンボルが存在する場合 true を返す' do
+      expect(test_position_map.symbol_exists?('Q')).to be true
+      expect(test_position_map.symbol_exists?('tab')).to be true
+      expect(test_position_map.symbol_exists?('left')).to be true
+      expect(test_position_map.symbol_exists?('push')).to be true  # エンコーダーはキー名
+    end
+
+    it 'シンボルが存在しない場合 false を返す' do
+      expect(test_position_map.symbol_exists?('NONEXISTENT')).to be false
+      expect(test_position_map.symbol_exists?('invalid')).to be false
+    end
+
+    it 'nil や空文字列の場合 false を返す' do
+      expect(test_position_map.symbol_exists?(nil)).to be false
+      expect(test_position_map.symbol_exists?('')).to be false
+    end
+  end
+
+  describe '#extract_all_symbols' do
+    let(:temp_file) { Tempfile.new(['position_map', '.yaml']) }
+    let(:test_position_map) do
+      valid_data = {
+        'left_hand' => {
+          'row0' => ['tab', 'Q', 'W'],
+          'row1' => ['caps', 'A', 'S'],
+          'row2' => ['lshift', 'Z', 'X'],
+          'row3' => ['lctrl', 'lalt', 'lgui'],
+          'thumb_keys' => ['left', 'center', 'right']
+        },
+        'right_hand' => {
+          'row0' => ['Y', 'U', 'I'],
+          'row1' => ['H', 'J', 'K'],
+          'row2' => ['N', 'M', 'comma'],
+          'row3' => ['rgui', 'ralt', 'rctrl'],
+          'thumb_keys' => ['rleft', 'rcenter', 'rright']
+        },
+        'encoders' => {
+          'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+          'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+        }
+      }
+      temp_file.write(YAML.dump(valid_data))
+      temp_file.rewind
+      described_class.new(temp_file.path)
+    end
+
+    after do
+      temp_file.close
+      temp_file.unlink
+    end
+
+    it '全てのシンボルを抽出する' do
+      symbols = test_position_map.extract_all_symbols
+      expect(symbols).to include('tab', 'Q', 'W', 'A', 'S')
+      expect(symbols).to include('left', 'center', 'right')
+      expect(symbols).to include('Y', 'U', 'I')
+      expect(symbols).to include('lpush', 'lccw', 'lcw')  # extract_all_symbolsはYAML値を返す
+    end
+  end
+
+  describe 'Validatable' do
+    let(:temp_file) { Tempfile.new(['position_map', '.yaml']) }
+
+    after do
+      temp_file.close
+      temp_file.unlink
+    end
+
+    describe '#structurally_valid?' do
+      it '有効な position_map で true を返す' do
+        valid_data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' },
+            'right' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' }
+          }
+        }
+        temp_file.write(YAML.dump(valid_data))
+        temp_file.rewind
+
+        pm = described_class.new(temp_file.path)
+        expect(pm.structurally_valid?).to be true
+      end
+
+      it '無効なシンボル名で false を返す' do
+        invalid_data = {
+          'left_hand' => {
+            'row0' => ['tab!', 'Q@', 'W#', 'E', 'R', 'T'],  # 無効な文字
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' },
+            'right' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' }
+          }
+        }
+        temp_file.write(YAML.dump(invalid_data))
+        temp_file.rewind
+
+        pm = described_class.new(temp_file.path)
+        expect(pm.structurally_valid?).to be false
+      end
+
+      it '必須キーが欠けている場合 false を返す' do
+        missing_key_data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            # row2 が欠けている
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' },
+            'right' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' }
+          }
+        }
+        temp_file.write(YAML.dump(missing_key_data))
+        temp_file.rewind
+
+        pm = described_class.new(temp_file.path)
+        expect(pm.structurally_valid?).to be false
+      end
+
+      it '要素数が不正な場合 false を返す' do
+        wrong_count_data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E'],  # 4要素（6要素が期待値）
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' },
+            'right' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' }
+          }
+        }
+        temp_file.write(YAML.dump(wrong_count_data))
+        temp_file.rewind
+
+        pm = described_class.new(temp_file.path)
+        expect(pm.structurally_valid?).to be false
+      end
+    end
+
+    describe '#structural_errors' do
+      it '無効なシンボル名のエラーを返す' do
+        invalid_data = {
+          'left_hand' => {
+            'row0' => ['tab!', 'Q@', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['rleft', 'rcenter', 'rright']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' },
+            'right' => { 'ccw' => 'ccw', 'push' => 'push', 'cw' => 'cw' }
+          }
+        }
+        temp_file.write(YAML.dump(invalid_data))
+        temp_file.rewind
+
+        pm = described_class.new(temp_file.path)
+        errors = pm.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('tab!')
+        expect(errors.join).to include('Q@')
+      end
+    end
+
+    describe '#semantically_valid?' do
+      it '重複するシンボルがない場合 true を返す' do
+        valid_data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['rleft', 'rcenter', 'rright']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+            'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+          }
+        }
+        temp_file.write(YAML.dump(valid_data))
+        temp_file.rewind
+
+        pm = described_class.new(temp_file.path)
+        expect(pm.semantically_valid?).to be true
+      end
+
+      it '重複するシンボルがある場合 false を返す' do
+        duplicate_data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'Q', 'S', 'D', 'F', 'G'],  # 'Q' が重複
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['rleft', 'rcenter', 'rright']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+            'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+          }
+        }
+        temp_file.write(YAML.dump(duplicate_data))
+        temp_file.rewind
+
+        pm = described_class.new(temp_file.path)
+        expect(pm.semantically_valid?).to be false
+      end
+    end
+
+    describe '#semantic_errors' do
+      it '重複するシンボルのエラーを返す' do
+        duplicate_data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'Q', 'S', 'D', 'F', 'G'],  # 'Q' が重複
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'tab']  # 'tab' が重複
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['rleft', 'rcenter', 'rright']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+            'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+          }
+        }
+        temp_file.write(YAML.dump(duplicate_data))
+        temp_file.rewind
+
+        pm = described_class.new(temp_file.path)
+        errors = pm.semantic_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('Duplicate')
+        expect(errors.join).to include('Q')
+        expect(errors.join).to include('tab')
+      end
+    end
+
+    describe '.extract_all_symbols_from_data' do
+      it '全てのシンボルを抽出する' do
+        data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['rleft', 'rcenter', 'rright']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+            'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+          }
+        }
+
+        symbols = described_class.extract_all_symbols_from_data(data)
+        expect(symbols).to include('tab', 'Q', 'W', 'A', 'S', 'left', 'center', 'right')
+        expect(symbols).to include('Y', 'U', 'I', 'H', 'J', 'K', 'rleft', 'rcenter', 'rright')
+        expect(symbols).to include('lccw', 'lpush', 'lcw', 'rccw', 'rpush', 'rcw')
+      end
+    end
+
+    describe '.find_duplicate_symbols_in_data' do
+      it '重複するシンボルを検出する' do
+        data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'Q', 'S', 'D', 'F', 'G'],  # 'Q' が重複
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'tab']  # 'tab' が重複
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['rleft', 'rcenter', 'rright']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+            'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+          }
+        }
+
+        duplicates = described_class.find_duplicate_symbols_in_data(data)
+        expect(duplicates).to have_key('Q')
+        expect(duplicates).to have_key('tab')
+        expect(duplicates['Q'].size).to eq(2)
+        expect(duplicates['tab'].size).to eq(2)
+      end
+
+      it '重複がない場合は空のハッシュを返す' do
+        data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['rleft', 'rcenter', 'rright']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+            'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+          }
+        }
+
+        duplicates = described_class.find_duplicate_symbols_in_data(data)
+        expect(duplicates).to be_empty
+      end
     end
   end
 end

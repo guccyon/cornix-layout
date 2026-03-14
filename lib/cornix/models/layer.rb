@@ -80,7 +80,9 @@ module Cornix
         return { valid: true } if value.nil?
 
         if value.respond_to?(:semantic_errors)
-          errors = value.semantic_errors(options)
+          # Extract only context keys, excluding validation-specific keys like :with
+          context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+          errors = value.semantic_errors(context)
           if errors.empty?
             { valid: true }
           else
@@ -95,7 +97,8 @@ module Cornix
         return { valid: true } if value.nil?
 
         if value.respond_to?(:semantic_errors)
-          errors = value.semantic_errors(options)
+          context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+          errors = value.semantic_errors(context)
           if errors.empty?
             { valid: true }
           else
@@ -110,7 +113,8 @@ module Cornix
         return { valid: true } if value.nil?
 
         if value.respond_to?(:semantic_errors)
-          errors = value.semantic_errors(options)
+          context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+          errors = value.semantic_errors(context)
           if errors.empty?
             { valid: true }
           else
@@ -215,24 +219,39 @@ module Cornix
       # @param position_map [PositionMap] 物理座標マッピング
       # @return [Layer]
       def self.from_yaml_hash(yaml_hash, position_map)
+        # メタ情報抽出（存在する場合）
+        metadata = yaml_hash.respond_to?(:__metadata) ? yaml_hash.__metadata : {}
+
         # 階層化構造から HandMapping, EncoderMapping を構築
-        mapping = yaml_hash['mapping'] || {}
+        mapping = yaml_hash['mapping']
 
-        left_hand = HandMapping.from_yaml_hash(
-          hand: :left,
-          yaml_hand: mapping['left_hand'],
-          position_map: position_map
-        )
+        # mapping が nil の場合は空のハッシュとして扱う（後方互換性）
+        mapping = {} if mapping.nil?
 
-        right_hand = HandMapping.from_yaml_hash(
-          hand: :right,
-          yaml_hand: mapping['right_hand'],
-          position_map: position_map
-        )
+        # キー自体が存在しない場合はnilを渡す（validationでエラーにするため）
+        left_hand = if mapping.key?('left_hand')
+          HandMapping.from_yaml_hash(
+            hand: :left,
+            yaml_hand: mapping['left_hand'],
+            position_map: position_map
+          )
+        else
+          nil  # キー自体が存在しない場合はnil
+        end
+
+        right_hand = if mapping.key?('right_hand')
+          HandMapping.from_yaml_hash(
+            hand: :right,
+            yaml_hand: mapping['right_hand'],
+            position_map: position_map
+          )
+        else
+          nil  # キー自体が存在しない場合はnil
+        end
 
         encoders = EncoderMapping.from_yaml_hash(mapping['encoders'])
 
-        new(
+        instance = new(
           name: yaml_hash['name'],
           description: yaml_hash['description'] || '',
           index: yaml_hash['index'],
@@ -240,6 +259,11 @@ module Cornix
           right_hand: right_hand,
           encoders: encoders
         )
+
+        # メタ情報保存
+        instance.instance_variable_set(:@metadata, metadata)
+
+        instance
       end
 
       # Layer → YAML Hash（階層化構造）

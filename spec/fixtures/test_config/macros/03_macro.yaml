@@ -1,0 +1,18 @@
+---
+index: 3
+name: Macro 3
+description: ''
+sequence:
+- action: down
+  keys:
+  - KC_LGUI
+- action: tap
+  keys:
+  - KC_D
+  - KC_C
+- action: up
+  keys:
+  - KC_LGUI
+- action: tap
+  keys:
+  - KC_RIGHT

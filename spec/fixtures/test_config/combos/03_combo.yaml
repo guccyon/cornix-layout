@@ -1,0 +1,10 @@
+---
+index: 3
+name: Combo 3
+description: ''
+trigger_keys:
+- KC_M
+- KC_COMMA
+- KC_NO
+- KC_NO
+output_key: LSFT(KC_RBRACKET)

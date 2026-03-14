@@ -70,7 +70,11 @@ module Cornix
         # サブクラス: PlainKeycode - 単純なキーコード
         class PlainKeycode < KeycodeValue
           def to_qmk(keycode_converter, reference_converter: nil)
-            keycode_converter.resolve(@raw_value)
+            resolved = keycode_converter.resolve(@raw_value)
+            if resolved.nil?
+              raise ArgumentError, "Invalid keycode '#{@raw_value}': not found in aliases or QMK keycodes"
+            end
+            resolved
           end
         end
 
@@ -132,7 +136,11 @@ module Cornix
               arg[:value]
             when :alias
               # エイリアスを解決
-              keycode_converter.resolve(arg[:value])
+              resolved = keycode_converter.resolve(arg[:value])
+              if resolved.nil?
+                raise ArgumentError, "Invalid keycode alias '#{arg[:value]}': not found in aliases"
+              end
+              resolved
             when :reference, :legacy_macro, :legacy_tap_dance
               # 参照を解決
               reference_converter.resolve(arg)

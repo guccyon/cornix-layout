@@ -8,7 +8,7 @@ require 'tempfile'
 require 'fileutils'
 
 RSpec.describe 'Compiler and Decompiler Integration' do
-  let(:test_config_dir) { File.expand_path('../config', __dir__) }
+  let(:test_config_dir) { File.join(__dir__, 'fixtures/test_config') }
   let(:vil_file) { Tempfile.new(['test', '.vil']) }
   let(:temp_config_dir) { Dir.mktmpdir }
 

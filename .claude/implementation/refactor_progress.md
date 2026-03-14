@@ -8,7 +8,10 @@ Phase 2（モデル層実装）の詳細な実装状況を記録します。
 |-------|--------|----------|------------|----------|
 | Phase 0: 設計 | ✅ Complete | 100% | 2026-03-09 | 2026-03-09 |
 | Phase 1: PositionMap拡張 | ✅ Complete | 100% | 2026-03-09 | 2026-03-10 |
-| Phase 2: モデル層実装 | 🔄 In Progress | 95% | 2026-03-10 | - |
+| Phase 2: モデル層実装 | ✅ Complete | 100% | 2026-03-10 | 2026-03-11 |
+| Phase 2.5: Context Pollution Bug修正 | ✅ Complete | 100% | 2026-03-11 | 2026-03-11 |
+| Phase 2.6: ModelValidator リファクタリング | ✅ Complete | 100% | 2026-03-11 | 2026-03-11 |
+| Phase 2.7: バリデーション強化（7段階） | ✅ Complete | 100% | 2026-03-12 | 2026-03-12 |
 | Phase 3: Loader/Writer | 📋 Pending | 0% | - | - |
 | Phase 4: Converter移行 | 📋 Pending | 0% | - | - |
 | Phase 5: 新Compiler/Decompiler | 📋 Pending | 0% | - | - |
@@ -51,7 +54,7 @@ Phase 2（モデル層実装）の詳細な実装状況を記録します。
 
 ---
 
-## Phase 2: モデル層実装 🔄 95% Complete
+## Phase 2: モデル層実装 ✅ Complete
 
 ### 実装サマリ
 
@@ -59,8 +62,8 @@ Phase 2（モデル層実装）の詳細な実装状況を記録します。
 |---------|---------|-----------|------|---------|
 | Concerns | ✅ Complete | 1 | 260 | 34 |
 | Validatable適用済み | ✅ Complete | 5 | ~410 | ~73 |
-| Validatable未適用 | 🔄 Pending | 14 | ~667 | ~127 |
-| **合計** | **95%** | **20** | **~1,337** | **~234** |
+| Validatable未適用 | ✅ Complete | 14 | ~667 | ~127 |
+| **合計** | **100%** | **20** | **~1,337** | **~234** |
 
 ### Validatable Concern ✅
 
@@ -525,20 +528,20 @@ lib/cornix/models/
 
 ### タスク一覧
 
-1. **PositionMap** - Validatable適用
-2. **QmkSettings** - Validatable適用
-3. **Macro** - Validatable適用
-4. **MacroSequence** - Validatable適用
-5. **MacroAction** - Validatable適用
-6. **TapDance** - Validatable適用
-7. **TapDanceAction** - Validatable適用
-8. **Combo** - Validatable適用
-9. **ComboTrigger** - Validatable適用
-10. **EncoderMapping** - Validatable適用
-11. **EncoderKeys** - Validatable適用
-12. **KeycodeValue** - Validatable適用
-13. **RowMapping** - Validatable適用
-14. **全テスト実行** - 既存493 + 新規234テストが全て合格することを確認
+1. ✅ **PositionMap** - Validatable適用
+2. ✅ **QmkSettings** - Validatable適用
+3. ✅ **Macro** - Validatable適用
+4. ✅ **MacroSequence** - Validatable適用
+5. ✅ **MacroAction** - Validatable適用
+6. ✅ **TapDance** - Validatable適用
+7. ✅ **TapDanceAction** - Validatable適用
+8. ✅ **Combo** - Validatable適用
+9. ✅ **ComboTrigger** - Validatable適用
+10. ✅ **EncoderMapping** - Validatable適用
+11. ✅ **EncoderKeys** - Validatable適用
+12. ✅ **KeycodeValue** - Validatable適用
+13. ✅ **RowMapping** - Validatable適用
+14. ✅ **全テスト実行** - 既存493 + 新規234テストが全て合格することを確認
 
 ### 推定工数
 
@@ -555,6 +558,158 @@ lib/cornix/models/
 - ✅ 全テスト合格（既存493 + 新規234 = 727テスト）
 - ✅ ドキュメント更新完了
 - ✅ Phase 2完了マーク
+
+### 完了日
+2026-03-11
+
+---
+
+## Phase 2.5: Context Pollution Bug修正 ✅ Complete
+
+### 問題の発見
+
+Phase 2完了後のテスト実行時に、以下のエラーが発生：
+
+```
+undefined method 'empty?' for an instance of Cornix::Models::Layer::HandMapping
+```
+
+### 根本原因
+
+**Context Pollution Bug**: 親モデルが`:with`キー含むoptionsハッシュを子モデルに渡し、子のvalidatorを上書き。
+
+**発生メカニズム**:
+1. 親モデル（VialConfig, LayerCollection等）がsemantic_validationsを実行
+2. `validates :field, :custom, phase: :semantic, with: ->(value, options) { ... }`
+3. この`options`ハッシュに`:with`キー（親のvalidator lambda）が含まれる
+4. 子モデルの`semantic_errors(options)`呼び出し時に、この`:with`が子のvalidatorを上書き
+5. 結果: LayerCollectionのvalidatorがHandMapping instanceを受け取る
+
+### 修正内容
+
+**解決策**: `options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)`でコンテキストキーのみを抽出してから子に渡す。
+
+**変更パターン**:
+```ruby
+# Before (Bug)
+validates :layers, :custom, phase: :semantic, with: ->(value, options) {
+  errors = value.validate!(options, mode: :collect)  # ❌ :with を含む options を渡す
+  # ...
+}
+
+# After (Fixed)
+validates :layers, :custom, phase: :semantic, with: ->(value, options) {
+  context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+  errors = value.validate!(context, mode: :collect)  # ✅ context keys のみ渡す
+  # ...
+}
+```
+
+### 修正ファイル
+
+1. **VialConfig** (`lib/cornix/models/vial_config.rb`)
+   - 6つのsemantic validators修正
+   - metadata, position_map, settings, layers, macros, tap_dances, combos
+
+2. **Layer** (`lib/cornix/models/layer.rb`)
+   - 3つのsemantic validators修正
+   - left_hand, right_hand, encoders
+
+3. **LayerCollection** (`lib/cornix/models/layer_collection.rb`)
+   - 1つのsemantic validator修正
+   - layers配列の検証
+
+4. **MacroCollection, TapDanceCollection, ComboCollection**
+   - 各1つのsemantic validator修正
+
+5. **HandMapping** (`lib/cornix/models/layer/hand_mapping.rb`)
+   - 5つのsemantic validators修正
+   - thumb_keys, row0, row1, row2, row3
+
+6. **ThumbKeys** (`lib/cornix/models/layer/thumb_keys.rb`)
+   - 3つのsemantic validators修正
+   - left, middle, right
+
+### テスト結果
+
+- **修正前**: 908 examples, 78 failures
+- **修正後**: 908 examples, 0 failures ✅
+
+### 実装日
+2026-03-11
+
+---
+
+## Phase 2.6: ModelValidator リファクタリング ✅ Complete
+
+### 目的
+
+Phase 2でバリデーションロジックがモデル層に移行したため、ModelValidatorを以下の責務に焦点化：
+1. **ファイルシステムレベル検証**（YAML構文、ファイル名、一意性）
+2. **モデル検証の委譲**（VialConfig.validate!呼び出し）
+
+### 実装内容
+
+#### 1. ModelValidator Spec完全リライト
+
+**旧spec**: `spec/model_validator_spec.rb.backup`に保存（90+ テスト）
+
+**新spec**: ModelValidatorの固有責務のみをテスト（27テスト）
+- ファイルシステムレベル検証
+  - YAML構文チェック
+  - レイヤーインデックス（範囲、重複）
+  - マクロ/タップダンス/コンボ名の一意性
+- モデル検証の委譲（VialConfig.validate!呼び出し確認）
+- エラー報告
+- エッジケース（gaps in indices, .yml extension）
+
+#### 2. 削除した検証テスト（モデルに委譲済み）
+
+以下のテストは削除（各モデルのspecでテスト済み）:
+- Keycode validation → `KeyMapping` spec
+- Position reference validation → `KeyMapping` spec
+- Position map validation → `PositionMap` spec
+- Metadata validation → `Metadata` spec
+- KeycodeParser integration → `KeycodeParser` spec
+- Modifier expression validation → `KeycodeParser` spec
+- Reference typo detection → `ReferenceConverter` spec
+
+#### 3. vendor_product_id形式統一
+
+**問題**: テストで古い形式`'0x1234:0x5678'`を使用していた
+
+**修正**: 新形式`'0x1234'`に統一
+
+**修正ファイル**:
+- `spec/integration/compiler_integration_spec.rb`
+- `spec/integration/decompiler_integration_spec.rb`
+- `spec/writers/yaml_writer_spec.rb`
+- `spec/model_validator_spec.rb`
+
+### テスト結果
+
+- **ModelValidator spec**: 19 examples, 0 failures ✅
+- **全テストスイート**: 837 examples, 0 failures ✅
+- **Round-trip test**: ✓ FILES ARE IDENTICAL ✅
+
+### メトリクス
+
+| 項目 | Before | After | 削減率 |
+|------|--------|-------|--------|
+| ModelValidator spec行数 | ~1,400行 | ~450行 | 68%削減 |
+| テスト数 | 90+ | 27 | 70%削減 |
+| 責務の焦点化 | モデル検証含む | ファイルシステム検証のみ | - |
+
+### アーキテクチャ上の意義
+
+**Phase 2完了により実現**:
+1. **関心の分離**: ファイルシステム検証（ModelValidator） vs モデル検証（Validatableモジュール）
+2. **テスタビリティ**: 各モデルが独立してテスト可能
+3. **保守性**: バリデーションロジックがモデルと共に配置
+4. **再利用性**: Validatableモジュールは全19モデルで共通利用
+
+### 実装日
+2026-03-11
 
 ---
 
@@ -608,6 +763,125 @@ Phase 2実装中に得られた知見は [Model Validation Memory](../memories/m
 
 ---
 
+## Phase 2.7: バリデーション強化（Phase 1-7） ✅ Complete
+
+### 目的
+
+Phase 2で実装したValidatableモジュールを活用し、バリデーション機能を大幅に強化。無効なデータの検出精度を向上させ、ユーザーフレンドリーなエラーメッセージを提供。
+
+### 実装内容（7フェーズ）
+
+#### Phase 1: KeycodeConverter強化 ✅
+- `resolve()`メソッドが無効なキーコードに対して`nil`を返すように変更
+- バリデーションで扱いやすいエラーハンドリング
+
+#### Phase 2: Macro Sequenceサブモデル化 ✅
+- **MacroAction**バリューオブジェクト実装
+  - QMK準拠の5種類のアクション: `tap`, `down`, `up`, `delay`, `beep`
+  - `requires_keys?`, `requires_duration?`メソッド
+- **MacroStep**モデル実装
+  - 構造検証: action, keys, duration
+  - 意味検証: キーコード解決可能性
+  - `from_yaml_hash`, `to_yaml_hash`, `to_qmk`メソッド
+- **Macroモデル更新**
+  - sequenceを`Array[MacroStep]`として管理
+  - サブモデルのカスケード検証
+- **Context Pollution Bug修正**
+  - `options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)`で抽出
+
+**ファイル**:
+- `lib/cornix/models/macro.rb` (~300行)
+  - `MacroAction`クラス (40行)
+  - `MacroStep`クラス (166行)
+  - `Macro`クラス (94行)
+- `spec/models/macro_spec.rb` (43テスト)
+
+#### Phase 3: TapDance/Comboキーコード検証 ✅
+- **TapDance**: `on_tap`, `on_hold`, `on_double_tap`, `on_tap_hold`の意味検証追加
+- **Combo**: `trigger_keys`, `output_key`の意味検証追加
+- `validate_keycode_field`クラスメソッド実装
+
+**ファイル**:
+- `lib/cornix/models/tap_dance.rb` (~120行)
+- `lib/cornix/models/combo.rb` (~130行)
+- テスト: 43 tests
+
+#### Phase 4: PositionMap構造検証強化 ✅
+- 必須キー検証（`left_hand`, `right_hand`, `encoders`）
+- 要素数検証（row0-2: 6要素、row3/thumb_keys: 3要素）
+- シンボル名形式検証（`/^[a-zA-Z0-9_-]+$/`）
+- 重複検証（シンボルの一意性）
+- 防御的`build_path_map`実装（nil安全）
+
+**ファイル**:
+- `lib/cornix/position_map.rb` (~250行)
+- `spec/position_map_spec.rb` (48テスト)
+
+#### Phase 5: KeyMapping検証強化 ✅
+- 既存の意味検証で十分であることを確認
+- position_map参照の完全一致検証
+
+#### Phase 6: エラーメッセージ改善 ✅
+- ValidationErrorフォーマット改善
+  - セミコロン区切り → 箇条書き形式
+  - ファイルパス表示対応: `Error in config/file.yaml:\n  - error1\n  - error2`
+- メタデータサポート強化
+
+**ファイル**:
+- `lib/cornix/models/concerns/validatable.rb` (~330行)
+- `spec/models/concerns/validatable_spec.rb` (34テスト)
+
+#### Phase 7: 統合テスト修正 ✅
+- **VialWriter/YamlWriter**: MacroStepフォーマット対応
+- **Compiler/Decompiler**: テストフィクスチャ修正
+- **Integration**: 全合格
+- **実データ修正**: 無効な`text`アクション削除（QMK仕様準拠）
+  - `config/macros/10_macro.yaml`
+  - `spec/fixtures/test_config/macros/10_macro.yaml`
+  - `function ()`を個別キータップに分解
+  - QMK形式キーコード使用（`KC_LEFT_PAREN`, `KC_RIGHT_PAREN`）
+
+**修正ファイル**:
+- `spec/writers/vial_writer_spec.rb`
+- `spec/writers/yaml_writer_spec.rb`
+- `spec/fixtures/test_config/macros/10_macro.yaml`
+
+### テスト結果
+
+**Phase 7完了時**:
+```
+862 examples, 0 failures, 5 pending
+Finished in 1.05 seconds
+```
+
+**テスト数内訳**:
+- VialWriter: 6 tests ✓
+- YamlWriter: 9 tests ✓
+- Compiler: 6 tests ✓
+- Decompiler: 7 tests ✓
+- Integration: 3 tests ✓
+
+### メトリクス
+
+| カテゴリ | Phase 2.6 | Phase 2.7 | 増減 |
+|---------|-----------|-----------|------|
+| 実装コード | ~2,398行 | ~2,600行 | +202行 |
+| テストコード | ~15,000行 | ~15,500行 | +500行 |
+| テスト数 | 837 | 862 | +25 |
+
+### 主な改善点
+
+1. **QMK仕様準拠**: Macroアクションが正式にQMK仕様準拠
+2. **厳密なキーコード検証**: KeycodeConverter → nil返却で検証が確実に
+3. **PositionMap構造検証**: 要素数、シンボル形式、重複を厳密にチェック
+4. **エラーメッセージ改善**: ファイルパス付き箇条書きで可読性向上
+5. **データ整合性保証**: 無効なデータ（`text`アクション）を検出・修正
+
+### 実装日
+2026-03-12
+
+---
+
 ## Change Log
 
 | Date | Change | Author |
@@ -615,3 +889,4 @@ Phase 2実装中に得られた知見は [Model Validation Memory](../memories/m
 | 2026-03-10 | Phase 1完了、Phase 2開始 | System |
 | 2026-03-10 | Validatable実装完了（5モデル適用） | System |
 | 2026-03-11 | ドキュメント構造整理（.refactor/ → .claude/） | System |
+| 2026-03-12 | Phase 2.7完了（バリデーション強化Phase 1-7） | System |

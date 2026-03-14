@@ -29,7 +29,7 @@ RSpec.describe 'Compiler Integration' do
       'keyboard' => 'test_keyboard',
       'version' => 1,
       'uid' => 'TEST123',
-      'vendor_product_id' => '0x1234:0x5678',
+      'vendor_product_id' => '0x1234',
       'product_id' => '0x5678',
       'matrix' => { 'rows' => 8, 'cols' => 7 },
       'vial_protocol' => 6,

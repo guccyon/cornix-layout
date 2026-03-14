@@ -56,36 +56,36 @@ module Cornix
       end
 
       # lockファイル保護チェック
-      if has_lock && !force
-        # lockファイル情報を表示
+      if has_lock
         lock_data = YAML.load_file(lock_file)
-        puts "⚠️  Protected: config/ directory has an active lock file"
-        puts ""
-        puts "Lock file details:"
-        puts "  Created: #{lock_data['decompiled_at']}"
-        puts "  Source: #{lock_data['source_file']}"
-        puts "  Checksum: #{lock_data['checksum'][0..15]}..."
-        puts ""
-        puts "To force cleanup (deletes lock file too):"
-        puts "  cornix cleanup -f"
-        exit 1
-      end
 
-      # 強制実行時の確認プロンプト
-      if !force && has_lock
-        lock_data = YAML.load_file(lock_file)
-        puts "⚠️  WARNING: This will delete all config files and the lock file"
-        puts ""
-        puts "Lock file details:"
-        puts "  Created: #{lock_data['decompiled_at']}"
-        puts "  Source: #{lock_data['source_file']}"
-        puts ""
-        print "Are you sure you want to continue? [y/N]: "
-        confirmation = $stdin.gets&.chomp&.downcase || ''
+        if !force
+          # force指定なしの場合は保護メッセージを表示して終了
+          puts "⚠️  Protected: config/ directory has an active lock file"
+          puts ""
+          puts "Lock file details:"
+          puts "  Created: #{lock_data['decompiled_at']}"
+          puts "  Source: #{lock_data['source_file']}"
+          puts "  Checksum: #{lock_data['checksum'][0..15]}..."
+          puts ""
+          puts "To force cleanup (deletes lock file too):"
+          puts "  cornix cleanup -f"
+          exit 1
+        else
+          # force指定ありの場合は確認プロンプトを表示
+          puts "⚠️  WARNING: This will delete all config files and the lock file"
+          puts ""
+          puts "Lock file details:"
+          puts "  Created: #{lock_data['decompiled_at']}"
+          puts "  Source: #{lock_data['source_file']}"
+          puts ""
+          print "Are you sure you want to continue? [y/N]: "
+          confirmation = $stdin.gets&.chomp&.downcase || ''
 
-        unless ['y', 'yes'].include?(confirmation)
-          puts "✓ Cleanup cancelled"
-          exit 0
+          unless ['y', 'yes'].include?(confirmation)
+            puts "✓ Cleanup cancelled"
+            exit 0
+          end
         end
       end
 

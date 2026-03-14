@@ -31,7 +31,19 @@ module Cornix
             field = validation[:field]
             validator_type = validation[:type]
             options = validation[:options]
-            value = instance_variable_get("@#{field}")
+
+            # :self の場合はオブジェクト全体を、それ以外はフィールドの値を取得
+            value = if field == :self
+              self
+            else
+              instance_variable_get("@#{field}")
+            end
+
+            # :if 条件がある場合、それを評価してスキップするか判定
+            if options[:if]
+              condition = options[:if]
+              next unless condition.call(self)
+            end
 
             # バリデーター実行
             result = Validators.run(validator_type, value, options)
@@ -59,7 +71,19 @@ module Cornix
             field = validation[:field]
             validator_type = validation[:type]
             options = validation[:options].dup
-            value = instance_variable_get("@#{field}")
+
+            # :self の場合はオブジェクト全体を、それ以外はフィールドの値を取得
+            value = if field == :self
+              self
+            else
+              instance_variable_get("@#{field}")
+            end
+
+            # :if 条件がある場合、それを評価してスキップするか判定
+            if options[:if]
+              condition = options[:if]
+              next unless condition.call(self)
+            end
 
             # コンテキストを options にマージ
             options.merge!(context)
@@ -85,10 +109,25 @@ module Cornix
           structural_errors + semantic_errors(context)
         end
 
-        # 例外を投げる検証
-        def validate!(context = {})
+        # 例外を投げる検証（モード制御追加）
+        # @param context [Hash] 検証コンテキスト（converters, position_map等）
+        # @param mode [Symbol] :strict (fail-fast) または :collect (全エラー蓄積)
+        # @return [Boolean|Array] strict時はtrue、collect時はエラー配列
+        def validate!(context = {}, mode: :strict)
           errors = all_errors(context)
-          raise ValidationError.new(errors) unless errors.empty?
+
+          case mode
+          when :strict
+            # Fail-fast: 最初のエラーで即座に例外
+            @metadata ||= {} # 未初期化の場合に備えて
+            raise ValidationError.new(errors, metadata: @metadata) unless errors.empty?
+            true
+          when :collect
+            # Collect: エラーを返すのみ（例外なし）
+            errors
+          else
+            raise ArgumentError, "Invalid mode: #{mode} (must be :strict or :collect)"
+          end
         end
 
         private
@@ -268,11 +307,40 @@ module Cornix
 
       # カスタム例外クラス
       class ValidationError < StandardError
-        attr_reader :errors
+        attr_reader :errors, :metadata
 
-        def initialize(errors)
-          @errors = errors
-          super(errors.join("; "))
+        def initialize(errors, metadata: {})
+          @errors = errors.is_a?(Array) ? errors : [errors]
+          @metadata = metadata # { file_path:, model_type: (optional) }
+          super(format_message)
+        end
+
+        private
+
+        def format_message
+          # メタデータからファイルパスを抽出
+          file_path = extract_file_path
+
+          if file_path
+            lines = ["Error in #{file_path}:"]
+            @errors.each do |error|
+              lines << "  - #{error}"
+            end
+            lines.join("\n")
+          else
+            "Validation Error:\n" + @errors.map { |e| "  - #{e}" }.join("\n")
+          end
+        end
+
+        def extract_file_path
+          return nil unless @metadata
+
+          if @metadata.is_a?(Hash)
+            @metadata[:file_path] || @metadata['file_path']
+          elsif @metadata.respond_to?(:__metadata)
+            meta_hash = @metadata.__metadata rescue nil
+            meta_hash[:file_path] || meta_hash['file_path'] if meta_hash
+          end
         end
       end
     end

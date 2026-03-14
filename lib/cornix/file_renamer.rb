@@ -298,7 +298,7 @@ module Cornix
       Dir.glob("#{@config_dir}/layers/*.{yaml,yml}").each do |layer_file|
         begin
           layer_data = YAML.load_file(layer_file)
-          mapping = layer_data['mapping'] || layer_data['overrides'] || {}
+          mapping = layer_data['mapping'] || {}
 
           changed = false
           mapping.each do |symbol, keycode|

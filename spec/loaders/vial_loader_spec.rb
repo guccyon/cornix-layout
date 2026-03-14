@@ -9,7 +9,7 @@ require 'tempfile'
 
 RSpec.describe Cornix::Loaders::VialLoader do
   let(:position_map) do
-    position_map_path = File.join(__dir__, '../../config/position_map.yaml')
+    position_map_path = File.join(__dir__, '../fixtures/position_map.yaml')
     Cornix::PositionMap.new(position_map_path)
   end
 
@@ -33,7 +33,7 @@ RSpec.describe Cornix::Loaders::VialLoader do
       'encoder_layout' => [
         Array.new(2) { Array.new(2, -1) }
       ],
-      'macro' => [[1, 2, 3]],
+      'macro' => [[['tap', 'KC_A', 'KC_B']]],
       'tap_dance' => [[4, 5, 6, 7, 200]],
       'combo' => [[20, 26, -1, -1, 43]],
       'settings' => {}
@@ -87,7 +87,10 @@ RSpec.describe Cornix::Loaders::VialLoader do
 
         expect(config.macros).to be_a(Cornix::Models::MacroCollection)
         expect(config.macros.size).to eq(1)
-        expect(config.macros[0].sequence).to eq([1, 2, 3])
+        expect(config.macros[0].sequence.size).to eq(1)
+        expect(config.macros[0].sequence[0]).to be_a(Cornix::Models::Macro::MacroStep)
+        expect(config.macros[0].sequence[0].action).to eq('tap')
+        expect(config.macros[0].sequence[0].keys).to eq(['A', 'B'])
       end
     end
 

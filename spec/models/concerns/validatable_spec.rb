@@ -143,41 +143,156 @@ RSpec.describe Cornix::Models::Concerns::Validatable do
   end
 
   describe '#validate!' do
-    it 'does not raise when valid' do
-      model = TestModel.new(name: 'valid', value: 50)
-      expect { model.validate! }.not_to raise_error
-    end
+    context 'without mode parameter (default: :strict)' do
+      it 'does not raise when valid' do
+        model = TestModel.new(name: 'valid', value: 50)
+        expect { model.validate! }.not_to raise_error
+      end
 
-    it 'raises ValidationError when invalid' do
-      model = TestModel.new(name: '', value: 150)
-      expect { model.validate! }.to raise_error(
-        Cornix::Models::Concerns::ValidationError
-      ) do |error|
-        expect(error.errors).not_to be_empty
+      it 'raises ValidationError when invalid' do
+        model = TestModel.new(name: '', value: 150)
+        expect { model.validate! }.to raise_error(
+          Cornix::Models::Concerns::ValidationError
+        ) do |error|
+          expect(error.errors).not_to be_empty
+        end
+      end
+
+      it 'includes all errors in exception message' do
+        model = TestModel.new(name: '', value: 150)
+        expect { model.validate! }.to raise_error do |error|
+          message = error.message
+          expect(message).to include('cannot be blank')
+          expect(message).to include('must be')
+        end
       end
     end
 
-    it 'includes all errors in exception message' do
-      model = TestModel.new(name: '', value: 150)
-      expect { model.validate! }.to raise_error do |error|
-        message = error.message
-        expect(message).to include('cannot be blank')
-        expect(message).to include('must be')
+    context 'with mode: :strict' do
+      it 'returns true when valid' do
+        model = TestModel.new(name: 'valid', value: 50)
+        result = model.validate!({}, mode: :strict)
+        expect(result).to be true
+      end
+
+      it 'raises ValidationError when invalid (fail-fast)' do
+        model = TestModel.new(name: '', value: 150)
+        expect { model.validate!({}, mode: :strict) }.to raise_error(
+          Cornix::Models::Concerns::ValidationError
+        ) do |error|
+          expect(error.errors).not_to be_empty
+        end
+      end
+
+      it 'includes metadata in ValidationError' do
+        model = TestModel.new(name: '', value: 150)
+        model.instance_variable_set(:@metadata, { file_path: 'config/test.yaml' })
+
+        expect { model.validate!({}, mode: :strict) }.to raise_error(
+          Cornix::Models::Concerns::ValidationError
+        ) do |error|
+          expect(error.metadata).to eq({ file_path: 'config/test.yaml' })
+          expect(error.message).to include('config/test.yaml')
+        end
+      end
+    end
+
+    context 'with mode: :collect' do
+      it 'returns empty array when valid' do
+        model = TestModel.new(name: 'valid', value: 50)
+        errors = model.validate!({}, mode: :collect)
+        expect(errors).to be_empty
+        expect(errors).to be_an(Array)
+      end
+
+      it 'returns all errors without raising (collect mode)' do
+        model = TestModel.new(name: '', value: 150)
+        errors = model.validate!({}, mode: :collect)
+        expect(errors).not_to be_empty
+        expect(errors).to be_an(Array)
+        expect(errors.join(' ')).to include('cannot be blank')
+        expect(errors.join(' ')).to include('must be')
+      end
+
+      it 'collects semantic errors as well' do
+        model = TestModel.new(name: 'forbidden', value: 50)
+        context = { forbidden_names: ['forbidden'] }
+        errors = model.validate!(context, mode: :collect)
+        expect(errors).not_to be_empty
+        expect(errors.first).to include('forbidden')
+      end
+
+      it 'does not raise exception in collect mode' do
+        model = TestModel.new(name: '', value: 150)
+        expect { model.validate!({}, mode: :collect) }.not_to raise_error
+      end
+    end
+
+    context 'with invalid mode' do
+      it 'raises ArgumentError' do
+        model = TestModel.new(name: 'valid', value: 50)
+        expect { model.validate!({}, mode: :invalid) }.to raise_error(
+          ArgumentError,
+          /Invalid mode: invalid/
+        )
       end
     end
   end
 
   describe 'ValidationError' do
-    it 'stores errors' do
-      errors = ['Error 1', 'Error 2', 'Error 3']
-      exception = Cornix::Models::Concerns::ValidationError.new(errors)
-      expect(exception.errors).to eq(errors)
+    context 'without metadata' do
+      it 'stores errors' do
+        errors = ['Error 1', 'Error 2', 'Error 3']
+        exception = Cornix::Models::Concerns::ValidationError.new(errors)
+        expect(exception.errors).to eq(errors)
+      end
+
+      it 'formats message with bullet points' do
+        errors = ['Error 1', 'Error 2']
+        exception = Cornix::Models::Concerns::ValidationError.new(errors)
+        expected = "Validation Error:\n  - Error 1\n  - Error 2"
+        expect(exception.message).to eq(expected)
+      end
+
+      it 'handles single error string' do
+        exception = Cornix::Models::Concerns::ValidationError.new('Single error')
+        expect(exception.errors).to eq(['Single error'])
+        expected = "Validation Error:\n  - Single error"
+        expect(exception.message).to eq(expected)
+      end
     end
 
-    it 'formats message with semicolons' do
-      errors = ['Error 1', 'Error 2']
-      exception = Cornix::Models::Concerns::ValidationError.new(errors)
-      expect(exception.message).to eq('Error 1; Error 2')
+    context 'with metadata' do
+      it 'stores metadata' do
+        errors = ['Error 1', 'Error 2']
+        metadata = { file_path: 'config/test.yaml' }
+        exception = Cornix::Models::Concerns::ValidationError.new(errors, metadata: metadata)
+        expect(exception.metadata).to eq(metadata)
+      end
+
+      it 'prefixes errors with file_path' do
+        errors = ['name: cannot be blank', 'value: must be 1-100']
+        metadata = { file_path: 'config/layers/0_base.yaml' }
+        exception = Cornix::Models::Concerns::ValidationError.new(errors, metadata: metadata)
+
+        expected_message = "Error in config/layers/0_base.yaml:\n  - name: cannot be blank\n  - value: must be 1-100"
+        expect(exception.message).to eq(expected_message)
+      end
+
+      it 'handles empty metadata hash' do
+        errors = ['Error 1', 'Error 2']
+        exception = Cornix::Models::Concerns::ValidationError.new(errors, metadata: {})
+        expected = "Validation Error:\n  - Error 1\n  - Error 2"
+        expect(exception.message).to eq(expected)
+      end
+
+      it 'uses validation error format when no file_path' do
+        errors = ['Error 1', 'Error 2']
+        metadata = { other_key: 'value' }
+        exception = Cornix::Models::Concerns::ValidationError.new(errors, metadata: metadata)
+        expected = "Validation Error:\n  - Error 1\n  - Error 2"
+        expect(exception.message).to eq(expected)
+      end
     end
   end
 

@@ -1,0 +1,9 @@
+---
+index: 1
+name: TapDance 1
+description: ''
+on_tap: SGUI(KC_4)
+on_hold: SGUI(KC_5)
+on_double_tap: KC_NO
+on_tap_hold: KC_NO
+tapping_term: 250

@@ -19,7 +19,7 @@ RSpec.describe Cornix::Writers::YamlWriter do
       keyboard: 'test_keyboard',
       version: 1,
       uid: 'TEST123',
-      vendor_product_id: '0x1234:0x5678',
+      vendor_product_id: '0x1234',
       product_id: '0x5678',
       matrix: { 'rows' => 8, 'cols' => 7 },
       vial_protocol: 6,
@@ -51,7 +51,12 @@ RSpec.describe Cornix::Writers::YamlWriter do
       index: 0,
       name: 'Test Macro',
       description: 'Test',
-      sequence: [1, 2, 3]
+      sequence: [
+        Cornix::Models::Macro::MacroStep.new(
+          action: 'tap',
+          keys: ['A', 'B']
+        )
+      ]
     )
   end
 
@@ -186,7 +191,11 @@ RSpec.describe Cornix::Writers::YamlWriter do
       loaded = YAML.load_file(macro_file)
       expect(loaded['name']).to eq('Test Macro')
       expect(loaded['description']).to eq('Test')
-      expect(loaded['sequence']).to eq([1, 2, 3])
+      expect(loaded['sequence']).to be_a(Array)
+      expect(loaded['sequence'].size).to eq(1)
+      expect(loaded['sequence'][0]).to be_a(Hash)
+      expect(loaded['sequence'][0]['action']).to eq('tap')
+      expect(loaded['sequence'][0]['keys']).to eq(['A', 'B'])
     end
 
     it 'タップダンスファイルを生成' do
@@ -237,7 +246,12 @@ RSpec.describe Cornix::Writers::YamlWriter do
         index: 1,
         name: 'Copy Line (Cmd+C)',
         description: 'Test',
-        sequence: [1, 2, 3]
+        sequence: [
+          Cornix::Models::Macro::MacroStep.new(
+            action: 'tap',
+            keys: ['A']
+          )
+        ]
       )
       special_macro_collection = Cornix::Models::MacroCollection.new([special_macro])
 
@@ -279,7 +293,7 @@ RSpec.describe Cornix::Writers::YamlWriter do
 
       # YamlLoader で読み込み
       require_relative '../../lib/cornix/loaders/yaml_loader'
-      position_map_path = File.join(__dir__, '../../config/position_map.yaml')
+      position_map_path = File.join(__dir__, '../fixtures/position_map.yaml')
       position_map = Cornix::PositionMap.new(position_map_path)
 
       loader = Cornix::Loaders::YamlLoader.new(temp_dir)

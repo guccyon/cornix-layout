@@ -573,7 +573,12 @@ RSpec.describe Cornix::FileRenamer do
       File.write(macro_file, YAML.dump({
         'index' => 3,
         'name' => 'Macro 3',
-        'sequence' => ['KC_LGUI', 'KC_RIGHT']
+        'description' => '',
+        'sequence' => [
+          { 'action' => 'down', 'keys' => ['LGui'] },
+          { 'action' => 'tap', 'keys' => ['Right'] },
+          { 'action' => 'up', 'keys' => ['LGui'] }
+        ]
       }))
 
       # Execute rename
@@ -598,6 +603,15 @@ RSpec.describe Cornix::FileRenamer do
 
       # Verify compilation still works
       compilation_result = renamer_with_backup.verify_compilation
+      unless compilation_result[:success]
+        puts "\n=== Compilation Failed ==="
+        puts "Error: #{compilation_result[:error]}"
+        if compilation_result[:backtrace]
+          puts "Backtrace:"
+          puts compilation_result[:backtrace].first(10).join("\n")
+        end
+        puts "==="
+      end
       expect(compilation_result[:success]).to be true
     end
   end
@@ -644,7 +658,7 @@ RSpec.describe Cornix::FileRenamer do
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => {
+          'mapping' => {
             'LT1' => "TapDance('OldTapDance')"
           }
         }))
@@ -654,7 +668,7 @@ RSpec.describe Cornix::FileRenamer do
         expect(updated.size).to eq(1)
 
         layer = YAML.load_file("#{config_dir}/layers/1_layer.yaml")
-        expect(layer['overrides']['LT1']).to eq("TapDance('NewTapDance')")
+        expect(layer['mapping']['LT1']).to eq("TapDance('NewTapDance')")
       end
 
       it 'does not update index-based references' do
@@ -709,7 +723,7 @@ RSpec.describe Cornix::FileRenamer do
 
         File.write("#{config_dir}/layers/1_layer.yaml", YAML.dump({
           'name' => 'Layer 1',
-          'overrides' => { 'RT1' => "Macro('SharedMacro')" }
+          'mapping' => { 'RT1' => "Macro('SharedMacro')" }
         }))
 
         updated = renamer.update_layer_references('SharedMacro', 'RenamedMacro', :macro)
@@ -720,7 +734,7 @@ RSpec.describe Cornix::FileRenamer do
         layer1 = YAML.load_file("#{config_dir}/layers/1_layer.yaml")
 
         expect(layer0['mapping']['LT1']).to eq("Macro('RenamedMacro')")
-        expect(layer1['overrides']['RT1']).to eq("Macro('RenamedMacro')")
+        expect(layer1['mapping']['RT1']).to eq("Macro('RenamedMacro')")
       end
 
       it 'returns empty array when no references match' do

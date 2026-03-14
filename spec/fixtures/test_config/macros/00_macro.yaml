@@ -1,0 +1,10 @@
+---
+index: 0
+name: Macro 0
+description: ''
+sequence:
+- action: tap
+  keys:
+  - KC_LBRACKET
+  - KC_RBRACKET
+  - KC_LEFT

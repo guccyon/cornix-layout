@@ -1,0 +1,9 @@
+---
+index: 2
+name: TapDance 2
+description: ''
+on_tap: LGUI(KC_V)
+on_hold: M2
+on_double_tap: M3
+on_tap_hold: M4
+tapping_term: 250

@@ -1,0 +1,74 @@
+---
+name: Layer 2
+description: ''
+index: 2
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: '1'
+      W: '2'
+      E: '3'
+      R: '4'
+      T: '5'
+    row1:
+      caps: M11
+      A: M0
+      S: M1
+      D: M6
+      F: M5
+      G: M8
+    row2:
+      lshift: NoKey
+      Z: M10
+      X: NoKey
+      C: TD(2)
+      V: M7
+      B: NoKey
+    row3:
+      lctrl: NoKey
+      command: NoKey
+      option: NoKey
+    thumb_keys:
+      left: NoKey
+      middle: NoKey
+      right: NoKey
+  right_hand:
+    row0:
+      "Y": '6'
+      U: '7'
+      I: '8'
+      O: '9'
+      P: '0'
+      backspace: NoKey
+    row1:
+      H: NoKey
+      J: KC_KP_4
+      K: KC_KP_5
+      L: KC_KP_6
+      colon: NoKey
+      enter: NoKey
+    row2:
+      "N": NoKey
+      M: KC_KP_1
+      comma: KC_KP_2
+      dot: KC_KP_3
+      up: KC_KP_DOT
+      rshift: NoKey
+    row3:
+      left: SGUI(KC_LBRACKET)
+      down: NoKey
+      right: SGUI(KC_RBRACKET)
+    thumb_keys:
+      left: NoKey
+      middle: KC_KP_0
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: MouseButton3
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

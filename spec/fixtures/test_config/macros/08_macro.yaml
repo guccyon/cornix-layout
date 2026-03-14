@@ -1,0 +1,18 @@
+---
+index: 8
+name: Macro 8
+description: ''
+sequence:
+- action: down
+  keys:
+  - KC_LSHIFT
+- action: tap
+  keys:
+  - KC_QUOTE
+  - KC_QUOTE
+- action: up
+  keys:
+  - KC_LSHIFT
+- action: tap
+  keys:
+  - KC_LEFT

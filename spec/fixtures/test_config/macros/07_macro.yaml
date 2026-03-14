@@ -1,0 +1,15 @@
+---
+index: 7
+name: Macro 7
+description: ''
+sequence:
+- action: down
+  keys:
+  - KC_LGUI
+- action: tap
+  keys:
+  - KC_SPACE
+  - KC_4
+- action: up
+  keys:
+  - KC_LGUI

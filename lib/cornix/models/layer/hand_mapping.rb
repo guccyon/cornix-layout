@@ -19,11 +19,26 @@ module Cornix
       class HandMapping
         include Concerns::Validatable
 
-        attr_reader :hand, :row0, :row1, :row2, :row3, :thumb_keys
+        attr_reader :hand, :row0, :row1, :row2, :row3, :thumb_keys, :_yaml_keys
 
         # === バリデーション定義 ===
 
         validates :hand, :inclusion, in: [:left, :right], message: "must be :left or :right"
+
+        # YAMLから構築した場合、必須キーの存在確認（@_yaml_keys をチェック）
+        validates :_yaml_keys, :custom, with: ->(value) {
+          # from_qmk 等の場合は @_yaml_keys が設定されないのでスキップ
+          return { valid: true } if value.nil?
+
+          required_keys = ['row0', 'row1', 'row2', 'row3', 'thumb_keys']
+          missing_keys = required_keys - value
+
+          if missing_keys.empty?
+            { valid: true }
+          else
+            { valid: false, error: "Missing required keys: #{missing_keys.join(', ')}" }
+          end
+        }, field_name: "yaml_keys"
 
         validates :row0, :length, max: 6, message: "size exceeds 6"
         validates :row1, :length, max: 6, message: "size exceeds 6"
@@ -77,7 +92,9 @@ module Cornix
           return { valid: true } if value.nil?
 
           if value.respond_to?(:semantic_errors)
-            errors = value.semantic_errors(options)
+            # Extract only context keys, excluding validation-specific keys like :with
+            context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+            errors = value.semantic_errors(context)
             if errors.empty?
               { valid: true }
             else
@@ -93,12 +110,15 @@ module Cornix
             return { valid: true } if value.nil?
             return { valid: false, error: "must be an Array" } unless value.is_a?(Array)
 
+            # Extract only context keys, excluding validation-specific keys like :with
+            context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+
             errors = []
             value.each do |key|
               next if key.is_a?(NullKeyMapping)
 
               if key.respond_to?(:semantic_errors)
-                key_errors = key.semantic_errors(options)
+                key_errors = key.semantic_errors(context)
                 key_errors.each do |e|
                   errors << "#{row_name} (#{key.symbol}): #{e}"
                 end
@@ -252,6 +272,9 @@ module Cornix
         def self.from_yaml_hash(hand:, yaml_hand:, position_map:)
           return empty(hand) if yaml_hand.nil?
 
+          # Store original YAML keys for validation
+          original_yaml_keys = yaml_hand.keys
+
           hand_key = hand == :left ? 'left_hand' : 'right_hand'
           rows = []
 
@@ -261,6 +284,7 @@ module Cornix
             row_symbols = position_map.data[hand_key][row_key]
             row_mappings = []
 
+            # position_mapに存在するsymbolに対するマッピング
             row_symbols.each_with_index do |symbol, logical_col|
               keycode = yaml_row[symbol]
               next if keycode.nil?
@@ -270,6 +294,18 @@ module Cornix
                 keycode: keycode,
                 logical_coord: { hand: hand, row: logical_row, col: logical_col }
               )
+            end
+
+            # YAMLにあるがposition_mapに存在しないキーを検出
+            yaml_row.each do |symbol, keycode|
+              unless row_symbols.include?(symbol)
+                # 無効なsymbolでKeyMappingを作成（バリデーションでエラーになる）
+                row_mappings << KeyMapping.new(
+                  symbol: symbol,
+                  keycode: keycode,
+                  logical_coord: { hand: hand, row: logical_row, col: 0 }
+                )
+              end
             end
 
             rows << row_mappings
@@ -283,7 +319,7 @@ module Cornix
           end
           thumb_keys_obj = ThumbKeys.from_yaml_hash(yaml_thumbs, thumb_symbols, factory)
 
-          new(
+          instance = new(
             hand: hand,
             row0: rows[0],
             row1: rows[1],
@@ -291,6 +327,11 @@ module Cornix
             row3: rows[3],
             thumb_keys: thumb_keys_obj
           )
+
+          # Store original YAML keys for validation
+          instance.instance_variable_set(:@_yaml_keys, original_yaml_keys)
+
+          instance
         end
 
         # YAML形式のハッシュに変換

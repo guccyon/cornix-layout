@@ -1,0 +1,24 @@
+---
+index: 10
+name: Macro 10
+description: ''
+sequence:
+- action: tap
+  keys:
+  - KC_LANG2
+- action: tap
+  keys:
+  - F
+  - U
+  - N
+  - C
+  - T
+  - I
+  - O
+  - N
+  - Space
+  - KC_LEFT_PAREN
+  - KC_RIGHT_PAREN
+- action: tap
+  keys:
+  - KC_LEFT

@@ -1,0 +1,9 @@
+---
+index: 0
+name: TapDance 0
+description: ''
+on_tap: OSL(4)
+on_hold: MO(1)
+on_double_tap: KC_NO
+on_tap_hold: KC_NO
+tapping_term: 200

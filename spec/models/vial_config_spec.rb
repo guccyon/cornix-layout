@@ -17,7 +17,8 @@ require_relative '../../lib/cornix/converters/keycode_converter'
 
 RSpec.describe Cornix::Models::VialConfig do
   let(:position_map) do
-    position_map_path = File.join(__dir__, '../../config/position_map.yaml')
+    # Use system position_map.yaml for tests
+    position_map_path = File.join(__dir__, '../../lib/cornix/position_map.yaml')
     Cornix::PositionMap.new(position_map_path)
   end
 
@@ -63,7 +64,10 @@ RSpec.describe Cornix::Models::VialConfig do
       index: 0,
       name: 'Test Macro',
       description: 'Test',
-      sequence: [1, 2, 3]
+      sequence: [
+        Cornix::Models::Macro::MacroStep.new(action: 'tap', keys: ['A']),
+        Cornix::Models::Macro::MacroStep.new(action: 'delay', duration: 100)
+      ]
     )
   end
 
@@ -140,7 +144,7 @@ RSpec.describe Cornix::Models::VialConfig do
           Array.new(2) { Array.new(2, -1) }
         ],
         'macro' => [
-          [1, 2, 3]
+          [['tap', 20], ['delay', 100]]
         ],
         'tap_dance' => [
           [4, 5, 6, 7, 200]
@@ -177,7 +181,10 @@ RSpec.describe Cornix::Models::VialConfig do
 
       expect(config.macros.size).to eq(1)
       expect(config.macros[0]).to be_a(Cornix::Models::Macro)
-      expect(config.macros[0].sequence).to eq([1, 2, 3])
+      expect(config.macros[0].sequence.size).to eq(2)
+      expect(config.macros[0].sequence[0]).to be_a(Cornix::Models::Macro::MacroStep)
+      expect(config.macros[0].sequence[0].action).to eq('tap')
+      expect(config.macros[0].sequence[1].action).to eq('delay')
     end
 
     it 'タップダンスコレクションを正しく生成' do
@@ -197,7 +204,7 @@ RSpec.describe Cornix::Models::VialConfig do
     end
 
     it '空のマクロをスキップ' do
-      qmk_hash['macro'] = [[], [1, 2], []]
+      qmk_hash['macro'] = [[], [['tap', 20], ['delay', 100]], []]
       config = described_class.from_qmk(qmk_hash, position_map, keycode_converter)
 
       expect(config.macros.size).to eq(1)
@@ -285,7 +292,7 @@ RSpec.describe Cornix::Models::VialConfig do
       )
 
       expect(qmk_hash['macro'].size).to eq(32)
-      expect(qmk_hash['macro'][0]).to eq([1, 2, 3])
+      expect(qmk_hash['macro'][0]).to eq([['tap', 'KC_A'], ['delay', 100]])
     end
   end
 
@@ -343,7 +350,10 @@ RSpec.describe Cornix::Models::VialConfig do
           'index' => 0,
           'name' => 'Test Macro',
           'description' => 'Test',
-          'sequence' => [1, 2, 3]
+          'sequence' => [
+            { 'action' => 'tap', 'keys' => ['A'] },
+            { 'action' => 'delay', 'duration' => 100 }
+          ]
         }
       ]
     end
@@ -495,7 +505,7 @@ RSpec.describe Cornix::Models::VialConfig do
         'encoder_layout' => [
           Array.new(2) { Array.new(2, -1) }
         ],
-        'macro' => [[1, 2, 3]],
+        'macro' => [[['tap', 20], ['delay', 100]]],
         'tap_dance' => [[4, 5, 6, 7, 200]],
         'combo' => [[20, 26, -1, -1, 43]],
         'settings' => {}
@@ -513,7 +523,7 @@ RSpec.describe Cornix::Models::VialConfig do
       expect(result_hash['uid']).to eq('TEST123')
       expect(result_hash['layout'].size).to eq(10)
       expect(result_hash['macro'].size).to eq(32)
-      expect(result_hash['macro'][0]).to eq([1, 2, 3])
+      expect(result_hash['macro'][0]).to eq([['tap', 20], ['delay', 100]])
     end
   end
 
@@ -552,6 +562,171 @@ RSpec.describe Cornix::Models::VialConfig do
       expect(config.macros.size).to eq(0)
       expect(config.tap_dances.size).to eq(0)
       expect(config.combos.size).to eq(0)
+    end
+  end
+
+  describe '#validate!' do
+    let(:context) do
+      {
+        keycode_converter: keycode_converter,
+        reference_converter: nil,
+        position_map: position_map
+      }
+    end
+
+    it '全ての不具合を含む統合テスト - すべてエラーを検出すべき' do
+      # 1. Layer with missing left_hand
+      invalid_layer = Cornix::Models::Layer.new(
+        name: 'Invalid Layer',
+        description: '',
+        index: 0,
+        left_hand: nil,  # left_handが省略
+        right_hand: Cornix::Models::Layer::HandMapping.empty(:right),
+        encoders: Cornix::Models::Layer::EncoderMapping.new(left: {}, right: {})
+      )
+
+      # 2. Layer with invalid keycode
+      invalid_key_mapping = Cornix::Models::Layer::KeyMapping.new(
+        symbol: 'tab',
+        keycode: 'InvalidKeyCodeAlias',  # 無効なキーコード
+        logical_coord: { hand: :left, row: 0, col: 0 }
+      )
+      layer_with_invalid_keycode = Cornix::Models::Layer.new(
+        name: 'Layer with invalid keycode',
+        description: '',
+        index: 1,
+        left_hand: Cornix::Models::Layer::HandMapping.new(
+          hand: :left,
+          row0: [invalid_key_mapping],
+          row1: [],
+          row2: [],
+          row3: [],
+          thumb_keys: Cornix::Models::Layer::ThumbKeys.new
+        ),
+        right_hand: Cornix::Models::Layer::HandMapping.empty(:right),
+        encoders: Cornix::Models::Layer::EncoderMapping.new(left: {}, right: {})
+      )
+
+      # 3. Layer with position_map に存在しないキー
+      nonexistent_key_mapping = Cornix::Models::Layer::KeyMapping.new(
+        symbol: 'NONEXISTENT_KEY',  # position_mapに存在しない
+        keycode: 'Tab',
+        logical_coord: { hand: :left, row: 0, col: 0 }
+      )
+      layer_with_nonexistent_key = Cornix::Models::Layer.new(
+        name: 'Layer with nonexistent key',
+        description: '',
+        index: 2,
+        left_hand: Cornix::Models::Layer::HandMapping.new(
+          hand: :left,
+          row0: [nonexistent_key_mapping],
+          row1: [],
+          row2: [],
+          row3: [],
+          thumb_keys: Cornix::Models::Layer::ThumbKeys.new
+        ),
+        right_hand: Cornix::Models::Layer::HandMapping.empty(:right),
+        encoders: Cornix::Models::Layer::EncoderMapping.new(left: {}, right: {})
+      )
+
+      layer_collection_invalid = Cornix::Models::LayerCollection.new([
+        invalid_layer,
+        layer_with_invalid_keycode,
+        layer_with_nonexistent_key
+      ])
+
+      # 4. Macro with keys but no action
+      macro_step_no_action = Cornix::Models::Macro::MacroStep.new(
+        action: nil,  # actionが省略
+        keys: ['A', 'B']
+      )
+      macro_no_action = Cornix::Models::Macro.new(
+        index: 0,
+        name: 'Macro No Action',
+        description: '',
+        sequence: [macro_step_no_action]
+      )
+
+      # 5. Macro tap action without keys
+      macro_step_no_keys = Cornix::Models::Macro::MacroStep.new(
+        action: 'tap',
+        keys: nil  # keysが省略
+      )
+      macro_no_keys = Cornix::Models::Macro.new(
+        index: 1,
+        name: 'Macro No Keys',
+        description: '',
+        sequence: [macro_step_no_keys]
+      )
+
+      # 6. Macro with invalid action
+      macro_step_invalid_action = Cornix::Models::Macro::MacroStep.new(
+        action: 'invalid_action',  # 無効なaction
+        keys: ['A']
+      )
+      macro_invalid_action = Cornix::Models::Macro.new(
+        index: 2,
+        name: 'Macro Invalid Action',
+        description: '',
+        sequence: [macro_step_invalid_action]
+      )
+
+      macro_collection_invalid = Cornix::Models::MacroCollection.new([
+        macro_no_action,
+        macro_no_keys,
+        macro_invalid_action
+      ])
+
+      # 7. Combo with missing output_key
+      combo_no_output = Cornix::Models::Combo.new(
+        index: 0,
+        name: 'Combo No Output',
+        description: '',
+        trigger_keys: [20, 26],
+        output_key: nil  # output_keyが省略
+      )
+      # メタデータ設定（ファイル名表示のため）
+      combo_no_output.instance_variable_set(:@metadata, { file_path: 'config/combos/00_invalid.yaml' })
+
+      combo_collection_invalid = Cornix::Models::ComboCollection.new([combo_no_output])
+
+      # VialConfig作成
+      vial_config = described_class.new(
+        metadata: metadata,
+        settings: settings,
+        layers: layer_collection_invalid,
+        macros: macro_collection_invalid,
+        tap_dances: Cornix::Models::TapDanceCollection.new([]),
+        combos: combo_collection_invalid
+      )
+
+      # 検証実行（collect mode）
+      errors = vial_config.validate!(context, mode: :collect)
+
+      # デバッグ: 全エラーを出力
+      puts "\n=== All Errors (#{errors.size}) ===\n#{errors.join("\n")}\n==="
+
+      # すべてのエラーが検出されていることを確認
+      errors_text = errors.join("\n")
+
+      # Layer関連
+      expect(errors_text).to include('left_hand'), "left_handが省略されているエラーが検出されていません"
+      expect(errors_text).to include('InvalidKeyCodeAlias'), "無効なキーコードエラーが検出されていません"
+      expect(errors_text).to include('NONEXISTENT_KEY'), "position_mapに存在しないキーのエラーが検出されていません"
+
+      # Macro関連
+      expect(errors_text).to include('action'), "actionが省略されているエラーが検出されていません"
+      expect(errors_text).to include('keys'), "keysが省略されているエラーが検出されていません"
+      expect(errors_text).to match(/action.*must be one of/), "無効なactionのエラーが検出されていません"
+
+      # Combo関連
+      expect(errors_text).to include('output_key'), "output_keyが省略されているエラーが検出されていません"
+      expect(errors_text).to include('00_invalid.yaml'), "Comboのファイル名が表示されていません"
+
+      # エラーメッセージにファイル名やコンテキスト情報が含まれているか確認
+      expect(errors_text).to match(/layer|Layer/i), "Layerに関するエラーが識別できません"
+      expect(errors_text).to match(/macro|Macro/i), "Macroに関するエラーが識別できません"
+      expect(errors_text).to match(/combo|Combo/i), "Comboに関するエラーが識別できません"
     end
   end
 end

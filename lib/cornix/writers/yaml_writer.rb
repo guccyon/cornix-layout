@@ -35,13 +35,17 @@ module Cornix
         write_yaml("#{@output_dir}/settings/qmk_settings.yaml", yaml_hashes[:settings])
 
         # レイヤー
-        yaml_hashes[:layers].each_with_index do |layer_hash, index|
-          filename = "#{index}_#{sanitize_filename(layer_hash['name'])}.yaml"
+        yaml_hashes[:layers].each do |layer_hash|
+          index = layer_hash['index']
+          name = layer_hash['name']
+          # デフォルト名（"Layer N"形式）の場合は種別名のみ、カスタム名の場合はカスタム名
+          suffix = name.match?(/^Layer \d+$/) ? 'layer' : sanitize_filename(name)
+          filename = "#{index.to_s.rjust(1, '0')}_#{suffix}.yaml"
           write_yaml("#{@output_dir}/layers/#{filename}", layer_hash)
         end
 
         # マクロ
-        yaml_hashes[:macros].each do |macro_hash|
+        yaml_hashes[:macros].each_with_index do |macro_hash|
           index = macro_hash['index']
           name = macro_hash['name']
           # デフォルト名（"Macro N"形式）の場合は種別名のみ、カスタム名の場合はカスタム名
@@ -51,7 +55,7 @@ module Cornix
         end
 
         # タップダンス
-        yaml_hashes[:tap_dances].each do |tap_dance_hash|
+        yaml_hashes[:tap_dances].each_with_index do |tap_dance_hash|
           index = tap_dance_hash['index']
           name = tap_dance_hash['name']
           # デフォルト名（"TapDance N"形式）の場合は種別名のみ、カスタム名の場合はカスタム名
@@ -61,7 +65,7 @@ module Cornix
         end
 
         # コンボ
-        yaml_hashes[:combos].each do |combo_hash|
+        yaml_hashes[:combos].each_with_index do |combo_hash|
           index = combo_hash['index']
           name = combo_hash['name']
           # デフォルト名（"Combo N"形式）の場合は種別名のみ、カスタム名の場合はカスタム名

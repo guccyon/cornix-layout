@@ -1,0 +1,18 @@
+---
+index: 6
+name: Macro 6
+description: ''
+sequence:
+- action: down
+  keys:
+  - KC_LSHIFT
+- action: tap
+  keys:
+  - KC_9
+  - KC_0
+- action: up
+  keys:
+  - KC_LSHIFT
+- action: tap
+  keys:
+  - KC_LEFT

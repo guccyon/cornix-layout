@@ -1,10 +1,83 @@
 # frozen_string_literal: true
 
+require_relative 'concerns/validatable'
+
 module Cornix
   module Models
     # 1つのコンボを保持するモデル
     class Combo
+      include Concerns::Validatable
+
       attr_reader :index, :name, :description, :trigger_keys, :output_key
+
+      # Structural validations
+      validates :index, :presence
+      validates :index, :type, is: Integer
+      validates :index, :custom, with: ->(value) {
+        if value >= 0 && value < 32
+          { valid: true }
+        else
+          { valid: false, error: "must be between 0 and 31" }
+        end
+      }
+      validates :name, :presence
+      validates :name, :type, is: String
+      validates :trigger_keys, :presence
+      validates :trigger_keys, :type, is: Array
+      validates :trigger_keys, :custom, with: ->(value) {
+        return { valid: true } if value.nil?  # presenceで検証済み
+
+        if value.size <= 4
+          { valid: true }
+        else
+          { valid: false, error: "cannot have more than 4 trigger keys" }
+        end
+      }
+      validates :output_key, :presence
+
+      # Semantic validations
+      validates :trigger_keys, :custom, phase: :semantic, with: ->(value, options) {
+        return { valid: true } if value.nil? || value.empty?
+
+        keycode_converter = options[:keycode_converter]
+        unless keycode_converter
+          return { valid: false, error: 'keycode_converter is required' }
+        end
+
+        errors = []
+        value.each_with_index do |key, idx|
+          # KC_NO, 0, -1 は許可（空値）
+          next if key.nil? || key == 0 || key == -1 || key == 'KC_NO'
+
+          resolved = keycode_converter.resolve(key)
+          unless resolved
+            errors << "trigger_keys[#{idx}]: Invalid keycode '#{key}'"
+          end
+        end
+
+        if errors.empty?
+          { valid: true }
+        else
+          { valid: false, error: errors.join('; ') }
+        end
+      }
+
+      validates :output_key, :custom, phase: :semantic, with: ->(value, options) {
+        # KC_NO, 0, -1, nil は許可（空値）
+        return { valid: true } if value.nil? || value == 0 || value == -1 || value == 'KC_NO'
+
+        keycode_converter = options[:keycode_converter]
+        unless keycode_converter
+          return { valid: false, error: 'keycode_converter is required' }
+        end
+
+        resolved = keycode_converter.resolve(value)
+        unless resolved
+          return { valid: false, error: "Invalid keycode '#{value}'" }
+        end
+
+        { valid: true }
+      }
 
       def initialize(index:, name:, description:, trigger_keys:, output_key:)
         @index = index            # 0-31
@@ -39,13 +112,21 @@ module Cornix
 
       # YAML Hash → Combo
       def self.from_yaml_hash(yaml_hash)
-        new(
+        # メタ情報抽出（存在する場合）
+        metadata = yaml_hash.respond_to?(:__metadata) ? yaml_hash.__metadata : {}
+
+        instance = new(
           index: yaml_hash['index'],
           name: yaml_hash['name'],
           description: yaml_hash['description'] || '',
           trigger_keys: yaml_hash['trigger_keys'] || [],
           output_key: yaml_hash['output_key']
         )
+
+        # メタ情報保存
+        instance.instance_variable_set(:@metadata, metadata)
+
+        instance
       end
 
       # Combo → YAML Hash

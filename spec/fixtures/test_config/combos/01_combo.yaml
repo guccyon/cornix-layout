@@ -1,0 +1,10 @@
+---
+index: 1
+name: Combo 1
+description: ''
+trigger_keys:
+- KC_J
+- KC_K
+- KC_NO
+- KC_NO
+output_key: KC_RBRACKET

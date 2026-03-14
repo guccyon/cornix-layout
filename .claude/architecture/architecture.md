@@ -17,50 +17,11 @@ Cornixプロジェクトの現在のアーキテクチャドキュメント（Ph
 
 **テスト**: `spec/position_map_spec.rb` (17テスト)
 
-### ✅ Phase 2: モデル層実装（ほぼ完了）
+### ✅ Phase 2: モデル層実装（完了）
 
-**実装状況**: 19モデルファイル、約1,077行
+**実装状況**: 19モデルファイル、約1,337行、234テスト
 
-#### Validatable適用済み（5モデル）
-1. **Metadata** (`lib/cornix/models/metadata.rb`, ~110行)
-   - 必須フィールド検証
-   - vendor_product_id フォーマット検証
-   - matrix 構造検証
-   - テスト: `spec/models/metadata_spec.rb` (23テスト)
-
-2. **Layer** (`lib/cornix/models/layer.rb`, ~90行)
-   - name/description 必須検証
-   - mapping 型検証
-   - テスト: `spec/models/layer_spec.rb` (推定15テスト)
-
-3. **HandMapping** (`lib/cornix/models/layer/hand_mapping.rb`, ~80行)
-   - rows検証（row0-3必須）
-   - thumb_keys検証
-   - テスト: `spec/models/layer/hand_mapping_spec.rb` (推定15テスト)
-
-4. **KeyMapping** (`lib/cornix/models/layer/key_mapping.rb`, ~70行)
-   - keycode_value型検証
-   - テスト: `spec/models/layer/key_mapping_spec.rb` (推定10テスト)
-
-5. **ThumbKeys** (`lib/cornix/models/layer/thumb_keys.rb`, ~60行)
-   - left/middle/right必須検証
-   - テスト: `spec/models/layer/thumb_keys_spec.rb` (推定10テスト)
-
-#### Validatable未適用（14モデル）
-6. **PositionMap** (`lib/cornix/models/position_map.rb`, ~100行)
-7. **QmkSettings** (`lib/cornix/models/qmk_settings.rb`, ~80行)
-8. **Macro** (`lib/cornix/models/macro.rb`, ~90行)
-9. **MacroSequence** (`lib/cornix/models/macro/sequence.rb`, ~70行)
-10. **MacroAction** (`lib/cornix/models/macro/action.rb`, ~60行)
-11. **TapDance** (`lib/cornix/models/tap_dance.rb`, ~80行)
-12. **TapDanceAction** (`lib/cornix/models/tap_dance/action.rb`, ~60行)
-13. **Combo** (`lib/cornix/models/combo.rb`, ~80行)
-14. **ComboTrigger** (`lib/cornix/models/combo/trigger.rb`, ~60行)
-15. **EncoderMapping** (`lib/cornix/models/layer/encoder_mapping.rb`, ~70行)
-16. **EncoderKeys** (`lib/cornix/models/layer/encoder_keys.rb`, ~60行)
-17. **KeycodeValue** (`lib/cornix/models/layer/keycode_value.rb`, ~50行)
-18. **RowMapping** (`lib/cornix/models/layer/row_mapping.rb`, ~50行)
-19. **Components** (`lib/cornix/models/components.rb`)
+**完了日**: 2026-03-11
 
 #### Validatableモジュール
 **ファイル**: `lib/cornix/models/concerns/validatable.rb` (~260行)
@@ -72,6 +33,51 @@ Cornixプロジェクトの現在のアーキテクチャドキュメント（Ph
 - ValidationError統合
 
 **テスト**: `spec/models/concerns/validatable_spec.rb` (34テスト)
+
+#### 全19モデル Validatable適用済み ✅
+
+1. **Metadata** - 必須フィールド、フォーマット検証
+2. **Layer** - name/description、mapping検証
+3. **HandMapping** - rows、thumb_keys検証
+4. **KeyMapping** - keycode_value型検証
+5. **ThumbKeys** - left/middle/right検証
+6. **PositionMap** - シンボル形式、重複検証
+7. **Settings** - 設定値検証
+8. **VialConfig** - ルート集約検証
+9. **LayerCollection** - レイヤー配列検証
+10. **MacroCollection** - マクロ配列検証
+11. **TapDanceCollection** - タップダンス配列検証
+12. **ComboCollection** - コンボ配列検証
+13. **Macro** - マクロ検証
+14. **MacroSequence** - シーケンス検証
+15. **MacroAction** - アクション検証
+16. **TapDance** - タップダンス検証
+17. **TapDanceAction** - アクション検証
+18. **Combo** - コンボ検証
+19. **ComboTrigger** - トリガー検証
+
+詳細: [Refactor Progress](../implementation/refactor_progress.md)
+
+### ✅ Phase 2.5: Context Pollution Bug修正（完了）
+
+**問題**: 親モデルが`:with`キー含むoptionsを子に渡し、子のvalidatorを上書き
+
+**修正**: `options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)`でコンテキストキーのみ抽出
+
+**影響ファイル**: VialConfig, Layer, Collections, HandMapping, ThumbKeys（合計8ファイル、15箇所）
+
+**完了日**: 2026-03-11
+
+### ✅ Phase 2.6: ModelValidator リファクタリング（完了）
+
+**目的**: バリデーションロジックのモデル層への委譲に伴い、ModelValidatorを焦点化
+
+**変更内容**:
+- ModelValidator spec: 90+ テスト → 27テスト（68%削減）
+- 責務: ファイルシステム検証 + モデル検証委譲のみ
+- 削除: keycode検証、position reference検証、metadata検証等（モデル側で実装済み）
+
+**完了日**: 2026-03-11
 
 ### 🔄 Phase 3-6: 未着手
 

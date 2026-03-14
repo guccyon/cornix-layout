@@ -1,0 +1,18 @@
+---
+index: 1
+name: Macro 1
+description: ''
+sequence:
+- action: down
+  keys:
+  - KC_LSHIFT
+- action: tap
+  keys:
+  - KC_LBRACKET
+  - KC_RBRACKET
+- action: up
+  keys:
+  - KC_LSHIFT
+- action: tap
+  keys:
+  - KC_LEFT

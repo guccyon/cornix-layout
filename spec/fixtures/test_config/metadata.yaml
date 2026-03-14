@@ -1,0 +1,13 @@
+---
+keyboard: Cornix
+version: 1
+uid: 16882930253541522617
+vendor_product_id:
+product_id:
+matrix:
+vial_protocol: 6
+via_protocol: 9
+extra_keys:
+  layout_options: 0
+  key_override: []
+  alt_repeat_key: []

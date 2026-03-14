@@ -57,7 +57,7 @@ RSpec.describe Cornix::Converters::KeycodeConverter do
 
     it 'handles case sensitivity' do
       # Aliases are case-sensitive
-      expect(resolver.resolve('a')).to eq('a') # not found, returns original
+      expect(resolver.resolve('a')).to be_nil # not found, invalid keycode
       expect(resolver.resolve('A')).to eq('KC_A') # found
     end
   end
@@ -116,11 +116,11 @@ RSpec.describe Cornix::Converters::KeycodeConverter do
 
   describe 'edge cases' do
     it 'handles nil gracefully' do
-      expect(resolver.resolve(nil)).to be_nil
+      expect(resolver.resolve(nil)).to be_nil # nil is valid (represents no key)
     end
 
     it 'handles empty string' do
-      expect(resolver.resolve('')).to eq('')
+      expect(resolver.resolve('')).to be_nil # empty string is invalid keycode
     end
 
     it 'handles numeric input' do
@@ -138,6 +138,23 @@ RSpec.describe Cornix::Converters::KeycodeConverter do
       # Function calls should be returned as-is
       expect(resolver.resolve('MO(1)')).to eq('MO(1)')
       expect(resolver.resolve('LT(2, Space)')).to eq('LT(2, Space)')
+    end
+
+    it 'returns nil for invalid keycodes' do
+      # Invalid keycodes should return nil
+      expect(resolver.resolve('Tabbbb')).to be_nil
+      expect(resolver.resolve('Invalid_Key')).to be_nil
+      expect(resolver.resolve('xyz')).to be_nil
+      expect(resolver.resolve('lower_case')).to be_nil
+    end
+
+    it 'handles QMK custom keycodes (USER*, RGB_*, etc)' do
+      # QMK custom keycodes should be accepted as-is
+      expect(resolver.resolve('USER00')).to eq('USER00')
+      expect(resolver.resolve('USER06')).to eq('USER06')
+      expect(resolver.resolve('RGB_TOG')).to eq('RGB_TOG')
+      expect(resolver.resolve('AU_ON')).to eq('AU_ON')
+      expect(resolver.resolve('QK_BOOT')).to eq('QK_BOOT')
     end
   end
 
@@ -166,7 +183,8 @@ RSpec.describe Cornix::Converters::KeycodeConverter do
       no_aliases_file.close
 
       resolver = described_class.new(no_aliases_file.path)
-      expect(resolver.resolve('A')).to eq('A') # No aliases, returns original
+      expect(resolver.resolve('A')).to be_nil # No aliases, invalid keycode
+      expect(resolver.resolve('KC_A')).to eq('KC_A') # KC_* format is valid
 
       no_aliases_file.unlink
     end

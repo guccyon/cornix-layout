@@ -1,0 +1,74 @@
+---
+name: Layer 1
+description: ''
+index: 1
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: LSFT(KC_1)
+      W: LSFT(KC_2)
+      E: LSFT(KC_3)
+      R: LSFT(KC_4)
+      T: LSFT(KC_5)
+    row1:
+      caps: LCTL(KC_UP)
+      A: "`"
+      S: LSFT(KC_GRAVE)
+      D: NoKey
+      F: NoKey
+      G: "-"
+    row2:
+      lshift: Trans
+      Z: NoKey
+      X: NoKey
+      C: NoKey
+      V: NoKey
+      B: LSFT(KC_MINUS)
+    row3:
+      lctrl: NoKey
+      command: NoKey
+      option: NoKey
+    thumb_keys:
+      left: Trans
+      middle: NoKey
+      right: NoKey
+  right_hand:
+    row0:
+      "Y": LSFT(KC_6)
+      U: LSFT(KC_7)
+      I: LSFT(KC_8)
+      O: LSFT(KC_9)
+      P: LSFT(KC_0)
+      backspace: LCTL(KC_MINUS)
+    row1:
+      H: =
+      J: LSFT(KC_EQUAL)
+      K: NoKey
+      L: NoKey
+      colon: NoKey
+      enter: NoKey
+    row2:
+      "N": "'"
+      M: LSFT(KC_QUOTE)
+      comma: NoKey
+      dot: LSFT(KC_SLASH)
+      up: /
+      rshift: Trans
+    row3:
+      left: LCA(KC_LEFT)
+      down: LCA(KC_ENTER)
+      right: LCA(KC_RIGHT)
+    thumb_keys:
+      left: SGUI(KC_ENTER)
+      middle: LGUI(KC_SPACE)
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: MouseButton3
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

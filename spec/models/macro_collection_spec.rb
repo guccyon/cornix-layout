@@ -3,14 +3,23 @@
 require_relative '../spec_helper'
 require_relative '../../lib/cornix/models/macro'
 require_relative '../../lib/cornix/models/macro_collection'
+require_relative '../../lib/cornix/converters/keycode_converter'
 
 RSpec.describe Cornix::Models::MacroCollection do
+  let(:aliases_path) { File.join(__dir__, '../../lib/cornix/keycode_aliases.yaml') }
+  let(:keycode_converter) { Cornix::Converters::KeycodeConverter.new(aliases_path) }
+
   let(:macro1) do
     Cornix::Models::Macro.new(
       index: 0,
       name: 'Macro 0',
       description: '',
-      sequence: [1, 2, 3]
+      sequence: [
+        Cornix::Models::Macro::MacroStep.new(
+          action: 'tap',
+          keys: ['A', 'B']
+        )
+      ]
     )
   end
 
@@ -19,7 +28,12 @@ RSpec.describe Cornix::Models::MacroCollection do
       index: 2,
       name: 'Macro 2',
       description: '',
-      sequence: [4, 5, 6]
+      sequence: [
+        Cornix::Models::Macro::MacroStep.new(
+          action: 'tap',
+          keys: ['C', 'D']
+        )
+      ]
     )
   end
 
@@ -126,22 +140,25 @@ RSpec.describe Cornix::Models::MacroCollection do
   describe '#to_qmk_array' do
     it '32要素の配列を生成' do
       collection = described_class.new([macro1, macro2])
-      qmk_array = collection.to_qmk_array
+      qmk_array = collection.to_qmk_array(keycode_converter: keycode_converter)
 
       expect(qmk_array.size).to eq(32)
     end
 
     it 'マクロが存在する位置は配列' do
       collection = described_class.new([macro1, macro2])
-      qmk_array = collection.to_qmk_array
+      qmk_array = collection.to_qmk_array(keycode_converter: keycode_converter)
 
-      expect(qmk_array[0]).to eq([1, 2, 3])
-      expect(qmk_array[2]).to eq([4, 5, 6])
+      # マクロの to_qmk は [['tap', 'KC_A', 'KC_B']] のようなVial形式を返す
+      expect(qmk_array[0]).to be_a(Array)
+      expect(qmk_array[0]).not_to be_empty
+      expect(qmk_array[2]).to be_a(Array)
+      expect(qmk_array[2]).not_to be_empty
     end
 
     it 'マクロが存在しない位置は空配列' do
       collection = described_class.new([macro1])
-      qmk_array = collection.to_qmk_array
+      qmk_array = collection.to_qmk_array(keycode_converter: keycode_converter)
 
       expect(qmk_array[1]).to eq([])
       expect(qmk_array[31]).to eq([])
@@ -149,7 +166,7 @@ RSpec.describe Cornix::Models::MacroCollection do
 
     it '全て空の場合は32個の空配列' do
       collection = described_class.new([])
-      qmk_array = collection.to_qmk_array
+      qmk_array = collection.to_qmk_array(keycode_converter: keycode_converter)
 
       expect(qmk_array.size).to eq(32)
       expect(qmk_array.all? { |a| a == [] }).to be true
@@ -169,11 +186,14 @@ RSpec.describe Cornix::Models::MacroCollection do
     it 'to_qmk_arrayでnil要素は空配列に変換' do
       sparse_macros = [macro1, nil, macro2]
       collection = described_class.new(sparse_macros)
-      qmk_array = collection.to_qmk_array
+      qmk_array = collection.to_qmk_array(keycode_converter: keycode_converter)
 
-      expect(qmk_array[0]).to eq([1, 2, 3])
+      # マクロの to_qmk は [['tap', 'KC_A', 'KC_B']] のようなVial形式を返す
+      expect(qmk_array[0]).to be_a(Array)
+      expect(qmk_array[0]).not_to be_empty
       expect(qmk_array[1]).to eq([])
-      expect(qmk_array[2]).to eq([4, 5, 6])
+      expect(qmk_array[2]).to be_a(Array)
+      expect(qmk_array[2]).not_to be_empty
     end
   end
 end

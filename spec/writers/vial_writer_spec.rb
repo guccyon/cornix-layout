@@ -10,7 +10,7 @@ require 'tempfile'
 
 RSpec.describe Cornix::Writers::VialWriter do
   let(:position_map) do
-    position_map_path = File.join(__dir__, '../../config/position_map.yaml')
+    position_map_path = File.join(__dir__, '../fixtures/position_map.yaml')
     Cornix::PositionMap.new(position_map_path)
   end
 
@@ -56,7 +56,12 @@ RSpec.describe Cornix::Writers::VialWriter do
       index: 0,
       name: 'Test Macro',
       description: 'Test',
-      sequence: [1, 2, 3]
+      sequence: [
+        Cornix::Models::Macro::MacroStep.new(
+          action: 'tap',
+          keys: ['A', 'B']
+        )
+      ]
     )
   end
 

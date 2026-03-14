@@ -209,6 +209,110 @@ RSpec.describe Cornix::Models::Layer::HandMapping do
       expect(restored_yaml['row1']).to eq({ 'A' => 'Enter' })
       expect(restored_yaml['thumb_keys']).to eq({ 'left' => 'Ctrl' })
     end
+
+    it 'position_map に存在しないキーを含む YAML の場合、検証時にエラー' do
+      yaml_hand = {
+        'row0' => { 'Q' => 'Tab', 'InvalidKey' => 'Space' },
+        'row1' => {},
+        'row2' => {},
+        'row3' => {},
+        'thumb_keys' => {}
+      }
+
+      hand_mapping = described_class.from_yaml_hash(hand: :left, yaml_hand: yaml_hand, position_map: position_map)
+
+      # from_yaml_hash では KeyMapping は作成されるが、検証時にエラーになる
+      context = {
+        keycode_converter: keycode_converter,
+        reference_converter: reference_converter,
+        position_map: position_map,
+        config_dir: config_dir
+      }
+      errors = hand_mapping.semantic_errors(context)
+
+      expect(errors).not_to be_empty
+      expect(errors.join).to include('InvalidKey')
+    end
+
+    it 'row0 が YAML に存在しない場合、構造検証でエラー' do
+      yaml_hand = {
+        'row1' => {},
+        'row2' => {},
+        'row3' => {},
+        'thumb_keys' => {}
+      }
+
+      hand_mapping = described_class.from_yaml_hash(hand: :left, yaml_hand: yaml_hand, position_map: position_map)
+
+      errors = hand_mapping.structural_errors
+      expect(errors).not_to be_empty
+      expect(errors.join).to include('row0')
+      expect(errors.join).to match(/missing/i)
+    end
+
+    it 'row1 が YAML に存在しない場合、構造検証でエラー' do
+      yaml_hand = {
+        'row0' => {},
+        'row2' => {},
+        'row3' => {},
+        'thumb_keys' => {}
+      }
+
+      hand_mapping = described_class.from_yaml_hash(hand: :left, yaml_hand: yaml_hand, position_map: position_map)
+
+      errors = hand_mapping.structural_errors
+      expect(errors).not_to be_empty
+      expect(errors.join).to include('row1')
+      expect(errors.join).to match(/missing/i)
+    end
+
+    it 'row2 が YAML に存在しない場合、構造検証でエラー' do
+      yaml_hand = {
+        'row0' => {},
+        'row1' => {},
+        'row3' => {},
+        'thumb_keys' => {}
+      }
+
+      hand_mapping = described_class.from_yaml_hash(hand: :left, yaml_hand: yaml_hand, position_map: position_map)
+
+      errors = hand_mapping.structural_errors
+      expect(errors).not_to be_empty
+      expect(errors.join).to include('row2')
+      expect(errors.join).to match(/missing/i)
+    end
+
+    it 'row3 が YAML に存在しない場合、構造検証でエラー' do
+      yaml_hand = {
+        'row0' => {},
+        'row1' => {},
+        'row2' => {},
+        'thumb_keys' => {}
+      }
+
+      hand_mapping = described_class.from_yaml_hash(hand: :left, yaml_hand: yaml_hand, position_map: position_map)
+
+      errors = hand_mapping.structural_errors
+      expect(errors).not_to be_empty
+      expect(errors.join).to include('row3')
+      expect(errors.join).to match(/missing/i)
+    end
+
+    it 'thumb_keys が YAML に存在しない場合、構造検証でエラー' do
+      yaml_hand = {
+        'row0' => {},
+        'row1' => {},
+        'row2' => {},
+        'row3' => {}
+      }
+
+      hand_mapping = described_class.from_yaml_hash(hand: :left, yaml_hand: yaml_hand, position_map: position_map)
+
+      errors = hand_mapping.structural_errors
+      expect(errors).not_to be_empty
+      expect(errors.join).to include('thumb_keys')
+      expect(errors.join).to match(/missing/i)
+    end
   end
 
   # QMK round-trip テストは PositionMap の物理座標変換ロジックに依存するため、
@@ -292,6 +396,81 @@ RSpec.describe Cornix::Models::Layer::HandMapping do
           thumb_keys: thumb_keys
         )
         expect(invalid_hand.structurally_valid?).to be false
+      end
+
+      it 'row0 が nil の場合にエラー' do
+        hand_mapping = described_class.new(
+          hand: :left,
+          row0: nil,
+          row1: [key2],
+          row2: [key3],
+          row3: [],
+          thumb_keys: thumb_keys
+        )
+        errors = hand_mapping.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('row0')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
+      end
+
+      it 'row1 が nil の場合にエラー' do
+        hand_mapping = described_class.new(
+          hand: :left,
+          row0: [key1],
+          row1: nil,
+          row2: [key3],
+          row3: [],
+          thumb_keys: thumb_keys
+        )
+        errors = hand_mapping.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('row1')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
+      end
+
+      it 'row2 が nil の場合にエラー' do
+        hand_mapping = described_class.new(
+          hand: :left,
+          row0: [key1],
+          row1: [key2],
+          row2: nil,
+          row3: [],
+          thumb_keys: thumb_keys
+        )
+        errors = hand_mapping.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('row2')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
+      end
+
+      it 'row3 が nil の場合にエラー' do
+        hand_mapping = described_class.new(
+          hand: :left,
+          row0: [key1],
+          row1: [key2],
+          row2: [key3],
+          row3: nil,
+          thumb_keys: thumb_keys
+        )
+        errors = hand_mapping.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('row3')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
+      end
+
+      it 'thumb_keys が nil の場合にエラー' do
+        hand_mapping = described_class.new(
+          hand: :left,
+          row0: [key1],
+          row1: [key2],
+          row2: [key3],
+          row3: [],
+          thumb_keys: nil
+        )
+        errors = hand_mapping.structural_errors
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('thumb_keys')
+        expect(errors.join).to match(/cannot be (blank|nil)/i)
       end
 
       it 'validates row sizes' do

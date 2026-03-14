@@ -2,6 +2,9 @@
 
 require_relative '../spec_helper'
 require_relative '../../lib/cornix/models/tap_dance'
+require_relative '../../lib/cornix/converters/keycode_converter'
+require 'tempfile'
+require 'yaml'
 
 RSpec.describe Cornix::Models::TapDance do
   let(:sample_qmk_array) { [41, 1, 41, 1, 200] } # on_tap: KC_ESC, on_hold: MO(1), etc.
@@ -214,6 +217,145 @@ RSpec.describe Cornix::Models::TapDance do
       )
 
       expect(tap_dance.name).to eq('')
+    end
+  end
+
+  describe 'validation' do
+    let(:test_aliases) do
+      {
+        'aliases' => {
+          'Esc' => 'KC_ESC',
+          'A' => 'KC_A',
+          'B' => 'KC_B'
+        }
+      }
+    end
+
+    let(:yaml_file) do
+      file = Tempfile.new(['keycode_aliases', '.yaml'])
+      file.write(YAML.dump(test_aliases))
+      file.close
+      file
+    end
+
+    let(:keycode_converter) { Cornix::Converters::KeycodeConverter.new(yaml_file.path) }
+    let(:context) { { keycode_converter: keycode_converter } }
+
+    after do
+      yaml_file.unlink
+    end
+
+    describe 'structural validations' do
+      it 'すべてのフィールドが nil の場合でも構造検証を合格（空のTapDanceを許容）' do
+        tap_dance = described_class.new(
+          index: 0,
+          name: 'Empty TapDance',
+          description: '',
+          on_tap: nil,
+          on_hold: nil,
+          on_double_tap: nil,
+          on_tap_hold: nil,
+          tapping_term: 200
+        )
+        errors = tap_dance.structural_errors
+        expect(errors).to be_empty
+      end
+
+      it 'on_tap, on_hold, on_double_tap, on_tap_hold がすべて 0 でも構造検証を合格' do
+        tap_dance = described_class.new(
+          index: 0,
+          name: 'All Zero TapDance',
+          description: '',
+          on_tap: 0,
+          on_hold: 0,
+          on_double_tap: 0,
+          on_tap_hold: 0,
+          tapping_term: 200
+        )
+        errors = tap_dance.structural_errors
+        expect(errors).to be_empty
+      end
+
+      it '少なくとも1つのアクションが設定されている場合は構造検証を合格' do
+        tap_dance = described_class.new(
+          index: 0,
+          name: 'Valid TapDance',
+          description: '',
+          on_tap: 'Esc',
+          on_hold: nil,
+          on_double_tap: nil,
+          on_tap_hold: nil,
+          tapping_term: 200
+        )
+        errors = tap_dance.structural_errors
+        expect(errors).to be_empty
+      end
+    end
+
+    describe 'semantic validations' do
+      it '有効なキーコードを持つTapDanceを検証' do
+        tap_dance = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          on_tap: 'Esc',
+          on_hold: 'A',
+          on_double_tap: 'B',
+          on_tap_hold: 0,
+          tapping_term: 200
+        )
+        errors = tap_dance.semantic_errors(context)
+        expect(errors).to be_empty
+      end
+
+      it '無効なキーコードを含むTapDanceでエラー（on_tap）' do
+        tap_dance = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          on_tap: 'InvalidKey',
+          on_hold: 'A',
+          on_double_tap: 0,
+          on_tap_hold: 0,
+          tapping_term: 200
+        )
+        errors = tap_dance.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to include("Invalid keycode 'InvalidKey'")
+        expect(errors.join).to include('on_tap')
+      end
+
+      it '無効なキーコードを含むTapDanceでエラー（on_hold）' do
+        tap_dance = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          on_tap: 'Esc',
+          on_hold: 'BadKey',
+          on_double_tap: 0,
+          on_tap_hold: 0,
+          tapping_term: 200
+        )
+        errors = tap_dance.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to include("Invalid keycode 'BadKey'")
+        expect(errors.join).to include('on_hold')
+      end
+
+      it '空値（0, -1, nil）は許可' do
+        tap_dance = described_class.new(
+          index: 0,
+          name: 'Test',
+          description: '',
+          on_tap: 0,
+          on_hold: -1,
+          on_double_tap: nil,
+          on_tap_hold: 'KC_NO',
+          tapping_term: 200
+        )
+        errors = tap_dance.semantic_errors(context)
+        expect(errors).to be_empty
+      end
     end
   end
 end

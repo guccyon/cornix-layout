@@ -573,9 +573,10 @@ end
 ### Macro の責務
 
 - 1つのマクロのシーケンス保持
-- QMK形式（整数配列） ↔ YAML形式の変換
+- QMK形式（Vial配列） ↔ YAML形式の変換
+- **Phase 2.7更新**: MacroStep/MacroActionサブモデル導入
 
-### Macro クラス定義
+### Macro クラス定義（Phase 2.7更新）
 
 ```ruby
 module Cornix
@@ -583,32 +584,156 @@ module Cornix
     class Macro
       attr_reader :index, :name, :description, :sequence
 
+      # MacroAction バリューオブジェクト（インナークラス）
+      class MacroAction
+        VALID_ACTIONS = %w[tap down up delay beep].freeze
+
+        attr_reader :type
+
+        def initialize(type)
+          raise ArgumentError unless VALID_ACTIONS.include?(type)
+          @type = type
+        end
+
+        def requires_keys?
+          %w[tap down up].include?(@type)
+        end
+
+        def requires_duration?
+          @type == 'delay'
+        end
+      end
+
+      # MacroStep モデル（インナークラス）
+      class MacroStep
+        include Concerns::Validatable
+
+        attr_reader :action, :keys, :duration
+
+        # Structural validations
+        validates :action, :presence
+        validates :action, :type, is: String
+        validates :action, :inclusion, in: MacroAction::VALID_ACTIONS
+        validates :keys, :type, is: Array, if: ->(step) { MacroAction.new(step.action).requires_keys? }
+        validates :duration, :type, is: Integer, if: ->(step) { MacroAction.new(step.action).requires_duration? }
+
+        # Semantic validations
+        validates :keys, :custom, phase: :semantic, with: ->(value, options) {
+          return { valid: true } if value.nil?
+
+          keycode_converter = options[:keycode_converter]
+          errors = []
+
+          value.each_with_index do |key, idx|
+            resolved = keycode_converter.resolve(key)
+            unless resolved
+              errors << "keys[#{idx}]: Invalid keycode '#{key}'"
+            end
+          end
+
+          if errors.empty?
+            { valid: true }
+          else
+            { valid: false, error: errors.join('; ') }
+          end
+        }
+
+        def initialize(action:, keys: nil, duration: nil)
+          @action = action
+          @keys = keys
+          @duration = duration
+        end
+
+        # Vial形式から変換: [['tap', 'KC_A', 'KC_B'], ['delay', 100]]
+        def self.from_qmk(qmk_array, keycode_converter, reference_converter: nil)
+          action = qmk_array[0]
+
+          case action
+          when 'tap', 'down', 'up'
+            keys = qmk_array[1..-1].map { |qmk_key|
+              keycode_converter.reverse_resolve(qmk_key)
+            }
+            new(action: action, keys: keys)
+          when 'delay'
+            new(action: action, duration: qmk_array[1])
+          when 'beep'
+            new(action: action)
+          else
+            raise ArgumentError, "Unknown macro action: #{action}"
+          end
+        end
+
+        # YAML形式から変換
+        def self.from_yaml_hash(hash)
+          new(
+            action: hash['action'],
+            keys: hash['keys'],
+            duration: hash['duration']
+          )
+        end
+
+        # Vial形式へ変換
+        def to_qmk(keycode_converter, reference_converter: nil)
+          case @action
+          when 'tap', 'down', 'up'
+            qmk_keys = @keys.map { |key|
+              keycode_converter.resolve(key) || raise("Failed to resolve: #{key}")
+            }
+            [@action] + qmk_keys
+          when 'delay'
+            ['delay', @duration]
+          when 'beep'
+            ['beep']
+          end
+        end
+
+        # YAML形式へ変換
+        def to_yaml_hash
+          hash = { 'action' => @action }
+          hash['keys'] = @keys if @keys
+          hash['duration'] = @duration if @duration
+          hash
+        end
+      end
+
       def initialize(index:, name:, description:, sequence:)
         @index = index            # 0-31
         @name = name              # 'End of Line'
         @description = description
-        @sequence = sequence      # Array[Integer] (QMK codes)
+        @sequence = sequence      # Array[MacroStep]（Phase 2.7更新）
       end
 
-      def self.from_qmk(index, qmk_array)
+      # Vial形式から変換
+      def self.from_qmk(index, qmk_array, keycode_converter, reference_converter: nil)
+        sequence = qmk_array.map { |step_array|
+          MacroStep.from_qmk(step_array, keycode_converter, reference_converter: reference_converter)
+        }
+
         new(
           index: index,
           name: "Macro #{index}",  # デフォルト名（Decompilerで上書き可能）
           description: '',
-          sequence: qmk_array
+          sequence: sequence
         )
       end
 
-      def to_qmk
-        @sequence
+      def to_qmk(keycode_converter, reference_converter: nil)
+        @sequence.map { |step|
+          step.to_qmk(keycode_converter, reference_converter: reference_converter)
+        }
       end
 
       def self.from_yaml_hash(yaml_hash)
+        sequence_array = yaml_hash['sequence'] || []
+        sequence = sequence_array.map { |step_hash|
+          MacroStep.from_yaml_hash(step_hash)
+        }
+
         new(
           index: yaml_hash['index'],
           name: yaml_hash['name'],
           description: yaml_hash['description'] || '',
-          sequence: yaml_hash['sequence']
+          sequence: sequence
         )
       end
 
@@ -617,12 +742,40 @@ module Cornix
           'index' => @index,
           'name' => @name,
           'description' => @description,
-          'sequence' => @sequence
+          'sequence' => @sequence.map(&:to_yaml_hash)
         }
       end
     end
   end
 end
+```
+
+**QMK Macro仕様準拠**（Phase 2.7）:
+- `tap`: キーをタップ（押して離す）
+- `down`: キーを押す
+- `up`: キーを離す
+- `delay`: 遅延（ミリ秒）
+- `beep`: ビープ音
+
+**Vial形式例**:
+```ruby
+[
+  ['tap', 'KC_A', 'KC_B'],
+  ['delay', 100],
+  ['beep']
+]
+```
+
+**YAML形式例**:
+```yaml
+sequence:
+- action: tap
+  keys:
+  - A
+  - B
+- action: delay
+  duration: 100
+- action: beep
 ```
 
 ### MacroCollection の責務

@@ -9,7 +9,7 @@ require 'tempfile'
 
 RSpec.describe Cornix::Loaders::YamlLoader do
   let(:position_map) do
-    position_map_path = File.join(__dir__, '../../config/position_map.yaml')
+    position_map_path = File.join(__dir__, '../fixtures/position_map.yaml')
     Cornix::PositionMap.new(position_map_path)
   end
 
@@ -37,7 +37,7 @@ RSpec.describe Cornix::Loaders::YamlLoader do
       loader = described_class.new('nonexistent_dir')
 
       expect {
-        loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+        loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
       }.to raise_error(/Config directory not found/)
     end
 
@@ -62,7 +62,7 @@ RSpec.describe Cornix::Loaders::YamlLoader do
       File.write("#{temp_dir}/settings/qmk_settings.yaml", YAML.dump({}))
 
       loader = described_class.new(temp_dir)
-      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
 
       expect(config).to be_a(Cornix::Models::VialConfig)
       expect(config.metadata.keyboard).to eq('Cornix')
@@ -116,7 +116,7 @@ RSpec.describe Cornix::Loaders::YamlLoader do
       }))
 
       loader = described_class.new(temp_dir)
-      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
 
       expect(config.layers).to be_a(Cornix::Models::LayerCollection)
       expect(config.layers.size).to eq(1)
@@ -147,11 +147,16 @@ RSpec.describe Cornix::Loaders::YamlLoader do
         'index' => 0,
         'name' => 'Test Macro',
         'description' => 'Test',
-        'sequence' => [1, 2, 3]
+        'sequence' => [
+          {
+            'action' => 'tap',
+            'keys' => ['A', 'B']
+          }
+        ]
       }))
 
       loader = described_class.new(temp_dir)
-      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
 
       expect(config.macros).to be_a(Cornix::Models::MacroCollection)
       expect(config.macros.size).to eq(1)
@@ -190,7 +195,7 @@ RSpec.describe Cornix::Loaders::YamlLoader do
       }))
 
       loader = described_class.new(temp_dir)
-      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
 
       expect(config.tap_dances).to be_a(Cornix::Models::TapDanceCollection)
       expect(config.tap_dances.size).to eq(1)
@@ -226,7 +231,7 @@ RSpec.describe Cornix::Loaders::YamlLoader do
       }))
 
       loader = described_class.new(temp_dir)
-      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
 
       expect(config.combos).to be_a(Cornix::Models::ComboCollection)
       expect(config.combos.size).to eq(1)
@@ -240,7 +245,7 @@ RSpec.describe Cornix::Loaders::YamlLoader do
 
       # Metadata is required, so missing files should raise an error
       expect {
-        loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+        loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
       }.to raise_error(ArgumentError, /keyboard cannot be nil/)
     end
 
@@ -249,7 +254,7 @@ RSpec.describe Cornix::Loaders::YamlLoader do
       skip "config/ not found" unless Dir.exist?(config_path)
 
       loader = described_class.new(config_path)
-      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
 
       expect(config).to be_a(Cornix::Models::VialConfig)
       # 実際のファイルの値を使用（'cornix' 小文字）
@@ -313,7 +318,7 @@ RSpec.describe Cornix::Loaders::YamlLoader do
       }))
 
       loader = described_class.new(temp_dir)
-      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil)
+      config = loader.load(position_map: position_map, keycode_converter: keycode_converter, reference_converter: nil, validate: false)
 
       yaml_hashes = config.to_yaml_hashes(keycode_converter: keycode_converter, reference_converter: nil)
 

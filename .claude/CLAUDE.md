@@ -25,15 +25,35 @@
 
 ## Recent Changes
 
-### v2.x - Model Layer Implementation (2026-03-10) 🔄 進行中
+### v2.x - Validation Enhancement (2026-03-12) ✅ 完了
 
-**Phase 2（モデル層実装）**: 95%完了
+**Phase 2.7（バリデーション強化）**: 7段階のバリデーション強化完了
+
+**実装済み**:
+- ✅ KeycodeConverter強化 (nil返却)
+- ✅ Macro Sequenceサブモデル化 (MacroStep/MacroAction)
+- ✅ TapDance/Comboキーコード検証
+- ✅ PositionMap構造検証強化
+- ✅ KeyMapping検証強化
+- ✅ エラーメッセージ改善
+- ✅ 統合テスト修正
+- ✅ 全862テスト合格
+- ✅ QMK Macro仕様準拠
+
+詳細: [Refactor Progress](implementation/refactor_progress.md)
+
+### v2.x - Model Layer Implementation (2026-03-11) ✅ 完了
+
+**Phase 2（モデル層実装）**: 100%完了
 
 **実装済み**:
 - ✅ Validatableモジュール (260行、2段階検証)
-- ✅ 19モデル実装 (~1,077行)
-- ✅ Validatable適用 (5/19モデル)
-- 🔄 Validatable適用 (残り14モデル)
+- ✅ 19モデル実装 (~1,337行)
+- ✅ Validatable適用 (全19モデル)
+- ✅ Context Pollution Bug修正
+- ✅ ModelValidator リファクタリング
+- ✅ 全837テスト合格
+- ✅ Round-trip test成功
 
 詳細: [Refactor Progress](implementation/refactor_progress.md)
 
@@ -259,19 +279,19 @@ ruby bin/diff_layouts
 
 - **Legacy tests**: 493テスト（Phase 2開始前）
 - **Model tests**: ~234テスト（Phase 2）
-- **合計**: ~727テスト
+- **Validation enhancement tests**: +25テスト（Phase 2.7）
+- **合計**: ~862テスト
 
 ## Current Status
 
 ### ✅ 完了
 - Phase 1: PositionMap拡張（座標変換メソッド）
 - Phase 2: モデル層実装（19モデル、Validatable）
-  - Validatable適用: 5/19モデル
+  - Validatable適用: 全19モデル
+  - Context Pollution Bug修正
+  - ModelValidator リファクタリング
 
-### 🔄 進行中
-- Phase 2完了: 残り14モデルへのValidatable適用
-
-### 📋 未着手
+### 📋 次のフェーズ
 - Phase 3: Loader/Writer実装
 - Phase 4: Converter移行
 - Phase 5: 新Compiler/Decompiler
@@ -281,21 +301,12 @@ ruby bin/diff_layouts
 
 ## Next Steps
 
-### 1. Phase 2完了（即座）
-残り14モデルへのValidatable適用:
-- PositionMap, QmkSettings
-- Macro, MacroSequence, MacroAction
-- TapDance, TapDanceAction
-- Combo, ComboTrigger
-- EncoderMapping, EncoderKeys
-- KeycodeValue, RowMapping
-
-### 2. Phase 3開始（Phase 2完了後）
+### 1. Phase 3開始（Phase 2完了）
 Loader/Writer実装:
 - YamlLoader, VilLoader
 - YamlWriter, VilWriter
 
-### 3. Phase 4-6（Phase 3完了後）
+### 2. Phase 4-6（Phase 3完了後）
 Converter移行、新Compiler/Decompiler、検証とクリーンアップ
 
 詳細: [Migration Guide](implementation/migration_guide.md)

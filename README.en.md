@@ -13,6 +13,7 @@ Since Vial's `layout.vil` file is difficult to edit directly, this tool provides
 - 📊 **Differential Layers**: Upper layers only describe differences from Layer 0
 - 💬 **Comment Support**: Add comments with `#`
 - 🔄 **Bidirectional Conversion**: `layout.vil` ⇔ YAML configuration files
+- ✅ **Strict Validation**: QMK-compliant 2-layer validation (filesystem + model)
 
 ## Installation
 

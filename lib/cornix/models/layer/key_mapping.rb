@@ -71,17 +71,74 @@ module Cornix
           end
         }
 
-        # セマンティック検証: Position Map参照
-        validates :symbol, :custom, phase: :semantic, with: ->(value, options) {
-          return { valid: true } if value.nil? || value.to_s.empty?
-          return { valid: true } unless options[:position_map]
+        # セマンティック検証: 参照検証（Macro/TapDance/Combo）
+        validates :keycode, :custom, phase: :semantic, with: ->(value, options) {
+          return { valid: true } if value.nil?
+          return { valid: true } unless value.is_a?(KeycodeValue::ReferenceKeycode)
+          return { valid: true } unless options[:reference_converter]
 
-          if options[:position_map].symbol_exists?(value)
-            { valid: true }
-          else
-            { valid: false, error: "symbol '#{value}' not found in position_map" }
+          begin
+            parsed = KeycodeParser.parse(value.raw_value)
+            return { valid: true } unless parsed[:type] == :reference
+
+            # 参照検証
+            result = options[:reference_converter].validate_reference(parsed)
+            if result[:valid]
+              { valid: true }
+            else
+              { valid: false, error: result[:error] }
+            end
+          rescue => e
+            { valid: false, error: "reference validation failed: #{e.message}" }
           end
         }
+
+        # セマンティック検証: Position Map参照（正しいrowに存在するかチェック）
+        # :self を使ってオブジェクト全体をvalidatorに渡す
+        validates :self, :custom, phase: :semantic, with: ->(key_mapping, options) {
+          symbol = key_mapping.symbol
+          logical_coord = key_mapping.logical_coord
+
+          return { valid: true } if symbol.nil? || symbol.to_s.empty?
+          return { valid: true } unless options[:position_map]
+          return { valid: true } if logical_coord.nil?
+
+          position_map = options[:position_map]
+          hand = logical_coord[:hand] || logical_coord['hand']
+          row = logical_coord[:row] || logical_coord['row']
+
+          # handとrowの妥当性チェック
+          return { valid: true } unless hand && row
+
+          # 正しいrowの正しいsymbolリストを取得
+          hand_key = hand == :left || hand == 'left' ? 'left_hand' : 'right_hand'
+
+          # rowがthumb_keysかencodersの場合の特別処理
+          if row == 'thumb_keys' || (row == 3 && logical_coord[:col] && logical_coord[:col] >= 3)
+            # thumb_keysの場合
+            expected_symbols = position_map.data.dig(hand_key, 'thumb_keys') || []
+            unless expected_symbols.include?(symbol.to_s)
+              return { valid: false, error: "symbol: symbol '#{symbol}' not found in #{hand_key}.thumb_keys (expected one of: #{expected_symbols.join(', ')})" }
+            end
+          elsif row == 'encoders'
+            # encodersの場合
+            encoder_key = hand == :left || hand == 'left' ? 'left' : 'right'
+            encoder_data = position_map.data.dig('encoders', encoder_key) || {}
+            unless encoder_data.values.include?(symbol.to_s)
+              return { valid: false, error: "symbol: symbol '#{symbol}' not found in encoders.#{encoder_key}" }
+            end
+          else
+            # 通常のrow (row0-3)
+            row_key = "row#{row}"
+            expected_symbols = position_map.data.dig(hand_key, row_key) || []
+
+            unless expected_symbols.include?(symbol.to_s)
+              return { valid: false, error: "symbol: symbol '#{symbol}' not found in #{hand_key}.#{row_key} (expected one of: #{expected_symbols.join(', ')})" }
+            end
+          end
+
+          { valid: true }
+        }, field_name: "symbol"
 
         # @param symbol [String] position_map上のシンボル名
         # @param keycode [KeycodeValue, String] キーコード値（String の場合は自動的に KeycodeValue に変換）

@@ -10,13 +10,92 @@ require_relative 'tap_dance'
 require_relative 'tap_dance_collection'
 require_relative 'combo'
 require_relative 'combo_collection'
+require_relative 'concerns/validatable'
 
 module Cornix
   module Models
     # VialConfig - Root Aggregate
     # 全てのモデルを集約し、QMK形式とYAML形式の双方向変換を提供
     class VialConfig
+      include Concerns::Validatable
+
       attr_reader :metadata, :settings, :layers, :macros, :tap_dances, :combos, :extra_keys
+
+      # Structural validations
+      validates :metadata, :presence
+      validates :settings, :presence
+      validates :layers, :presence
+      validates :macros, :presence
+      validates :tap_dances, :presence
+      validates :combos, :presence
+
+      # Semantic validations (validate child models)
+      validates :metadata, :custom, phase: :semantic, with: ->(value, options) {
+        # Extract only the context keys, excluding validation-specific keys like :with
+        context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+
+        begin
+          errors = value.validate!(context, mode: :collect)
+          errors.empty? ? { valid: true } : { valid: false, error: errors.join("; ") }
+        rescue => e
+          { valid: false, error: "metadata validation failed: #{e.message}" }
+        end
+      }
+
+      validates :settings, :custom, phase: :semantic, with: ->(value, options) {
+        context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+
+        begin
+          errors = value.validate!(context, mode: :collect)
+          errors.empty? ? { valid: true } : { valid: false, error: errors.join("; ") }
+        rescue => e
+          { valid: false, error: "settings validation failed: #{e.message}" }
+        end
+      }
+
+      validates :layers, :custom, phase: :semantic, with: ->(value, options) {
+        context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+
+        begin
+          errors = value.validate!(context, mode: :collect)
+          errors.empty? ? { valid: true } : { valid: false, error: errors.join("; ") }
+        rescue => e
+          { valid: false, error: "layers validation failed: #{e.message}" }
+        end
+      }
+
+      validates :macros, :custom, phase: :semantic, with: ->(value, options) {
+        context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+
+        begin
+          errors = value.validate!(context, mode: :collect)
+          errors.empty? ? { valid: true } : { valid: false, error: errors.join("; ") }
+        rescue => e
+          { valid: false, error: "macros validation failed: #{e.message}" }
+        end
+      }
+
+      validates :tap_dances, :custom, phase: :semantic, with: ->(value, options) {
+        context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+
+        begin
+          errors = value.validate!(context, mode: :collect)
+          errors.empty? ? { valid: true } : { valid: false, error: errors.join("; ") }
+        rescue => e
+          { valid: false, error: "tap_dances validation failed: #{e.message}" }
+        end
+      }
+
+      validates :combos, :custom, phase: :semantic, with: ->(value, options) {
+        context = options.slice(:keycode_converter, :reference_converter, :position_map, :config_dir)
+
+        begin
+          errors = value.validate!(context, mode: :collect)
+          errors.empty? ? { valid: true } : { valid: false, error: errors.join("; ") }
+        rescue => e
+          { valid: false, error: "combos validation failed: #{e.message}" }
+        end
+      }
 
       def initialize(metadata:, settings:, layers:, macros:, tap_dances:, combos:, extra_keys: {})
         @metadata = metadata          # Metadata
@@ -52,7 +131,12 @@ module Cornix
         macros = []
         macro_array.each_with_index do |qmk_macro, index|
           next if qmk_macro.nil? || qmk_macro.empty?
-          macro = Macro.from_qmk(index, qmk_macro)
+          macro = Macro.from_qmk(
+            index,
+            qmk_macro,
+            keycode_converter: keycode_converter,
+            reference_converter: reference_converter
+          )
           # 空のマクロはスキップ
           next if macro.empty?
           macros << macro
@@ -105,7 +189,7 @@ module Cornix
         qmk_hash['settings'] = @settings.to_qmk
         qmk_hash['layout'] = @layers.to_qmk_layout_array(position_map: position_map, keycode_converter: keycode_converter, reference_converter: reference_converter)
         qmk_hash['encoder_layout'] = @layers.to_qmk_encoder_array(position_map: position_map, keycode_converter: keycode_converter, reference_converter: reference_converter)
-        qmk_hash['macro'] = @macros.to_qmk_array
+        qmk_hash['macro'] = @macros.to_qmk_array(keycode_converter: keycode_converter, reference_converter: reference_converter)
         qmk_hash['tap_dance'] = @tap_dances.to_qmk_array
         qmk_hash['combo'] = @combos.to_qmk_array
 

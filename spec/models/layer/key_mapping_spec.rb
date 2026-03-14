@@ -2,9 +2,11 @@
 
 require 'spec_helper'
 require 'fileutils'
+require 'tempfile'
 require_relative '../../../lib/cornix/models/layer/key_mapping'
 require_relative '../../../lib/cornix/converters/keycode_converter'
 require_relative '../../../lib/cornix/converters/reference_converter'
+require_relative '../../../lib/cornix/position_map'
 
 RSpec.describe Cornix::Models::Layer::KeyMapping do
   let(:aliases_path) { File.join(__dir__, '../../../lib/cornix/keycode_aliases.yaml') }
@@ -299,6 +301,178 @@ RSpec.describe Cornix::Models::Layer::KeyMapping do
         errors = key_mapping.semantic_errors(context)
         expect(errors.size).to be > 0
         expect(errors.join(' ')).to include('cannot be resolved')
+      end
+
+      it 'detects invalid reference (Macro)' do
+        key_mapping = described_class.new(
+          symbol: 'Q',
+          keycode: "Macro('NonExistentMacro')",
+          logical_coord: { hand: :left, row: 0, col: 1 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).not_to be_empty
+        # 参照検証とキーコード解決の両方でエラーが出る可能性がある
+      end
+
+      it 'validates valid reference (Macro)' do
+        key_mapping = described_class.new(
+          symbol: 'Q',
+          keycode: "Macro('Test Macro')",
+          logical_coord: { hand: :left, row: 0, col: 1 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).to be_empty
+      end
+
+      it '無効なキーコード値でエラー（存在しないエイリアス）' do
+        key_mapping = described_class.new(
+          symbol: 'Q',
+          keycode: 'InvalidKeyCodeAlias',
+          logical_coord: { hand: :left, row: 0, col: 1 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('InvalidKeyCodeAlias')
+      end
+
+      it '無効なキーコード値でエラー（不正なフォーマット）' do
+        key_mapping = described_class.new(
+          symbol: 'Q',
+          keycode: 'Cmd ++ [',
+          logical_coord: { hand: :left, row: 0, col: 1 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).not_to be_empty
+      end
+
+      it '無効なキーコード値でエラー（タイポがあるキー名）' do
+        key_mapping = described_class.new(
+          symbol: 'Q',
+          keycode: 'Tabbbb',
+          logical_coord: { hand: :left, row: 0, col: 1 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('Tabbbb')
+      end
+    end
+
+    describe '#semantically_valid? with position_map' do
+      let(:temp_file) { Tempfile.new(['position_map', '.yaml']) }
+      let(:position_map) do
+        valid_data = {
+          'left_hand' => {
+            'row0' => ['tab', 'Q', 'W', 'E', 'R', 'T'],
+            'row1' => ['caps', 'A', 'S', 'D', 'F', 'G'],
+            'row2' => ['lshift', 'Z', 'X', 'C', 'V', 'B'],
+            'row3' => ['lctrl', 'lalt', 'lgui'],
+            'thumb_keys' => ['left', 'center', 'right']
+          },
+          'right_hand' => {
+            'row0' => ['Y', 'U', 'I', 'O', 'P', 'bksp'],
+            'row1' => ['H', 'J', 'K', 'L', 'colon', 'enter'],
+            'row2' => ['N', 'M', 'comma', 'dot', 'up', 'rshift'],
+            'row3' => ['rgui', 'ralt', 'rctrl'],
+            'thumb_keys' => ['rleft', 'rcenter', 'rright']
+          },
+          'encoders' => {
+            'left' => { 'ccw' => 'lccw', 'push' => 'lpush', 'cw' => 'lcw' },
+            'right' => { 'ccw' => 'rccw', 'push' => 'rpush', 'cw' => 'rcw' }
+          }
+        }
+        temp_file.write(YAML.dump(valid_data))
+        temp_file.rewind
+        Cornix::PositionMap.new(temp_file.path)
+      end
+
+      after do
+        temp_file.close
+        temp_file.unlink
+      end
+
+      it 'validates symbol exists in position_map' do
+        key_mapping = described_class.new(
+          symbol: 'Q',
+          keycode: 'Tab',
+          logical_coord: { hand: :left, row: 0, col: 1 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter,
+          position_map: position_map
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).to be_empty
+      end
+
+      it 'detects symbol not in position_map' do
+        key_mapping = described_class.new(
+          symbol: 'NONEXISTENT',
+          keycode: 'Tab',
+          logical_coord: { hand: :left, row: 0, col: 1 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter,
+          position_map: position_map
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to match(/symbol 'NONEXISTENT'.*not found/i)
+      end
+
+      it 'detects symbol in wrong row (exists in position_map but not in specified row)' do
+        # lctrlはrow3に存在するが、row0で使おうとしている
+        key_mapping = described_class.new(
+          symbol: 'lctrl',
+          keycode: 'LCtrl',
+          logical_coord: { hand: :left, row: 0, col: 0 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter,
+          position_map: position_map
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to match(/symbol 'lctrl'.*(?:not found|wrong row|invalid position)/i)
+      end
+
+      it 'detects typo in symbol name (not in position_map)' do
+        key_mapping = described_class.new(
+          symbol: 'ctrls',  # 存在しないシンボル（lctrl のタイポ）
+          keycode: 'LCtrl',
+          logical_coord: { hand: :left, row: 3, col: 0 }
+        )
+        context = {
+          keycode_converter: keycode_converter,
+          reference_converter: reference_converter,
+          position_map: position_map
+        }
+        errors = key_mapping.semantic_errors(context)
+        expect(errors).not_to be_empty
+        expect(errors.join).to include('ctrls')
+        expect(errors.join).to match(/not found/i)
       end
     end
 

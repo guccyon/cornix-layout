@@ -12,8 +12,29 @@ module Cornix
       end
 
       def resolve(keycode)
+        # nil は「キーなし」を表す有効な値としてそのまま返す
+        return nil if keycode.nil?
+
         # エイリアスを実際のQMKキーコードに変換
-        @aliases[keycode] || keycode
+        # エイリアスが見つかった場合はQMKコードを返す
+        return @aliases[keycode] if @aliases.key?(keycode)
+
+        # QMK形式のキーコードはそのまま返す
+        # - KC_*, QK_* で始まる: 標準QMKキーコード
+        # - 大文字と数字とアンダースコア、2文字以上: QMK拡張キーコード（USER00, RGB_TOG等）
+        keycode_str = keycode.to_s
+        if keycode_str.match?(/^(?:KC_|QK_)[A-Z0-9_]+$/) || keycode_str.match?(/^[A-Z][A-Z0-9_]+$/)
+          return keycode
+        end
+
+        # 数値や特殊な値も許可
+        return keycode if keycode.is_a?(Integer) || keycode_str.match?(/^-?\d+$/)
+
+        # 関数形式（MO(1), LT(2, KC_A)など）
+        return keycode if keycode_str.match?(/^[A-Z_]+\(/)
+
+        # それ以外は不正なキーコードとして nil を返す
+        nil
       end
 
       def reverse_resolve(qmk_keycode)

@@ -1,11 +1,218 @@
 # frozen_string_literal: true
 
 require 'yaml'
+require_relative 'models/concerns/validatable'
 
 module Cornix
   # position_map.yamlの処理を担当（階層パス対応）
   class PositionMap
+    include Models::Concerns::Validatable
+
     attr_reader :data
+
+    # === バリデーション定義 ===
+
+    # 必須キー定義
+    REQUIRED_TOP_KEYS = %w[left_hand right_hand encoders].freeze
+    REQUIRED_HAND_KEYS = %w[row0 row1 row2 row3 thumb_keys].freeze
+    REQUIRED_ENCODER_KEYS = %w[left right].freeze
+    REQUIRED_ENCODER_SUB_KEYS = %w[push ccw cw].freeze
+
+    # 各rowの要素数
+    EXPECTED_ROW_COUNTS = {
+      'row0' => 6,
+      'row1' => 6,
+      'row2' => 6,
+      'row3' => 3,
+      'thumb_keys' => 3
+    }.freeze
+
+    # 構造検証: data が Hash であること
+    validates :data, :type, is: Hash, message: "must be a Hash"
+
+    # 構造検証: 必須キーの存在と構造の完全性
+    validates :data, :custom, with: ->(value) {
+      return { valid: true } if value.nil? || !value.is_a?(Hash)
+
+      errors = []
+
+      # 1. トップレベルキーの存在確認
+      REQUIRED_TOP_KEYS.each do |key|
+        unless value.key?(key)
+          errors << "Missing required key: #{key}"
+        end
+      end
+      return { valid: false, error: errors.join("; ") } unless errors.empty?
+
+      # 2. left_hand/right_handの構造確認
+      %w[left_hand right_hand].each do |hand|
+        hand_data = value[hand]
+        unless hand_data.is_a?(Hash)
+          errors << "#{hand} must be a Hash"
+          next
+        end
+
+        REQUIRED_HAND_KEYS.each do |row_key|
+          unless hand_data.key?(row_key)
+            errors << "#{hand}: Missing required key #{row_key}"
+            next
+          end
+
+          row_data = hand_data[row_key]
+          unless row_data.is_a?(Array)
+            errors << "#{hand}.#{row_key} must be an Array"
+            next
+          end
+
+          expected_count = EXPECTED_ROW_COUNTS[row_key]
+          actual_count = row_data.size
+          if actual_count != expected_count
+            errors << "#{hand}.#{row_key}: Expected #{expected_count} elements, got #{actual_count}"
+          end
+
+          # シンボル名形式チェック
+          row_data.each_with_index do |symbol, idx|
+            next if symbol.nil? || symbol.to_s.empty?
+            unless symbol.to_s.match?(/^[a-zA-Z0-9_-]+$/)
+              errors << "#{hand}.#{row_key}[#{idx}]: Invalid symbol '#{symbol}' (must match /^[a-zA-Z0-9_-]+$/)"
+            end
+          end
+        end
+      end
+
+      # 3. encodersの構造確認
+      encoders_data = value['encoders']
+      unless encoders_data.is_a?(Hash)
+        errors << "encoders must be a Hash"
+        return { valid: false, error: errors.join("; ") }
+      end
+
+      REQUIRED_ENCODER_KEYS.each do |encoder_key|
+        unless encoders_data.key?(encoder_key)
+          errors << "encoders: Missing required key #{encoder_key}"
+          next
+        end
+
+        encoder_data = encoders_data[encoder_key]
+        unless encoder_data.is_a?(Hash)
+          errors << "encoders.#{encoder_key} must be a Hash"
+          next
+        end
+
+        REQUIRED_ENCODER_SUB_KEYS.each do |sub_key|
+          unless encoder_data.key?(sub_key)
+            errors << "encoders.#{encoder_key}: Missing required key #{sub_key}"
+          end
+        end
+
+        # シンボル名形式チェック
+        encoder_data.each do |sub_key, symbol|
+          next if symbol.nil? || symbol.to_s.empty?
+          unless symbol.to_s.match?(/^[a-zA-Z0-9_-]+$/)
+            errors << "encoders.#{encoder_key}.#{sub_key}: Invalid symbol '#{symbol}' (must match /^[a-zA-Z0-9_-]+$/)"
+          end
+        end
+      end
+
+      if errors.empty?
+        { valid: true }
+      else
+        { valid: false, error: errors.join("; ") }
+      end
+    }, field_name: "structure"
+
+    # セマンティック検証: スコープ内でシンボル重複なし
+    validates :data, :custom, phase: :semantic, with: ->(value) {
+      return { valid: true } if value.nil? || !value.is_a?(Hash)
+
+      duplicates = PositionMap.find_duplicate_symbols_in_data(value)
+      if duplicates.empty?
+        { valid: true }
+      else
+        errors = duplicates.map { |sym, locs| "Duplicate symbol '#{sym}' at: #{locs.join(', ')}" }
+        { valid: false, error: errors.join("; ") }
+      end
+    }, field_name: "symbols"
+
+    # シンボル抽出ヘルパー（クラスメソッド）
+    def self.extract_all_symbols_from_data(data)
+      symbols = []
+
+      # left_hand と right_hand
+      ['left_hand', 'right_hand'].each do |hand_key|
+        hand_data = data[hand_key]
+        next unless hand_data
+
+        # row0-3
+        ['row0', 'row1', 'row2', 'row3'].each do |row_key|
+          row = hand_data[row_key]
+          next unless row
+          symbols.concat(row.compact.reject(&:empty?))
+        end
+
+        # thumb_keys
+        thumb_keys = hand_data['thumb_keys']
+        symbols.concat(thumb_keys.compact.reject(&:empty?)) if thumb_keys
+      end
+
+      # encoders
+      if data['encoders']
+        ['left', 'right'].each do |side|
+          encoder = data['encoders'][side]
+          next unless encoder
+          encoder.each_value do |symbol|
+            symbols << symbol if symbol && !symbol.to_s.empty?
+          end
+        end
+      end
+
+      symbols.map(&:to_s)
+    end
+
+    # 重複シンボル検出ヘルパー（クラスメソッド）
+    def self.find_duplicate_symbols_in_data(data)
+      symbol_locations = Hash.new { |h, k| h[k] = [] }
+
+      # left_hand と right_hand
+      ['left_hand', 'right_hand'].each do |hand_key|
+        hand_data = data[hand_key]
+        next unless hand_data
+
+        # row0-3
+        ['row0', 'row1', 'row2', 'row3'].each do |row_key|
+          row = hand_data[row_key]
+          next unless row
+          row.each_with_index do |symbol, idx|
+            next if symbol.nil? || symbol.to_s.empty?
+            symbol_locations[symbol.to_s] << "#{hand_key}.#{row_key}[#{idx}]"
+          end
+        end
+
+        # thumb_keys
+        thumb_keys = hand_data['thumb_keys']
+        if thumb_keys
+          thumb_keys.each_with_index do |symbol, idx|
+            next if symbol.nil? || symbol.to_s.empty?
+            symbol_locations[symbol.to_s] << "#{hand_key}.thumb_keys[#{idx}]"
+          end
+        end
+      end
+
+      # encoders
+      if data['encoders']
+        ['left', 'right'].each do |side|
+          encoder = data['encoders'][side]
+          next unless encoder
+          encoder.each do |key, symbol|
+            next if symbol.nil? || symbol.to_s.empty?
+            symbol_locations[symbol.to_s] << "encoders.#{side}.#{key}"
+          end
+        end
+      end
+
+      # 重複のみを返す
+      symbol_locations.select { |_symbol, locs| locs.size > 1 }
+    end
 
     def initialize(yaml_path)
       @data = YAML.load_file(yaml_path)
@@ -34,6 +241,25 @@ module Cornix
     # 全ての有効な階層パスを返す
     def all_paths
       @path_to_position.keys
+    end
+
+    # シンボルが存在するか確認
+    # @param symbol [String] シンボル名
+    # @return [Boolean] シンボルが存在する場合true
+    def symbol_exists?(symbol)
+      return false if symbol.nil? || symbol.to_s.empty?
+
+      # 階層パスとして検索
+      return true if @path_to_position.key?(symbol.to_s)
+
+      # 末尾一致で検索（後方互換性）
+      @path_to_position.keys.any? { |path| path.end_with?(".#{symbol}") }
+    end
+
+    # 全てのシンボルを抽出（末尾のみ）
+    # @return [Array<String>] シンボル名の配列
+    def extract_all_symbols
+      PositionMap.extract_all_symbols_from_data(@data)
     end
 
     # 物理位置から階層パスを取得（逆引き）
@@ -129,10 +355,13 @@ module Cornix
       ['left_hand', 'right_hand'].each do |hand_key|
         hand = hand_key == 'left_hand' ? :left : :right
         hand_data = @data[hand_key]
+        next unless hand_data.is_a?(Hash)
 
         # row0-3
         ['row0', 'row1', 'row2', 'row3'].each_with_index do |row_key, row_idx|
           row = hand_data[row_key]
+          next unless row.is_a?(Array)
+
           row.each_with_index do |symbol, col_idx|
             next if symbol.nil? || symbol.to_s.empty?
             path = "#{hand_key}.#{row_key}.#{symbol}"
@@ -142,29 +371,35 @@ module Cornix
 
         # thumb_keys
         thumb_keys = hand_data['thumb_keys']
-        thumb_keys.each_with_index do |symbol, idx|
-          col_idx = 3 + idx  # 親指キーはcol 3-5
-          path = "#{hand_key}.thumb_keys.#{symbol}"
-          map[path] = { hand: hand, row: 3, col: col_idx }
+        if thumb_keys.is_a?(Array)
+          thumb_keys.each_with_index do |symbol, idx|
+            col_idx = 3 + idx  # 親指キーはcol 3-5
+            path = "#{hand_key}.thumb_keys.#{symbol}"
+            map[path] = { hand: hand, row: 3, col: col_idx }
+          end
         end
       end
 
       # encoders のマッピング
-      ['left', 'right'].each do |side|
-        hand = side == 'left' ? :left : :right
-        encoder = @data['encoders'][side]
-        row_idx = hand == :left ? 2 : 5  # エンコーダープッシュの行
+      if @data['encoders'].is_a?(Hash)
+        ['left', 'right'].each do |side|
+          hand = side == 'left' ? :left : :right
+          encoder = @data['encoders'][side]
+          next unless encoder.is_a?(Hash)
 
-        encoder.each do |key, symbol|
-          path = "encoders.#{side}.#{key}"
-          case key
-          when 'push'
-            map[path] = { hand: hand, row: row_idx, col: 6 }
-          when 'ccw', 'cw'
-            # エンコーダー回転は特別扱い（encoder_layoutから取得）
-            encoder_idx = hand == :left ? 0 : 1
-            rotation_idx = key == 'ccw' ? 0 : 1
-            map[path] = { hand: hand, encoder: encoder_idx, rotation: rotation_idx }
+          row_idx = hand == :left ? 2 : 5  # エンコーダープッシュの行
+
+          encoder.each do |key, symbol|
+            path = "encoders.#{side}.#{key}"
+            case key
+            when 'push'
+              map[path] = { hand: hand, row: row_idx, col: 6 }
+            when 'ccw', 'cw'
+              # エンコーダー回転は特別扱い（encoder_layoutから取得）
+              encoder_idx = hand == :left ? 0 : 1
+              rotation_idx = key == 'ccw' ? 0 : 1
+              map[path] = { hand: hand, encoder: encoder_idx, rotation: rotation_idx }
+            end
           end
         end
       end

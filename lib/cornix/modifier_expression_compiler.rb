@@ -42,7 +42,7 @@ module Cornix
       ['LALT', 'LCTL'] => 'LCA',
       ['LCTL', 'LGUI'] => 'LCG',
       ['LALT', 'LSFT'] => 'LSA',
-      ['LGUI', 'LSFT'] => 'LSG',
+      ['LGUI', 'LSFT'] => 'SGUI',
       ['LALT', 'LGUI'] => 'LAG',
 
       # 2 modifiers (right)
@@ -58,14 +58,23 @@ module Cornix
     MODIFIER_TO_FUNCTION = {
       # Left modifiers (default)
       'Shift' => 'LSFT',
+      'LShift' => 'LSFT',
       'Ctrl' => 'LCTL',
+      'LCtrl' => 'LCTL',
       'Control' => 'LCTL',
+      'LControl' => 'LCTL',
       'Alt' => 'LALT',
+      'LAlt' => 'LALT',
       'Option' => 'LALT',
+      'LOption' => 'LALT',
       'Cmd' => 'LGUI',
+      'LCmd' => 'LGUI',
       'Command' => 'LGUI',
+      'LCommand' => 'LGUI',
       'Win' => 'LGUI',
+      'LWin' => 'LGUI',
       'Gui' => 'LGUI',
+      'LGui' => 'LGUI',
 
       # Right modifiers (explicit)
       'RShift' => 'RSFT',

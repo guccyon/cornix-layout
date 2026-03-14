@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../../keycode_parser'
+require_relative '../../modifier_expression_compiler'
 
 module Cornix
   module Models
@@ -70,6 +71,12 @@ module Cornix
         # サブクラス: PlainKeycode - 単純なキーコード
         class PlainKeycode < KeycodeValue
           def to_qmk(keycode_converter, reference_converter: nil)
+            # modifier_expression の場合は ModifierExpressionCompiler に委譲
+            parsed = KeycodeParser.parse(@raw_value)
+            if parsed.is_a?(Hash) && parsed[:type] == :modifier_expression
+              return ModifierExpressionCompiler.to_qmk(parsed, keycode_converter)
+            end
+
             resolved = keycode_converter.resolve(@raw_value)
             if resolved.nil?
               raise ArgumentError, "Invalid keycode '#{@raw_value}': not found in aliases or QMK keycodes"

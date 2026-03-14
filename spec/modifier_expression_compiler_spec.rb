@@ -59,10 +59,10 @@ RSpec.describe Cornix::ModifierExpressionCompiler do
         expect(result).to eq('LSA(KC_Q)')
       end
 
-      it 'compiles Shift + Cmd + Q to LSG(KC_Q)' do
+      it 'compiles Shift + Cmd + Q to SGUI(KC_Q)' do
         token = { type: :modifier_expression, modifiers: ['Shift', 'Cmd'], key: 'Q' }
         result = described_class.to_qmk(token, keycode_converter)
-        expect(result).to eq('LSG(KC_Q)')
+        expect(result).to eq('SGUI(KC_Q)')
       end
 
       it 'compiles Alt + Cmd + Q to LAG(KC_Q)' do
@@ -153,15 +153,15 @@ RSpec.describe Cornix::ModifierExpressionCompiler do
     end
 
     context 'with order-independent matching' do
-      it 'compiles Shift + Cmd to LSG regardless of order' do
+      it 'compiles Shift + Cmd to SGUI regardless of order' do
         token1 = { type: :modifier_expression, modifiers: ['Shift', 'Cmd'], key: 'Q' }
         token2 = { type: :modifier_expression, modifiers: ['Cmd', 'Shift'], key: 'Q' }
 
         result1 = described_class.to_qmk(token1, keycode_converter)
         result2 = described_class.to_qmk(token2, keycode_converter)
 
-        expect(result1).to eq('LSG(KC_Q)')
-        expect(result2).to eq('LSG(KC_Q)')
+        expect(result1).to eq('SGUI(KC_Q)')
+        expect(result2).to eq('SGUI(KC_Q)')
       end
 
       it 'compiles MEH regardless of order' do
@@ -231,14 +231,14 @@ RSpec.describe Cornix::ModifierExpressionCompiler do
   end
 
   describe '.find_shortcut' do
-    it 'finds LSG for [LGUI, LSFT]' do
+    it 'finds SGUI for [LGUI, LSFT]' do
       result = described_class.find_shortcut(['LGUI', 'LSFT'])
-      expect(result).to eq('LSG')
+      expect(result).to eq('SGUI')
     end
 
-    it 'finds LSG for [LSFT, LGUI] (order-independent)' do
+    it 'finds SGUI for [LSFT, LGUI] (order-independent)' do
       result = described_class.find_shortcut(['LSFT', 'LGUI'])
-      expect(result).to eq('LSG')
+      expect(result).to eq('SGUI')
     end
 
     it 'finds MEH for [LCTL, LSFT, LALT]' do

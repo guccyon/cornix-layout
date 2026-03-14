@@ -1,0 +1,74 @@
+---
+name: Symbols
+index: 1
+description: Symbol layer with shifted numbers, brackets, and special characters
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: Shift + 1
+      W: Shift + 2
+      E: Shift + 3
+      R: Shift + 4
+      T: Shift + 5
+    row1:
+      caps: LCTL(Up)
+      A: "`"
+      S: Shift + `
+      D: NoKey
+      F: NoKey
+      G: "-"
+    row2:
+      lshift: Trans
+      Z: NoKey
+      X: NoKey
+      C: NoKey
+      V: NoKey
+      B: Shift + -
+    row3:
+      lctrl: NoKey
+      command: NoKey
+      option: NoKey
+    thumb_keys:
+      left: Trans
+      middle: NoKey
+      right: NoKey
+  right_hand:
+    row0:
+      Y: Shift + 6
+      U: Shift + 7
+      I: Shift + 8
+      O: Shift + 9
+      P: Shift + 0
+      backspace: LCTL(-)
+    row1:
+      H: "="
+      J: Shift + =
+      K: NoKey
+      L: NoKey
+      colon: NoKey
+      backslash: NoKey
+    row2:
+      N: "'"
+      M: Shift + '
+      comma: NoKey
+      dot: Shift + /
+      up: /
+      rshift: Trans
+    row3:
+      left: Ctrl + Option + Left
+      down: Ctrl + Option + Enter
+      right: Ctrl + Option + Right
+    thumb_keys:
+      left: Shift + Command + Enter
+      middle: Command + Space
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: MouseButton3
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

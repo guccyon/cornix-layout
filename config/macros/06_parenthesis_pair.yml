@@ -1,0 +1,17 @@
+---
+name: Parenthesis Pair
+description: 丸括弧ペア () を挿入してカーソルを内側に配置
+enabled: true
+index: 6
+sequence:
+- action: down
+  keys: KC_LSHIFT
+- action: tap
+  keys:
+  - KC_9
+  - KC_0
+- action: up
+  keys: KC_LSHIFT
+- action: tap
+  keys:
+  - KC_LEFT

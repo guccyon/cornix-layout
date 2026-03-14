@@ -1,0 +1,20 @@
+---
+name: Macro 11
+description: 改行して上に戻り、行末に移動して改行＆インデント
+enabled: true
+index: 11
+sequence:
+- action: tap
+  keys:
+  - KC_ENTER
+  - KC_UP
+- action: down
+  keys:
+  - KC_LGUI
+  - KC_RIGHT
+- action: up
+  keys: KC_LGUI
+- action: tap
+  keys:
+  - KC_ENTER
+  - KC_TAB

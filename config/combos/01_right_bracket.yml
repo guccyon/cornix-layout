@@ -1,0 +1,9 @@
+---
+name: Right Bracket
+description: J + K で右角括弧 ] を入力
+enabled: true
+index: 1
+trigger_keys:
+- KC_J
+- KC_K
+output_key: KC_RBRACKET

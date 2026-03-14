@@ -1,0 +1,11 @@
+---
+name: Paste Variants
+description: タップでペースト、ホールドでコピー＆移動、ダブルタップで複製
+enabled: true
+index: 2
+actions:
+  on_tap: LGUI(KC_V)
+  on_hold: Macro('Copy Selected')
+  on_double_tap: Macro('Copy Current Word')
+  on_tap_hold: Macro('Copy Current Line')
+tapping_term: 250

@@ -441,7 +441,7 @@ RSpec.describe Cornix::Models::Macro do
       ])
     end
 
-    it 'textアクションを個別キーのtapステップに変換する' do
+    it 'textアクションを["text", content]形式に変換する' do
       steps = [Cornix::Models::Macro::MacroStep.new(action: 'text', content: 'hi')]
       macro = described_class.new(
         index: 0,
@@ -451,10 +451,10 @@ RSpec.describe Cornix::Models::Macro do
       )
 
       qmk_array = macro.to_qmk(keycode_converter: keycode_converter)
-      expect(qmk_array).to eq([['tap', 'KC_H', 'KC_I']])
+      expect(qmk_array).to eq([['text', 'hi']])
     end
 
-    it 'textアクション: 大文字・特殊文字・記号を正しく変換する' do
+    it 'textアクション: 特殊文字・記号を含む文字列もそのまま保持する' do
       steps = [Cornix::Models::Macro::MacroStep.new(action: 'text', content: 'fn ()')]
       macro = described_class.new(
         index: 0,
@@ -464,12 +464,10 @@ RSpec.describe Cornix::Models::Macro do
       )
 
       qmk_array = macro.to_qmk(keycode_converter: keycode_converter)
-      expect(qmk_array).to eq([
-        ['tap', 'KC_F', 'KC_N', 'KC_SPACE', 'KC_LEFT_PAREN', 'KC_RIGHT_PAREN']
-      ])
+      expect(qmk_array).to eq([['text', 'fn ()']])
     end
 
-    it 'textアクション: 大文字はLSFT()でラップする' do
+    it 'textアクション: 大文字を含む文字列もそのまま保持する' do
       steps = [Cornix::Models::Macro::MacroStep.new(action: 'text', content: 'Hello')]
       macro = described_class.new(
         index: 0,
@@ -479,9 +477,7 @@ RSpec.describe Cornix::Models::Macro do
       )
 
       qmk_array = macro.to_qmk(keycode_converter: keycode_converter)
-      expect(qmk_array).to eq([
-        ['tap', 'LSFT(KC_H)', 'KC_E', 'KC_L', 'KC_L', 'KC_O']
-      ])
+      expect(qmk_array).to eq([['text', 'Hello']])
     end
   end
 

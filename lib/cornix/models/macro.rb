@@ -155,8 +155,7 @@ module Cornix
           when 'beep'
             ['beep']
           when 'text'
-            keycodes = @content.to_s.chars.map { |c| self.class.char_to_keycode(c, keycode_converter) }.compact
-            ['tap'] + keycodes
+            ['text', @content.to_s]
           end
         end
 
@@ -177,6 +176,8 @@ module Cornix
             new(action: action, duration: qmk_array[1])
           when 'beep'
             new(action: action)
+          when 'text'
+            new(action: action, content: qmk_array[1])
           else
             raise ArgumentError, "Unknown macro action: #{action}"
           end

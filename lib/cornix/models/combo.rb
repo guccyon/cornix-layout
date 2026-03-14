@@ -105,8 +105,8 @@ module Cornix
 
       # Combo → QMK配列
       def to_qmk
-        # 4要素にパディング（不足分は0で埋める）
-        padded_triggers = (@trigger_keys + [0, 0, 0, 0])[0..3]
+        # 4要素にパディング（不足分はKC_NOで埋める）
+        padded_triggers = (@trigger_keys + ['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO'])[0..3]
         padded_triggers + [@output_key]
       end
 

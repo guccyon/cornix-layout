@@ -135,12 +135,12 @@ RSpec.describe Cornix::Models::ComboCollection do
       expect(qmk_array.size).to eq(32)
     end
 
-    it 'コンボが存在する位置は配列[5要素]' do
+    it 'コンボが存在する位置は配列[5要素]（空スロットはKC_NO）' do
       collection = described_class.new([combo1, combo2])
       qmk_array = collection.to_qmk_array
 
-      expect(qmk_array[0]).to eq([20, 8, 0, 0, 47])
-      expect(qmk_array[2]).to eq([20, 21, 0, 0, 48])
+      expect(qmk_array[0]).to eq([20, 8, 'KC_NO', 'KC_NO', 47])
+      expect(qmk_array[2]).to eq([20, 21, 'KC_NO', 'KC_NO', 48])
     end
 
     it 'コンボが存在しない位置は["KC_NO", "KC_NO", "KC_NO", "KC_NO", "KC_NO"]' do
@@ -175,9 +175,9 @@ RSpec.describe Cornix::Models::ComboCollection do
       collection = described_class.new(sparse_combos)
       qmk_array = collection.to_qmk_array
 
-      expect(qmk_array[0]).to eq([20, 8, 0, 0, 47])
+      expect(qmk_array[0]).to eq([20, 8, 'KC_NO', 'KC_NO', 47])
       expect(qmk_array[1]).to eq(['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO', 'KC_NO'])
-      expect(qmk_array[2]).to eq([20, 21, 0, 0, 48])
+      expect(qmk_array[2]).to eq([20, 21, 'KC_NO', 'KC_NO', 48])
     end
   end
 end

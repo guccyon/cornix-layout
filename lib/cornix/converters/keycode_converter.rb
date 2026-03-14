@@ -9,6 +9,7 @@ module Cornix
       def initialize(yaml_path)
         @data = YAML.load_file(yaml_path)
         @aliases = @data['aliases'] || {}
+        @char_keycodes = @data['char_keycodes'] || {}
       end
 
       def resolve(keycode)
@@ -35,6 +36,11 @@ module Cornix
 
         # それ以外は不正なキーコードとして nil を返す
         nil
+      end
+
+      # text展開用: 入力文字→QMKキーコードに変換 (char_keycodes セクションを使用)
+      def resolve_char(char)
+        @char_keycodes[char]
       end
 
       def reverse_resolve(qmk_keycode)

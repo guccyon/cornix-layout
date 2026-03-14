@@ -335,3 +335,122 @@ aliases:
   AutoShiftDown: AS_DOWN
   AutoShiftUp: AS_UP
   AutoShiftReport: AS_RPT
+
+# =============================================================================
+# Character-to-Keycode mappings for text expansion (MacroStep text action)
+#
+# These map the actual character you want to TYPE to its QMK keycode.
+# Semantics differ from `aliases`: "A" here means type uppercase A (LSFT),
+# whereas in aliases "A" means press the A key (no shift).
+#
+# Used by KeycodeConverter#resolve_char(char).
+# =============================================================================
+char_keycodes:
+  # Whitespace
+  " ": KC_SPACE
+  "\t": KC_TAB
+  "\n": KC_ENTER
+
+  # Digits (same physical key, no shift needed)
+  "0": KC_0
+  "1": KC_1
+  "2": KC_2
+  "3": KC_3
+  "4": KC_4
+  "5": KC_5
+  "6": KC_6
+  "7": KC_7
+  "8": KC_8
+  "9": KC_9
+
+  # Unshifted symbols (same as aliases section)
+  "-": KC_MINUS
+  "=": KC_EQUAL
+  "[": KC_LBRACKET
+  "]": KC_RBRACKET
+  "\\": KC_BSLASH
+  ";": KC_SCOLON
+  "'": KC_QUOTE
+  "`": KC_GRAVE
+  ",": KC_COMMA
+  ".": KC_DOT
+  "/": KC_SLASH
+
+  # Shifted symbols (type the actual character; different from aliases which map the physical key)
+  "!": KC_EXCLAIM
+  "@": KC_AT
+  "#": KC_HASH
+  "$": KC_DOLLAR
+  "%": KC_PERCENT
+  "^": KC_CIRCUMFLEX
+  "&": KC_AMPERSAND
+  "*": KC_ASTERISK
+  "(": KC_LEFT_PAREN
+  ")": KC_RIGHT_PAREN
+  "_": KC_UNDERSCORE
+  "+": KC_PLUS
+  "{": KC_LEFT_CURLY_BRACE
+  "}": KC_RIGHT_CURLY_BRACE
+  "|": KC_PIPE
+  ":": KC_COLON
+  "\"": KC_DOUBLE_QUOTE
+  "<": KC_LEFT_ANGLE_BRACKET
+  ">": KC_RIGHT_ANGLE_BRACKET
+  "?": KC_QUESTION
+  "~": KC_TILDE
+
+  # Lowercase letters (no shift)
+  a: KC_A
+  b: KC_B
+  c: KC_C
+  d: KC_D
+  e: KC_E
+  f: KC_F
+  g: KC_G
+  h: KC_H
+  i: KC_I
+  j: KC_J
+  k: KC_K
+  l: KC_L
+  m: KC_M
+  n: KC_N
+  o: KC_O
+  p: KC_P
+  q: KC_Q
+  r: KC_R
+  s: KC_S
+  t: KC_T
+  u: KC_U
+  v: KC_V
+  w: KC_W
+  x: KC_X
+  y: KC_Y
+  z: KC_Z
+
+  # Uppercase letters (shift + key)
+  A: LSFT(KC_A)
+  B: LSFT(KC_B)
+  C: LSFT(KC_C)
+  D: LSFT(KC_D)
+  E: LSFT(KC_E)
+  F: LSFT(KC_F)
+  G: LSFT(KC_G)
+  H: LSFT(KC_H)
+  I: LSFT(KC_I)
+  J: LSFT(KC_J)
+  K: LSFT(KC_K)
+  L: LSFT(KC_L)
+  M: LSFT(KC_M)
+  N: LSFT(KC_N)
+  O: LSFT(KC_O)
+  P: LSFT(KC_P)
+  Q: LSFT(KC_Q)
+  R: LSFT(KC_R)
+  S: LSFT(KC_S)
+  T: LSFT(KC_T)
+  U: LSFT(KC_U)
+  V: LSFT(KC_V)
+  W: LSFT(KC_W)
+  X: LSFT(KC_X)
+  Y: LSFT(KC_Y)
+  Z: LSFT(KC_Z)

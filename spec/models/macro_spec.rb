@@ -15,6 +15,26 @@ RSpec.describe Cornix::Models::Macro do
         'C' => 'KC_C',
         'LShift' => 'KC_LSHIFT',
         'Space' => 'KC_SPACE'
+      },
+      'char_keycodes' => {
+        ' ' => 'KC_SPACE',
+        "\t" => 'KC_TAB',
+        "\n" => 'KC_ENTER',
+        '(' => 'KC_LEFT_PAREN',
+        ')' => 'KC_RIGHT_PAREN',
+        'a' => 'KC_A', 'b' => 'KC_B', 'c' => 'KC_C', 'd' => 'KC_D', 'e' => 'KC_E',
+        'f' => 'KC_F', 'g' => 'KC_G', 'h' => 'KC_H', 'i' => 'KC_I', 'j' => 'KC_J',
+        'k' => 'KC_K', 'l' => 'KC_L', 'm' => 'KC_M', 'n' => 'KC_N', 'o' => 'KC_O',
+        'p' => 'KC_P', 'q' => 'KC_Q', 'r' => 'KC_R', 's' => 'KC_S', 't' => 'KC_T',
+        'u' => 'KC_U', 'v' => 'KC_V', 'w' => 'KC_W', 'x' => 'KC_X', 'y' => 'KC_Y',
+        'z' => 'KC_Z',
+        'A' => 'LSFT(KC_A)', 'B' => 'LSFT(KC_B)', 'C' => 'LSFT(KC_C)', 'D' => 'LSFT(KC_D)',
+        'E' => 'LSFT(KC_E)', 'F' => 'LSFT(KC_F)', 'G' => 'LSFT(KC_G)', 'H' => 'LSFT(KC_H)',
+        'I' => 'LSFT(KC_I)', 'J' => 'LSFT(KC_J)', 'K' => 'LSFT(KC_K)', 'L' => 'LSFT(KC_L)',
+        'M' => 'LSFT(KC_M)', 'N' => 'LSFT(KC_N)', 'O' => 'LSFT(KC_O)', 'P' => 'LSFT(KC_P)',
+        'Q' => 'LSFT(KC_Q)', 'R' => 'LSFT(KC_R)', 'S' => 'LSFT(KC_S)', 'T' => 'LSFT(KC_T)',
+        'U' => 'LSFT(KC_U)', 'V' => 'LSFT(KC_V)', 'W' => 'LSFT(KC_W)', 'X' => 'LSFT(KC_X)',
+        'Y' => 'LSFT(KC_Y)', 'Z' => 'LSFT(KC_Z)'
       }
     }
   end
@@ -419,6 +439,80 @@ RSpec.describe Cornix::Models::Macro do
         ['delay', 100],
         ['beep']
       ])
+    end
+
+    it 'textアクションを個別キーのtapステップに変換する' do
+      steps = [Cornix::Models::Macro::MacroStep.new(action: 'text', content: 'hi')]
+      macro = described_class.new(
+        index: 0,
+        name: 'Text',
+        description: '',
+        sequence: steps
+      )
+
+      qmk_array = macro.to_qmk(keycode_converter: keycode_converter)
+      expect(qmk_array).to eq([['tap', 'KC_H', 'KC_I']])
+    end
+
+    it 'textアクション: 大文字・特殊文字・記号を正しく変換する' do
+      steps = [Cornix::Models::Macro::MacroStep.new(action: 'text', content: 'fn ()')]
+      macro = described_class.new(
+        index: 0,
+        name: 'Text',
+        description: '',
+        sequence: steps
+      )
+
+      qmk_array = macro.to_qmk(keycode_converter: keycode_converter)
+      expect(qmk_array).to eq([
+        ['tap', 'KC_F', 'KC_N', 'KC_SPACE', 'KC_LEFT_PAREN', 'KC_RIGHT_PAREN']
+      ])
+    end
+
+    it 'textアクション: 大文字はLSFT()でラップする' do
+      steps = [Cornix::Models::Macro::MacroStep.new(action: 'text', content: 'Hello')]
+      macro = described_class.new(
+        index: 0,
+        name: 'Text',
+        description: '',
+        sequence: steps
+      )
+
+      qmk_array = macro.to_qmk(keycode_converter: keycode_converter)
+      expect(qmk_array).to eq([
+        ['tap', 'LSFT(KC_H)', 'KC_E', 'KC_L', 'KC_L', 'KC_O']
+      ])
+    end
+  end
+
+  describe 'MacroStep.char_to_keycode' do
+    subject { Cornix::Models::Macro::MacroStep }
+
+    it '小文字をKC_Xに変換する' do
+      expect(subject.char_to_keycode('a', keycode_converter)).to eq('KC_A')
+      expect(subject.char_to_keycode('z', keycode_converter)).to eq('KC_Z')
+    end
+
+    it '大文字をLSFT(KC_X)に変換する' do
+      expect(subject.char_to_keycode('A', keycode_converter)).to eq('LSFT(KC_A)')
+      expect(subject.char_to_keycode('Z', keycode_converter)).to eq('LSFT(KC_Z)')
+    end
+
+    it 'スペースをKC_SPACEに変換する' do
+      expect(subject.char_to_keycode(' ', keycode_converter)).to eq('KC_SPACE')
+    end
+
+    it '括弧を変換する' do
+      expect(subject.char_to_keycode('(', keycode_converter)).to eq('KC_LEFT_PAREN')
+      expect(subject.char_to_keycode(')', keycode_converter)).to eq('KC_RIGHT_PAREN')
+    end
+
+    it '不明な文字はnilを返す' do
+      expect(subject.char_to_keycode("\x01", keycode_converter)).to be_nil
+    end
+
+    it 'keycode_converterなしではnilを返す' do
+      expect(subject.char_to_keycode('a')).to be_nil
     end
   end
 end

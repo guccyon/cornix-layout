@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'concerns/validatable'
+require_relative '../keycode_parser'
 
 module Cornix
   module Models
@@ -51,12 +52,25 @@ module Cornix
           return { valid: false, error: 'keycode_converter is required' }
         end
 
+        # まずkeycode_converterで解決を試みる
         resolved = keycode_converter.resolve(value)
-        unless resolved
-          return { valid: false, error: "Invalid keycode '#{value}'" }
+        return { valid: true } if resolved
+
+        # 参照式（Macro/TapDance）はreference_converterで解決を試みる
+        reference_converter = options[:reference_converter]
+        if reference_converter
+          begin
+            parsed = KeycodeParser.parse(value)
+            if parsed[:type] == :reference
+              reference_converter.resolve(parsed)
+              return { valid: true }
+            end
+          rescue StandardError
+            # fallthrough to error
+          end
         end
 
-        { valid: true }
+        { valid: false, error: "Invalid keycode '#{value}'" }
       end
 
       def initialize(index:, name:, description:, on_tap:, on_hold:, on_double_tap:,
@@ -86,23 +100,34 @@ module Cornix
       end
 
       # TapDance → QMK配列
-      def to_qmk
-        [@on_tap, @on_hold, @on_double_tap, @on_tap_hold, @tapping_term]
+      #
+      # @param keycode_converter [KeycodeConverter] キーコード解決器
+      # @param reference_converter [ReferenceConverter, nil] 参照解決器
+      def to_qmk(keycode_converter: nil, reference_converter: nil)
+        actions = [@on_tap, @on_hold, @on_double_tap, @on_tap_hold].map do |value|
+          resolve_action_value(value, keycode_converter, reference_converter)
+        end
+        actions + [@tapping_term]
       end
 
       # YAML Hash → TapDance
+      #
+      # actionsキー下にネストされた形式（推奨）とトップレベル形式（後方互換）の両方をサポート
       def self.from_yaml_hash(yaml_hash)
         # メタ情報抽出（存在する場合）
         metadata = yaml_hash.respond_to?(:__metadata) ? yaml_hash.__metadata : {}
+
+        # actions: キー下にネストされた形式を優先、なければトップレベルから読む
+        actions = yaml_hash['actions'] || yaml_hash
 
         instance = new(
           index: yaml_hash['index'],
           name: yaml_hash['name'],
           description: yaml_hash['description'] || '',
-          on_tap: yaml_hash['on_tap'],
-          on_hold: yaml_hash['on_hold'],
-          on_double_tap: yaml_hash['on_double_tap'],
-          on_tap_hold: yaml_hash['on_tap_hold'],
+          on_tap: actions['on_tap'],
+          on_hold: actions['on_hold'],
+          on_double_tap: actions['on_double_tap'],
+          on_tap_hold: actions['on_tap_hold'],
           tapping_term: yaml_hash['tapping_term']
         )
 
@@ -118,10 +143,12 @@ module Cornix
           'index' => @index,
           'name' => @name,
           'description' => @description,
-          'on_tap' => @on_tap,
-          'on_hold' => @on_hold,
-          'on_double_tap' => @on_double_tap,
-          'on_tap_hold' => @on_tap_hold,
+          'actions' => {
+            'on_tap' => @on_tap,
+            'on_hold' => @on_hold,
+            'on_double_tap' => @on_double_tap,
+            'on_tap_hold' => @on_tap_hold
+          },
           'tapping_term' => @tapping_term
         }
       end
@@ -129,6 +156,28 @@ module Cornix
       # 空のタップダンスか判定（全てKC_NO = 0 または -1 または "KC_NO"）
       def empty?
         [@on_tap, @on_hold, @on_double_tap, @on_tap_hold].all? { |v| v.nil? || v == 0 || v == -1 || v == 'KC_NO' }
+      end
+
+      private
+
+      # アクション値をQMK形式に解決する
+      def resolve_action_value(value, keycode_converter, reference_converter)
+        return value if value.nil? || value.is_a?(Integer) || value == 'KC_NO'
+        return value unless keycode_converter
+
+        resolved = keycode_converter.resolve(value)
+        return resolved if resolved
+
+        if reference_converter
+          begin
+            parsed = KeycodeParser.parse(value)
+            return reference_converter.resolve(parsed) if parsed[:type] == :reference
+          rescue StandardError
+            # fallthrough
+          end
+        end
+
+        value
       end
     end
   end

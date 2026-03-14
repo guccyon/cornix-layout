@@ -214,7 +214,7 @@ RSpec.describe Cornix::Writers::YamlWriter do
 
       loaded = YAML.load_file(tap_dance_file)
       expect(loaded['name']).to eq('Test TapDance')
-      expect(loaded['on_tap']).to eq(4)
+      expect(loaded['actions']['on_tap']).to eq(4)
       expect(loaded['tapping_term']).to eq(200)
     end
 

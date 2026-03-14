@@ -70,11 +70,14 @@ module Cornix
       end
 
       # 32要素の配列を生成（空きは["KC_NO", "KC_NO", "KC_NO", "KC_NO", 250]）
-      def to_qmk_array
+      def to_qmk_array(keycode_converter: nil, reference_converter: nil)
         result = Array.new(MAX_SIZE) { ['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO', 250] }
         @tap_dances.each do |tap_dance|
           next if tap_dance.nil?
-          result[tap_dance.index] = tap_dance.to_qmk
+          result[tap_dance.index] = tap_dance.to_qmk(
+            keycode_converter: keycode_converter,
+            reference_converter: reference_converter
+          )
         end
         result
       end

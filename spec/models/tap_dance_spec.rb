@@ -89,7 +89,7 @@ RSpec.describe Cornix::Models::TapDance do
   end
 
   describe '#to_yaml_hash' do
-    it 'TapDanceをYAML Hashに変換' do
+    it 'TapDanceをYAML Hashに変換（actionsキー下にネスト）' do
       tap_dance = described_class.new(
         index: 5,
         name: 'Escape or Layer',
@@ -105,10 +105,10 @@ RSpec.describe Cornix::Models::TapDance do
       expect(yaml_hash['index']).to eq(5)
       expect(yaml_hash['name']).to eq('Escape or Layer')
       expect(yaml_hash['description']).to eq('Tap for Escape, Hold for Layer 1')
-      expect(yaml_hash['on_tap']).to eq(41)
-      expect(yaml_hash['on_hold']).to eq(1)
-      expect(yaml_hash['on_double_tap']).to eq(41)
-      expect(yaml_hash['on_tap_hold']).to eq(1)
+      expect(yaml_hash['actions']['on_tap']).to eq(41)
+      expect(yaml_hash['actions']['on_hold']).to eq(1)
+      expect(yaml_hash['actions']['on_double_tap']).to eq(41)
+      expect(yaml_hash['actions']['on_tap_hold']).to eq(1)
       expect(yaml_hash['tapping_term']).to eq(200)
     end
   end
@@ -169,15 +169,17 @@ RSpec.describe Cornix::Models::TapDance do
       expect(qmk_array).to eq(original_array)
     end
 
-    it 'YAML → TapDance → YAML の往復変換' do
+    it 'YAML → TapDance → YAML の往復変換（actionsネスト形式）' do
       original_hash = {
         'index' => 8,
         'name' => 'Test TapDance',
         'description' => 'Test description',
-        'on_tap' => 41,
-        'on_hold' => 1,
-        'on_double_tap' => 41,
-        'on_tap_hold' => 1,
+        'actions' => {
+          'on_tap' => 41,
+          'on_hold' => 1,
+          'on_double_tap' => 41,
+          'on_tap_hold' => 1
+        },
         'tapping_term' => 200
       }
       tap_dance = described_class.from_yaml_hash(original_hash)

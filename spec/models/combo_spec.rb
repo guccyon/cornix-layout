@@ -37,21 +37,22 @@ RSpec.describe Cornix::Models::Combo do
   end
 
   describe '#to_qmk' do
-    it 'ComboをQMK配列に変換' do
+    it 'ComboをQMK配列に変換（空スロットはKC_NOでパディング）' do
       combo = described_class.from_qmk(3, sample_qmk_array)
       qmk_array = combo.to_qmk
 
-      expect(qmk_array).to eq(sample_qmk_array)
+      # from_qmkは0をtrigger_keysから除外するため、to_qmkはKC_NOでパディングする
+      expect(qmk_array).to eq([20, 8, 'KC_NO', 'KC_NO', 47])
     end
 
-    it 'ゼロ配列を返す' do
+    it 'ゼロ配列（全てKC_NO）を返す' do
       combo = described_class.from_qmk(0, [0, 0, 0, 0, 0])
       qmk_array = combo.to_qmk
 
-      expect(qmk_array).to eq([0, 0, 0, 0, 0])
+      expect(qmk_array).to eq(['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO', 0])
     end
 
-    it 'トリガーキーが2つの場合はパディング' do
+    it 'トリガーキーが2つの場合はKC_NOでパディング' do
       combo = described_class.new(
         index: 0,
         name: 'Test',
@@ -60,7 +61,7 @@ RSpec.describe Cornix::Models::Combo do
         output_key: 47
       )
 
-      expect(combo.to_qmk).to eq([20, 8, 0, 0, 47])
+      expect(combo.to_qmk).to eq([20, 8, 'KC_NO', 'KC_NO', 47])
     end
 
     it 'トリガーキーが4つの場合はそのまま' do
@@ -220,7 +221,7 @@ RSpec.describe Cornix::Models::Combo do
       )
 
       expect(combo.trigger_keys.size).to eq(1)
-      expect(combo.to_qmk).to eq([20, 0, 0, 0, 47])
+      expect(combo.to_qmk).to eq([20, 'KC_NO', 'KC_NO', 'KC_NO', 47])
     end
 
     it '空文字列の名前を許容' do
@@ -244,7 +245,7 @@ RSpec.describe Cornix::Models::Combo do
         output_key: 65533
       )
 
-      expect(combo.to_qmk).to eq([65535, 65534, 0, 0, 65533])
+      expect(combo.to_qmk).to eq([65535, 65534, 'KC_NO', 'KC_NO', 65533])
     end
   end
 

@@ -18,6 +18,14 @@ RSpec.describe Cornix::Converters::KeycodeConverter do
         '___' => 'KC_TRNS',
         'Tab' => 'KC_TAB',
         'NoKey' => 'KC_NO'
+      },
+      'char_keycodes' => {
+        'a' => 'KC_A',
+        'z' => 'KC_Z',
+        'A' => 'LSFT(KC_A)',
+        ' ' => 'KC_SPACE',
+        '(' => 'KC_LEFT_PAREN',
+        '!' => 'KC_EXCLAIM'
       }
     }
   end
@@ -187,6 +195,31 @@ RSpec.describe Cornix::Converters::KeycodeConverter do
       expect(resolver.resolve('KC_A')).to eq('KC_A') # KC_* format is valid
 
       no_aliases_file.unlink
+    end
+  end
+
+  describe '#resolve_char' do
+    it '小文字をKC_Xに変換する' do
+      expect(resolver.resolve_char('a')).to eq('KC_A')
+      expect(resolver.resolve_char('z')).to eq('KC_Z')
+    end
+
+    it '大文字をLSFT(KC_X)に変換する' do
+      expect(resolver.resolve_char('A')).to eq('LSFT(KC_A)')
+    end
+
+    it 'スペースをKC_SPACEに変換する' do
+      expect(resolver.resolve_char(' ')).to eq('KC_SPACE')
+    end
+
+    it '記号を変換する' do
+      expect(resolver.resolve_char('(')).to eq('KC_LEFT_PAREN')
+      expect(resolver.resolve_char('!')).to eq('KC_EXCLAIM')
+    end
+
+    it 'char_keycodes にない文字はnilを返す' do
+      expect(resolver.resolve_char("\x01")).to be_nil
+      expect(resolver.resolve_char('b')).to be_nil  # not in test fixture
     end
   end
 end

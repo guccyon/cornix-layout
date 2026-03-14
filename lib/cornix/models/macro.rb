@@ -154,7 +154,16 @@ module Cornix
             ['delay', @duration]
           when 'beep'
             ['beep']
+          when 'text'
+            keycodes = @content.to_s.chars.map { |c| self.class.char_to_keycode(c, keycode_converter) }.compact
+            ['tap'] + keycodes
           end
+        end
+
+        # 文字をQMKキーコード文字列に変換
+        # keycode_converter の char_keycodes セクション（keycode_aliases.yaml）を使用する。
+        def self.char_to_keycode(char, keycode_converter = nil)
+          keycode_converter&.resolve_char(char)
         end
 
         def self.from_qmk(qmk_array, keycode_converter, reference_converter: nil)

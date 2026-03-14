@@ -1,0 +1,74 @@
+---
+name: Layer 1
+description: ''
+index: 1
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: '1'
+      W: '2'
+      E: '3'
+      R: '4'
+      T: '5'
+    row1:
+      caps: NoKey
+      A: NoKey
+      S: NoKey
+      D: NoKey
+      F: ";"
+      G: "-"
+    row2:
+      lshift: NoKey
+      Z: NoKey
+      X: NoKey
+      C: NoKey
+      V: NoKey
+      B: NoKey
+    row3:
+      lctrl: NoKey
+      command: NoKey
+      option: NoKey
+    thumb_keys:
+      left: NoKey
+      middle: NoKey
+      right: NoKey
+  right_hand:
+    row0:
+      "Y": '6'
+      U: '7'
+      I: '8'
+      O: '9'
+      P: '0'
+      backspace: Delete
+    row1:
+      H: =
+      J: "'"
+      K: NoKey
+      L: NoKey
+      colon: NoKey
+      enter: NoKey
+    row2:
+      "N": NoKey
+      M: NoKey
+      comma: NoKey
+      dot: NoKey
+      up: NoKey
+      rshift: NoKey
+    row3:
+      left: NoKey
+      down: NoKey
+      right: NoKey
+    thumb_keys:
+      left: NoKey
+      middle: NoKey
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: MouseButton3
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

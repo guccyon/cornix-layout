@@ -1,0 +1,74 @@
+---
+name: Base
+index: 0
+description: Base layer with standard QWERTY layout and layer switching
+mapping:
+  left_hand:
+    row0:
+      tab: Tab
+      Q: Q
+      W: W
+      E: E
+      R: R
+      T: T
+    row1:
+      caps: LCtrl
+      A: A
+      S: S
+      D: D
+      F: F
+      G: G
+    row2:
+      lshift: LShift
+      Z: Z
+      X: X
+      C: C
+      V: V
+      B: B
+    row3:
+      lctrl: CapsLock
+      command: MO(3)
+      option: LAlt
+    thumb_keys:
+      left: LGUI_T(KC_LANG2)
+      middle: LT1(Space)
+      right: LT2(Escape)
+  right_hand:
+    row0:
+      Y: Y
+      U: U
+      I: I
+      O: O
+      P: P
+      backspace: Backspace
+    row1:
+      H: H
+      J: J
+      K: K
+      L: L
+      colon: ";"
+      backslash: "\\"
+    row2:
+      N: N
+      M: M
+      comma: ","
+      dot: .
+      up: /
+      rshift: RSFT_T(Up)
+    row3:
+      left: Left
+      down: Down
+      right: Right
+    thumb_keys:
+      left: LT2(Enter)
+      middle: MO(1)
+      right: LT3(KC_LANG1)
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: OSL(9)
+      ccw: KC_F14
+      cw: KC_F15

@@ -1,0 +1,9 @@
+---
+name: Right Curly Brace
+description: M + , で右波括弧 } を入力
+enabled: true
+index: 3
+trigger_keys:
+- KC_M
+- KC_COMMA
+output_key: LSFT(KC_RBRACKET)

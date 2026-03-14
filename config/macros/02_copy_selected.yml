@@ -1,0 +1,16 @@
+---
+name: Copy Selected
+description: 選択範囲をコピーしてカーソルを右に移動
+enabled: true
+index: 2
+sequence:
+- action: down
+  keys: KC_LGUI
+- action: tap
+  keys:
+  - KC_C
+- action: up
+  keys: KC_LGUI
+- action: tap
+  keys:
+  - KC_RIGHT

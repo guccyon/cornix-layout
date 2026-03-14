@@ -1,0 +1,74 @@
+---
+name: Numbers & Macros
+index: 2
+description: Number layer with numpad layout and macro triggers
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: '1'
+      W: '2'
+      E: '3'
+      R: '4'
+      T: '5'
+    row1:
+      caps: Macro('Macro 11')
+      A: Macro('Bracket Pair')
+      S: Macro('Curly Brace Pair')
+      D: Macro('Parenthesis Pair')
+      F: Macro('Single Quote Pair')
+      G: Macro('Double Quote Pair')
+    row2:
+      lshift: NoKey
+      Z: Macro('Function Template')
+      X: NoKey
+      C: TapDance('Paste Variants')
+      V: Macro('Clipboard History')
+      B: NoKey
+    row3:
+      lctrl: NoKey
+      command: NoKey
+      option: NoKey
+    thumb_keys:
+      left: NoKey
+      middle: NoKey
+      right: NoKey
+  right_hand:
+    row0:
+      Y: '6'
+      U: '7'
+      I: '8'
+      O: '9'
+      P: '0'
+      backspace: NoKey
+    row1:
+      H: NoKey
+      J: KC_KP_4
+      K: KC_KP_5
+      L: KC_KP_6
+      colon: NoKey
+      backslash: NoKey
+    row2:
+      N: NoKey
+      M: KC_KP_1
+      comma: KC_KP_2
+      dot: KC_KP_3
+      up: KC_KP_DOT
+      rshift: NoKey
+    row3:
+      left: Shift + Command + [
+      down: NoKey
+      right: Shift + Command + ]
+    thumb_keys:
+      left: NoKey
+      middle: KC_KP_0
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: MouseButton3
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

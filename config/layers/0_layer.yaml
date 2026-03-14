@@ -1,0 +1,74 @@
+---
+name: Layer 0
+description: ''
+index: 0
+mapping:
+  left_hand:
+    row0:
+      tab: Tab
+      Q: Q
+      W: W
+      E: E
+      R: R
+      T: T
+    row1:
+      caps: CapsLock
+      A: A
+      S: S
+      D: D
+      F: F
+      G: G
+    row2:
+      lshift: LShift
+      Z: Z
+      X: X
+      C: C
+      V: V
+      B: B
+    row3:
+      lctrl: LCtrl
+      command: LGui
+      option: LAlt
+    thumb_keys:
+      left: MO(1)
+      middle: MO(3)
+      right: Space
+  right_hand:
+    row0:
+      "Y": Y
+      U: U
+      I: I
+      O: O
+      P: P
+      backspace: Backspace
+    row1:
+      H: H
+      J: J
+      K: K
+      L: L
+      colon: "\\"
+      enter: Enter
+    row2:
+      "N": N
+      M: M
+      comma: ","
+      dot: .
+      up: Up
+      rshift: /
+    row3:
+      left: Left
+      down: Down
+      right: Right
+    thumb_keys:
+      left: Space
+      middle: MO(4)
+      right: MO(2)
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: MouseButton3
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

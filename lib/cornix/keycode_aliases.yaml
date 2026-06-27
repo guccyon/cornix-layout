@@ -56,11 +56,8 @@ aliases:
   "]": KC_RBRACKET
   "\\": KC_BSLASH
   ";": KC_SCOLON
-  ":": KC_SCOLON
   "'": KC_QUOTE
-  "\"": KC_QUOTE
   "`": KC_GRAVE
-  "~": KC_GRAVE
   ",": KC_COMMA
   ".": KC_DOT
   "/": KC_SLASH
@@ -77,6 +74,79 @@ aliases:
   Comma: KC_COMMA
   Dot: KC_DOT
   Slash: KC_SLASH
+
+  # ===================================
+  # US ANSI Shifted Symbols
+  # ===================================
+  "~": LSFT(KC_GRAVE)
+  "!": LSFT(KC_1)
+  "@": LSFT(KC_2)
+  "#": LSFT(KC_3)
+  "$": LSFT(KC_4)
+  "%": LSFT(KC_5)
+  "^": LSFT(KC_6)
+  "&": LSFT(KC_7)
+  "*": LSFT(KC_8)
+  "(": LSFT(KC_9)
+  ")": LSFT(KC_0)
+  "_": LSFT(KC_MINUS)
+  "+": LSFT(KC_EQUAL)
+  "{": LSFT(KC_LBRACKET)
+  "}": LSFT(KC_RBRACKET)
+  "|": LSFT(KC_BSLASH)
+  ":": LSFT(KC_SCOLON)
+  "\"": LSFT(KC_QUOTE)
+  "<": LSFT(KC_COMMA)
+  ">": LSFT(KC_DOT)
+  "?": LSFT(KC_SLASH)
+  "¥": LALT(KC_Y)
+
+  # Shifted symbol aliases (long form)
+  Tilde: LSFT(KC_GRAVE)
+  Exclaim: LSFT(KC_1)
+  ExclamationMark: LSFT(KC_1)
+  At: LSFT(KC_2)
+  AtSign: LSFT(KC_2)
+  Hash: LSFT(KC_3)
+  Pound: LSFT(KC_3)
+  NumberSign: LSFT(KC_3)
+  Dollar: LSFT(KC_4)
+  DollarSign: LSFT(KC_4)
+  Percent: LSFT(KC_5)
+  PercentSign: LSFT(KC_5)
+  Caret: LSFT(KC_6)
+  Circumflex: LSFT(KC_6)
+  And: LSFT(KC_7)
+  Ampersand: LSFT(KC_7)
+  Asterisk: LSFT(KC_8)
+  Star: LSFT(KC_8)
+  LeftParen: LSFT(KC_9)
+  LParenthesis: LSFT(KC_9)
+  LeftParenthesis: LSFT(KC_9)
+  RightParen: LSFT(KC_0)
+  RParenthesis: LSFT(KC_0)
+  RightParenthesis: LSFT(KC_0)
+  Underscore: LSFT(KC_MINUS)
+  Plus: LSFT(KC_EQUAL)
+  PlusSign: LSFT(KC_EQUAL)
+  LBrace: LSFT(KC_LBRACKET)
+  LeftBrace: LSFT(KC_LBRACKET)
+  LeftCurlyBrace: LSFT(KC_LBRACKET)
+  RBrace: LSFT(KC_RBRACKET)
+  RightBrace: LSFT(KC_RBRACKET)
+  RightCurlyBrace: LSFT(KC_RBRACKET)
+  Pipe: LSFT(KC_BSLASH)
+  Colon: LSFT(KC_SCOLON)
+  DoubleQuote: LSFT(KC_QUOTE)
+  VerticalBar: LSFT(KC_BSLASH)
+  LessThan: LSFT(KC_COMMA)
+  LAngleBracket: LSFT(KC_COMMA)
+  LeftAngleBracket: LSFT(KC_COMMA)
+  GreaterThan: LSFT(KC_DOT)
+  RAngleBracket: LSFT(KC_DOT)
+  RightAngleBracket: LSFT(KC_DOT)
+  Question: LSFT(KC_SLASH)
+  QuestionMark: LSFT(KC_SLASH)
 
   # ===================================
   # Basic Keycodes - Function Keys

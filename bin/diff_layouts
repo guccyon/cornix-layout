@@ -109,7 +109,7 @@ else
         layer.each_with_index do |row, row_idx|
           if row != comp['layout'][idx][row_idx]
             puts "    Row #{row_idx}: #{row.inspect}"
-            puts "              vs: #{comp['layout'][idx][row_idx].inspect}"
+            puts "       vs: #{comp['layout'][idx][row_idx].inspect}"
           end
         end
       end

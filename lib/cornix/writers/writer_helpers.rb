@@ -8,15 +8,15 @@ module Cornix
       # YAMLの特殊文字を正確に検出し、不要なクォートを削除
       def self.minimize_quotes(yaml_string)
         # YAMLの特殊文字パターン
-        # - 行頭の -, ?, :
+        # - 行頭の -, ?, :, |, >, %, [, {
         # - 中間の : （キー・バリュー区切り）
         # - コメント #
         # - クォート文字 ', "
-        # - その他の特殊文字（, ; @ & * ! `）
-        yaml_special_pattern = /^[-?:]|:\s|[,;@&*!#`'\"]/
+        # - その他の特殊文字（, ; @ & * ! ` } ]）
+        yaml_special_pattern = /^[-?:|>%\[{]|:\s|[,;@&*!#`'"\}\]]/
 
-        # 予約語パターン（true, false, null, yes, no, on, off）
-        yaml_reserved_pattern = /^(true|false|null|yes|no|on|off)$/i
+        # 予約語パターン（true, false, null, yes, no, on, off, ~ [null indicator]）
+        yaml_reserved_pattern = /^(true|false|null|yes|no|on|off|~)$/i
 
         # 数値パターン（整数、浮動小数点、16進数）
         numeric_pattern = /^-?\d+(\.\d+)?$|^0x[0-9a-f]+$/i

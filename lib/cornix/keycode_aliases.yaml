@@ -336,6 +336,16 @@ aliases:
   AutoShiftUp: AS_UP
   AutoShiftReport: AS_RPT
 
+  # ===================================
+  # Bluetooth control keys (cornix)
+  # ===================================
+  BT0: USER00
+  BT1: USER01
+  BT2: USER02
+  NextBT: USER03
+  PrevBT: USER04
+  ClearBT: USER05
+
 # =============================================================================
 # Character-to-Keycode mappings for text expansion (MacroStep text action)
 #

@@ -120,6 +120,24 @@ RSpec.describe Cornix::Converters::KeycodeConverter do
       expect(system_resolver.resolve('LShift')).to match(/KC_L(SH|SFT)/)
       expect(system_resolver.resolve('LCtrl')).to eq('KC_LCTRL')
     end
+
+    it 'resolves Bluetooth alias keycodes to USER keycodes' do
+      expect(system_resolver.resolve('BT0')).to eq('USER00')
+      expect(system_resolver.resolve('BT1')).to eq('USER01')
+      expect(system_resolver.resolve('BT2')).to eq('USER02')
+      expect(system_resolver.resolve('NextBT')).to eq('USER03')
+      expect(system_resolver.resolve('PrevBT')).to eq('USER04')
+      expect(system_resolver.resolve('ClearBT')).to eq('USER05')
+    end
+
+    it 'reverse resolves USER keycodes to Bluetooth aliases' do
+      expect(system_resolver.reverse_resolve('USER00')).to eq('BT0')
+      expect(system_resolver.reverse_resolve('USER01')).to eq('BT1')
+      expect(system_resolver.reverse_resolve('USER02')).to eq('BT2')
+      expect(system_resolver.reverse_resolve('USER03')).to eq('NextBT')
+      expect(system_resolver.reverse_resolve('USER04')).to eq('PrevBT')
+      expect(system_resolver.reverse_resolve('USER05')).to eq('ClearBT')
+    end
   end
 
   describe 'edge cases' do

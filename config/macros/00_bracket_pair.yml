@@ -1,0 +1,11 @@
+---
+name: Bracket Pair
+description: 角括弧ペア [] を挿入してカーソルを内側に配置
+enabled: true
+index: 0
+sequence:
+- action: tap
+  keys:
+  - KC_LBRACKET
+  - KC_RBRACKET
+  - KC_LEFT

@@ -1,0 +1,74 @@
+---
+name: Function Keys
+index: 3
+description: Function keys and system controls
+mapping:
+  left_hand:
+    row0:
+      tab: ClearBT
+      Q: NoKey
+      W: NoKey
+      E: NoKey
+      R: NoKey
+      T: NoKey
+    row1:
+      lctrl: BT2
+      A: NoKey
+      S: NoKey
+      D: NoKey
+      F: NoKey
+      G: NoKey
+    row2:
+      lshift: BT1
+      Z: NoKey
+      X: NoKey
+      C: NoKey
+      V: NoKey
+      B: NoKey
+    row3:
+      caps: BT0
+      fn: NoKey
+      option: Trans
+    thumb_keys:
+      left: Trans
+      middle: NoKey
+      right: TapDance('Screen Capture')
+  right_hand:
+    row0:
+      Y: NoKey
+      U: F9
+      I: F10
+      O: F11
+      P: F12
+      backspace: NoKey
+    row1:
+      H: NoKey
+      J: F5
+      K: F6
+      L: F7
+      colon: F8
+      enter: NoKey
+    row2:
+      N: NoKey
+      M: F1
+      comma: F2
+      dot: F3
+      up: F4
+      rshift: NoKey
+    row3:
+      left: MouseBtn1
+      down: NoKey
+      right: MouseBtn2
+    thumb_keys:
+      left: Ctrl + Option + Space
+      middle: NoKey
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: MouseButton3
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

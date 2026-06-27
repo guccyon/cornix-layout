@@ -1,0 +1,9 @@
+---
+name: Codeblcok
+description: F + G で ``` ペアを挿入して改行後にカーソルを内側に配置
+enabled: true
+index: 5
+trigger_keys:
+- KC_F
+- KC_G
+output_key: Macro('Code block')

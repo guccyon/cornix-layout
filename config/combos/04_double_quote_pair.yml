@@ -1,0 +1,9 @@
+---
+name: Double Quote Pair
+description: W + E でダブルクォートペア "" を挿入してカーソルを内側に配置
+enabled: true
+index: 4
+trigger_keys:
+- KC_W
+- KC_E
+output_key: Macro('Double Quote Pair')

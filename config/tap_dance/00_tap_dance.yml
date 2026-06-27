@@ -1,0 +1,11 @@
+---
+name: Tap Dance 0
+description: タップでレイヤー4を一時切り替え、ホールドでレイヤー1を維持
+enabled: true
+index: 0
+actions:
+  on_tap: OSL(4)
+  on_hold: MO(1)
+  on_double_tap: KC_NO
+  on_tap_hold: KC_NO
+tapping_term: 200

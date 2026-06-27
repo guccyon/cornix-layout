@@ -1,0 +1,35 @@
+---
+keyboard: cornix
+version: 1
+uid: 16882930253541522617
+vial_protocol: 6
+via_protocol: 9
+extra_keys:
+  layout_options: 0
+  alt_repeat_key: []
+  key_override: []
+file_naming:
+  layers:
+    pattern: "{index}_{name}.yaml"
+    index_required: true
+    index_range:
+    - 0
+    - 9
+  macros:
+    pattern: "{name}.yaml"
+    name_required: true
+  tap_dance:
+    pattern: "{name}.yaml"
+    name_required: true
+  combos:
+    pattern: "{name}.yaml"
+    name_required: true
+references:
+  macros:
+    preferred: MACRO(name)
+    legacy: MACRO(index)
+  tap_dance:
+    preferred: TD(name)
+    legacy: TD(index)
+  layers:
+    syntax: MO(index), LT(index, key), ...

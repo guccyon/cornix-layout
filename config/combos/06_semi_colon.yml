@@ -1,0 +1,9 @@
+---
+name: Semi colon
+description: . + , で セミコロン ; を入力
+enabled: true
+index: 6
+trigger_keys:
+- KC_COMMA
+- KC_DOT
+output_key: KC_SCOLON

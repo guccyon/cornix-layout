@@ -1,0 +1,9 @@
+---
+name: Single Quote Pair
+description: S + D でシングルクォートペア '' を挿入してカーソルを内側に配置
+enabled: true
+index: 3
+trigger_keys:
+- KC_S
+- KC_D
+output_key: Macro('Single Quote Pair')

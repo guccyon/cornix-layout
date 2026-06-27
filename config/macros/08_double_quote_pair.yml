@@ -1,0 +1,17 @@
+---
+name: Double Quote Pair
+description: ダブルクォートペア "" を挿入してカーソルを内側に配置
+enabled: true
+index: 8
+sequence:
+- action: down
+  keys: KC_LSHIFT
+- action: tap
+  keys:
+  - KC_QUOTE
+  - KC_QUOTE
+- action: up
+  keys: KC_LSHIFT
+- action: tap
+  keys:
+  - KC_LEFT

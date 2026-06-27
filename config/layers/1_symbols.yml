@@ -1,0 +1,74 @@
+---
+name: Symbols
+index: 1
+description: Symbol layer with shifted numbers, brackets, and special characters
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: Question
+      W: DoubleQuote
+      E: Equal
+      R: NoKey
+      T: Tilde
+    row1:
+      lctrl: Trans
+      A: "@"
+      S: Quote
+      D: Dollar
+      F: Slash
+      G: Grave
+    row2:
+      lshift: Trans
+      Z: NoKey
+      X: ExclamationMark
+      C: Caret
+      V: VerticalBar
+      B: Backslash
+    row3:
+      caps: NoKey
+      fn: NoKey
+      option: Trans
+    thumb_keys:
+      left: Trans
+      middle: Space
+      right: NoKey
+  right_hand:
+    row0:
+      Y: ¥
+      U: Underscore
+      I: LParenthesis
+      O: RParenthesis
+      P: Percent
+      backspace: NoKey
+    row1:
+      H: Hash
+      J: NoKey
+      K: LBracket
+      L: RBracket
+      colon: Colon
+      enter: NoKey
+    row2:
+      N: And
+      M: NoKey
+      comma: LBrace
+      dot: RBrace
+      up: Slash
+      rshift: Trans
+    row3:
+      left: Ctrl + Option + Left
+      down: Ctrl + Option + Enter
+      right: Ctrl + Option + Right
+    thumb_keys:
+      left: Shift + Command + Enter
+      middle: Command + Space
+      right: NoKey
+  encoders:
+    left:
+      push: PlayPause
+      ccw: Rewind
+      cw: FastForward
+    right:
+      push: Command + 0
+      ccw: Command + Minus
+      cw: Command + Plus

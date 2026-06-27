@@ -1,0 +1,17 @@
+---
+name: Curly Brace Pair
+description: 波括弧ペア {} を挿入してカーソルを内側に配置
+enabled: true
+index: 1
+sequence:
+- action: down
+  keys: KC_LSHIFT
+- action: tap
+  keys:
+  - KC_LBRACKET
+  - KC_RBRACKET
+- action: up
+  keys: KC_LSHIFT
+- action: tap
+  keys:
+  - KC_LEFT

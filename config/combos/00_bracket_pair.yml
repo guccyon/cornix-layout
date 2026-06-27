@@ -1,0 +1,9 @@
+---
+name: Bracket Pair
+description: J + K で角括弧ペア [] を入力
+enabled: true
+index: 0
+trigger_keys:
+- KC_J
+- KC_K
+output_key: Macro('Bracket Pair')

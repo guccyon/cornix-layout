@@ -1,0 +1,17 @@
+---
+name: Copy Current Word
+description: カーソル位置の単語を選択してコピー
+enabled: true
+index: 3
+sequence:
+- action: down
+  keys: KC_LGUI
+- action: tap
+  keys:
+  - KC_D
+  - KC_C
+- action: up
+  keys: KC_LGUI
+- action: tap
+  keys:
+  - KC_RIGHT

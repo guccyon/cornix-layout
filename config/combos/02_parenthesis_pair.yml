@@ -1,0 +1,9 @@
+---
+name: Parenthesis Pair
+description: U + I で丸括弧ペア () を入力
+enabled: true
+index: 2
+trigger_keys:
+- KC_U
+- KC_I
+output_key: Macro('Parenthesis Pair')

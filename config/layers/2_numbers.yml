@@ -1,0 +1,74 @@
+---
+name: Numbers
+index: 2
+description: Number layer and Navigation
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: NoKey
+      W: NoKey
+      E: Up
+      R: NoKey
+      T: NoKey
+    row1:
+      lctrl: NoKey
+      A: NoKey
+      S: Left
+      D: Down
+      F: Right
+      G: MouseButton1
+    row2:
+      lshift: Trans
+      Z: NoKey
+      X: NoKey
+      C: NoKey
+      V: Macro('Clipboard History')
+      B: LCTL(-)
+    row3:
+      caps: NoKey
+      fn: NoKey
+      option: Trans
+    thumb_keys:
+      left: Trans
+      middle: NoKey
+      right: NoKey
+  right_hand:
+    row0:
+      Y: NoKey
+      U: KpSlash
+      I: KpAsterisk
+      O: Kp7
+      P: Kp8
+      backspace: Kp9
+    row1:
+      H: MouseButton2
+      J: NoKey
+      K: KpMinus
+      L: Kp4
+      colon: Kp5
+      enter: Kp6
+    row2:
+      N: NoKey
+      M: NoKey
+      comma: KpPlus
+      dot: Kp1
+      up: Kp2
+      rshift: Kp3
+    row3:
+      left: Kp0
+      down: KpComma
+      right: KpDot
+    thumb_keys:
+      left: NoKey
+      middle: NoKey
+      right: KpEqual
+  encoders:
+    left:
+      push: Mute
+      ccw: Home
+      cw: End
+    right:
+      push: MouseButton3
+      ccw: PageDown
+      cw: PageUp

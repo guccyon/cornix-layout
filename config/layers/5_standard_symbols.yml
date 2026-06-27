@@ -1,0 +1,78 @@
+---
+name: Standard Symbols
+index: 5
+description: |-
+  標準的な配列に近い記号レイヤー（作業中）
+  上段（ホームキーの一つ上）: 左手小指側から 1,2,3,4,5 / 6,7,8,9,0
+  中段（ホームキー）: 上段の数字に対応する記号（!@#$%^&*()）
+  それ以外のキーは未配置（今後、残りの記号を配置予定）
+mapping:
+  left_hand:
+    row0:
+      tab: NoKey
+      Q: "1"
+      W: "2"
+      E: "3"
+      R: "4"
+      T: "5"
+    row1:
+      lctrl: NoKey
+      A: "!"
+      S: "@"
+      D: "#"
+      F: "$"
+      G: "%"
+    row2:
+      lshift: NoKey
+      Z: NoKey
+      X: NoKey
+      C: NoKey
+      V: NoKey
+      B: NoKey
+    row3:
+      caps: NoKey
+      fn: NoKey
+      option: NoKey
+    thumb_keys:
+      left: NoKey
+      middle: NoKey
+      right: NoKey
+  right_hand:
+    row0:
+      Y: "6"
+      U: "7"
+      I: "8"
+      O: "9"
+      P: "0"
+      backspace: NoKey
+    row1:
+      H: "^"
+      J: "&"
+      K: "*"
+      L: "("
+      colon: ")"
+      enter: NoKey
+    row2:
+      N: NoKey
+      M: NoKey
+      comma: NoKey
+      dot: NoKey
+      up: NoKey
+      rshift: NoKey
+    row3:
+      left: NoKey
+      down: NoKey
+      right: NoKey
+    thumb_keys:
+      left: NoKey
+      middle: NoKey
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: MouseButton3
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

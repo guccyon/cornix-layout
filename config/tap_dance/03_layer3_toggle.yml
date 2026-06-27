@@ -1,0 +1,11 @@
+---
+name: Layer 3 Toggle
+description: タップでレイヤー3をトグル、ホールドでレイヤー3を一時切り替え
+enabled: true
+index: 3
+actions:
+  on_tap: TG(3)
+  on_hold: MO(3)
+  on_double_tap: KC_NO
+  on_tap_hold: KC_NO
+tapping_term: 200

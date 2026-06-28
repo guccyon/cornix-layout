@@ -48,6 +48,30 @@ RSpec.describe Cornix::Models::Layer::EncoderMapping do
       expect(qmk_array[0]).to eq(['KC_VOLD', 'KC_VOLU'])
       expect(qmk_array[1]).to eq(['KC_PGDN', 'KC_PGUP'])
     end
+
+    it 'resolves modifier expressions like "Command + Plus"' do
+      encoder_mapping = described_class.new(
+        left: { push: 'Mute', ccw: 'LGUI(KC_MINUS)', cw: 'Command + Plus' },
+        right: { push: 'Mute', ccw: 'VolDown', cw: 'VolUp' }
+      )
+
+      qmk_array = encoder_mapping.to_qmk(keycode_converter)
+
+      expect(qmk_array[0][1]).to eq('LGUI(LSFT(KC_EQUAL))')
+    end
+
+    it 'resolves modifier expressions with multiple modifiers like "Ctrl + Option + Left"' do
+      encoder_mapping = described_class.new(
+        left: { push: 'Mute', ccw: 'Ctrl + Option + Left', cw: 'Ctrl + Option + Right' },
+        right: { push: 'Mute', ccw: 'VolDown', cw: 'VolUp' }
+      )
+
+      qmk_array = encoder_mapping.to_qmk(keycode_converter)
+
+      # LCA は Ctrl+Alt のQMKショートカット
+      expect(qmk_array[0][0]).to eq('LCA(KC_LEFT)')
+      expect(qmk_array[0][1]).to eq('LCA(KC_RIGHT)')
+    end
   end
 
   describe '.from_yaml_hash' do

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'concerns/validatable'
+require_relative '../keycode_parser'
 
 module Cornix
   module Models
@@ -67,16 +68,32 @@ module Cornix
         return { valid: true } if value.nil? || value == 0 || value == -1 || value == 'KC_NO'
 
         keycode_converter = options[:keycode_converter]
+
+        # まずkeycode_converterで解決を試みる
+        if keycode_converter
+          resolved = keycode_converter.resolve(value)
+          return { valid: true } if resolved
+        end
+
+        # 参照式（Macro/TapDance）はreference_converterで解決を試みる
+        reference_converter = options[:reference_converter]
+        if reference_converter
+          begin
+            parsed = KeycodeParser.parse(value.to_s)
+            if parsed.is_a?(Hash) && parsed[:type] == :reference
+              reference_converter.resolve(parsed)
+              return { valid: true }
+            end
+          rescue StandardError
+            # fallthrough to error
+          end
+        end
+
         unless keycode_converter
           return { valid: false, error: 'keycode_converter is required' }
         end
 
-        resolved = keycode_converter.resolve(value)
-        unless resolved
-          return { valid: false, error: "Invalid keycode '#{value}'" }
-        end
-
-        { valid: true }
+        { valid: false, error: "Invalid keycode '#{value}'" }
       }
 
       def initialize(index:, name:, description:, trigger_keys:, output_key:)
@@ -104,10 +121,12 @@ module Cornix
       end
 
       # Combo → QMK配列
-      def to_qmk
+      #
+      # @param reference_converter [ReferenceConverter, nil] 参照解決器
+      def to_qmk(reference_converter: nil)
         # 4要素にパディング（不足分はKC_NOで埋める）
         padded_triggers = (@trigger_keys + ['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO'])[0..3]
-        padded_triggers + [@output_key]
+        padded_triggers + [resolve_output_key(@output_key, reference_converter)]
       end
 
       # YAML Hash → Combo
@@ -145,6 +164,23 @@ module Cornix
         trigger_empty = @trigger_keys.nil? || @trigger_keys.empty? || @trigger_keys.all? { |k| k == 0 || k == -1 || k == 'KC_NO' }
         output_empty = @output_key.nil? || @output_key == 0 || @output_key == -1 || @output_key == 'KC_NO'
         trigger_empty && output_empty
+      end
+
+      private
+
+      # output_keyをQMK形式に解決する
+      def resolve_output_key(value, reference_converter)
+        return value if value.nil? || value.is_a?(Integer) || value == 'KC_NO'
+        return value unless reference_converter
+
+        begin
+          parsed = KeycodeParser.parse(value.to_s)
+          return reference_converter.resolve(parsed) if parsed.is_a?(Hash) && parsed[:type] == :reference
+        rescue StandardError
+          # fallthrough
+        end
+
+        value
       end
     end
   end

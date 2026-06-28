@@ -3,6 +3,7 @@
 require_relative '../spec_helper'
 require_relative '../../lib/cornix/models/combo'
 require_relative '../../lib/cornix/converters/keycode_converter'
+require_relative '../../lib/cornix/converters/reference_converter'
 require 'tempfile'
 require 'yaml'
 
@@ -383,6 +384,60 @@ RSpec.describe Cornix::Models::Combo do
         expect(errors.join).to include("Invalid keycode 'Invalid1'")
         expect(errors.join).to include("Invalid keycode 'Invalid2'")
         expect(errors.join).to include("Invalid keycode 'BadOutput'")
+      end
+
+      context 'マクロ名参照記法（Macro(...)）' do
+        let(:config_dir) { Dir.mktmpdir }
+        let(:reference_converter) { Cornix::Converters::ReferenceConverter.new(config_dir) }
+        let(:context_with_ref) { { keycode_converter: keycode_converter, reference_converter: reference_converter } }
+
+        before do
+          macros_dir = File.join(config_dir, 'macros')
+          Dir.mkdir(macros_dir)
+          File.write(File.join(macros_dir, '00_test_macro.yml'), YAML.dump({
+            'index' => 0,
+            'name' => 'Test Macro',
+            'actions' => []
+          }))
+        end
+
+        after { FileUtils.rm_rf(config_dir) }
+
+        it 'Macro(\'名前\') 形式のoutput_keyをバリデーションに合格させる' do
+          combo = described_class.new(
+            index: 0,
+            name: 'Test',
+            description: '',
+            trigger_keys: ['A', 'B'],
+            output_key: "Macro('Test Macro')"
+          )
+          errors = combo.semantic_errors(context_with_ref)
+          expect(errors).to be_empty
+        end
+
+        it '存在しないマクロ名はエラー' do
+          combo = described_class.new(
+            index: 0,
+            name: 'Test',
+            description: '',
+            trigger_keys: ['A', 'B'],
+            output_key: "Macro('Nonexistent Macro')"
+          )
+          errors = combo.semantic_errors(context_with_ref)
+          expect(errors).not_to be_empty
+        end
+
+        it 'to_qmk で Macro(\'名前\') を M0 形式に解決する' do
+          combo = described_class.new(
+            index: 0,
+            name: 'Test',
+            description: '',
+            trigger_keys: ['KC_A', 'KC_B'],
+            output_key: "Macro('Test Macro')"
+          )
+          qmk_array = combo.to_qmk(reference_converter: reference_converter)
+          expect(qmk_array).to eq(['KC_A', 'KC_B', 'KC_NO', 'KC_NO', 'M0'])
+        end
       end
     end
   end

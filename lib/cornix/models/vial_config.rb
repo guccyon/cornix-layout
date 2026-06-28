@@ -191,7 +191,7 @@ module Cornix
         qmk_hash['encoder_layout'] = @layers.to_qmk_encoder_array(position_map: position_map, keycode_converter: keycode_converter, reference_converter: reference_converter)
         qmk_hash['macro'] = @macros.to_qmk_array(keycode_converter: keycode_converter, reference_converter: reference_converter)
         qmk_hash['tap_dance'] = @tap_dances.to_qmk_array(keycode_converter: keycode_converter, reference_converter: reference_converter)
-        qmk_hash['combo'] = @combos.to_qmk_array
+        qmk_hash['combo'] = @combos.to_qmk_array(reference_converter: reference_converter)
 
         # 余分なキーをマージ
         qmk_hash.merge(@extra_keys)

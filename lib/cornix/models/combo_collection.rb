@@ -93,11 +93,11 @@ module Cornix
       end
 
       # 32要素の配列を生成（空きは["KC_NO", "KC_NO", "KC_NO", "KC_NO", "KC_NO"]）
-      def to_qmk_array
+      def to_qmk_array(reference_converter: nil)
         result = Array.new(MAX_SIZE) { ['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO', 'KC_NO'] }
         @combos.each do |combo|
           next if combo.nil?
-          result[combo.index] = combo.to_qmk
+          result[combo.index] = combo.to_qmk(reference_converter: reference_converter)
         end
         result
       end

@@ -1,5 +1,8 @@
 # Cornix Keyboard Layout Manager - Development Guide
 
+## Instructions
+常に日本語で回答してください。コードや設計に関する説明、エラーの報告などもすべて日本語を使用してください。
+
 ## Quick Links
 
 - **Architecture**: [Architecture Documentation](architecture/README.md)

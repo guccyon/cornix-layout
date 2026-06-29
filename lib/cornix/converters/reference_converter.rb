@@ -30,12 +30,12 @@ module Cornix
     #   token = { type: :reference, function: 'Macro', args: [{type: :string, value: 'End of Line'}] }
     #   qmk = resolver.resolve(token)  # => "M5"
   #
-  #   # Reverse resolve QMK to name-based token
-  #   token = resolver.reverse_resolve("M5", prefer_name: true)
-  #   # => { type: :reference, function: 'Macro', args: [{type: :string, value: 'End of Line'}] }
+    #   # Reverse resolve QMK to name-based token
+    #   token = resolver.reverse_resolve("M5", prefer_name: true)
+    #   # => { type: :reference, function: 'Macro', args: [{type: :string, value: 'End of Line'}] }
     #
     class ReferenceConverter
-      # Initialize resolver with config directory
+    # Initialize resolver with config directory
     #
     # @param config_dir [String] Path to config directory
     def initialize(config_dir)
@@ -266,9 +266,9 @@ module Cornix
       {
         type: :reference,
         function: 'TapDance',
-                args: [{ type: :number, value: index }]
+        args: [{ type: :number, value: index }]
       }
     end
+    end
   end
-end
 end

@@ -253,24 +253,24 @@ aliases:
   # Numpad Keys
   # ===================================
   NumLock: KC_NLCK
-  KpSlash: KC_PSLS
-  KpAsterisk: KC_PAST
-  KpMinus: KC_PMNS
-  KpPlus: KC_PPLS
-  KpEnter: KC_PENT
-  Kp1: KC_P1
-  Kp2: KC_P2
-  Kp3: KC_P3
-  Kp4: KC_P4
-  Kp5: KC_P5
-  Kp6: KC_P6
-  Kp7: KC_P7
-  Kp8: KC_P8
-  Kp9: KC_P9
-  Kp0: KC_P0
-  KpDot: KC_PDOT
-  KpEqual: KC_PEQL
-  KpComma: KC_PCMM
+  KpSlash: KC_KP_SLASH
+  KpAsterisk: KC_KP_ASTERISK
+  KpMinus: KC_KP_MINUS
+  KpPlus: KC_KP_PLUS
+  KpEnter: KC_KP_ENTER
+  Kp1: KC_KP_1
+  Kp2: KC_KP_2
+  Kp3: KC_KP_3
+  Kp4: KC_KP_4
+  Kp5: KC_KP_5
+  Kp6: KC_KP_6
+  Kp7: KC_KP_7
+  Kp8: KC_KP_8
+  Kp9: KC_KP_9
+  Kp0: KC_KP_0
+  KpDot: KC_KP_DOT
+  KpEqual: KC_KP_EQUAL
+  KpComma: KC_KP_COMMA
 
   # ===================================
   # Media Keys

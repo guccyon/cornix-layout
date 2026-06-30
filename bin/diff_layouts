@@ -30,8 +30,33 @@ unless File.exist?(file2)
   exit 1
 end
 
+# QMKキーコードのエイリアスを正規化する
+# 比較前に適用し、Vial上で同一のキーコードを等しいとみなす
+KEYCODE_ALIASES = {
+  'KC_PGDOWN' => 'KC_PGDN',
+}.freeze
+
+def normalize_keycode(kc)
+  return kc unless kc.is_a?(String)
+  # SGUI(X) -> LGUI(LSFT(X))
+  kc = kc.sub(/\ASGUI\((.+)\)\z/) { "LGUI(LSFT(#{$1}))" }
+  KEYCODE_ALIASES.fetch(kc, kc)
+end
+
+def normalize_deep(obj)
+  case obj
+  when Hash then obj.transform_values { |v| normalize_deep(v) }
+  when Array then obj.map { |v| normalize_deep(v) }
+  when String then normalize_keycode(obj)
+  else obj
+  end
+end
+
 orig = JSON.parse(File.read(file1))
 comp = JSON.parse(File.read(file2))
+
+orig_n = normalize_deep(orig)
+comp_n = normalize_deep(comp)
 
 puts "=== Comparing layout.vil files ==="
 puts "  File 1: #{file1}"
@@ -54,13 +79,13 @@ puts
 puts "Layout structure:"
 puts "  Original layers: #{orig['layout'].size}"
 puts "  Compiled layers: #{comp['layout'].size}"
-layout_match = orig['layout'] == comp['layout']
+layout_match = orig_n['layout'] == comp_n['layout']
 puts "  Match: #{layout_match ? '✓' : '✗ DIFFER'}"
 puts
 
-# Compare encoder layout
+# Compare encoder layout (正規化後で比較)
 puts "Encoder layout:"
-encoder_match = orig['encoder_layout'] == comp['encoder_layout']
+encoder_match = orig_n['encoder_layout'] == comp_n['encoder_layout']
 puts "  Match: #{encoder_match ? '✓' : '✗ DIFFER'}"
 puts
 
@@ -70,19 +95,19 @@ comp_macros = comp['macro'].reject(&:empty?)
 puts "Macros:"
 puts "  Original non-empty: #{orig_macros.size}"
 puts "  Compiled non-empty: #{comp_macros.size}"
-macro_match = orig['macro'] == comp['macro']
+macro_match = orig_n['macro'] == comp_n['macro']
 puts "  Match: #{macro_match ? '✓' : '✗ DIFFER'}"
 puts
 
 # Compare tap dance
 puts "Tap Dance:"
-td_match = orig['tap_dance'] == comp['tap_dance']
+td_match = orig_n['tap_dance'] == comp_n['tap_dance']
 puts "  Match: #{td_match ? '✓' : '✗ DIFFER'}"
 puts
 
 # Compare combos
 puts "Combos:"
-combo_match = orig['combo'] == comp['combo']
+combo_match = orig_n['combo'] == comp_n['combo']
 puts "  Match: #{combo_match ? '✓' : '✗ DIFFER'}"
 puts
 
@@ -92,40 +117,79 @@ settings_match = orig['settings'] == comp['settings']
 puts "  Match: #{settings_match ? '✓' : '✗ DIFFER'}"
 puts
 
-# Overall
-if orig == comp
+# Overall (正規化後で比較)
+if orig_n == comp_n
   puts "=== ✓ FILES ARE IDENTICAL ==="
   exit 0
 else
   puts "=== ✗ FILES DIFFER ==="
   puts
-  puts "Checking differences..."
 
   # Find differences in layers
   unless layout_match
+    puts "Layout differences:"
     orig['layout'].each_with_index do |layer, idx|
-      if layer != comp['layout'][idx]
-        puts "  Layer #{idx} differs"
-        layer.each_with_index do |row, row_idx|
-          if row != comp['layout'][idx][row_idx]
-            puts "    Row #{row_idx}: #{row.inspect}"
-            puts "       vs: #{comp['layout'][idx][row_idx].inspect}"
-          end
+      next if orig_n['layout'][idx] == comp_n['layout'][idx]
+      puts "  Layer #{idx} differs"
+      layer.each_with_index do |row, row_idx|
+        next if orig_n['layout'][idx][row_idx] == comp_n['layout'][idx][row_idx]
+        puts "    Row #{row_idx}: #{row.inspect}"
+        puts "       vs: #{comp['layout'][idx][row_idx].inspect}"
+      end
+    end
+    puts
+  end
+
+  # Find differences in encoder layout
+  unless encoder_match
+    puts "Encoder layout differences:"
+    orig['encoder_layout'].each_with_index do |layer, li|
+      layer.each_with_index do |enc, ei|
+        enc.each_with_index do |key, ki|
+          next if normalize_keycode(key) == normalize_keycode(comp['encoder_layout'][li][ei][ki])
+          puts "  encoder[#{li}][#{ei}][#{ki}]:"
+          puts "    File 1: #{key.inspect}"
+          puts "    File 2: #{comp['encoder_layout'][li][ei][ki].inspect}"
         end
       end
     end
+    puts
   end
 
   # Find differences in macros
   unless macro_match
-    puts
+    puts "Macro differences:"
     orig['macro'].each_with_index do |macro, idx|
-      if macro != comp['macro'][idx]
-        puts "  Macro #{idx} differs"
-        puts "    Original: #{macro.inspect}"
-        puts "    Compiled: #{comp['macro'][idx].inspect}"
-      end
+      next if orig_n['macro'][idx] == comp_n['macro'][idx]
+      puts "  Macro #{idx}:"
+      puts "    File 1: #{macro.inspect}"
+      puts "    File 2: #{comp['macro'][idx].inspect}"
     end
+    puts
+  end
+
+  # Find differences in tap dance
+  unless td_match
+    puts "Tap Dance differences:"
+    orig['tap_dance'].each_with_index do |td, idx|
+      next if orig_n['tap_dance'][idx] == comp_n['tap_dance'][idx]
+      puts "  TapDance #{idx}:"
+      puts "    File 1: #{td.inspect}"
+      puts "    File 2: #{comp['tap_dance'][idx].inspect}"
+    end
+    puts
+  end
+
+  # Find differences in combos
+  unless combo_match
+    puts "Combo differences:"
+    orig['combo'].each_with_index do |combo, idx|
+      next if orig_n['combo'][idx] == comp_n['combo'][idx]
+      puts "  Combo #{idx}:"
+      puts "    File 1: #{combo.inspect}"
+      puts "    File 2: #{comp['combo'][idx].inspect}"
+    end
+    puts
   end
 
   exit 1

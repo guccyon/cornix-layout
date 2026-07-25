@@ -34,9 +34,9 @@ module Cornix
           'tapping_term'            => 7,
           'tap_code_delay'          => 18,
           'tap_hold_caps_delay'     => 19,
-          'chordal_hold'            => 22,   # boolean
-          'permissive_hold'         => 23,   # boolean
-          'hold_on_other_key_press' => 26,   # boolean
+          'permissive_hold'         => 22,   # boolean
+          'hold_on_other_key_press' => 23,   # boolean
+          'chordal_hold'            => 26,   # boolean
           'flow_tap'                => 27,
         },
         'vial' => {
@@ -61,11 +61,14 @@ module Cornix
       # YAML形式（keyboard/vialネスト）を整数インデックス形式に変換する。
       # from_qmkで読み込んだ場合（既に整数インデックス形式）はそのまま返す。
       def to_qmk
-        # keyboard/vialキーを持つYAML形式の場合は変換
-        return yaml_to_qmk_index if yaml_format?
+        # keyboard/vialキーを持つYAML形式の場合は変換。
+        # from_qmk経由（既に整数インデックス形式）はそのまま使う。
+        hash = yaml_format? ? yaml_to_qmk_index : @settings_hash
 
-        # 既に整数インデックス形式（from_qmk経由）はそのまま返す
-        @settings_hash
+        # Vialインデックスを数値昇順にソートして返す。
+        # キーが文字列（from_qmk経由のJSON）でも整数（yaml変換後）でも
+        # 正しく数値ソートするため to_i を用いる。
+        hash.sort_by { |k, _| k.to_i }.to_h
       end
 
       # YAML Hash → Settings

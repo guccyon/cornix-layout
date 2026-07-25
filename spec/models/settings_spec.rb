@@ -54,8 +54,8 @@ RSpec.describe Cornix::Models::Settings do
         result = settings.to_qmk
 
         expect(result[7]).to eq(250)    # tapping_term
-        expect(result[22]).to eq(1)     # chordal_hold: true → 1
-        expect(result[23]).to eq(0)     # permissive_hold: false → 0
+        expect(result[26]).to eq(1)     # chordal_hold: true → 1
+        expect(result[22]).to eq(0)     # permissive_hold: false → 0
         expect(result[2]).to eq(50)     # combo_timing_window
       end
 
@@ -65,8 +65,8 @@ RSpec.describe Cornix::Models::Settings do
         })
         result = settings.to_qmk
 
-        expect(result[22]).to eq(1)
-        expect(result[23]).to eq(0)
+        expect(result[26]).to eq(1)     # chordal_hold: true → 1
+        expect(result[22]).to eq(0)     # permissive_hold: false → 0
       end
 
       it '指定されていない設定はresultに含まない' do

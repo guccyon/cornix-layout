@@ -1,5 +1,17 @@
 #!/usr/bin/env ruby
 require 'json'
+require_relative '../lib/cornix/models/settings'
+
+# Vial設定インデックス（整数キー） → human readableな設定名
+# 例: "22" => "keyboard.permissive_hold"
+SETTING_NAMES = Cornix::Models::Settings::VIAL_QMK_INDEX.each_with_object({}) do |(group, mappings), acc|
+  mappings.each { |name, index| acc[index.to_s] = "#{group}.#{name}" }
+end.freeze
+
+def setting_label(key)
+  name = SETTING_NAMES[key.to_s]
+  name ? "#{name} (#{key})" : key.to_s
+end
 
 # コマンドライン引数から2つのファイルパスを取得
 if ARGV.size == 2
@@ -111,14 +123,14 @@ combo_match = orig_n['combo'] == comp_n['combo']
 puts "  Match: #{combo_match ? '✓' : '✗ DIFFER'}"
 puts
 
-# Compare settings
+# Compare settings（キー順序も含めて比較。Hash==は順序を無視するため配列化して比較）
 puts "Settings:"
-settings_match = orig['settings'] == comp['settings']
+settings_match = orig['settings'].to_a == comp['settings'].to_a
 puts "  Match: #{settings_match ? '✓' : '✗ DIFFER'}"
 puts
 
-# Overall (正規化後で比較)
-if orig_n == comp_n
+# Overall (正規化後で比較。settingsの順序差はorig_n==comp_nでは検知できないため併せて判定)
+if orig_n == comp_n && settings_match
   puts "=== ✓ FILES ARE IDENTICAL ==="
   exit 0
 else
@@ -188,6 +200,25 @@ else
       puts "  Combo #{idx}:"
       puts "    File 1: #{combo.inspect}"
       puts "    File 2: #{comp['combo'][idx].inspect}"
+    end
+    puts
+  end
+
+  # Find differences in settings
+  unless settings_match
+    puts "Settings differences:"
+    orig_keys = orig['settings'].keys
+    comp_keys = comp['settings'].keys
+    if orig_keys != comp_keys
+      puts "  Key order/set differs:"
+      puts "    File 1 keys: #{orig_keys.map { |k| setting_label(k) }.inspect}"
+      puts "    File 2 keys: #{comp_keys.map { |k| setting_label(k) }.inspect}"
+    end
+    (orig_keys | comp_keys).each do |k|
+      ov = orig['settings'][k]
+      cv = comp['settings'][k]
+      next if ov == cv
+      puts "  Setting #{setting_label(k)}: #{ov.inspect} vs #{cv.inspect}"
     end
     puts
   end

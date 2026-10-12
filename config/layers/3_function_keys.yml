@@ -7,7 +7,7 @@ description: |-
   右手: テンキー（数字レイヤーの並びに 7・8・9 を追加）
 
   呼び出し: 右エンコーダ押し込み（ホールドで一時切替、タップでトグル）
-           右親指の一番左（ホールドのみ）
+           右親指の一番左・左手 fn（ホールドのみ）
   クリック: レイヤー0の ← + ↓ / ↓ + → コンボ
 mapping:
   left_hand:
@@ -17,7 +17,7 @@ mapping:
       W: F2
       E: F3
       R: F4
-      T: Ctrl + Option + Space
+      T: NoKey
     row1:
       lctrl: BT2
       A: F5

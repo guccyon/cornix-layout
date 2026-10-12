@@ -27,7 +27,7 @@ mapping:
       B: B
     row3:
       caps: CapsLock
-      fn: TapDance('Layer 3 Toggle')
+      fn: MO(3)
       option: LAlt
     thumb_keys:
       left: LGUI_T(KC_LANG2)

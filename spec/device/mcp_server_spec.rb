@@ -30,7 +30,7 @@ RSpec.describe Cornix::Device::McpServer do
     init = server.handle('jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => {})
     expect(init[:result][:capabilities]).to eq(tools: {})
     tools = server.handle('jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list')[:result][:tools]
-    expect(tools.map { |t| t[:name] }).to eq(%w[keyboard_info read_keymap backup list_backups apply_layout])
+    expect(tools.map { |t| t[:name] }).to eq(%w[keyboard_info read_keymap backup list_backups restore_backup apply_layout])
   end
 
   it '通知には応答しない' do
@@ -42,6 +42,38 @@ RSpec.describe Cornix::Device::McpServer do
     output = StringIO.new
     described_class.new(input: input, output: output, keyboard_opener: opener).run
     expect(JSON.parse(output.string)).to eq('jsonrpc' => '2.0', 'id' => 7, 'result' => {})
+  end
+
+  it 'キーボードが接続されていないとき、各ツールはエラーを返す' do
+    disconnected = ->(&_block) { raise Cornix::Device::DeviceError, 'Cornix が見つかりません' }
+    server = described_class.new(keyboard_opener: disconnected)
+    result = server.handle('jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
+                           'params' => { 'name' => 'keyboard_info', 'arguments' => {} })[:result]
+    expect(result[:isError]).to be true
+    expect(result[:content][0][:text]).to include('見つかりません')
+  end
+
+  describe 'restore_backup' do
+    it 'バックアップがないときはエラーを返す' do
+      expect(call('restore_backup')[:isError]).to be true
+    end
+
+    it '書き込み後に最新のバックアップから元に戻せる' do
+      vil_path = File.join(dir, 'layout.vil')
+      snapshot = nil
+      opener.call { |kb| snapshot = kb.snapshot }
+      snapshot['layout'][1][1][1] = 'KC_C'
+      File.write(vil_path, JSON.generate(snapshot))
+      token = call('apply_layout', 'vil_path' => vil_path)[:content][0][:text][/confirm_token: (\h+)/, 1]
+      call('apply_layout', 'vil_path' => vil_path, 'dry_run' => false, 'confirm_token' => token)
+      expect(device.keymap[1][1][1]).to eq(0x06)
+
+      dry = call('restore_backup')[:content][0][:text]
+      expect(dry).to include('レイヤー1 (1,1): KC_C → KC_NO')
+      token = dry[/confirm_token: (\h+)/, 1]
+      call('restore_backup', 'dry_run' => false, 'confirm_token' => token)
+      expect(device.keymap[1][1][1]).to eq(0)
+    end
   end
 
   describe 'apply_layout' do

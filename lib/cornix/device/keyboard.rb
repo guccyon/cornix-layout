@@ -24,6 +24,16 @@ module Cornix
 
       attr_reader :protocol, :keycodes, :dims, :positions
 
+      # バックアップを新しい順に返す
+      def self.backups
+        Dir.glob(File.join(BACKUP_DIR, '*.vil')).sort.reverse
+      end
+
+      # 最後に取ったバックアップ（apply / restore の直前の状態）
+      def self.latest_backup
+        backups.first || raise(DeviceError, "バックアップがありません（#{BACKUP_DIR}）")
+      end
+
       def self.open
         HidBridge.open { |bridge| yield new(Protocol.new(bridge), bridge.info) }
       end

@@ -16,9 +16,10 @@ module Cornix
 
       INSTRUCTIONS = <<~TEXT
         Bluetooth/USB で接続中の Cornix キーボードを Vial プロトコルで直接読み書きします（Vial Web は不要）。
-        書き込みは apply_layout だけです。まず dry_run: true（既定）で差分と confirm_token を取得してユーザーに見せ、
-        ユーザーの明示的な同意を得てから dry_run: false と confirm_token を付けて呼んでください。
-        反映前には自動でバックアップを取り、反映後は読み戻して検証します。バックアップは apply_layout で復元できます。
+        書き込みは apply_layout と restore_backup だけです。まず dry_run: true（既定）で差分と confirm_token を取得して
+        ユーザーに見せ、ユーザーの明示的な同意を得てから dry_run: false と confirm_token を付けて呼んでください。
+        反映前には自動でバックアップを取り、反映後は読み戻して検証します。restore_backup で直前の状態に戻せます。
+        キーボードが接続されていない場合、各ツールはエラー（isError）を返し、何も書き込みません。
         bootloader 移行・EEPROM リセット・全消去などの危険な操作はこのサーバーにはありません。
       TEXT
 
@@ -45,6 +46,22 @@ module Cornix
           name: 'list_backups',
           description: 'tmp/device_backups/ にあるバックアップの一覧を新しい順に返す。',
           inputSchema: { type: 'object', properties: {} }
+        },
+        {
+          name: 'restore_backup',
+          description: <<~DESC.strip,
+            バックアップからキーボードを復元する（直前の apply_layout / restore_backup の前の状態に戻す）。
+            backup_path を省略すると最後に取ったバックアップを使う。dry_run と confirm_token の扱いは apply_layout と同じ。
+            復元の前にも現在の状態をバックアップするので、続けてもう一度 restore_backup すると復元前に戻る。
+          DESC
+          inputSchema: {
+            type: 'object',
+            properties: {
+              backup_path: { type: 'string', description: 'バックアップの .vil ファイル（省略時は最新のバックアップ）' },
+              dry_run: { type: 'boolean', description: 'true なら差分の確認のみ（既定 true）' },
+              confirm_token: { type: 'string', description: 'dry run で返された確認トークン（dry_run: false のとき必須）' }
+            }
+          }
         },
         {
           name: 'apply_layout',
@@ -121,6 +138,8 @@ module Cornix
           when 'backup' then with_keyboard { |kb| "バックアップを保存しました: #{kb.backup}" }
           when 'list_backups' then list_backups
           when 'apply_layout' then apply_layout(args)
+          when 'restore_backup'
+            apply_layout(args.merge('vil_path' => args['backup_path'] || Keyboard.latest_backup))
           else
             return tool_error("不明なツール: #{name}")
           end
@@ -152,7 +171,7 @@ module Cornix
       end
 
       def list_backups
-        files = Dir.glob(File.join(Keyboard::BACKUP_DIR, '*.vil')).sort.reverse
+        files = Keyboard.backups
         files.empty? ? 'バックアップはありません' : files.join("\n")
       end
 

@@ -39,10 +39,11 @@ begin
     vil = ARGV[0] || default_vil
     target = JSON.parse(File.read(vil))
     Cornix::Device::Keyboard.open { |kb| print_diff(kb, kb.diff(target)) }
-  when 'apply'
+  when 'apply', 'restore'
     yes = ARGV.delete('--yes')
-    vil = ARGV[0] || default_vil
+    vil = ARGV[0] || (action == 'restore' ? Cornix::Device::Keyboard.latest_backup : default_vil)
     target = JSON.parse(File.read(vil))
+    puts "#{action == 'restore' ? '復元元' : '反映元'}: #{vil}"
     Cornix::Device::Keyboard.open do |kb|
       result = kb.diff(target)
       print_diff(kb, result)
@@ -74,6 +75,7 @@ begin
         cornix device backup            キーボードの状態を tmp/device_backups/ に保存
         cornix device diff [FILE]       layout.vil とキーボードの差分を表示（書き込みなし）
         cornix device apply [FILE]      差分を確認してキーボードへ書き込む（--yes で確認を省略）
+        cornix device restore [FILE]    最後のバックアップ（直前の apply の前の状態）に戻す（--yes で確認を省略）
     USAGE
     exit(action.nil? ? 0 : 1)
   end

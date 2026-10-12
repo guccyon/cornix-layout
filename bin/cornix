@@ -11,7 +11,7 @@ def show_usage
       cornix validate             Validate YAML config files
       cornix rename               Rename config files intelligently
       cornix cleanup [-f]         Clean up generated files
-      cornix device <action>      Read/diff/apply the connected keyboard (info, read, backup, diff, apply)
+      cornix device <action>      Read/diff/apply the connected keyboard (info, read, backup, diff, apply, restore)
       cornix mcp                  Start the MCP server for the connected keyboard (stdio)
       cornix help                 Show this help message
 

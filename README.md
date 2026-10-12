@@ -504,9 +504,24 @@ cornix device read -o now.vil   # キーボードの現在の状態を layout.vi
 cornix device backup            # tmp/device_backups/ に日時付きで保存
 cornix device diff              # layout.vil とキーボードの差分を表示（書き込みなし）
 cornix device apply             # 差分を表示し、確認後に書き込む（--yes で確認を省略）
+cornix device restore           # 最後のバックアップ（直前の apply の前の状態）に戻す
 ```
 
-`apply` は書き込みの前に自動でバックアップを取り、変更のあったキー・エンコーダ・タップダンス・コンボ・マクロ・設定だけを書き込み、読み戻して一致を確認します。元に戻すときはバックアップを `cornix device apply tmp/device_backups/<日時>.vil` で反映します。
+`apply` は書き込みの前に自動でバックアップを取り、変更のあったキー・エンコーダ・タップダンス・コンボ・マクロ・設定だけを書き込み、読み戻して一致を確認します。
+
+元に戻すときは `cornix device restore` を実行します。最後に取ったバックアップとの差分を表示し、確認後に書き込みます。古いバックアップに戻したいときは `cornix device restore tmp/device_backups/<日時>.vil` のようにファイルを指定します。`restore` も書き込み前に現在の状態をバックアップするので、続けてもう一度 `restore` すると復元前の状態に戻ります。
+
+### キーボードが接続されていないとき
+
+`cornix device` の各コマンドと MCP の各ツールは、最初にキーボードを探して接続します。見つからない場合は何も書き込まずに次のエラーで終了します（CLI は終了コード 1、MCP はエラー応答）。
+
+```
+Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください
+```
+
+- **Bluetooth が切れている・キーボードの電源が切れている**: 上のエラーになります。キーを 1 回押してスリープを解除するか、Mac との接続を確認してから再実行してください。
+- **キーボードが別の機器（BT1 / BT2 など）に切り替わっている**: Mac からは見えないので同じエラーになります。Mac に接続しているチャンネルに切り替えてください。
+- **読み出しや書き込みの途中で接続が切れた**: 1 秒以内に応答がないと「キーボードから応答がありません」というエラーで中断します。書き込み中だった場合は、何件目まで書き込んだかと反映前のバックアップのパスを表示するので、再接続してから `cornix device apply` をやり直すか、`cornix device restore` で反映前に戻してください（どちらも差分だけを書き込みます）。
 
 ### MCP サーバー
 
@@ -536,13 +551,16 @@ cornix device apply             # 差分を表示し、確認後に書き込む�
 | `read_keymap` | 現在の状態を layout.vil 形式で返す・保存する（読み取りのみ） |
 | `backup` / `list_backups` | バックアップの保存と一覧 |
 | `apply_layout` | 既定は dry run で差分と `confirm_token` を返す。`dry_run: false` と `confirm_token` を付けたときだけ書き込む |
+| `restore_backup` | 最後のバックアップ（`backup_path` で指定も可）に戻す。dry run と `confirm_token` の扱いは `apply_layout` と同じ |
+
+キーボードが接続されていない場合、どのツールもエラー応答を返し、何も書き込みません。
 
 #### 反映の流れ
 
 1. `cornix compile` で `layout.vil` を生成する
 2. `apply_layout`（dry run）で差分と `confirm_token` を受け取り、内容を確認する
 3. 同意したら `apply_layout` を `dry_run: false` と `confirm_token` を付けて呼ぶ。自動バックアップ → 差分のみ書き込み → 読み戻し検証が行われる
-4. 元に戻すときは `list_backups` で選んだバックアップを `apply_layout` で反映する
+4. 元に戻すときは `restore_backup` を同じく dry run → `confirm_token` 付きの順で呼ぶ（古いバックアップは `list_backups` で選んで `backup_path` に指定）
 
 確認後に差分が変わっていた場合（キーボード側やファイルが変更された場合）、トークンが一致しないため書き込みは拒否されます。
 

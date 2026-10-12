@@ -477,9 +477,26 @@ cornix device read -o now.vil   # Save the keyboard's current state as layout.vi
 cornix device backup            # Save a timestamped backup under tmp/device_backups/
 cornix device diff              # Show the diff between layout.vil and the keyboard (no writes)
 cornix device apply             # Show the diff and write it after confirmation (--yes skips the prompt)
+cornix device restore           # Roll back to the latest backup (the state before the last apply)
 ```
 
-`apply` takes a backup before writing, writes only the keys, encoders, tap dances, combos, macros and settings that changed, then reads them back to verify. To roll back, apply a backup with `cornix device apply tmp/device_backups/<timestamp>.vil`.
+`apply` takes a backup before writing, writes only the keys, encoders, tap dances, combos, macros and settings that changed, then reads them back to verify.
+
+To roll back, run `cornix device restore`. It shows the diff against the latest backup and writes it after confirmation. To go back to an older backup, pass the file, e.g. `cornix device restore tmp/device_backups/<timestamp>.vil`. `restore` also backs up the current state before writing, so running `restore` again returns to the state before the restore.
+
+### When the Keyboard Is Not Connected
+
+Every `cornix device` command and every MCP tool first looks for the keyboard and connects to it. If it is not found, nothing is written and it stops with the following error (the CLI exits with code 1, the MCP server returns an error response).
+
+```
+Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください
+```
+
+(The message is in Japanese: "Cornix not found. Check that it is connected to the Mac over Bluetooth (or USB), that it is not asleep, and that it has not switched to another device.")
+
+- **Bluetooth disconnected or the keyboard is off**: You get the error above. Press a key to wake it up or check the connection to the Mac, then try again.
+- **The keyboard switched to another device (BT1 / BT2, etc.)**: The Mac cannot see it, so you get the same error. Switch to the channel paired with the Mac.
+- **The connection dropped while reading or writing**: If there is no response within 1 second, it stops with "キーボードから応答がありません" (no response from the keyboard). If it was writing, it shows how many changes were written and the path of the pre-apply backup; reconnect and run `cornix device apply` again, or go back with `cornix device restore` (both write only the diff).
 
 ### MCP Server
 
@@ -509,13 +526,16 @@ cornix device apply             # Show the diff and write it after confirmation 
 | `read_keymap` | Return or save the current state as layout.vil (read-only) |
 | `backup` / `list_backups` | Save and list backups |
 | `apply_layout` | Dry run by default, returning the diff and a `confirm_token`. Writes only with `dry_run: false` and the `confirm_token` |
+| `restore_backup` | Roll back to the latest backup (or the one given by `backup_path`). Dry run and `confirm_token` work the same as `apply_layout` |
+
+If the keyboard is not connected, every tool returns an error response and writes nothing.
 
 #### Applying Changes
 
 1. Generate `layout.vil` with `cornix compile`
 2. Call `apply_layout` (dry run) to get the diff and a `confirm_token`, and review it
 3. Once approved, call `apply_layout` with `dry_run: false` and the `confirm_token`. It backs up, writes only the diff, and reads it back to verify
-4. To roll back, pick a backup with `list_backups` and apply it with `apply_layout`
+4. To roll back, call `restore_backup` the same way (dry run, then with the `confirm_token`). For an older backup, pick one with `list_backups` and pass it as `backup_path`
 
 If the diff has changed since it was reviewed (the keyboard or the file was modified), the token no longer matches and the write is refused.
 

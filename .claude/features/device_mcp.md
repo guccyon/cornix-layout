@@ -26,8 +26,17 @@ spec/device/                FakeRmkDevice（RMK 0.8 の応答を模したデバ�
 | read_keymap | なし | 現在の状態を layout.vil 形式で返す / 保存 |
 | backup / list_backups | なし | tmp/device_backups/ への保存と一覧 |
 | apply_layout | あり | 既定 dry run（差分 + confirm_token）。dry_run: false は confirm_token 必須 |
+| restore_backup | あり | 最新（または指定）のバックアップへ戻す。apply_layout と同じ二段階 |
 
 confirm_token は差分内容のハッシュ。dry run の後でキーボードやファイルが変わると一致せず書き込みを拒否する。
+
+## 未接続・切断時
+
+- ブリッジが起動時にデバイスを見つけられないと `ERROR ...` を返し、HidBridge が DeviceError にする。
+  CLI は "Error: ..." を表示して終了コード 1、MCP はツール結果を isError: true で返す。何も書き込まない。
+- 送信後 1 秒応答がないとブリッジが ERROR を返す（BLE 切断・スリープ）。apply 中なら、書き込み済み件数と
+  反映前バックアップのパスを含む DeviceError になる。apply / restore は差分だけ書くので、再実行で続きから揃う。
+- テストでは `CORNIX_HID_BRIDGE` でブリッジを差し替えられる（spec/device/hid_bridge_spec.rb）。
 
 ## 安全設計
 

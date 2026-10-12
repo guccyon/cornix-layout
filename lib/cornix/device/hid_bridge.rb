@@ -32,7 +32,8 @@ module Cornix
       end
 
       def self.open
-        bridge = new(build!)
+        # CORNIX_HID_BRIDGE でブリッジを差し替えられる（テスト用）
+        bridge = new(ENV['CORNIX_HID_BRIDGE'] || build!)
         return bridge unless block_given?
 
         begin

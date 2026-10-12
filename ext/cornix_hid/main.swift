@@ -72,7 +72,7 @@ final class Bridge {
         while resp == nil && Date() < deadline {
             CFRunLoopRunInMode(.defaultMode, 0.01, true)
         }
-        guard let out = resp else { return .failure(BridgeError("timeout")) }
+        guard let out = resp else { return .failure(BridgeError("キーボードから応答がありません（接続が切れた可能性があります）")) }
         return .success(Array(out.prefix(MSG_LEN)) + [UInt8](repeating: 0, count: max(0, MSG_LEN - out.count)))
     }
 }
@@ -123,7 +123,7 @@ IOHIDManagerSetDeviceMatching(mgr, [
 ] as CFDictionary)
 let devices = (IOHIDManagerCopyDevices(mgr) as? Set<IOHIDDevice>) ?? []
 guard let dev = devices.first else {
-    emit("ERROR Cornix の raw HID が見つかりません（Bluetooth/USB の接続を確認してください）")
+    emit("ERROR Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください")
     exit(1)
 }
 let openResult = IOHIDDeviceOpen(dev, IOOptionBits(kIOHIDOptionsTypeNone))

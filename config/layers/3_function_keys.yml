@@ -1,30 +1,37 @@
 ---
 name: Function Keys
 index: 3
-description: Function keys and system controls
+description: |-
+  ファンクションキー・テンキーレイヤー
+  左手: F1〜F12（上段 Q から F1〜F4、中段 F5〜F8、下段 F9〜F12）、BT 切り替え
+  右手: テンキー（数字レイヤーの並びに 7・8・9 を追加）
+
+  呼び出し: 右エンコーダ押し込み（ホールドで一時切替、タップでトグル）
+           右親指の一番左（ホールドのみ）
+  クリック: レイヤー0の ← + ↓ / ↓ + → コンボ
 mapping:
   left_hand:
     row0:
       tab: Escape
-      Q: NoKey
-      W: NoKey
-      E: NoKey
-      R: NoKey
-      T: NoKey
+      Q: F1
+      W: F2
+      E: F3
+      R: F4
+      T: Ctrl + Option + Space
     row1:
       lctrl: BT2
-      A: NoKey
-      S: NoKey
-      D: NoKey
-      F: NoKey
+      A: F5
+      S: F6
+      D: F7
+      F: F8
       G: NoKey
     row2:
       lshift: BT1
-      Z: NoKey
-      X: NoKey
-      C: NoKey
-      V: NoKey
-      B: NoKey
+      Z: F9
+      X: F10
+      C: F11
+      V: F12
+      B: ClearBT
     row3:
       caps: BT0
       fn: Trans
@@ -36,32 +43,32 @@ mapping:
   right_hand:
     row0:
       Y: NoKey
-      U: F9
-      I: F10
-      O: F11
-      P: F12
-      backspace: ClearBT
+      U: Kp7
+      I: Kp8
+      O: Kp9
+      P: KpEqual
+      backspace: Backspace
     row1:
       H: NoKey
-      J: F5
-      K: F6
-      L: F7
-      colon: F8
-      enter: NoKey
+      J: Kp4
+      K: Kp5
+      L: Kp6
+      colon: KpPlus
+      enter: KpAsterisk
     row2:
       N: NoKey
-      M: F1
-      comma: F2
-      dot: F3
-      up: F4
-      rshift: NoKey
+      M: Kp1
+      comma: Kp2
+      dot: Kp3
+      up: KpMinus
+      rshift: Trans
     row3:
-      left: MouseBtn1
-      down: NoKey
-      right: MouseBtn2
+      left: KpDot
+      down: KpSlash
+      right: KpEnter
     thumb_keys:
-      left: Ctrl + Option + Space
-      middle: NoKey
+      left: Trans
+      middle: Kp0
       right: NoKey
   encoders:
     left:
@@ -69,6 +76,6 @@ mapping:
       ccw: VolumeDown
       cw: VolumeUp
     right:
-      push: MouseButton3
+      push: Trans
       ccw: MouseWheelUp
       cw: MouseWheelDown

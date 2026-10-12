@@ -5,5 +5,5 @@ enabled: true
 index: 1
 trigger_keys:
 - KC_COMMA
-- KC_UP
+- KC_DOT
 output_key: Macro('Curly Brace Pair')

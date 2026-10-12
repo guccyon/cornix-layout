@@ -55,7 +55,7 @@ mapping:
       K: LBracket
       L: RBracket
       colon: Colon
-      enter: NoKey
+      enter: Semicolon
     row2:
       N: And
       M: Minus

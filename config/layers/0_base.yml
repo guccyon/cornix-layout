@@ -69,6 +69,6 @@ mapping:
       ccw: VolumeDown
       cw: VolumeUp
     right:
-      push: TD(3)
+      push: TapDance('Layer 3 Toggle')
       ccw: Up
       cw: Down

@@ -6,4 +6,4 @@ index: 7
 trigger_keys:
 - KC_DOWN
 - KC_RIGHT
-output_key: KC_BTN2
+output_key: MouseButton2

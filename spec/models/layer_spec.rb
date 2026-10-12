@@ -195,6 +195,29 @@ RSpec.describe Cornix::Models::Layer do
       # Right encoder: [Down, Up] = [81, 82]
       expect(qmk_hash['encoder_layout'][1]).to eq([81, 82])
     end
+
+    it 'エンコーダーのプッシュに書いた TapDance 参照を reference_converter で解決する' do
+      layer = described_class.from_qmk(0, sample_layout_2d, sample_encoder_2d, position_map, keycode_converter)
+      encoders = described_class::EncoderMapping.new(
+        left: layer.encoders.left,
+        right: layer.encoders.right.merge(push: "TapDance('Layer 3 Toggle')")
+      )
+      layer = described_class.new(
+        name: layer.name, description: '', index: 0,
+        left_hand: layer.left_hand, right_hand: layer.right_hand, encoders: encoders
+      )
+      reference_converter = double('ReferenceConverter')
+      allow(reference_converter).to receive(:resolve).and_return(nil)
+      allow(reference_converter).to receive(:resolve)
+        .with(hash_including(type: :reference, function: 'TapDance'))
+        .and_return('TD(3)')
+
+      qmk_hash = layer.to_qmk(position_map: position_map, keycode_converter: keycode_converter,
+                              reference_converter: reference_converter)
+
+      right_pos = position_map.encoder_push_position(:right)
+      expect(qmk_hash['layout'][right_pos[:row]][right_pos[:col]]).to eq('TD(3)')
+    end
   end
 
   describe '.from_yaml_hash' do

@@ -518,6 +518,8 @@ Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で
 }
 ```
 
+`cornix mcp` reads and writes UTF-8 even when `LANG` is unset, and escapes non-ASCII characters in its JSON responses as `\uXXXX`, so clients can read them regardless of their locale.
+
 #### Tools
 
 | Tool | Description |
@@ -781,16 +783,17 @@ tapping_term: 250
 #### Combo File Example
 
 ```yaml
-name: left_bracket
-description: D+F inputs [
+name: Left Click
+description: Left + Down for a left click
 enabled: true
-
-trigger:
-  - D
-  - F
-
-output: "["
+index: 6
+trigger_keys:
+  - Left
+  - Down
+output_key: MouseButton1    # aliases are converted to KC_BTN1 at compile time
 ```
+
+Like layers, `trigger_keys` and `output_key` accept both aliases (`Left`, `MouseButton1`, etc.) and QMK keycodes (`KC_LEFT`, `KC_BTN1`). `output_key` also accepts references such as `Macro('Name')`. Encoder `push` / `ccw` / `cw` also accept references such as `TapDance('Name')`.
 
 ### Referencing in Layers
 

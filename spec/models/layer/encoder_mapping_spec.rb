@@ -72,6 +72,47 @@ RSpec.describe Cornix::Models::Layer::EncoderMapping do
       expect(qmk_array[0][0]).to eq('LCA(KC_LEFT)')
       expect(qmk_array[0][1]).to eq('LCA(KC_RIGHT)')
     end
+
+    it 'resolves TapDance references with reference_converter' do
+      reference_converter = double('ReferenceConverter')
+      allow(reference_converter).to receive(:resolve).and_return('TD(3)')
+      encoder_mapping = described_class.new(
+        left: { push: 'Mute', ccw: "TapDance('Layer 3 Toggle')", cw: 'VolUp' },
+        right: { push: 'Mute', ccw: 'VolDown', cw: 'VolUp' }
+      )
+
+      qmk_array = encoder_mapping.to_qmk(keycode_converter, reference_converter: reference_converter)
+
+      expect(qmk_array[0][0]).to eq('TD(3)')
+    end
+  end
+
+  describe '#push_to_qmk' do
+    let(:reference_converter) { double('ReferenceConverter') }
+    let(:encoder_mapping) do
+      described_class.new(
+        left: { push: 'Mute', ccw: 'VolDown', cw: 'VolUp' },
+        right: { push: "TapDance('Layer 3 Toggle')", ccw: 'VolDown', cw: 'VolUp' }
+      )
+    end
+
+    it 'resolves aliases' do
+      expect(encoder_mapping.push_to_qmk(:left, keycode_converter)).to eq('KC_MUTE')
+    end
+
+    it 'resolves TapDance references with reference_converter' do
+      allow(reference_converter).to receive(:resolve)
+        .with(hash_including(type: :reference, function: 'TapDance'))
+        .and_return('TD(3)')
+
+      expect(encoder_mapping.push_to_qmk(:right, keycode_converter, reference_converter: reference_converter))
+        .to eq('TD(3)')
+    end
+
+    it 'raises ArgumentError for references without reference_converter' do
+      expect { encoder_mapping.push_to_qmk(:right, keycode_converter) }
+        .to raise_error(ArgumentError, /reference_converter is required/)
+    end
   end
 
   describe '.from_yaml_hash' do
@@ -208,6 +249,34 @@ RSpec.describe Cornix::Models::Layer::EncoderMapping do
         )
         errors = encoder_mapping.semantic_errors({})
         expect(errors).to be_empty
+      end
+
+      it 'reports keycodes that cannot be resolved' do
+        encoder_mapping = described_class.new(
+          left: { push: 'InvalidKeycode', ccw: 'VolDown', cw: 'VolUp' },
+          right: { push: 'Mute', ccw: 'VolDown', cw: 'VolUp' }
+        )
+        errors = encoder_mapping.semantic_errors(keycode_converter: keycode_converter)
+        expect(errors.join).to include("left.push: Invalid keycode 'InvalidKeycode'")
+      end
+
+      it 'reports unknown references when reference_converter is given' do
+        reference_converter = double('ReferenceConverter')
+        allow(reference_converter).to receive(:resolve).and_raise("TapDance 'Nope' not found in config/tap_dance/")
+        encoder_mapping = described_class.new(
+          left: { push: 'Mute', ccw: 'VolDown', cw: 'VolUp' },
+          right: { push: "TapDance('Nope')", ccw: 'VolDown', cw: 'VolUp' }
+        )
+        errors = encoder_mapping.semantic_errors(keycode_converter: keycode_converter, reference_converter: reference_converter)
+        expect(errors.join).to include("right.push").and include('not found')
+      end
+
+      it 'skips references when reference_converter is not given' do
+        encoder_mapping = described_class.new(
+          left: { push: 'Mute', ccw: 'VolDown', cw: 'VolUp' },
+          right: { push: "TapDance('Layer 3 Toggle')", ccw: 'VolDown', cw: 'VolUp' }
+        )
+        expect(encoder_mapping.semantic_errors(keycode_converter: keycode_converter)).to be_empty
       end
 
       it 'detects unresolvable keycodes' do

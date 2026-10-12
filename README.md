@@ -543,6 +543,8 @@ Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で
 }
 ```
 
+`cornix mcp` は環境変数 `LANG` が未設定でも UTF-8 で入出力し、応答の JSON は非 ASCII 文字を `\uXXXX` にエスケープして返すので、クライアント側のロケールに関係なく読み取れます。
+
 #### ツール
 
 | ツール | 内容 |
@@ -806,16 +808,17 @@ tapping_term: 250
 #### コンボファイルの例
 
 ```yaml
-name: left_bracket
-description: D+F で [ を入力
+name: Left Click
+description: ← + ↓ で左クリック
 enabled: true
-
-trigger:
-  - D
-  - F
-
-output: "["
+index: 6
+trigger_keys:
+  - Left
+  - Down
+output_key: MouseButton1    # エイリアスは compile 時に KC_BTN1 に変換されます
 ```
+
+`trigger_keys` と `output_key` には、レイヤーと同じくエイリアス（`Left`, `MouseButton1` など）と QMK キーコード（`KC_LEFT`, `KC_BTN1`）のどちらも書けます。`output_key` には `Macro('名前')` などの参照も書けます。エンコーダの `push` / `ccw` / `cw` にも `TapDance('名前')` などの参照を書けます。
 
 ### レイヤーでの参照方法
 

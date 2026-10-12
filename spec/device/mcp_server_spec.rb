@@ -44,6 +44,17 @@ RSpec.describe Cornix::Device::McpServer do
     expect(JSON.parse(output.string)).to eq('jsonrpc' => '2.0', 'id' => 7, 'result' => {})
   end
 
+  it 'ロケールが US-ASCII でも日本語を含む応答を ASCII のみの JSON で出力する' do
+    line = %({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"apply_layout","arguments":{"vil_path":"#{dir}/存在しない.vil"}}}\n)
+    input = StringIO.new(line.b.force_encoding(Encoding::US_ASCII))
+    output = StringIO.new
+    described_class.new(input: input, output: output, keyboard_opener: opener).run
+
+    expect(output.string).to be_ascii_only
+    text = JSON.parse(output.string)['result']['content'][0]['text']
+    expect(text).to include('エラー').and include('存在しない.vil')
+  end
+
   it 'キーボードが接続されていないとき、各ツールはエラーを返す' do
     disconnected = ->(&_block) { raise Cornix::Device::DeviceError, 'Cornix が見つかりません' }
     server = described_class.new(keyboard_opener: disconnected)

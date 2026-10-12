@@ -90,6 +90,8 @@ module Cornix
       end
 
       def run
+        # LANG 未設定（US-ASCII ロケール）でも日本語を含む JSON を正しく読めるよう、入力は UTF-8 として扱う
+        @input.set_encoding(Encoding::UTF_8) if @input.respond_to?(:set_encoding)
         @input.each_line do |line|
           next if line.strip.empty?
 
@@ -125,8 +127,9 @@ module Cornix
 
       private
 
+      # 非 ASCII 文字は \uXXXX にエスケープし、クライアント側のロケールに関係なく読めるようにする
       def write(obj)
-        @output.puts(JSON.generate(obj))
+        @output.puts(JSON.generate(obj, ascii_only: true))
         @output.flush
       end
 
@@ -177,7 +180,7 @@ module Cornix
 
       def apply_layout(args)
         path = File.expand_path(args['vil_path'] || DEFAULT_VIL)
-        target = JSON.parse(File.read(path))
+        target = JSON.parse(File.read(path, encoding: Encoding::UTF_8))
         dry_run = args.fetch('dry_run', true)
 
         with_keyboard do |kb|

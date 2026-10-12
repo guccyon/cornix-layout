@@ -204,12 +204,14 @@ module Cornix
         # エンコーダープッシュボタンを layout に書き込み
         left_pos = position_map.encoder_push_position(:left)
         right_pos = position_map.encoder_push_position(:right)
-        layout[left_pos[:row]][left_pos[:col]] = keycode_converter.resolve(@encoders.left[:push])
-        layout[right_pos[:row]][right_pos[:col]] = keycode_converter.resolve(@encoders.right[:push])
+        layout[left_pos[:row]][left_pos[:col]] =
+          @encoders.push_to_qmk(:left, keycode_converter, reference_converter: reference_converter)
+        layout[right_pos[:row]][right_pos[:col]] =
+          @encoders.push_to_qmk(:right, keycode_converter, reference_converter: reference_converter)
 
         {
           'layout' => layout,
-          'encoder_layout' => @encoders.to_qmk(keycode_converter)
+          'encoder_layout' => @encoders.to_qmk(keycode_converter, reference_converter: reference_converter)
         }
       end
 

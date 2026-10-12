@@ -61,8 +61,13 @@ module Cornix
         raise ArgumentError, "メッセージは #{MSG_LEN} バイト以下" if bytes.size > MSG_LEN
 
         msg = bytes + [0] * (MSG_LEN - bytes.size)
-        @stdin.puts("SEND #{msg.pack('C*').unpack1('H*')}")
-        @stdin.flush
+        begin
+          @stdin.puts("SEND #{msg.pack('C*').unpack1('H*')}")
+          @stdin.flush
+        rescue Errno::EPIPE, IOError
+          # ブリッジが先に終了していると書き込みの時点で失敗する
+          raise DeviceError, 'cornix-hid が終了しました'
+        end
         line = @stdout.gets&.force_encoding('UTF-8')
         raise DeviceError, 'cornix-hid が終了しました' if line.nil?
 

@@ -76,6 +76,38 @@ RSpec.describe Cornix::Models::Combo do
 
       expect(combo.to_qmk).to eq([20, 8, 11, 9, 47])
     end
+
+    context 'keycode_converter を渡した場合' do
+      let(:keycode_converter) do
+        Cornix::Converters::KeycodeConverter.new(File.join(__dir__, '../../lib/cornix/keycode_aliases.yaml'))
+      end
+
+      it 'output_key のエイリアスを QMK キーコードに変換する' do
+        combo = described_class.new(
+          index: 6,
+          name: 'Left Click',
+          description: '',
+          trigger_keys: ['KC_LEFT', 'KC_DOWN'],
+          output_key: 'MouseButton1'
+        )
+
+        expect(combo.to_qmk(keycode_converter: keycode_converter))
+          .to eq(['KC_LEFT', 'KC_DOWN', 'KC_NO', 'KC_NO', 'KC_BTN1'])
+      end
+
+      it 'trigger_keys のエイリアスを QMK キーコードに変換する' do
+        combo = described_class.new(
+          index: 6,
+          name: 'Left Click',
+          description: '',
+          trigger_keys: ['Left', 'Down'],
+          output_key: 'KC_BTN1'
+        )
+
+        expect(combo.to_qmk(keycode_converter: keycode_converter))
+          .to eq(['KC_LEFT', 'KC_DOWN', 'KC_NO', 'KC_NO', 'KC_BTN1'])
+      end
+    end
   end
 
   describe '.from_yaml_hash' do

@@ -38,11 +38,13 @@ module Cornix
 
               begin
                 parsed = KeycodeParser.parse(keycode)
-                if parsed.is_a?(Hash) && parsed[:type] == :modifier_expression
-                  ModifierExpressionCompiler.to_qmk(parsed, options[:keycode_converter])
-                else
-                  options[:keycode_converter].resolve(keycode)
-                end
+                # 参照式（TapDance('name') 等）は reference_converter がある場合のみ検証する
+                next if parsed.is_a?(Hash) && parsed[:type] == :reference && options[:reference_converter].nil?
+
+                resolved = EncoderMapping.resolve_keycode(
+                  keycode, options[:keycode_converter], options[:reference_converter]
+                )
+                errors << "#{side}.#{action}: Invalid keycode '#{keycode}'" if resolved.nil?
               rescue => e
                 errors << "#{side}.#{action}: keycode '#{keycode}' cannot be resolved: #{e.message}"
               end
@@ -66,12 +68,47 @@ module Cornix
         # QMK エンコーダー配列に変換（2行2列の配列）
         #
         # @param keycode_converter [KeycodeConverter] キーコード解決器
+        # @param reference_converter [ReferenceConverter, nil] 参照解決器
         # @return [Array<Array<Integer>>] [[left_ccw, left_cw], [right_ccw, right_cw]]
-        def to_qmk(keycode_converter)
+        def to_qmk(keycode_converter, reference_converter: nil)
           [
-            [resolve_keycode(@left[:ccw], keycode_converter), resolve_keycode(@left[:cw], keycode_converter)],
-            [resolve_keycode(@right[:ccw], keycode_converter), resolve_keycode(@right[:cw], keycode_converter)]
+            [resolve(@left[:ccw], keycode_converter, reference_converter), resolve(@left[:cw], keycode_converter, reference_converter)],
+            [resolve(@right[:ccw], keycode_converter, reference_converter), resolve(@right[:cw], keycode_converter, reference_converter)]
           ]
+        end
+
+        # プッシュボタンのキーコードを QMK 形式に変換
+        #
+        # プッシュボタンは layout 配列側に書き込まれるため、encoder_layout とは別に解決する
+        #
+        # @param side [Symbol] :left または :right
+        # @param keycode_converter [KeycodeConverter] キーコード解決器
+        # @param reference_converter [ReferenceConverter, nil] 参照解決器
+        # @return [String, nil]
+        def push_to_qmk(side, keycode_converter, reference_converter: nil)
+          encoder = side == :left ? @left : @right
+          resolve(encoder[:push], keycode_converter, reference_converter)
+        end
+
+        # キーコード（エイリアス・修飾キー表現・参照式）を QMK 形式に解決する
+        #
+        # @return [String, Integer, nil] 解決できない場合は nil
+        # @raise [ArgumentError] 参照式を reference_converter なしで解決しようとした場合
+        def self.resolve_keycode(raw_value, keycode_converter, reference_converter = nil)
+          return nil if raw_value.nil?
+
+          parsed = KeycodeParser.parse(raw_value)
+          if parsed.is_a?(Hash)
+            case parsed[:type]
+            when :modifier_expression
+              return ModifierExpressionCompiler.to_qmk(parsed, keycode_converter)
+            when :reference
+              raise ArgumentError, "reference_converter is required to resolve '#{raw_value}'" if reference_converter.nil?
+
+              return reference_converter.resolve(parsed)
+            end
+          end
+          keycode_converter.resolve(raw_value)
         end
 
         # YAMLハッシュから EncoderMapping を構築（Factory Method）
@@ -100,13 +137,8 @@ module Cornix
 
         private
 
-        def resolve_keycode(raw_value, keycode_converter)
-          return nil if raw_value.nil?
-          parsed = KeycodeParser.parse(raw_value)
-          if parsed.is_a?(Hash) && parsed[:type] == :modifier_expression
-            return ModifierExpressionCompiler.to_qmk(parsed, keycode_converter)
-          end
-          keycode_converter.resolve(raw_value)
+        def resolve(raw_value, keycode_converter, reference_converter)
+          self.class.resolve_keycode(raw_value, keycode_converter, reference_converter)
         end
       end
     end

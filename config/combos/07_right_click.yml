@@ -1,0 +1,9 @@
+---
+name: Right Click
+description: ↓ + → で右クリック
+enabled: true
+index: 7
+trigger_keys:
+- KC_DOWN
+- KC_RIGHT
+output_key: KC_BTN2

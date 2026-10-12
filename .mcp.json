@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cornix-device": {
+      "command": "ruby",
+      "args": ["bin/cornix", "mcp"]
+    }
+  }
+}

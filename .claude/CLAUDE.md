@@ -22,6 +22,7 @@
   - [Modifier Expressions](features/modifier_expressions.md) - VS Code風修飾キー表現
   - [File Renamer](features/file_renamer.md) - ファイルリネーム機能
   - [Validation](features/validation.md) - バリデーション機能
+  - [Device / MCP](features/device_mcp.md) - キーボード直接操作と MCP サーバー
 
 - **Memories**: [Implementation Memories](memories/)
   - [Model Validation](memories/model_validation.md) - Validatable実装知見
@@ -90,6 +91,7 @@ CornixキーボードのVial `layout.vil`ファイルとYAML設定ファイル�
 - Decompile: layout.vil → YAML
 - Validate: YAML設定の妥当性検証
 - Rename: ファイルリネーム機能
+- Device / MCP: 接続中のキーボードへの直接読み書き（`cornix device`, `cornix mcp`）
 
 **特徴**:
 - 3つの参照形式サポート（Name-based, Index-based, Legacy）
@@ -130,6 +132,7 @@ Infrastructure Layer (TBD)
 6. **FileRenamer** (`lib/cornix/file_renamer.rb`) - ファイルリネーム
 7. **Validator** (`lib/cornix/validator.rb`) - 設定ファイル検証
 8. **Models** (`lib/cornix/models/`) - ドメインモデル（19ファイル、Phase 2実装）
+9. **Device** (`lib/cornix/device/`, `ext/cornix_hid/`) - 接続中のキーボードへの直接読み書きと MCP サーバー（[知見](memories/vial_device_protocol.md)）
 
 ## Directory Structure
 

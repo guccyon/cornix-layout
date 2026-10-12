@@ -14,6 +14,7 @@ Since Vial's `layout.vil` file is difficult to edit directly, this tool provides
 - 💬 **Comment Support**: Add comments with `#`
 - 🔄 **Bidirectional Conversion**: `layout.vil` ⇔ YAML configuration files
 - ✅ **Strict Validation**: QMK-compliant 2-layer validation (filesystem + model)
+- ⌨️ **Apply Directly to the Keyboard**: Write only the diff from the CLI / MCP server without Vial Web ([details](#applying-directly-to-the-keyboard-no-vial-web-needed))
 
 ## Installation
 
@@ -464,7 +465,91 @@ If there are validation errors, compilation will be automatically aborted. To ru
 cornix validate
 ```
 
-Import the generated `layout.vil` into Vial and flash it to your keyboard.
+Import the generated `layout.vil` into Vial and flash it to your keyboard. You can also apply it directly without Vial using `cornix device apply` (next section).
+
+## Applying Directly to the Keyboard (No Vial Web Needed)
+
+You can apply `layout.vil` directly to a Cornix connected over Bluetooth or USB using the Vial protocol (macOS only; on first use a small HID bridge `tmp/cornix-hid` is built with `swiftc` from the Xcode Command Line Tools).
+
+```bash
+cornix device info              # Info about the connected keyboard (layers, lock state, ...)
+cornix device read -o now.vil   # Save the keyboard's current state as layout.vil
+cornix device backup            # Save a timestamped backup under tmp/device_backups/
+cornix device diff              # Show the diff between layout.vil and the keyboard (no writes)
+cornix device apply             # Show the diff and write it after confirmation (--yes skips the prompt)
+cornix device restore           # Roll back to the latest backup (the state before the last apply)
+```
+
+`apply` takes a backup before writing, writes only the keys, encoders, tap dances, combos, macros and settings that changed, then reads them back to verify.
+
+To roll back, run `cornix device restore`. It shows the diff against the latest backup and writes it after confirmation. To go back to an older backup, pass the file, e.g. `cornix device restore tmp/device_backups/<timestamp>.vil`. `restore` also backs up the current state before writing, so running `restore` again returns to the state before the restore.
+
+### When the Keyboard Is Not Connected
+
+Every `cornix device` command and every MCP tool first looks for the keyboard and connects to it. If it is not found, nothing is written and it stops with the following error (the CLI exits with code 1, the MCP server returns an error response).
+
+```
+Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください
+```
+
+(The message is in Japanese: "Cornix not found. Check that it is connected to the Mac over Bluetooth (or USB), that it is not asleep, and that it has not switched to another device.")
+
+- **Bluetooth disconnected or the keyboard is off**: You get the error above. Press a key to wake it up or check the connection to the Mac, then try again.
+- **The keyboard switched to another device (BT1 / BT2, etc.)**: The Mac cannot see it, so you get the same error. Switch to the channel paired with the Mac.
+- **The connection dropped while reading or writing**: If there is no response within 1 second, it stops with "キーボードから応答がありません" (no response from the keyboard). If it was writing, it shows how many changes were written and the path of the pre-apply backup; reconnect and run `cornix device apply` again, or go back with `cornix device restore` (both write only the diff).
+
+### MCP Server
+
+`cornix mcp` starts an MCP server over stdio, so an AI agent can do things like "read the keyboard's current settings" or "apply this layout.vil".
+
+#### Setup
+
+- **Claude Code**: It is registered as `cornix-device` in `.mcp.json` at the repository root. Open Claude Code in this directory and approve the MCP server when prompted.
+- **Other clients** (Claude Desktop, etc.): Register it with an absolute path as below. If `ruby` is not found (mise / rbenv, etc.), set `command` to the absolute path of Ruby.
+
+```json
+{
+  "mcpServers": {
+    "cornix-device": {
+      "command": "ruby",
+      "args": ["/path/to/cornix-layout/bin/cornix", "mcp"]
+    }
+  }
+}
+```
+
+#### Tools
+
+| Tool | Description |
+|---|---|
+| `keyboard_info` | Keyboard information (read-only) |
+| `read_keymap` | Return or save the current state as layout.vil (read-only) |
+| `backup` / `list_backups` | Save and list backups |
+| `apply_layout` | Dry run by default, returning the diff and a `confirm_token`. Writes only with `dry_run: false` and the `confirm_token` |
+| `restore_backup` | Roll back to the latest backup (or the one given by `backup_path`). Dry run and `confirm_token` work the same as `apply_layout` |
+
+If the keyboard is not connected, every tool returns an error response and writes nothing.
+
+#### Applying Changes
+
+1. Generate `layout.vil` with `cornix compile`
+2. Call `apply_layout` (dry run) to get the diff and a `confirm_token`, and review it
+3. Once approved, call `apply_layout` with `dry_run: false` and the `confirm_token`. It backs up, writes only the diff, and reads it back to verify
+4. To roll back, call `restore_backup` the same way (dry run, then with the `confirm_token`). For an older backup, pick one with `list_backups` and pass it as `backup_path`
+
+If the diff has changed since it was reviewed (the keyboard or the file was modified), the token no longer matches and the write is refused.
+
+#### About the Unlock Prompt When Changing Macros
+
+Vial (Web / GUI) asks you to hold two designated keys ("unlock") when saving macros or assigning `QK_BOOT`. This is behavior of the Vial app; the Cornix firmware (RMK 0.8) does not check the lock state for macro writes. Therefore `cornix device` / the MCP server does not need the unlock step (boot keycodes such as `QK_BOOT` cannot be written at all).
+
+### Safety
+
+The Cornix firmware is based on RMK 0.8, which, unlike vial-qmk, has almost no locking or bounds checks (bootloader jump and EEPROM reset run without unlocking, and out-of-range writes make the firmware panic). Therefore:
+
+- The HID bridge (`ext/cornix_hid/main.swift`) only sends allow-listed commands. Bootloader jump, EEPROM reset, bulk resets, unlock and bulk keymap writes (buggy in RMK 0.8) cannot be sent (check with `tmp/cornix-hid --self-test`).
+- Keys are written one at a time, the same way Vial GUI does, and layer/row/col, macro offsets and entry indexes are all range-checked before sending.
+- Boot keycodes such as `QK_BOOT` are never written.
 
 ## Configuration Validation
 
@@ -1330,7 +1415,9 @@ bin/
 │   ├── decompile.rb         # Decompile with lock protection
 │   ├── validate.rb          # Validation-only
 │   ├── cleanup.rb           # Safe cleanup
-│   └── rename.rb            # RenameCommand wrapper
+│   ├── rename.rb            # RenameCommand wrapper
+│   ├── device.rb            # Direct keyboard read/write (info/read/backup/diff/apply)
+│   └── mcp.rb               # MCP server (stdio)
 ├── diff_layouts              # Round-trip check tool
 └── rename_file               # File renamer CLI (advanced)
 ```
@@ -1434,7 +1521,11 @@ cornix-layout/
 │       ├── keycode_resolver.rb
 │       ├── keycode_aliases.yaml # System-provided keycode aliases
 │       ├── position_map.yaml    # Default physical position map template
-│       └── position_map.rb
+│       ├── position_map.rb
+│       └── device/              # Direct keyboard access (protocol, keycode table, diff/apply, MCP server)
+├── ext/
+│   └── cornix_hid/main.swift   # Raw HID bridge (allow-listed, built to tmp/cornix-hid)
+├── .mcp.json                   # MCP server registration for Claude Code
 ├── config/                     # Configuration files
 └── layout.vil                  # Generated file
 ```

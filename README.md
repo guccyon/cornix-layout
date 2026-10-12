@@ -14,6 +14,7 @@ Vialの`layout.vil`ファイルは直接編集が困難なため、YAMLベース
 - 💬 **コメント対応**: `#`でコメントを記述可能
 - 🔄 **双方向変換**: `layout.vil` ⇔ YAML設定ファイル
 - ✅ **厳密なバリデーション**: QMK仕様準拠の2層バリデーション（ファイルシステム＋モデル）
+- ⌨️ **キーボードへ直接反映**: Vial Web を使わずに CLI / MCP サーバーから差分だけを書き込み（[詳細](#キーボードへの直接反映vial-web-不要)）
 
 ## インストール
 
@@ -491,7 +492,89 @@ cornix compile
 cornix validate
 ```
 
-生成された`layout.vil`をVialでインポートしてキーボードに書き込みます。
+生成された`layout.vil`をVialでインポートしてキーボードに書き込みます。`cornix device apply` で Vial を使わずに直接反映することもできます（次の節）。
+
+## キーボードへの直接反映（Vial Web 不要）
+
+Bluetooth / USB で接続中の Cornix に、Vial プロトコルで直接 `layout.vil` を反映できます（macOS のみ。初回に Xcode Command Line Tools の `swiftc` で小さな HID ブリッジ `tmp/cornix-hid` をビルドします）。
+
+```bash
+cornix device info              # 接続中のキーボードの情報（レイヤー数、ロック状態など）
+cornix device read -o now.vil   # キーボードの現在の状態を layout.vil 形式で保存
+cornix device backup            # tmp/device_backups/ に日時付きで保存
+cornix device diff              # layout.vil とキーボードの差分を表示（書き込みなし）
+cornix device apply             # 差分を表示し、確認後に書き込む（--yes で確認を省略）
+cornix device restore           # 最後のバックアップ（直前の apply の前の状態）に戻す
+```
+
+`apply` は書き込みの前に自動でバックアップを取り、変更のあったキー・エンコーダ・タップダンス・コンボ・マクロ・設定だけを書き込み、読み戻して一致を確認します。
+
+元に戻すときは `cornix device restore` を実行します。最後に取ったバックアップとの差分を表示し、確認後に書き込みます。古いバックアップに戻したいときは `cornix device restore tmp/device_backups/<日時>.vil` のようにファイルを指定します。`restore` も書き込み前に現在の状態をバックアップするので、続けてもう一度 `restore` すると復元前の状態に戻ります。
+
+### キーボードが接続されていないとき
+
+`cornix device` の各コマンドと MCP の各ツールは、最初にキーボードを探して接続します。見つからない場合は何も書き込まずに次のエラーで終了します（CLI は終了コード 1、MCP はエラー応答）。
+
+```
+Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください
+```
+
+- **Bluetooth が切れている・キーボードの電源が切れている**: 上のエラーになります。キーを 1 回押してスリープを解除するか、Mac との接続を確認してから再実行してください。
+- **キーボードが別の機器（BT1 / BT2 など）に切り替わっている**: Mac からは見えないので同じエラーになります。Mac に接続しているチャンネルに切り替えてください。
+- **読み出しや書き込みの途中で接続が切れた**: 1 秒以内に応答がないと「キーボードから応答がありません」というエラーで中断します。書き込み中だった場合は、何件目まで書き込んだかと反映前のバックアップのパスを表示するので、再接続してから `cornix device apply` をやり直すか、`cornix device restore` で反映前に戻してください（どちらも差分だけを書き込みます）。
+
+### MCP サーバー
+
+`cornix mcp` で MCP サーバー（stdio）を起動できます。AI エージェントから「キーボードの今の設定を読んで」「この layout.vil を反映して」といった操作ができます。
+
+#### セットアップ
+
+- **Claude Code**: リポジトリ直下の `.mcp.json` に `cornix-device` として登録済みです。このディレクトリで Claude Code を開き、初回に表示される MCP サーバーの承認で許可してください。
+- **その他のクライアント**（Claude Desktop など）: 次のように絶対パスで登録します。`ruby` が見つからない場合（mise / rbenv など）は `command` に Ruby の絶対パスを指定してください。
+
+```json
+{
+  "mcpServers": {
+    "cornix-device": {
+      "command": "ruby",
+      "args": ["/path/to/cornix-layout/bin/cornix", "mcp"]
+    }
+  }
+}
+```
+
+#### ツール
+
+| ツール | 内容 |
+|---|---|
+| `keyboard_info` | キーボードの情報（読み取りのみ） |
+| `read_keymap` | 現在の状態を layout.vil 形式で返す・保存する（読み取りのみ） |
+| `backup` / `list_backups` | バックアップの保存と一覧 |
+| `apply_layout` | 既定は dry run で差分と `confirm_token` を返す。`dry_run: false` と `confirm_token` を付けたときだけ書き込む |
+| `restore_backup` | 最後のバックアップ（`backup_path` で指定も可）に戻す。dry run と `confirm_token` の扱いは `apply_layout` と同じ |
+
+キーボードが接続されていない場合、どのツールもエラー応答を返し、何も書き込みません。
+
+#### 反映の流れ
+
+1. `cornix compile` で `layout.vil` を生成する
+2. `apply_layout`（dry run）で差分と `confirm_token` を受け取り、内容を確認する
+3. 同意したら `apply_layout` を `dry_run: false` と `confirm_token` を付けて呼ぶ。自動バックアップ → 差分のみ書き込み → 読み戻し検証が行われる
+4. 元に戻すときは `restore_backup` を同じく dry run → `confirm_token` 付きの順で呼ぶ（古いバックアップは `list_backups` で選んで `backup_path` に指定）
+
+確認後に差分が変わっていた場合（キーボード側やファイルが変更された場合）、トークンが一致しないため書き込みは拒否されます。
+
+#### マクロ変更時の承認操作（アンロック）について
+
+Vial（Web / GUI）はマクロの保存時と `QK_BOOT` の割り当て時に、指定の 2 キーを長押しする「アンロック」を求めます。これは Vial アプリ側の動作で、Cornix のファームウェア（RMK 0.8 系）はマクロの書き込みにロック状態を確認していません。そのため `cornix device` / MCP ではアンロック操作は不要です（`QK_BOOT` などの boot 系キーコードはそもそも書き込めないようにしています）。
+
+### 安全性について
+
+Cornix のファームウェアは RMK 0.8 系で、vial-qmk と違ってロックや範囲検査がほとんどありません（bootloader 移行や EEPROM リセットがロックなしで実行され、範囲外の書き込みではファームウェアがパニックします）。そのため次のようにしています。
+
+- HID ブリッジ（`ext/cornix_hid/main.swift`）は許可リストにあるコマンドしか送りません。bootloader 移行・EEPROM リセット・全消去・アンロック・キーマップ一括書き込み（RMK 0.8 にバグあり）は送れません（`tmp/cornix-hid --self-test` で確認できます）。
+- キーは Vial GUI と同じ 1 キーずつの書き込みだけを使い、layer / row / col・マクロのオフセット・各エントリ番号はすべて送信前に範囲を検査します。
+- `QK_BOOT` などの boot 系キーコードは書き込みません。
 
 ## 設定ファイルの検証
 
@@ -1432,7 +1515,9 @@ bin/
 │   ├── decompile.rb         # ロック保護付きデコンパイル
 │   ├── validate.rb          # 検証専用
 │   ├── cleanup.rb           # 安全なクリーンアップ
-│   └── rename.rb            # RenameCommandラッパー
+│   ├── rename.rb            # RenameCommandラッパー
+│   ├── device.rb            # キーボードへの直接読み書き（info/read/backup/diff/apply）
+│   └── mcp.rb               # MCP サーバー（stdio）
 ├── diff_layouts              # Round-tripチェックツール
 └── rename_file               # ファイルリネームCLI（上級者向け）
 ```
@@ -1536,7 +1621,11 @@ cornix-layout/
 │       ├── keycode_resolver.rb
 │       ├── keycode_aliases.yaml # システム提供のキーコードエイリアス
 │       ├── position_map.yaml    # デフォルトの物理位置マップテンプレート
-│       └── position_map.rb
+│       ├── position_map.rb
+│       └── device/              # キーボード直接操作（プロトコル、キーコード表、差分・反映、MCP サーバー）
+├── ext/
+│   └── cornix_hid/main.swift   # raw HID ブリッジ（許可リスト付き、tmp/cornix-hid にビルド）
+├── .mcp.json                   # Claude Code 用の MCP サーバー登録
 ├── config/                     # 設定ファイル
 └── layout.vil                  # 生成されるファイル
 ```

@@ -11,6 +11,8 @@ def show_usage
       cornix validate             Validate YAML config files
       cornix rename               Rename config files intelligently
       cornix cleanup [-f]         Clean up generated files
+      cornix device <action>      Read/diff/apply the connected keyboard (info, read, backup, diff, apply, restore)
+      cornix mcp                  Start the MCP server for the connected keyboard (stdio)
       cornix help                 Show this help message
 
     Examples:
@@ -32,6 +34,10 @@ def show_usage
       # Clean up
       cornix cleanup
       cornix cleanup -f  # Force (with confirmation)
+
+      # Apply layout.vil to the connected keyboard (shows the diff and asks first)
+      cornix device diff
+      cornix device apply
   USAGE
 end
 
@@ -49,6 +55,10 @@ def main
     load File.expand_path('subcommands/rename.rb', __dir__)
   when 'cleanup'
     load File.expand_path('subcommands/cleanup.rb', __dir__)
+  when 'device'
+    load File.expand_path('subcommands/device.rb', __dir__)
+  when 'mcp'
+    load File.expand_path('subcommands/mcp.rb', __dir__)
   when 'help', '-h', '--help', nil
     show_usage
   else

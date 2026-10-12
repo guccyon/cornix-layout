@@ -64,9 +64,9 @@ mapping:
       up: Slash
       rshift: Trans
     row3:
-      left: Ctrl + Option + Left
-      down: Ctrl + Option + Enter
-      right: Ctrl + Option + Right
+      left: Ctrl + Option + Shift + Command + Left
+      down: Ctrl + Option + Shift + Command + Enter
+      right: Ctrl + Option + Shift + Command + Right
     thumb_keys:
       left: Shift + Command + Enter
       middle: Command + Space

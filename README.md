@@ -14,6 +14,7 @@ Vialの`layout.vil`ファイルは直接編集が困難なため、YAMLベース
 - 💬 **コメント対応**: `#`でコメントを記述可能
 - 🔄 **双方向変換**: `layout.vil` ⇔ YAML設定ファイル
 - ✅ **厳密なバリデーション**: QMK仕様準拠の2層バリデーション（ファイルシステム＋モデル）
+- ⌨️ **キーボードへ直接反映**: Vial Web を使わずに CLI / MCP サーバーから差分だけを書き込み（[詳細](#キーボードへの直接反映vial-web-不要)）
 
 ## インストール
 
@@ -491,7 +492,7 @@ cornix compile
 cornix validate
 ```
 
-生成された`layout.vil`をVialでインポートしてキーボードに書き込みます。
+生成された`layout.vil`をVialでインポートしてキーボードに書き込みます。`cornix device apply` で Vial を使わずに直接反映することもできます（次の節）。
 
 ## キーボードへの直接反映（Vial Web 不要）
 
@@ -509,7 +510,25 @@ cornix device apply             # 差分を表示し、確認後に書き込む�
 
 ### MCP サーバー
 
-`cornix mcp` で MCP サーバー（stdio）を起動できます。リポジトリの `.mcp.json` に登録済みなので、Claude Code からは `cornix-device` サーバーとして使えます。
+`cornix mcp` で MCP サーバー（stdio）を起動できます。AI エージェントから「キーボードの今の設定を読んで」「この layout.vil を反映して」といった操作ができます。
+
+#### セットアップ
+
+- **Claude Code**: リポジトリ直下の `.mcp.json` に `cornix-device` として登録済みです。このディレクトリで Claude Code を開き、初回に表示される MCP サーバーの承認で許可してください。
+- **その他のクライアント**（Claude Desktop など）: 次のように絶対パスで登録します。`ruby` が見つからない場合（mise / rbenv など）は `command` に Ruby の絶対パスを指定してください。
+
+```json
+{
+  "mcpServers": {
+    "cornix-device": {
+      "command": "ruby",
+      "args": ["/path/to/cornix-layout/bin/cornix", "mcp"]
+    }
+  }
+}
+```
+
+#### ツール
 
 | ツール | 内容 |
 |---|---|
@@ -517,6 +536,19 @@ cornix device apply             # 差分を表示し、確認後に書き込む�
 | `read_keymap` | 現在の状態を layout.vil 形式で返す・保存する（読み取りのみ） |
 | `backup` / `list_backups` | バックアップの保存と一覧 |
 | `apply_layout` | 既定は dry run で差分と `confirm_token` を返す。`dry_run: false` と `confirm_token` を付けたときだけ書き込む |
+
+#### 反映の流れ
+
+1. `cornix compile` で `layout.vil` を生成する
+2. `apply_layout`（dry run）で差分と `confirm_token` を受け取り、内容を確認する
+3. 同意したら `apply_layout` を `dry_run: false` と `confirm_token` を付けて呼ぶ。自動バックアップ → 差分のみ書き込み → 読み戻し検証が行われる
+4. 元に戻すときは `list_backups` で選んだバックアップを `apply_layout` で反映する
+
+確認後に差分が変わっていた場合（キーボード側やファイルが変更された場合）、トークンが一致しないため書き込みは拒否されます。
+
+#### マクロ変更時の承認操作（アンロック）について
+
+Vial（Web / GUI）はマクロの保存時と `QK_BOOT` の割り当て時に、指定の 2 キーを長押しする「アンロック」を求めます。これは Vial アプリ側の動作で、Cornix のファームウェア（RMK 0.8 系）はマクロの書き込みにロック状態を確認していません。そのため `cornix device` / MCP ではアンロック操作は不要です（`QK_BOOT` などの boot 系キーコードはそもそも書き込めないようにしています）。
 
 ### 安全性について
 
@@ -1465,7 +1497,9 @@ bin/
 │   ├── decompile.rb         # ロック保護付きデコンパイル
 │   ├── validate.rb          # 検証専用
 │   ├── cleanup.rb           # 安全なクリーンアップ
-│   └── rename.rb            # RenameCommandラッパー
+│   ├── rename.rb            # RenameCommandラッパー
+│   ├── device.rb            # キーボードへの直接読み書き（info/read/backup/diff/apply）
+│   └── mcp.rb               # MCP サーバー（stdio）
 ├── diff_layouts              # Round-tripチェックツール
 └── rename_file               # ファイルリネームCLI（上級者向け）
 ```
@@ -1569,7 +1603,11 @@ cornix-layout/
 │       ├── keycode_resolver.rb
 │       ├── keycode_aliases.yaml # システム提供のキーコードエイリアス
 │       ├── position_map.yaml    # デフォルトの物理位置マップテンプレート
-│       └── position_map.rb
+│       ├── position_map.rb
+│       └── device/              # キーボード直接操作（プロトコル、キーコード表、差分・反映、MCP サーバー）
+├── ext/
+│   └── cornix_hid/main.swift   # raw HID ブリッジ（許可リスト付き、tmp/cornix-hid にビルド）
+├── .mcp.json                   # Claude Code 用の MCP サーバー登録
 ├── config/                     # 設定ファイル
 └── layout.vil                  # 生成されるファイル
 ```

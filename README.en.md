@@ -14,6 +14,7 @@ Since Vial's `layout.vil` file is difficult to edit directly, this tool provides
 - 💬 **Comment Support**: Add comments with `#`
 - 🔄 **Bidirectional Conversion**: `layout.vil` ⇔ YAML configuration files
 - ✅ **Strict Validation**: QMK-compliant 2-layer validation (filesystem + model)
+- ⌨️ **Apply Directly to the Keyboard**: Write only the diff from the CLI / MCP server without Vial Web ([details](#applying-directly-to-the-keyboard-no-vial-web-needed))
 
 ## Installation
 
@@ -464,7 +465,7 @@ If there are validation errors, compilation will be automatically aborted. To ru
 cornix validate
 ```
 
-Import the generated `layout.vil` into Vial and flash it to your keyboard.
+Import the generated `layout.vil` into Vial and flash it to your keyboard. You can also apply it directly without Vial using `cornix device apply` (next section).
 
 ## Applying Directly to the Keyboard (No Vial Web Needed)
 
@@ -482,7 +483,25 @@ cornix device apply             # Show the diff and write it after confirmation 
 
 ### MCP Server
 
-`cornix mcp` starts an MCP server over stdio. It is registered in the repository's `.mcp.json`, so Claude Code can use it as the `cornix-device` server.
+`cornix mcp` starts an MCP server over stdio, so an AI agent can do things like "read the keyboard's current settings" or "apply this layout.vil".
+
+#### Setup
+
+- **Claude Code**: It is registered as `cornix-device` in `.mcp.json` at the repository root. Open Claude Code in this directory and approve the MCP server when prompted.
+- **Other clients** (Claude Desktop, etc.): Register it with an absolute path as below. If `ruby` is not found (mise / rbenv, etc.), set `command` to the absolute path of Ruby.
+
+```json
+{
+  "mcpServers": {
+    "cornix-device": {
+      "command": "ruby",
+      "args": ["/path/to/cornix-layout/bin/cornix", "mcp"]
+    }
+  }
+}
+```
+
+#### Tools
 
 | Tool | Description |
 |---|---|
@@ -490,6 +509,19 @@ cornix device apply             # Show the diff and write it after confirmation 
 | `read_keymap` | Return or save the current state as layout.vil (read-only) |
 | `backup` / `list_backups` | Save and list backups |
 | `apply_layout` | Dry run by default, returning the diff and a `confirm_token`. Writes only with `dry_run: false` and the `confirm_token` |
+
+#### Applying Changes
+
+1. Generate `layout.vil` with `cornix compile`
+2. Call `apply_layout` (dry run) to get the diff and a `confirm_token`, and review it
+3. Once approved, call `apply_layout` with `dry_run: false` and the `confirm_token`. It backs up, writes only the diff, and reads it back to verify
+4. To roll back, pick a backup with `list_backups` and apply it with `apply_layout`
+
+If the diff has changed since it was reviewed (the keyboard or the file was modified), the token no longer matches and the write is refused.
+
+#### About the Unlock Prompt When Changing Macros
+
+Vial (Web / GUI) asks you to hold two designated keys ("unlock") when saving macros or assigning `QK_BOOT`. This is behavior of the Vial app; the Cornix firmware (RMK 0.8) does not check the lock state for macro writes. Therefore `cornix device` / the MCP server does not need the unlock step (boot keycodes such as `QK_BOOT` cannot be written at all).
 
 ### Safety
 
@@ -1363,7 +1395,9 @@ bin/
 │   ├── decompile.rb         # Decompile with lock protection
 │   ├── validate.rb          # Validation-only
 │   ├── cleanup.rb           # Safe cleanup
-│   └── rename.rb            # RenameCommand wrapper
+│   ├── rename.rb            # RenameCommand wrapper
+│   ├── device.rb            # Direct keyboard read/write (info/read/backup/diff/apply)
+│   └── mcp.rb               # MCP server (stdio)
 ├── diff_layouts              # Round-trip check tool
 └── rename_file               # File renamer CLI (advanced)
 ```
@@ -1467,7 +1501,11 @@ cornix-layout/
 │       ├── keycode_resolver.rb
 │       ├── keycode_aliases.yaml # System-provided keycode aliases
 │       ├── position_map.yaml    # Default physical position map template
-│       └── position_map.rb
+│       ├── position_map.rb
+│       └── device/              # Direct keyboard access (protocol, keycode table, diff/apply, MCP server)
+├── ext/
+│   └── cornix_hid/main.swift   # Raw HID bridge (allow-listed, built to tmp/cornix-hid)
+├── .mcp.json                   # MCP server registration for Claude Code
 ├── config/                     # Configuration files
 └── layout.vil                  # Generated file
 ```

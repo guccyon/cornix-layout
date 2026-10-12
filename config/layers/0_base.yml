@@ -62,7 +62,7 @@ mapping:
     thumb_keys:
       left: NoKey
       middle: MO(1)
-      right: LT5(KC_LANG1)
+      right: LT2(KC_LANG1)
   encoders:
     left:
       push: Mute

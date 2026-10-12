@@ -60,7 +60,7 @@ mapping:
       down: Down
       right: Right
     thumb_keys:
-      left: NoKey
+      left: MO(3)
       middle: MO(1)
       right: LT2(KC_LANG1)
   encoders:
@@ -69,6 +69,6 @@ mapping:
       ccw: VolumeDown
       cw: VolumeUp
     right:
-      push: MO(3)
+      push: TD(3)
       ccw: Up
       cw: Down

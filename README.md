@@ -493,6 +493,39 @@ cornix validate
 
 生成された`layout.vil`をVialでインポートしてキーボードに書き込みます。
 
+## キーボードへの直接反映（Vial Web 不要）
+
+Bluetooth / USB で接続中の Cornix に、Vial プロトコルで直接 `layout.vil` を反映できます（macOS のみ。初回に Xcode Command Line Tools の `swiftc` で小さな HID ブリッジ `tmp/cornix-hid` をビルドします）。
+
+```bash
+cornix device info              # 接続中のキーボードの情報（レイヤー数、ロック状態など）
+cornix device read -o now.vil   # キーボードの現在の状態を layout.vil 形式で保存
+cornix device backup            # tmp/device_backups/ に日時付きで保存
+cornix device diff              # layout.vil とキーボードの差分を表示（書き込みなし）
+cornix device apply             # 差分を表示し、確認後に書き込む（--yes で確認を省略）
+```
+
+`apply` は書き込みの前に自動でバックアップを取り、変更のあったキー・エンコーダ・タップダンス・コンボ・マクロ・設定だけを書き込み、読み戻して一致を確認します。元に戻すときはバックアップを `cornix device apply tmp/device_backups/<日時>.vil` で反映します。
+
+### MCP サーバー
+
+`cornix mcp` で MCP サーバー（stdio）を起動できます。リポジトリの `.mcp.json` に登録済みなので、Claude Code からは `cornix-device` サーバーとして使えます。
+
+| ツール | 内容 |
+|---|---|
+| `keyboard_info` | キーボードの情報（読み取りのみ） |
+| `read_keymap` | 現在の状態を layout.vil 形式で返す・保存する（読み取りのみ） |
+| `backup` / `list_backups` | バックアップの保存と一覧 |
+| `apply_layout` | 既定は dry run で差分と `confirm_token` を返す。`dry_run: false` と `confirm_token` を付けたときだけ書き込む |
+
+### 安全性について
+
+Cornix のファームウェアは RMK 0.8 系で、vial-qmk と違ってロックや範囲検査がほとんどありません（bootloader 移行や EEPROM リセットがロックなしで実行され、範囲外の書き込みではファームウェアがパニックします）。そのため次のようにしています。
+
+- HID ブリッジ（`ext/cornix_hid/main.swift`）は許可リストにあるコマンドしか送りません。bootloader 移行・EEPROM リセット・全消去・アンロック・キーマップ一括書き込み（RMK 0.8 にバグあり）は送れません（`tmp/cornix-hid --self-test` で確認できます）。
+- キーは Vial GUI と同じ 1 キーずつの書き込みだけを使い、layer / row / col・マクロのオフセット・各エントリ番号はすべて送信前に範囲を検査します。
+- `QK_BOOT` などの boot 系キーコードは書き込みません。
+
 ## 設定ファイルの検証
 
 `cornix validate`コマンドで、コンパイル前に設定ファイルの妥当性を検証できます。

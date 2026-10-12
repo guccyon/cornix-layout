@@ -466,6 +466,39 @@ cornix validate
 
 Import the generated `layout.vil` into Vial and flash it to your keyboard.
 
+## Applying Directly to the Keyboard (No Vial Web Needed)
+
+You can apply `layout.vil` directly to a Cornix connected over Bluetooth or USB using the Vial protocol (macOS only; on first use a small HID bridge `tmp/cornix-hid` is built with `swiftc` from the Xcode Command Line Tools).
+
+```bash
+cornix device info              # Info about the connected keyboard (layers, lock state, ...)
+cornix device read -o now.vil   # Save the keyboard's current state as layout.vil
+cornix device backup            # Save a timestamped backup under tmp/device_backups/
+cornix device diff              # Show the diff between layout.vil and the keyboard (no writes)
+cornix device apply             # Show the diff and write it after confirmation (--yes skips the prompt)
+```
+
+`apply` takes a backup before writing, writes only the keys, encoders, tap dances, combos, macros and settings that changed, then reads them back to verify. To roll back, apply a backup with `cornix device apply tmp/device_backups/<timestamp>.vil`.
+
+### MCP Server
+
+`cornix mcp` starts an MCP server over stdio. It is registered in the repository's `.mcp.json`, so Claude Code can use it as the `cornix-device` server.
+
+| Tool | Description |
+|---|---|
+| `keyboard_info` | Keyboard information (read-only) |
+| `read_keymap` | Return or save the current state as layout.vil (read-only) |
+| `backup` / `list_backups` | Save and list backups |
+| `apply_layout` | Dry run by default, returning the diff and a `confirm_token`. Writes only with `dry_run: false` and the `confirm_token` |
+
+### Safety
+
+The Cornix firmware is based on RMK 0.8, which, unlike vial-qmk, has almost no locking or bounds checks (bootloader jump and EEPROM reset run without unlocking, and out-of-range writes make the firmware panic). Therefore:
+
+- The HID bridge (`ext/cornix_hid/main.swift`) only sends allow-listed commands. Bootloader jump, EEPROM reset, bulk resets, unlock and bulk keymap writes (buggy in RMK 0.8) cannot be sent (check with `tmp/cornix-hid --self-test`).
+- Keys are written one at a time, the same way Vial GUI does, and layer/row/col, macro offsets and entry indexes are all range-checked before sending.
+- Boot keycodes such as `QK_BOOT` are never written.
+
 ## Configuration Validation
 
 Use the `cornix validate` command to validate configuration files before compilation.

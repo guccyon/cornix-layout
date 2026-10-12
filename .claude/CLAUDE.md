@@ -130,6 +130,7 @@ Infrastructure Layer (TBD)
 6. **FileRenamer** (`lib/cornix/file_renamer.rb`) - ファイルリネーム
 7. **Validator** (`lib/cornix/validator.rb`) - 設定ファイル検証
 8. **Models** (`lib/cornix/models/`) - ドメインモデル（19ファイル、Phase 2実装）
+9. **Device** (`lib/cornix/device/`, `ext/cornix_hid/`) - 接続中のキーボードへの直接読み書きと MCP サーバー（[知見](memories/vial_device_protocol.md)）
 
 ## Directory Structure
 

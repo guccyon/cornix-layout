@@ -51,7 +51,7 @@ mapping:
       backspace: Minus
     row1:
       H: Hash
-      J: Add
+      J: Plus
       K: LBracket
       L: RBracket
       colon: Colon

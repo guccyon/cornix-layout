@@ -5,7 +5,7 @@ description: Function keys and system controls
 mapping:
   left_hand:
     row0:
-      tab: ClearBT
+      tab: Escape
       Q: NoKey
       W: NoKey
       E: NoKey
@@ -40,7 +40,7 @@ mapping:
       I: F10
       O: F11
       P: F12
-      backspace: NoKey
+      backspace: ClearBT
     row1:
       H: NoKey
       J: F5

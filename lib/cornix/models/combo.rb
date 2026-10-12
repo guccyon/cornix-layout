@@ -122,11 +122,13 @@ module Cornix
 
       # Combo → QMK配列
       #
+      # @param keycode_converter [KeycodeConverter, nil] キーコード解決器（エイリアス → QMK）
       # @param reference_converter [ReferenceConverter, nil] 参照解決器
-      def to_qmk(reference_converter: nil)
+      def to_qmk(keycode_converter: nil, reference_converter: nil)
+        triggers = @trigger_keys.map { |key| resolve_keycode(key, keycode_converter, nil) }
         # 4要素にパディング（不足分はKC_NOで埋める）
-        padded_triggers = (@trigger_keys + ['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO'])[0..3]
-        padded_triggers + [resolve_output_key(@output_key, reference_converter)]
+        padded_triggers = (triggers + ['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO'])[0..3]
+        padded_triggers + [resolve_keycode(@output_key, keycode_converter, reference_converter)]
       end
 
       # YAML Hash → Combo
@@ -168,9 +170,15 @@ module Cornix
 
       private
 
-      # output_keyをQMK形式に解決する
-      def resolve_output_key(value, reference_converter)
+      # キーコード（エイリアス・参照式）をQMK形式に解決する
+      def resolve_keycode(value, keycode_converter, reference_converter)
         return value if value.nil? || value.is_a?(Integer) || value == 'KC_NO'
+
+        if keycode_converter
+          resolved = keycode_converter.resolve(value)
+          return resolved if resolved
+        end
+
         return value unless reference_converter
 
         begin

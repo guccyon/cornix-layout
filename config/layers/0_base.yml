@@ -60,7 +60,7 @@ mapping:
       down: Down
       right: Right
     thumb_keys:
-      left: Enter
+      left: NoKey
       middle: MO(1)
       right: LT5(KC_LANG1)
   encoders:

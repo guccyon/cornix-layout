@@ -1,5 +1,6 @@
 # Generated files
 layout.vil
+!spec/fixtures/layout.vil
 tmp/
 config/.decompile.lock
 .refactor/

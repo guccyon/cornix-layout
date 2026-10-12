@@ -8,7 +8,7 @@ require 'yaml'
 require 'fileutils'
 
 RSpec.describe Cornix::Decompiler do
-  let(:test_vil_path) { File.expand_path('../tmp/layout.vil', __dir__) }
+  let(:test_vil_path) { File.expand_path('fixtures/layout.vil', __dir__) }
   let(:output_dir) { Dir.mktmpdir }
   let(:decompiler) { described_class.new(test_vil_path) }
 

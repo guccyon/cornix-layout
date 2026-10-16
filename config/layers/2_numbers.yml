@@ -1,11 +1,13 @@
 ---
 name: Numbers
 index: 2
-description: Number layer and Numpad
+description: |-
+  Number layer and Numpad
+  左上: Parallels の IME 切り替え (Ctrl + Option + Space)
 mapping:
   left_hand:
     row0:
-      tab: Escape
+      tab: Ctrl + Option + Space
       Q: '1'
       W: '2'
       E: '3'

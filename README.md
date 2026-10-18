@@ -50,7 +50,7 @@ Some of the command output, including many error messages, is currently in Japan
 
 ## Requirements
 
-- **Ruby 3.2 or later** (the code uses `Data.define`; CI uses 4.0) and **Bundler**
+- **Ruby 3.2 or later** (the code uses `Data.define`; CI uses 4.0). Nothing else needs to be installed with Bundler
 - **Xcode Command Line Tools** (for talking to the keyboard; install with `xcode-select --install` if `swiftc` is missing)
   - The tool talks to the keyboard through a small Swift program (`ext/cornix_hid/main.swift`). It is built automatically on first use and placed in `tmp/cornix-hid`
 - **Claude Code CLI** (the `claude` command; only for `cornix rename`)
@@ -62,7 +62,6 @@ Some of the command output, including many error messages, is currently in Japan
 ```bash
 git clone https://github.com/guccyon/cornix-layout.git   # or clone your own fork
 cd cornix-layout
-bundle install
 ```
 
 If you run `cornix init` as is, the settings are not tracked by Git (`.gitignore` excludes them). To keep them in Git, fork the repository or keep the settings in a separate repository (see [Ways to use it](#ways-to-use-it)).
@@ -517,7 +516,6 @@ Backups also move from `tmp/device_backups/` to `tmp/profiles/default/device_bac
 ```bash
 # after forking this repository on GitHub
 git clone <your fork> cornix-layout && cd cornix-layout
-bundle install
 cornix init --profile <your name>
 # after deleting the /.cornix.yml and /profiles/ lines from .gitignore
 git add .gitignore profiles .cornix.yml && git commit -m "Add my settings"
@@ -638,7 +636,10 @@ decompile → compile reproduces the original 16-bit values, so you can bring ov
 
 ## For developers
 
+Only the tests need gems (RSpec). Install them with Bundler first; using the commands does not need this.
+
 ```bash
+bundle install
 LANG=ja_JP.UTF-8 bundle exec rspec          # all tests (no keyboard needed)
 ```
 

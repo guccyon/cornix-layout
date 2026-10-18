@@ -9,14 +9,16 @@ module Cornix
     # shortcuts に nil を渡すと（NONE も）Shortcut('名前') を使えない場面になる（shortcuts_available? が false）。
     #
     # Shortcut('名前') を読むときは shortcuts（利用者の定義）を先に引き、なければ preset_shortcuts を引く（同じ名前は利用者の定義が勝つ）。
-    # 書くとき（shortcut_name）は shortcuts だけを使う（同梱の定義と同じ値が勝手に Shortcut('アプリ:...') にならないように）
+    # 書くとき（shortcut_name）は shortcuts だけを使う（同梱の定義と同じ値が勝手に Shortcut('アプリ:...') にならないように）。
+    # preset_macros は同梱のマクロの定義の名前（Shortcut('名前') では使えないので、その案内のためだけに持つ）
     class References
-      def initialize(macros: {}, tap_dances: {}, shortcuts: nil, preset_shortcuts: {})
+      def initialize(macros: {}, tap_dances: {}, shortcuts: nil, preset_shortcuts: {}, preset_macros: [])
         @macros = macros.dup.freeze
         @tap_dances = tap_dances.dup.freeze
         @shortcuts_available = !shortcuts.nil?
         @shortcuts = (shortcuts || {}).dup.freeze
         @preset_shortcuts = preset_shortcuts.dup.freeze
+        @preset_macros = preset_macros.to_set.freeze
         @macro_names = @macros.invert.freeze
         @tap_dance_names = @tap_dances.invert.freeze
         @shortcut_names = @shortcuts.group_by(&:last).transform_values { |pairs| pairs.map(&:first) }.freeze
@@ -36,6 +38,9 @@ module Cornix
 
       # 名前のショートカットの Keycode（利用者の定義、なければ同梱の定義）。どちらにもなければ nil
       def shortcut(name) = @shortcuts[name] || @preset_shortcuts[name]
+
+      # 同梱のマクロの定義の名前か（Shortcut('名前') ではなく macros/ の preset: で使うもの）
+      def preset_macro?(name) = @preset_macros.include?(name)
 
       # keycode をちょうど 1 つの利用者のショートカットが定義していればその名前。なし・複数なら nil。
       # NoKey / Trans は名前で書かない（空き・透過の位置がすべて Shortcut('名前') にならないように）

@@ -28,10 +28,23 @@ RSpec.describe Cornix::Mapping::ShortcutCatalog do
       expect(catalog.library(notation).entries['macOS:システム:全画面キャプチャ']).to eq(notation.parse('Shift + Command + 3'))
     end
 
-    it '表記は正規形で書いてある（decompile が書く形と同じ）' do
+    it '表記は正規形で書いてある（decompile が書く形と同じ。マクロの keys も）' do
       catalog.texts.each do |name, text|
         expect(notation.format(notation.parse(text))).to eq(text), name
       end
+      yaml = Dir[File.join(described_class::DIR, '*.yaml')].sum('') { |path| File.read(path) }
+      macro_keys = yaml.scan(/keys: (\[[^\]]*\]|[^ }]+)/).flatten.flat_map { |v| v.delete('[]').split(', ') }
+      expect(macro_keys).not_to be_empty
+      macro_keys.map { |key| key.delete("'") }.each { |key| expect(notation.format(notation.parse(key))).to eq(key) }
+    end
+
+    it '複数の手順のもの（#13 で入れなかったもの）はマクロの定義で、preset で手順になる' do
+      expect(catalog.macro_names).to include('macOS:システム:ウィンドウキャプチャ', 'VS Code:基本操作:キーボードショートカット',
+                                             'Android Studio:ナビゲーション:全体を検索', 'Fusion 360:スケッチ:スプライン',
+                                             'Fusion 360:スケッチ:ミラー')
+      expect(catalog.macro_names).to all(satisfy { |name| !catalog.texts.key?(name) })
+      catalog.macro_names.each { |name| expect(catalog.preset(name, notation)).to all(be_a(Cornix::Domain::MacroStep::Value)) }
+      expect(catalog.preset_names.size).to eq(catalog.texts.size + catalog.macro_names.size)
     end
 
     it 'library は直前と同じ notation なら解析し直さない' do
@@ -44,9 +57,57 @@ RSpec.describe Cornix::Mapping::ShortcutCatalog do
     expect(catalog.texts).to eq('App:Cat:Label' => 'Tab', 'App:Top' => 'Esc')
   end
 
+  describe '#preset' do
+    let(:step) { Cornix::Domain::MacroStep }
+    let(:catalog) do
+      catalog_from('a.yaml' => <<~YAML)
+        App:
+          Key: A
+          Mod: Shift + Command + 4
+          Right: RCTL(KC_A)
+          Two:
+            macro:
+              - { action: down, keys: LGui }
+              - { action: tap, keys: [K, S] }
+              - { action: up, keys: LGui }
+      YAML
+    end
+
+    def keys(*texts) = texts.map { |t| notation.parse(t) }
+
+    it 'マクロの定義は書いた手順' do
+      expect(catalog.macro_names).to eq(['App:Two'])
+      expect(catalog.texts.keys).to eq(%w[App:Key App:Mod App:Right])
+      expect(catalog.preset('App:Two', notation)).to eq([step::Down.new(keys: keys('LGui')), step::Tap.new(keys: keys('K', 'S')),
+                                                         step::Up.new(keys: keys('LGui'))])
+    end
+
+    it '1 シーケンスの定義は押して離す手順（修飾キーは押す → キー → 逆順に離す。右側の修飾キーは右側のまま）' do
+      expect(catalog.preset('App:Key', notation)).to eq([step::Tap.new(keys: keys('A'))])
+      expect(catalog.preset('App:Mod', notation)).to eq([step::Down.new(keys: keys('LShift', 'LGui')), step::Tap.new(keys: keys('4')),
+                                                         step::Up.new(keys: keys('LGui', 'LShift'))])
+      expect(catalog.preset('App:Right', notation)).to eq([step::Down.new(keys: keys('RCtrl')), step::Tap.new(keys: keys('A')),
+                                                           step::Up.new(keys: keys('RCtrl'))])
+    end
+
+    it 'なければ nil。同じ notation なら同じ結果を返す' do
+      expect(catalog.preset('App:None', notation)).to be_nil
+      expect(catalog.preset('App:Two', notation)).to equal(catalog.preset('App:Two', notation))
+    end
+  end
+
   it '同梱データの誤りは ConfigError' do
     expect { catalog_from('a.yaml' => "App:\n  'A:B': Tab\n") }.to raise_error(Cornix::ConfigError, /':' を含まない/)
-    expect { catalog_from('a.yaml' => "App:\n  X: 1\n") }.to raise_error(Cornix::ConfigError, /App:X」の値はキーコードの表記/)
+    expect { catalog_from('a.yaml' => "App:\n  X: 1\n") }.to raise_error(Cornix::ConfigError, /App:X」の値はキーコードの表記（文字列）か/)
+    expect { catalog_from('a.yaml' => "App:\n  X:\n    macro: []\n") }.to raise_error(Cornix::ConfigError, /App:X」の macro は手順の空でない/)
+    expect { catalog_from('a.yaml' => "App:\n  X:\n    macro: [{ action: delay, keys: A }]\n") }
+      .to raise_error(Cornix::ConfigError, /App:X」の macro\[0\] は \{ action: tap/)
+    expect { catalog_from('a.yaml' => "App:\n  X:\n    macro: [{ action: tap, keys: 4 }]\n") }
+      .to raise_error(Cornix::ConfigError, /App:X」の macro\[0\]/)
+    expect { catalog_from('a.yaml' => "App:\n  X:\n    macro: [{ action: tap, keys: Nope }]\n").preset('App:X', notation) }
+      .to raise_error(Cornix::ConfigError, /ショートカット「App:X」: キーコード「Nope」を解釈できません/)
+    expect { catalog_from('a.yaml' => "App:\n  X: Tab\n  Y: { macro: [{ action: tap, keys: A }] }\n", 'b.yaml' => "App:\n  Y: Esc\n") }
+      .to raise_error(Cornix::ConfigError, /「App:Y」が重複/)
     expect { catalog_from('a.yaml' => "App:\n  X: {}\n") }.to raise_error(Cornix::ConfigError, /App:X は空でない Hash/)
     expect { catalog_from('a.yaml' => "- Tab\n") }.to raise_error(Cornix::ConfigError, /ファイルの先頭/)
     expect { catalog_from('a.yaml' => "App:\n  X: Tab\n", 'b.yaml' => "App:\n  X: Esc\n") }

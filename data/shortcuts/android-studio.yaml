@@ -1,6 +1,6 @@
 # Android Studio のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
 # Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Android Studio:一般:ビルド')）。
-# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+# 複数の手順のもの（macro:）は Shortcut(...) では使えない。macros/ のファイルに preset: 'アプリ:カテゴリ:ラベル' と書いて使う
 Android Studio:
   一般:
     ビルド: Command + F9
@@ -18,6 +18,9 @@ Android Studio:
     戻る: Command + [
     進む: Command + ]
     最近使用したファイル: Command + E
+    全体を検索:
+      macro:
+        - { action: tap, keys: [LShift, LShift] }
   編集:
     行コメント切り替え: Command + /
     ブロックコメント切り替え: Option + Command + /

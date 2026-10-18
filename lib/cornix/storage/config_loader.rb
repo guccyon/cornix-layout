@@ -8,7 +8,7 @@ module Cornix
   module Storage
     # 設定ディレクトリを読んで Domain::Profile を作る（ConfigRepository#load の中身）。
     #
-    # 読む順: metadata → position_map → macros → tap_dance → shortcuts（ここで Macro('名前') / TapDance('名前') /
+    # 読む順: metadata → position_map → macros（preset: は同梱のショートカットの手順にする）→ tap_dance → shortcuts（ここで Macro('名前') / TapDance('名前') /
     # Shortcut('名前') の対応表 Mapping::References を作る。Shortcut('名前') は shortcuts.yaml になければ同梱の
     # ショートカット（Mapping::ShortcutCatalog）を引く）→ settings → layers → combos。
     # キーコードの文字列は KeycodeNotation#parse で 1 回だけ解析する。
@@ -99,20 +99,22 @@ module Cornix
 
       # shortcuts を渡したときだけ同梱のショートカットも引けるようにする（shortcuts.yaml の値には Shortcut(...) を書けないため）
       def build_references(macro_files, tap_dance_files, shortcuts = nil)
-        Mapping::References.new(macros: names(macro_files), tap_dances: names(tap_dance_files),
+        Mapping::References.new(macros: names(macro_files, preset: true), tap_dances: names(tap_dance_files),
                                 shortcuts: shortcuts&.entries,
-                                preset_shortcuts: shortcuts ? @shortcut_catalog.library(@notation).entries : {})
+                                preset_shortcuts: shortcuts ? @shortcut_catalog.library(@notation).entries : {},
+                                preset_macros: @shortcut_catalog.macro_names)
       end
 
       # 名前 => 番号（名前が重複していれば先のもの。重複は Profile#diagnostics が報告する）
-      def names(files)
-        files.filter_map { |_, data| Schema::Header.call(data) }
+      def names(files, preset: false)
+        files.filter_map { |_, data| Schema::Header.call(data, preset: preset) }
              .each_with_object({}) { |(name, index), h| h[name] = index unless h.key?(name) }
       end
 
-      # マクロのキーは名前参照を使わない（旧 Macro と同じ）
+      # マクロのキーは名前参照を使わない（旧 Macro と同じ）。preset: は同梱のショートカットの手順にする
       def load_macros(files)
-        load_items(files, Schema::KeycodeField.new(@notation)) { |d, c, k| Schema::MacroFile.read(d, c, k) }
+        presets = Schema::MacroFile::Presets.new(catalog: @shortcut_catalog, notation: @notation)
+        load_items(files, Schema::KeycodeField.new(@notation)) { |d, c, k| Schema::MacroFile.read(d, c, k, presets) }
       end
 
       def load_items(files, keycodes)

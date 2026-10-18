@@ -273,6 +273,19 @@ sequence:
 
 ほかに、文字列を入力する `action: text`（`content:` に ASCII の文字列）と、待つ `action: delay`（`duration:` にミリ秒）があります。
 
+`sequence` の代わりに `preset` を書くと、同梱のショートカット（[data/shortcuts/](data/shortcuts/)）の手順のマクロになります。
+
+```yaml
+# profiles/default/macros/05_window_capture.yaml
+index: 5
+preset: 'macOS:システム:ウィンドウキャプチャ'   # ⌘⇧4 → Space
+# name を省くと preset の名前になる（Macro('macOS:システム:ウィンドウキャプチャ') で参照できる）
+```
+
+- 連続して押すもの（`Fusion 360:スケッチ:スプライン` の S → P など）のように、1 つのキーで表せないショートカットはこの書き方で使います（`Shortcut(...)` では使えません）
+- 1 つのキーのショートカットも書けます。修飾キー付きは「修飾キーを押す → キーを押して離す → 修飾キーを離す」の手順になります
+- マクロの番号（`index`）は自分で決めます。プリセットはデバイスに書き込まれないので、decompile ではふつうの `sequence` として書かれます
+
 ### タップダンス
 
 ```yaml
@@ -350,6 +363,7 @@ mapping:
 - [cornixhub](https://cornixhub.com/shortcuts) で共有されているショートカット（27 アプリ・824 件）は、定義しなくても `Shortcut('アプリ:カテゴリ:ラベル')` で使えます（例: `Shortcut('Spotify:再生:次のクリップ')`）。使える名前は [data/shortcuts/](data/shortcuts/) のファイルで確かめられます。ラベルは cornixhub の日本語表記です
 - `shortcuts.yaml` に同じ名前を書くと、同梱の定義より優先されます
 - decompile で `Shortcut(...)` に書き戻されるのは `shortcuts.yaml` の定義だけです（同梱の定義と同じ値はふつうのキーコードで書かれます）
+- 複数の手順のもの（`macro:` で書いたもの）は `Shortcut(...)` では使えません。[マクロ](#マクロ)の `preset` で使います
 
 ### キーの位置（`position_map.yaml`）
 

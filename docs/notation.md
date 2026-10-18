@@ -90,7 +90,22 @@ cornixhub（https://cornixhub.com/shortcuts）で共有されているショー�
   `References#shortcut` は利用者の定義を先に引くので、shortcuts.yaml に同じ名前を書けば上書きできる
 - `Profile#shortcuts` は利用者の定義だけ。`Formatter`（`References#shortcut_name`）も利用者の定義だけを使う
   （同梱の定義も使うと、decompile で Command + B が `Shortcut('Xcode:一般:ビルド')` のように書かれてしまう）
-- 1 つのキーコードで表せないもの（連続して押す・押したまま操作する 6 件）は入れていない
+- 1 つのキーコードで表せないもの（連続して押す・押したまま操作するもの）は `ラベル: { macro: [...] }` で書く（macros/ の sequence と同じ形で、
+  action は tap / down / up だけ）。`{ macro: ... }` だけの Hash はカテゴリではなく定義として読む。#13 で見送った 6 件のうち 5 件を入れた
+  （Unity:シーン:フライスルー の「マウスボタン 2 を押したまま W」は、RMK のマクロでマウスボタンの Down / Up が効くか実機で確かめてから）
+- 複数の手順の定義は `Shortcut('名前')` では使えない（スロットを自動で割り当てると数の管理が利用者から見えなくなるため、#14 で見送った）。
+  使われたら References の `preset_macros` を見て「macros/ に preset: で書いてください」と案内する
+
+### プリセットのマクロ（macros/ の `preset:`）
+
+- macros/ のファイルに `sequence` の代わりに `preset: 'アプリ:カテゴリ:ラベル'` を書くと、同梱の定義の手順のマクロになる（#14）。
+  番号は利用者が `index` で決める。`sequence` と `preset` はどちらか一方
+- 複数の手順の定義はその手順、1 シーケンスの定義は押して離す手順（修飾キー付きは Down 修飾キー → Tap キー → Up 修飾キーを逆順。
+  右側の修飾キーは右側のまま）。`Mapping::ShortcutCatalog#preset` が作る
+- `name` を省くと preset の名前（`Schema::Header` も同じ規則で References の名前を作るので `Macro('アプリ:カテゴリ:ラベル')` で参照できる）
+- `Domain::Macro#preset` に名前を持ち、`Schema::MacroFile.write` は sequence の代わりに preset を書く。デバイスにはないので、
+  decompile（previous なし）ではふつうの sequence になる。逆引きはしない（#13 と同じ方針。同じ手順の別のショートカットに化けるため）
+- 知らない名前は「プリセット「名前」は同梱のショートカットにありません（候補: ...）」（DidYouMean で 3 件まで）
 - `ShortcutCatalog` は `Application::Environment#shortcut_catalog` から `ConfigRepository` に渡す。マクロの keys など References::NONE の場面では
   `Shortcut(...)` は「ここでは使えません」（`References#shortcuts_available?`）
 - データは cornixhub のページの JS から取り出したもの（2026-10-19）。英語版はなく、ラベルは日本語。アプリ名はサイトの英語表記

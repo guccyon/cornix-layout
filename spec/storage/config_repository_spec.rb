@@ -543,4 +543,77 @@ RSpec.describe Cornix::Storage::ConfigRepository do
       end
     end
   end
+
+  describe 'プリセットのマクロ（macros/ の preset:）' do
+    def tab(profile) = profile.position_map.position('left_hand', 'row0', 'tab')
+    def q(profile) = profile.position_map.position('left_hand', 'row0', 'Q')
+
+    def use(dir, tab_text, q_text = 'Q')
+      path = File.join(dir, 'layers/0_layer_0.yaml')
+      File.write(path, File.read(path).sub('tab: Tab', "tab: #{tab_text}").sub('Q: Q', "Q: #{q_text}"))
+    end
+
+    def keys(*texts) = texts.map { |t| notation.parse(t) }
+
+    it 'preset: の手順のマクロになり、name を省くと preset の名前になる（1 シーケンスの定義は押して離す手順）' do
+      with_config_copy do |dir|
+        write_file(dir, 'macros/20_capture.yaml', "index: 20\npreset: ' macOS:システム:ウィンドウキャプチャ '\n")
+        write_file(dir, 'macros/21_copy.yaml', "index: 21\nname: Copy\ndescription: コピー\npreset: 'macOS:テキスト:コピー'\n")
+        use(dir, "Macro('macOS:システム:ウィンドウキャプチャ')", "Macro('Copy')")
+        profile = repository(dir).load
+
+        capture = profile.macro(20)
+        expect(capture).to have_attributes(name: 'macOS:システム:ウィンドウキャプチャ', preset: 'macOS:システム:ウィンドウキャプチャ')
+        expect(capture.steps).to eq([d::MacroStep::Down.new(keys: keys('LGui', 'LShift')), d::MacroStep::Tap.new(keys: keys('4')),
+                                     d::MacroStep::Up.new(keys: keys('LShift', 'LGui')), d::MacroStep::Tap.new(keys: keys('Space'))])
+        expect(profile.macro(21)).to have_attributes(name: 'Copy', description: 'コピー', preset: 'macOS:テキスト:コピー')
+        expect(profile.macro(21).steps).to eq([d::MacroStep::Down.new(keys: keys('LGui')), d::MacroStep::Tap.new(keys: keys('C')),
+                                               d::MacroStep::Up.new(keys: keys('LGui'))])
+        expect(profile.layer(0).key(tab(profile))).to eq(k::MacroCall.new(index: 20))
+        expect(profile.layer(0).key(q(profile))).to eq(k::MacroCall.new(index: 21))
+        expect(profile.diagnostics.select(&:error?)).to be_empty
+      end
+    end
+
+    it 'preset: と sequence の両方・どちらもない・知らない名前・文字列でない値・name も preset もないのは問題になる' do
+      with_config_copy do |dir|
+        write_file(dir, 'macros/20_a.yaml', "index: 20\nname: A\npreset: 'macOS:テキスト:コピー'\nsequence:\n- action: tap\n  keys: A\n")
+        write_file(dir, 'macros/21_b.yaml', "index: 21\nname: B\n")
+        write_file(dir, 'macros/22_c.yaml', "index: 22\npreset: 'macOS:テキスト:コピ'\n")
+        write_file(dir, 'macros/23_d.yaml', "index: 23\npreset: 1\n")
+        write_file(dir, 'macros/24_e.yaml', "index: 24\nsequence:\n- action: tap\n  keys: A\n")
+        expect(load_problems(dir)).to eq([
+          'macros/20_a.yaml: sequence と preset はどちらか一方だけを書いてください',
+          'macros/21_b.yaml: sequence か preset がありません',
+          'macros/22_c.yaml: preset: プリセット「macOS:テキスト:コピ」は同梱のショートカット（data/shortcuts/）にありません' \
+          '（候補: macOS:テキスト:コピー / macOS:テキスト:行末 / macOS:テキスト:行頭）',
+          'macros/23_d.yaml: preset: プリセットの名前（文字列）を書いてください: 整数 1 として読まれました。' \
+          '文字列にするには引用符で囲んでください（例: "1"）',
+          'macros/24_e.yaml: name がありません'
+        ])
+      end
+    end
+
+    it "マクロの定義を Shortcut('名前') で使うと preset: を案内する" do
+      with_config_copy do |dir|
+        use(dir, "Shortcut('Fusion 360:スケッチ:スプライン')")
+        expect(load_problems(dir)).to include(
+          match(/「Fusion 360:スケッチ:スプライン」は複数の手順のマクロなので Shortcut\(...\) では使えません。macros\/ のファイルに preset: 'Fusion 360:スケッチ:スプライン' と書き/)
+        )
+      end
+    end
+
+    it 'save は sequence の代わりに preset を書く' do
+      with_config_copy do |dir|
+        write_file(dir, 'macros/20_spline.yaml', "index: 20\nname: Spline\npreset: 'Fusion 360:スケッチ:スプライン'\n")
+        profile = repository(dir).load
+        Dir.mktmpdir do |out|
+          repository(out).save(profile)
+          expect(File.read(File.join(out, 'macros/20_spline.yaml')))
+            .to eq("---\nindex: 20\nname: Spline\ndescription: ''\npreset: Fusion 360:スケッチ:スプライン\n")
+          expect(repository(out).load).to eq(profile)
+        end
+      end
+    end
+  end
 end

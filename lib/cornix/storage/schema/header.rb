@@ -9,11 +9,12 @@ module Cornix
       module Header
         module_function
 
-        # → [名前, 番号] または nil
-        def call(data)
+        # → [名前, 番号] または nil。マクロ（preset: true）は name がなければ preset の名前（MacroFile と同じ）
+        def call(data, preset: false)
           return nil unless data.is_a?(Hash)
 
           name = data['name']
+          name = data['preset'].then { |p| p.is_a?(String) ? p.strip : p } if preset && !data.key?('name')
           index = data['index']
           return nil unless name.is_a?(String) && !name.strip.empty? && index.is_a?(Integer)
 

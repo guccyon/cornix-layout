@@ -32,6 +32,9 @@ refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名
 refs.macro_index(name) / tap_dance_index(name) / macro_name(index) / tap_dance_name(index)   # Mapping::References::NONE
 refs.shortcut(name) #=> Keycode（shortcuts、なければ preset_shortcuts）/ shortcut_name(keycode) #=> shortcuts のちょうど 1 つと一致すればその名前
 Mapping::ShortcutCatalog.default.texts #=> { 'アプリ:カテゴリ:ラベル' => 表記 }（data/shortcuts/*.yaml）/ library(notation) #=> Domain::ShortcutLibrary
+catalog.macro_names / preset_names #=> 複数の手順の定義の名前 / preset: に書ける名前すべて
+catalog.preset(name, notation) #=> [Domain::MacroStep]（macros/ の preset: の手順。1 シーケンスの定義は押して離す手順）/ nil
+refs.preset_macro?(name)        # 同梱の複数の手順の定義か（Shortcut('名前') で使われたときの案内用。References.new(preset_macros: [...])）
 Mapping::QmkSettingCatalog.default.fetch(qsid) / find(group, name) / all  #=> Definition(qsid, name, group, width, type)
 ```
 

@@ -74,11 +74,13 @@ Keycode（すべて Keycode::Value を include する）
 - `Modified` / `ModTap` / `LayerTap` の `base` は `Basic` だけ（`Cmd + LT(1, Space)` は表せない）
 - `MacroCall` / `TapDanceCall` は番号だけを持つ。名前（`Macro('名前')`）との対応は `Profile#references` が作る
 - 書き込んではいけない値（QK_BOOT など）や、Cornix が対応していないとみられる値の判定は Domain の外にある
-  （`KeycodeCatalog#dangerous?` と `Device::ChangePolicy`、`Capabilities#unsupported_keycodes`）
+  （書き込みの拒否は `KeycodeCatalog#dangerous?` と `Device::ChangePolicy`。対応していないとみられる値の表は
+  `KeycodeCatalog#unsupported_keycodes` が作り、`Application::Environment#capabilities` が `Capabilities` に入れて意味検証に渡す）
 
 ### 3.1 16bit 値の解読（`Mapping::KeycodeCodec`）
 
-`decode` は例外を出さず、上から順に当てはめて最初に当たったものにする。当たらなければ `Raw`。
+`decode` は例外を出さない。値が入る範囲で行が決まり、その行の条件（カタログにある・修飾ビットがあるなど）を満たさなければ
+次の行へは進まずに `Raw` にする（`case` で範囲だけで分岐する）。範囲の決まった行に当たらない値だけが 10〜12 を順に見る。
 
 | 順 | 範囲・値 | 解読結果 |
 |---|---|---|
@@ -122,7 +124,7 @@ decompile が書く正規形は「別名 → 修飾キー式（`Ctrl, Option, Sh
 `Shortcut('名前')` は解析の時点で定義の `Keycode` そのものになる（`MacroCall` のような参照の値は作らない）ので、
 どの位置が `Shortcut(...)` で書かれていたかは Profile に残らない。書き出すときは値が定義のちょうど 1 つと一致すれば `Shortcut('名前')` にする。
 
-同梱のショートカット（`data/shortcuts/`）は `Profile#shortcuts` に入れず、読むときだけ使う（`Mapping::References#preset_shortcuts`）。
+同梱のショートカット（`data/shortcuts/`）は `Profile#shortcuts` に入れず、読むときだけ使う（`References.new(preset_shortcuts:)` で渡し、`References#shortcut(name)` が利用者の定義を先に、なければ同梱のものを引く）。
 
 ### 3.4 注記（notes）
 
@@ -131,7 +133,8 @@ decompile が書く正規形は「別名 → 修飾キー式（`Ctrl, Option, Sh
 - 注記はキーコードを包まず、別の `notes` Hash（場所 => String）で持つ。`Keycode` はデバイスに書く値だけを表す
 - 場所: `Layer#notes`（`KeyPosition`。割り当てのある位置だけ）、`EncoderBinding#notes`（`:push` / `:ccw` / `:cw`）、
   `TapDance#notes`（`:on_tap` など）、`Combo#notes`（`:output_key` だけ）。コンボのトリガーとマクロのキーは割り当てではないので対象外
-- 各集約は `keycode_at(場所)` と `note(場所)` を持ち、場所の扱いをそろえている
+- `Layer` / `EncoderBinding` / `TapDance` / `Combo` は `keycode_at(場所)` を持ち、場所の扱いをそろえている。
+  注記を引くのは `Layer` / `EncoderBinding` / `TapDance` が `note(場所)`、`Combo` が `output_note`
 - `ProfileMapper#to_image` は注記を使わない（compile の結果は注記で変わらない）
 
 nape_pro-layout の `Assignment(keycode, label, shortcut)` のように包まなかったのは、`ProfileMapper#to_image`・意味検証・
@@ -230,7 +233,7 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 - エンコーダの回転（ccw / cw）はマトリクスではなく layout.vil の `encoder_layout[layer][左, 右]` に入る
   （`Image::EncoderRecord`）。プッシュだけがマトリクス上のキー
 - layout.vil の `-1` は `Image::DeviceImage` では nil。ProfileMapper は割り当てのない位置も nil にする
-- テスト: `spec/domain/position_map_spec.rb`（全位置の物理座標と逆変換）
+- テスト: `spec/domain/position_map_spec.rb`（全位置の物理座標と逆変換）、`spec/mapping/profile_mapper/*`（レイヤー・エンコーダの配置、旧 compile 結果との一致）
 
 ## 6. 意味検証（`Profile#diagnostics`）
 
@@ -241,7 +244,7 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 | レイヤー | 枚数の上限、番号の上限・重複 | 番号の抜け |
 | マクロ / タップダンス / コンボ | 件数の上限、番号の上限・重複、名前の重複 | |
 | コンボ | トリガーの数の上限 | |
-| すべての割り当て（レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、コンボのトリガーと出力） | `M(n)` / `TD(n)` の参照先がない、レイヤー番号がレイヤー数を超える | レイヤー数の内だが定義されていないレイヤーを指す、`Capabilities#unsupported_keycodes` にある特殊キー（書き込みは止めない） |
+| すべての割り当て（レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、コンボのトリガーと出力） | `M(n)` / `TD(n)` の参照先がない、レイヤー番号がレイヤー数を超える | レイヤー数の内だが定義されていないレイヤーを指す、`Capabilities#unsupported_keycodes` にある特殊キー（書き込みは止めない。`Capabilities::CORNIX` の表は空で、表は `Application::Environment#capabilities` が足す） |
 
 `path` は `layers[0].left_hand.row0.tab` や `macros[2].steps[1].keys[0]` のようなモデル内のパス（番号は Profile の配列の位置）。
 ファイル上の位置への写像は Storage（`Storage::DiagnosticLocator`）が行う。検証の全体は [validation.md](validation.md)。
@@ -279,7 +282,7 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 
 - 解釈できない 16bit 値は `Keycode::Raw` のまま持つ
 - `previous`（設定ファイルから読んだ Profile）があれば、同じ番号の要素の名前と説明、キーコードが変わっていない場所の注記、
-  メタデータの keyboard と extra_keys 以外の項目、名前付きショートカットを引き継ぐ（`ProfileMapper::Inheritance`）。
+  メタデータの keyboard と、extra のうち extra_keys 以外の項目（file_naming など）、名前付きショートカットを引き継ぐ（`ProfileMapper::Inheritance`）。
   いまの decompile は空の config/ にしか書かないので previous を渡さない（名前は `Macro 0` などの既定の名前になる）
 
 ## 9. 設定ファイル（config/）
@@ -308,12 +311,18 @@ mapping:
   left_hand:
     row0: { tab: Escape, Q: Question, W: DoubleQuote, E: Equal, R: NoKey, T: Tilde }
     row1:
-      lctrl: Trans
+      caps: Trans
       A: { key: "@", note: アットマーク }   # 注記付きの形
-    # row2, row3, thumb_keys も同じ形。書かない・空の値はキーなし
+    row2:                                   # グループ（row0〜row3, thumb_keys）は必須。値は空でもよい
+    row3:
+    thumb_keys:                             # 書かないキー・空の値のキーは割り当てなし
   right_hand:
+    row0:
+    row1:
+    row2:
     row3:
       left: Ctrl + Option + Shift + Command + Left
+    thumb_keys:
   encoders:                                 # 省略した操作は KC_NO
     left: { push: PlayPause, ccw: Rewind, cw: FastForward }
     right: { push: LGUI(KC_0), ccw: Command + Minus, cw: Command + Plus }

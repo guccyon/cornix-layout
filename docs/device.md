@@ -84,18 +84,19 @@ vial-qmk と違う危険な挙動と、それに対する本ツールの扱い:
 - `0x05` / エンコーダ / マクロは範囲検査がなく、範囲外でパニックする → Ruby 側で全て検査
 - マクロ書き込み `0x0F` はオフセット 0 でバッファ全体をクリアする → Vial GUI と同じく先頭から全体を書く
 - `QK_BOOT`(0x7C00) / `QK_REBOOT`(0x7C01) はキーに書き込めてしまう（vial-qmk のようなロック時のファイアウォールがない）→ 書き込み禁止
-- マクロ書き込みもロック不要（Vial GUI はアンロックを求めるが、ファームウェアは検査しない）
+- マクロ書き込みもロック不要（上の「アンロックについて」）
 
 ## 実装の補足
 
 - `ext/cornix_hid/main.swift`: IOKit で raw HID（VID 0xE118, usage page 0xFF60/0x61）を開く行プロトコルのブリッジ。
   許可リストは `tmp/cornix-hid --self-test` でデバイスなしに確認できる
-- キーコード表は `data/keycodes.yaml`（vial-gui の keycodes.py / keycodes_v6.py から抽出した表）。実機キーマップ 560 キーで
+- キーコード表は `data/keycodes.yaml`（旧 `lib/cornix/device/via_keycodes.yaml` を引き継いだもの。vial-gui の keycodes.py / keycodes_v6.py から
+  AST 解析で抽出した表）。実機キーマップ 560 キーで
   encode / decode とも layout.vil と一致することを確認済み。旧表は `spec/fixtures/vial_keycodes_v6.yaml` に残し、
   全 16bit 値で旧実装と同じ文字列になることを spec で確かめている。16bit 値 ⇄ キーコードは `Mapping::KeycodeCodec`、.vil の文字列は `Mapping::VialNotation`
 - 書き込み禁止のキーコードは `data/dangerous_keycodes.yaml`（`KeycodeCatalog#dangerous?`）、設定の幅は `data/qmk_settings.yaml`
   （`QmkSettingCatalog`）。`Device::Protocol` はこれらを注入して使う
 - キーボード定義は xz 圧縮。macOS 標準の `compression_tool -decode -a lzma` で展開している
-- MCP サーバーは LANG 未設定だと `Encoding.default_external` が US-ASCII になるので、`cornix mcp` で UTF-8 にし、
-  応答は `JSON.generate(obj, ascii_only: true)`（`Interface::Mcp::Protocol`）でクライアントのロケールに依存しないようにしている
+- MCP サーバーは LANG 未設定だと `Encoding.default_external` が US-ASCII になるので、`cornix mcp` で UTF-8 にしている
+  （応答の `ascii_only` は上の「構成」）
 - BLE 越しで 1 往復約 40ms。全状態の読み出し（定義・キーマップ・エンコーダ・TD/コンボ 64 件・マクロ・設定）で約 10 秒

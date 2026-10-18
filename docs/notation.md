@@ -2,7 +2,7 @@
 
 設定ファイル（`config/*.yaml`）に書くキーコードの文字列と、その解析・書き出しの仕組み。
 文字列 ⇄ `Domain::Keycode` の変換は `Mapping::KeycodeNotation` だけが行う（.vil の表記は `Mapping::VialNotation`）。
-値の型は [domain-model.md](domain-model.md) の「Keycode」を参照。利用者向けの説明は [README.ja.md](../README.ja.md)。
+値の型は [domain-model.md](domain-model.md) の「Keycode」を参照。
 
 ## 修飾キー表現（VS Code 風）
 
@@ -33,12 +33,6 @@
   順序は `Ctrl, Option, Shift, Command`、右側は `RCtrl, ROption, RShift, RCommand`（`EXPRESSION_ORDER` / `EXPRESSION_FORMAT`）
 - ModTap は `正規名_T(キー)`（`LGUI_T(Lang2)`）、正規名がなければ `MT(MOD_..., キー)`
 - 不変条件 `parse(format(k)) == k` は全 16bit 値で spec が検査する（`spec/mapping/keycode_notation_spec.rb`）
-
-### テスト
-
-- `spec/mapping/keycode_notation_spec.rb`: 表記ごとの値、エラーメッセージ、往復
-- `spec/mapping/keycode_notation_config_spec.rb`: test_config / authors_config の全キーコードが旧コードと同じ値
-  （`spec/fixtures/expected/config_keycodes.yaml`）
 
 ## マクロ・タップダンスの参照
 
@@ -116,7 +110,9 @@ cornixhub（https://cornixhub.com/shortcuts）で共有されているショー�
 
 ## テスト
 
-- `spec/mapping/keycode_notation_spec.rb`（参照・Shortcut の解析・書き出し）
+- `spec/mapping/keycode_notation_spec.rb`（表記ごとの値、エラーメッセージ、往復、参照・Shortcut の解析・書き出し）
+- `spec/mapping/keycode_notation_config_spec.rb`（test_config / authors_config の全キーコードが旧コードと同じ値。
+  `spec/fixtures/expected/config_keycodes.yaml`）
 - `spec/domain/shortcut_library_spec.rb`, `spec/storage/config_repository_spec.rb`（shortcuts.yaml の読み書き・同梱のショートカット）
 - `spec/mapping/shortcut_catalog_spec.rb`（data/shortcuts/ の読み込みと検査）
 - `spec/domain/profile_diagnostics_spec.rb`（参照先の存在）

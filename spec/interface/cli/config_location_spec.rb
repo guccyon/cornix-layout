@@ -104,13 +104,31 @@ RSpec.describe 'cornix の設定ディレクトリの指定と init' do
       expect(Dir.children(@root)).to be_empty
     end
 
-    it '--no-pull なら空の config/ を作って案内する。既にあれば exit 1' do
-      expect(cornix('init', @root, '--no-pull')).to eq(0)
-      expect(Dir.empty?(File.join(@root, 'config'))).to be(true)
+    it '--profile も --config もなければ profiles/default に作り、.cornix.yml で次から使う。既にあれば exit 1' do
+      expect(cornix('init', @root, '--no-pull')).to eq(0), err.string
+      dir = File.join(@root, 'profiles', 'default')
+      expect(Dir.empty?(dir)).to be(true)
+      expect(File).not_to exist(File.join(@root, 'config'))
+      expect(File.read(File.join(@root, '.cornix.yml'))).to eq("profile: default\n")
       expect(out.string).to include('メモ:').and include('cornix decompile FILE')
-      FileUtils.touch(File.join(@root, 'config', 'metadata.yaml'))
+      FileUtils.touch(File.join(dir, 'metadata.yaml'))
       expect(cornix('init', @root, '--no-pull')).to eq(1)
       expect(err.string).to include('設定ディレクトリがすでにあります')
+    end
+
+    it '中身のある config/ があれば、次からは profiles/default が使われることを案内する' do
+      FileUtils.mkdir_p(File.join(@root, 'config'))
+      FileUtils.touch(File.join(@root, 'config', 'metadata.yaml'))
+      expect(cornix('init', @root, '--no-pull')).to eq(0), err.string
+      expect(out.string).to include('次からは profiles/default/ が使われます').and include('--config config')
+    end
+
+    it '.cornix.yml がなければ、今までどおり config/ を使う（後方互換）' do
+      source = File.join(fixtures, 'layout.vil')
+      expect(cornix('decompile', source, '--root', @root)).to eq(0), err.string
+      expect(File).to exist(File.join(@root, 'config', 'metadata.yaml'))
+      expect(cornix('compile', '--root', @root)).to eq(0), err.string
+      expect(image(File.join(@root, 'tmp', 'build', 'layout.vil'))).to eq(image(source))
     end
   end
 end

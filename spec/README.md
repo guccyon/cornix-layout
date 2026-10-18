@@ -8,7 +8,7 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompil
 
 - キーボードは不要（実機の代わりに `spec/device/fake_rmk_device.rb` を使う）。実機と通信するテストは書かない
 - 実行順はランダム（`--seed` で再現できる）。メッセージが日本語なので `LANG=ja_JP.UTF-8` を付ける
-- GitHub Actions（`.github/workflows/rspec.yml`）が push / pull request ごとに、`ruby -w` で `lib/cornix` を読み込んで警告が出ないことを確かめてから実行する
+- GitHub Actions（`.github/workflows/rspec.yml`）が push / pull request ごとに、`ruby -w` で `lib/cornix.rb`（とその下の全ファイル）を読み込み、`ruby -wc` で `bin/` の各ファイルを検査して、警告が出ないことを確かめてから実行する
 
 ## 構成
 

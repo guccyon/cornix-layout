@@ -53,7 +53,9 @@ module Cornix
             encoders = image.encoders[index] || []
             next if grid.flatten.all?(&:nil?) && encoders.all? { |e| e.ccw.nil? && e.cw.nil? }
 
-            Domain::Layer.new(**named(:layer, index), keys: layer_keys(grid), encoders: layer_encoders(grid, encoders))
+            keys = layer_keys(grid)
+            Domain::Layer.new(**named(:layer, index), keys: keys, encoders: layer_encoders(index, grid, encoders),
+                                                      notes: inheritance.notes(:layer, index, keys))
           end
         end
 
@@ -65,12 +67,12 @@ module Cornix
           end
         end
 
-        def layer_encoders(grid, records)
+        def layer_encoders(index, grid, records)
           ENCODER_SIDES.each_with_index.to_h do |side, i|
             row, col = position_map.encoder_push_matrix(side)
             record = records[i]
-            [side, Domain::EncoderBinding.new(push: decode(grid.dig(row, col)),
-                                              ccw: decode(record&.ccw), cw: decode(record&.cw))]
+            actions = { push: decode(grid.dig(row, col)), ccw: decode(record&.ccw), cw: decode(record&.cw) }
+            [side, Domain::EncoderBinding.new(**actions, notes: inheritance.encoder_notes(index, side, actions))]
           end
         end
 
@@ -100,7 +102,8 @@ module Cornix
 
             actions = Domain::TapDance::ACTIONS.to_h { |a| [a, decode(record.public_send(a))] }
             Domain::TapDance.new(**named(:tap_dance, index), **actions,
-                                 tapping_term: record.tapping_term || DEFAULT_TAPPING_TERM)
+                                 tapping_term: record.tapping_term || DEFAULT_TAPPING_TERM,
+                                 notes: inheritance.notes(:tap_dance, index, actions))
           end
         end
 
@@ -113,8 +116,9 @@ module Cornix
           image.combos.each_with_index.filter_map do |record, index|
             next if record.nil? || (record.keys.all? { |k| no_key?(k) } && no_key?(record.output))
 
-            Domain::Combo.new(**named(:combo, index), trigger_keys: combo_triggers(record.keys),
-                                                     output_key: decode(record.output))
+            output = { output_key: decode(record.output) }
+            Domain::Combo.new(**named(:combo, index), trigger_keys: combo_triggers(record.keys), **output,
+                                                     notes: inheritance.notes(:combo, index, output))
           end
         end
 

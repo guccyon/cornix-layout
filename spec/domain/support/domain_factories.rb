@@ -23,14 +23,14 @@ module DomainFactories
 
   def key_position(hand, row, col) = D::KeyPosition.new(hand: hand, row: row, col: col)
 
-  def encoder_binding(push: K::NO_KEY, ccw: K::NO_KEY, cw: K::NO_KEY)
-    D::EncoderBinding.new(push: push, ccw: ccw, cw: cw)
+  def encoder_binding(push: K::NO_KEY, ccw: K::NO_KEY, cw: K::NO_KEY, notes: {})
+    D::EncoderBinding.new(push: push, ccw: ccw, cw: cw, notes: notes)
   end
 
   def encoders = { left: encoder_binding, right: encoder_binding }
 
-  def build_layer(index: 0, name: "Layer #{index}", keys: {}, encoders: self.encoders, description: nil)
-    D::Layer.new(index: index, name: name, keys: keys, encoders: encoders, description: description)
+  def build_layer(index: 0, name: "Layer #{index}", keys: {}, encoders: self.encoders, description: nil, notes: {})
+    D::Layer.new(index: index, name: name, keys: keys, encoders: encoders, description: description, notes: notes)
   end
 
   def build_macro(index: 0, name: "Macro #{index}", steps: [D::MacroStep::Tap.new(keys: [basic(0x04)])])
@@ -38,13 +38,14 @@ module DomainFactories
   end
 
   def build_tap_dance(index: 0, name: "TapDance #{index}", on_tap: basic(0x04), on_hold: K::NO_KEY,
-                      on_double_tap: K::NO_KEY, on_tap_hold: K::NO_KEY, tapping_term: 200)
+                      on_double_tap: K::NO_KEY, on_tap_hold: K::NO_KEY, tapping_term: 200, notes: {})
     D::TapDance.new(index: index, name: name, on_tap: on_tap, on_hold: on_hold, on_double_tap: on_double_tap,
-                    on_tap_hold: on_tap_hold, tapping_term: tapping_term)
+                    on_tap_hold: on_tap_hold, tapping_term: tapping_term, notes: notes)
   end
 
-  def build_combo(index: 0, name: "Combo #{index}", trigger_keys: [basic(0x0E), basic(0x0F)], output_key: basic(0x2F))
-    D::Combo.new(index: index, name: name, trigger_keys: trigger_keys, output_key: output_key)
+  def build_combo(index: 0, name: "Combo #{index}", trigger_keys: [basic(0x0E), basic(0x0F)], output_key: basic(0x2F),
+                  notes: {})
+    D::Combo.new(index: index, name: name, trigger_keys: trigger_keys, output_key: output_key, notes: notes)
   end
 
   def build_metadata = D::Metadata.new(keyboard: 'cornix', version: 1)

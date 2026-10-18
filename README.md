@@ -278,6 +278,29 @@ mapping:
 - 書かなかったキーは割り当てなし（layout.vil では `-1`）になります。下のレイヤーを使うには `Trans` を書きます
 - 書かなかったエンコーダの操作は `NoKey` になります
 
+#### 注記（note）
+
+キーを割り当てる場所（レイヤーのキー・エンコーダの操作、タップダンスの動作、コンボの `output_key`）には、
+`key` と `note` のマッピングで注記を付けられます。
+
+```yaml
+mapping:
+  left_hand:
+    row0:
+      tab:                         # 注記付き
+        key: TapDance('Tab Escape')
+        note: タップで Tab、長押しで Escape
+      Q: "!"                       # 注記なし（キーだけの短い形）
+  encoders:
+    left:
+      push: { key: Mute, note: ミュート }
+```
+
+- `note`（注記）は「何のための割り当てか」のメモです。layout.vil やキーボードには書き込まれず、設定ファイルにだけ残ります。
+  注記を足したり変えたりしても compile の結果は変わりません
+- `note` は省略でき、空の文字列は注記なしと同じです。`key` と `note` 以外のキーは検証エラーです
+- decompile は layout.vil に注記がないので、注記を書きません（既存の設定から引き継ぐ場合は、キーコードが変わっていない場所の注記だけを残します）
+
 マクロファイル（例: `config/macros/00_bracket_pair.yaml`）:
 
 ```yaml

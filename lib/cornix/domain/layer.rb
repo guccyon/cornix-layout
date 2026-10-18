@@ -10,23 +10,29 @@ module Cornix
   module Domain
     # レイヤー 1 枚。keys は割り当てのある位置だけを持つ（ない位置はデバイスで -1 / 未設定）。
     # encoders は左右のエンコーダ（:left / :right の両方が必須）。
+    # notes は位置 => 注記（割り当てのある位置だけ。デバイスには書かない）。
     # 番号がデバイスのレイヤー数に収まるか、重複がないかは Profile#diagnostics で検査する
-    class Layer < Data.define(:index, :name, :description, :keys, :encoders)
+    class Layer < Data.define(:index, :name, :description, :keys, :encoders, :notes)
       NAME_MAX = 50
       ENCODER_SIDES = %i[left right].freeze
 
-      def initialize(index:, name:, keys:, encoders:, description: nil)
+      def initialize(index:, name:, keys:, encoders:, description: nil, notes: {})
+        keys = check_keys!(keys)
         super(
           index: Checks.integer!(index, LayerRef::RANGE, 'レイヤーの番号'),
           name: check_name!(name),
           description: Checks.text(description, 'レイヤーの説明'),
-          keys: check_keys!(keys),
-          encoders: check_encoders!(encoders)
+          keys: keys,
+          encoders: check_encoders!(encoders),
+          notes: Checks.notes!(notes, keys, 'キーの注記')
         )
       end
 
       # 位置の割り当て。なければ nil
       def key(position) = keys[position]
+
+      # 位置の注記。なければ nil
+      def note(position) = notes[position]
 
       def encoder(side) = encoders.fetch(side)
 

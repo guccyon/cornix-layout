@@ -10,7 +10,7 @@ module Cornix
       #   enabled: true                   # 省略可（読み飛ばす）
       #   index: 0                        # コンボ番号
       #   trigger_keys: [KC_K, KC_L]      # 同時に押すキー
-      #   output_key: Macro('Bracket Pair')
+      #   output_key: Macro('Bracket Pair')   # 注記付きの形（{ key: ..., note: ... }）も書ける
       module ComboFile
         KEYS = %w[name description enabled index trigger_keys output_key].freeze
 
@@ -22,12 +22,12 @@ module Cornix
           description = ctx.description(hash['description'])
           index = ctx.bounded(hash['index'], 'index', Domain::Combo::INDEX_RANGE, 'コンボ番号')
           triggers = read_triggers(hash['trigger_keys'], ctx, keycodes)
-          output = keycodes.read(hash['output_key'], ctx, 'output_key')
+          output = keycodes.read_assignment(hash['output_key'], ctx, 'output_key')
           return nil if [name, index, triggers, output].any?(&:nil?) || description == :invalid
 
           ctx.build('') do
             Domain::Combo.new(index: index, name: name, description: description, trigger_keys: triggers,
-                              output_key: output)
+                              output_key: output.keycode, notes: KeycodeField.notes(output_key: output))
           end
         end
 
@@ -46,7 +46,7 @@ module Cornix
             'name' => combo.name,
             'description' => combo.description || '',
             'trigger_keys' => combo.trigger_keys.map { |k| keycodes.write(k) },
-            'output_key' => keycodes.write(combo.output_key)
+            'output_key' => keycodes.write_assignment(combo.output_key, combo.output_note)
           }
         end
       end

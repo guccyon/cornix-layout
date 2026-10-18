@@ -40,4 +40,11 @@ RSpec.describe Cornix::Domain::TapDance do
     expect { build_tap_dance(tapping_term: nil) }.to raise_error(Cornix::InvalidValue)
     expect { build_tap_dance(tapping_term: '200') }.to raise_error(Cornix::InvalidValue)
   end
+
+  it '動作ごとに注記を持てる' do
+    td = build_tap_dance(notes: { on_tap: 'A を送る' })
+    expect(td.note(:on_tap)).to eq('A を送る')
+    expect(td.note(:on_hold)).to be_nil
+    expect { build_tap_dance(notes: { tapping_term: 'x' }) }.to raise_error(Cornix::InvalidValue, /タップダンスの注記/)
+  end
 end

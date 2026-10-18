@@ -71,12 +71,15 @@ Domain::PositionMap.from_h(hash)                           # position_map.yaml �
   #position_at(row, col) #=> KeyPosition | nil
   #encoder_push_matrix(:left|:right) #=> [row, col]
   #positions #=> [KeyPosition]                             # 定義順
-Domain::EncoderBinding(push:, ccw:, cw:)                   # 各 Keycode
-Domain::Layer(index:, name:, description:, keys: { KeyPosition => Keycode }, encoders: { left: EncoderBinding, right: EncoderBinding })
+Domain::EncoderBinding(push:, ccw:, cw:, notes: { push: String, ... })   # 各 Keycode。notes は省略可
+Domain::Layer(index:, name:, description:, keys: { KeyPosition => Keycode }, encoders: { left: EncoderBinding, right: EncoderBinding },
+              notes: { KeyPosition => String })            # notes（注記）は割り当てのある位置だけ。省略可
 Domain::MacroStep::Tap / Down / Up(keys: [Keycode]), Delay(ms:), Text(content:)
 Domain::Macro(index:, name:, description:, steps:)
-Domain::TapDance(index:, name:, description:, on_tap:, on_hold:, on_double_tap:, on_tap_hold:, tapping_term:)
-Domain::Combo(index:, name:, description:, trigger_keys: [Keycode], output_key: Keycode)
+Domain::TapDance(index:, name:, description:, on_tap:, on_hold:, on_double_tap:, on_tap_hold:, tapping_term:,
+                 notes: { on_tap: String, ... })
+Domain::Combo(index:, name:, description:, trigger_keys: [Keycode], output_key: Keycode, notes: { output_key: String })
+# 注記（notes）は設定ファイルにだけある「何のための割り当てか」のメモ。ProfileMapper#to_image は使わない
 Domain::QmkSettings(values: { qsid(Integer) => Integer })
 Domain::Metadata(...)                                      # config/metadata.yaml の内容（未使用の項目も保持）
 Domain::Capabilities(layers:, macros:, tap_dances:, combos:, ...)  # Cornix の上限。定数 CORNIX
@@ -113,7 +116,7 @@ Device::Writer#apply(plan)                                 # 書いたあと読�
 ```ruby
 mapper = Mapping::ProfileMapper.new(codec:, capabilities: Domain::Capabilities::CORNIX)
 mapper.to_image(profile)   #=> Image::DeviceImage   # 旧 compile と同じ配置・パディング（未使用の TD / コンボ / マクロ）
-mapper.to_profile(image, position_map:, previous: nil) #=> Domain::Profile   # previous があれば名前や説明を引き継ぐ
+mapper.to_profile(image, position_map:, previous: nil) #=> Domain::Profile   # previous があれば名前や説明、キーコードが同じ場所の注記を引き継ぐ
 ```
 
 ### p2-storage（`refactor/p2-storage`）: `Storage::ConfigRepository`

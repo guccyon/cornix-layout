@@ -55,6 +55,12 @@ module Cornix
           string(value, loc, what) || :invalid
         end
 
+        # 注記（任意の文字列）。空の文字列は nil（注記なし）。文字列でなければ問題を記録して :invalid
+        def note(value, loc)
+          text = optional_string(value, loc, '注記（文字列）')
+          text.is_a?(String) && text.strip.empty? ? nil : text
+        end
+
         def integer(value, loc, what = '整数')
           value.is_a?(Integer) ? value : type_error(value, loc, what)
         end

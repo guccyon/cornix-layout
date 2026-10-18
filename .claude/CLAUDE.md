@@ -152,7 +152,8 @@ ruby bin/diff_layouts       # tmp/layout.vil と tmp/build/layout.vil を 16bit 
   `<root>/config` 以外では tmp を `tmp/profiles/<名前>/`（profiles/ の外はパスのハッシュ付き。compile の出力はその下の
   `build/layout.vil`）に分ける。`.cornix.yml` の読み書きは `Storage::SettingsFile`。
   `cornix init` が設定ディレクトリ（指定がなければ `profiles/default`）と（必要なら）`.cornix.yml` を作り、デバイスか `--from` の .vil から設定を書く。
-  `config/` は読むほうだけ後方互換で残す（新しく作るのは profiles/ の下）
+  `config/` は読むほうだけ後方互換で残す（新しく作るのは profiles/ の下）。`.cornix.yml` がなく中身のある `config/` があるところでは、
+  指定なしの init は使う設定が黙って変わらないように止める。
 
 ## Troubleshooting
 

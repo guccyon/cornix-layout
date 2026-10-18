@@ -116,11 +116,35 @@ RSpec.describe 'cornix の設定ディレクトリの指定と init' do
       expect(err.string).to include('設定ディレクトリがすでにあります')
     end
 
-    it '中身のある config/ があれば、次からは profiles/default が使われることを案内する' do
+    it '.cornix.yml がなく中身のある config/ があれば、指定なしの init は何も作らずに exit 1' do
       FileUtils.mkdir_p(File.join(@root, 'config'))
       FileUtils.touch(File.join(@root, 'config', 'metadata.yaml'))
+      expect(cornix('init', @root, '--no-pull')).to eq(1)
+      expect(err.string).to include('設定ディレクトリ config/ がすでにあります').and include('--profile default')
+      expect(Dir.children(@root)).to eq(['config'])
+    end
+
+    it '中身のある config/ があっても --profile を付ければ作り、次からは profiles/NAME が使われることを案内する' do
+      FileUtils.mkdir_p(File.join(@root, 'config'))
+      FileUtils.touch(File.join(@root, 'config', 'metadata.yaml'))
+      expect(cornix('init', @root, '--profile', 'default', '--no-pull')).to eq(0), err.string
+      expect(File.read(File.join(@root, '.cornix.yml'))).to eq("profile: default\n")
+      expect(out.string).to include('次からは profiles/default/ が使われます')
+        .and include("--config #{File.join(@root, 'config')}")
+    end
+
+    it '空の config/ や、すでにある .cornix.yml なら止めず、config/ の案内も出さない' do
+      FileUtils.mkdir_p(File.join(@root, 'config'))
       expect(cornix('init', @root, '--no-pull')).to eq(0), err.string
-      expect(out.string).to include('次からは profiles/default/ が使われます').and include('--config config')
+      expect(out.string).not_to include('次からは')
+      other = File.join(@root, 'other')
+      FileUtils.mkdir_p(File.join(other, 'config'))
+      FileUtils.touch(File.join(other, 'config', 'metadata.yaml'))
+      File.write(File.join(other, '.cornix.yml'), "profile: main\n")
+      out.truncate(0)
+      expect(cornix('init', other, '--no-pull')).to eq(0), err.string
+      expect(out.string).not_to include('次からは')
+      expect(File.read(File.join(other, '.cornix.yml'))).to eq("profile: main\n")
     end
 
     it '.cornix.yml がなければ、今までどおり config/ を使う（後方互換）' do

@@ -22,8 +22,10 @@ module Cornix
               --no-pull    デバイスを読まずに空の設定ディレクトリだけを作る
 
               作る場所は --profile NAME なら profiles/NAME、--config DIR なら DIR、どちらもなければ
-              profiles/#{Application::Init::DEFAULT_PROFILE}。作る場所が既定（このリポジトリの config/）でなければ、
-              次からその設定が使われるように .cornix.yml を作る（すでにあれば変えない）。
+              profiles/#{Application::Init::DEFAULT_PROFILE}。ただしどちらもなく、.cornix.yml がなくて中身のある config/ が
+              あれば、使う設定が黙って変わらないように何も作らずに止める（--profile か --config で場所を指定する）。
+              --config でこのリポジトリの config/ を指定したときを除き、次からその設定が使われるように
+              .cornix.yml を作る（すでにあれば変えない）。
             TEXT
           end
 
@@ -45,10 +47,24 @@ module Cornix
             global = runtime.global_options
             profile = global[:profile] || (Application::Init::DEFAULT_PROFILE unless global[:config])
             base = File.expand_path(dir || global[:root] || Dir.pwd)
+            check_legacy_config!(base) unless global[:profile] || global[:config]
             # DIR を渡したときは、--config の相対パスも DIR からとする
             ws = Application::Workspace.resolve(cwd: dir ? base : Dir.pwd, root: base, default_root: base, env: {},
                                                 config: global[:config], profile: profile)
             runtime.use_case_for(:init, ws)
+          end
+
+          # .cornix.yml がなく中身のある config/ を使っているところで、指定なしに profiles/default を作って
+          # .cornix.yml を書くと、以後の compile や apply が黙って新しい設定に切り替わるので止める
+          def check_legacy_config!(base)
+            legacy = File.join(base, Application::Workspace::DEFAULT_CONFIG)
+            return if File.file?(File.join(base, Application::Workspace::SETTINGS_FILE))
+            return if !File.directory?(legacy) || Dir.empty?(legacy)
+
+            raise ConfigError.new("設定ディレクトリ #{Application::Workspace::DEFAULT_CONFIG}/ がすでにあります。" \
+                                  'このまま profiles/ に作ると次から使う設定が変わるので、' \
+                                  "--profile #{Application::Init::DEFAULT_PROFILE} のように場所を指定してください",
+                                  path: legacy)
           end
 
           def report(result)

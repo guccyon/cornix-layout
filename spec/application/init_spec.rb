@@ -79,4 +79,13 @@ RSpec.describe Cornix::Application::Init do
     expect(result.created).to eq(['profiles/second/', '.gitignore（.decompile.lock を追加）'])
     expect(result.notes).to include(include('--profile second'))
   end
+
+  it '中身のある config/ とは別の場所に作って .cornix.yml を書いたら、次から使われる場所が変わることを案内する' do
+    FileUtils.mkdir_p(File.join(@root, 'config'))
+    File.write(File.join(@root, 'config', 'metadata.yaml'), "a: 1\n")
+    result = init(profile: 'default', pull: false)
+    expect(read('.cornix.yml')).to eq("profile: default\n")
+    expect(result.notes).to include(include('次からは profiles/default/ が使われます')
+                                      .and(include("--config #{File.join(@root, 'config')}")))
+  end
 end

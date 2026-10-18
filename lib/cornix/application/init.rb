@@ -10,7 +10,7 @@ module Cornix
     # 新しい設定ディレクトリを作る（cornix init）→ InitResult。env.workspace の場所に作る。
     #
     # - 設定ディレクトリにすでにファイルがあれば ConfigError（上書きしない）
-    # - .cornix.yml がなく、作る場所が既定（このリポジトリの config/）でなければ、次から見つかるように
+    # - .cornix.yml がなく、作る場所がこのリポジトリの config/ でなければ、次から見つかるように
     #   .cornix.yml（profiles/NAME なら「profile: NAME」、それ以外は「config: 相対パス」）を作る。あれば変えない。
     #   中身のある <root>/config があれば、次からはそれが使われなくなることを notes で知らせる
     # - このリポジトリの外に作るときは .gitignore に tmp/ と .decompile.lock を足す（設定だけのリポジトリのため）
@@ -91,7 +91,8 @@ module Cornix
         if settings_created && legacy_config?(ws)
           list << "#{Workspace::DEFAULT_CONFIG}/ があります。#{Workspace::SETTINGS_FILE} を作ったので、次からは " \
                   "#{relative(ws, ws.config_dir)}/ が使われます（#{Workspace::DEFAULT_CONFIG}/ を使うには " \
-                  "--config #{Workspace::DEFAULT_CONFIG} を付けるか、#{Workspace::SETTINGS_FILE} を消してください）"
+                  "--config #{File.join(ws.root, Workspace::DEFAULT_CONFIG)} を付けるか、" \
+                  "#{Workspace::SETTINGS_FILE} を消してください）"
         end
         if !settings_created && File.exist?(settings_path(ws)) && !resolves_here?(ws)
           list << "#{Workspace::SETTINGS_FILE} はすでにあるので変えていません。この設定を使うには " \

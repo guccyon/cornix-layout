@@ -26,9 +26,11 @@ codec.decode(Integer) #=> Domain::Keycode（例外を出さない。最後は Ra
 codec.encode(Domain::Keycode) #=> Integer（表せなければ UnknownKeycode）
 catalog.lookup(name) / code_for_name / code_for_alias / vial_name(code) / preferred_alias(code) / aliases_for(code)
 catalog.basic?(code) / quantum?(code) / dangerous?(code) / dangerous_reason(code)
-refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名前' => index }, shortcuts: { '名前' => keycode })
+refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名前' => index }, shortcuts: { '名前' => keycode },
+                               preset_shortcuts: { 'アプリ:カテゴリ:ラベル' => keycode })
 refs.macro_index(name) / tap_dance_index(name) / macro_name(index) / tap_dance_name(index)   # Mapping::References::NONE
-refs.shortcut(name) #=> Keycode / shortcut_name(keycode) #=> 定義のちょうど 1 つと一致すればその名前
+refs.shortcut(name) #=> Keycode（shortcuts、なければ preset_shortcuts）/ shortcut_name(keycode) #=> shortcuts のちょうど 1 つと一致すればその名前
+Mapping::ShortcutCatalog.default.texts #=> { 'アプリ:カテゴリ:ラベル' => 表記 }（data/shortcuts/*.yaml）/ library(notation) #=> Domain::ShortcutLibrary
 Mapping::QmkSettingCatalog.default.fetch(qsid) / find(group, name) / all  #=> Definition(qsid, name, group, width, type)
 ```
 
@@ -123,7 +125,7 @@ mapper.to_profile(image, position_map:, previous: nil) #=> Domain::Profile   # p
 ### p2-storage（`refactor/p2-storage`）: `Storage::ConfigRepository`
 
 ```ruby
-repo = Storage::ConfigRepository.new(dir, notation:, settings_catalog:)
+repo = Storage::ConfigRepository.new(dir, notation:, settings_catalog:, shortcut_catalog: Mapping::ShortcutCatalog.default)
 repo.load    #=> Domain::Profile（問題はすべて集めて Storage::InvalidConfig(problems) で送出）
 repo.save(profile) #=> [書いたファイル]   # decompile。ファイル名の規則は旧 YamlWriter と同じ
 ```

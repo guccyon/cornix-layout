@@ -1,0 +1,19 @@
+# Zoom のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Zoom:一般:ミュート切り替え')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Zoom:
+  一般:
+    ミュート切り替え: Shift + Command + A
+    ビデオ切り替え: Shift + Command + V
+    画面共有切り替え: Shift + Command + S
+    録音切り替え: Shift + Command + R
+    ミーティングから退出: Command + W
+    フルスクリーン: Shift + Command + F
+  表示:
+    スピーカービュー切り替え: Shift + Command + W
+    参加者一覧: Command + U
+    チャットを開く: Shift + Command + H
+    招待: Command + I
+  アクション:
+    挙手: "¥"
+    プッシュトゥトーク: Space

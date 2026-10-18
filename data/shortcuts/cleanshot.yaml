@@ -1,0 +1,45 @@
+# CleanShot X のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('CleanShot X:キャプチャ（カスタマイズ可）:範囲選択キャプチャ')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+CleanShot X:
+  キャプチャ（カスタマイズ可）:
+    範囲選択キャプチャ: Shift + Command + 4
+    全画面キャプチャ: Shift + Command + 3
+    ウィンドウキャプチャ: Shift + Command + 5
+    スクロールキャプチャ: Shift + Command + 6
+    画面録画: Shift + Command + 7
+    セルフタイマー: Shift + Command + 8
+    OCR（テキスト認識）: Shift + Command + 2
+  Quick Access Overlay:
+    クリップボードにコピー: Command + C
+    保存: Command + S
+    閉じる: Command + W
+    クラウドにアップロード: Command + U
+    注釈ツールを開く: Command + E
+  注釈ツール:
+    背景ツール: B
+    移動ツール: V
+    切り抜きツール: K
+    描画ツール: D
+    蛍光ペン: M
+    線ツール: L
+    テキストツール: T
+    矢印ツール: A
+    カウンターツール: C
+    楕円ツール: E
+    ぼかし（モザイク）: P
+    スポットライト: H
+    四角形ツール: R
+    塗りつぶし四角形: F
+  注釈操作:
+    オブジェクトをコピー: Command + C
+    オブジェクトを複製: Command + D
+    保存: Command + S
+    名前を付けて保存: Shift + Command + S
+    画像をコピー: Shift + Command + C
+    クラウドにアップロード: Command + U
+    印刷: Command + P
+    新規スクリーンショット追加: Shift + Command + I
+    ファイルから追加: Command + I
+    ツールサイズを大きく: "`"
+    ツールサイズを小さく: "+"

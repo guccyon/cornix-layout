@@ -1,0 +1,62 @@
+# Linux のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Linux:システム:全画面キャプチャ')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+# 修飾キーは cornix の正規形で書いている（Command = Win / Super、Option = Alt）
+Linux:
+  システム:
+    全画面キャプチャ: PrintScreen
+    範囲選択キャプチャ: Shift + PrintScreen
+    ウィンドウキャプチャ: Option + PrintScreen
+    Mission Control: LGui
+    ウィンドウを切り替え: Option + Tab
+    ウィンドウを閉じる: Option + F4
+    画面ロック: Command + L
+    ファイルマネージャーを開く: Command + E
+    ターミナルを開く: Ctrl + Option + T
+    環境設定: Command + I
+    ワークスペース一覧: Command + S
+    次のワークスペース: Ctrl + Option + Right
+    前のワークスペース: Ctrl + Option + Left
+    最大化切り替え: Command + Up
+    左半分切り替え: Command + Left
+    右半分切り替え: Command + Right
+  テキスト:
+    コピー: Ctrl + C
+    ペースト: Ctrl + V
+    カット: Ctrl + X
+    元に戻す: Ctrl + Z
+    やり直し: Ctrl + Shift + Z
+    全選択: Ctrl + A
+    検索: Ctrl + F
+    検索と置換: Ctrl + H
+    保存: Ctrl + S
+    行頭: Home
+    行末: End
+    文書の先頭: Ctrl + Home
+    文書の末尾: Ctrl + End
+    単語左: Ctrl + Left
+    単語右: Ctrl + Right
+  ファイル:
+    新規フォルダ: Ctrl + Shift + N
+    削除: Delete
+    完全に削除: Shift + Delete
+    名前を変更: F2
+    隠しファイル切り替え: Ctrl + H
+    アドレスバー: Ctrl + L
+    新規ウィンドウ: Ctrl + N
+    新規タブ: Ctrl + T
+    戻る: Option + Left
+    進む: Option + Right
+  ブラウザ:
+    新規タブ: Ctrl + T
+    タブを閉じる: Ctrl + W
+    閉じたタブを開く: Ctrl + Shift + T
+    次のタブへ: Ctrl + Tab
+    前のタブへ: Ctrl + Shift + Tab
+    再描画: Ctrl + R
+    ハードリフレッシュ: Ctrl + Shift + R
+    アドレスバー: Ctrl + L
+    ブックマーク: Ctrl + D
+    履歴: Ctrl + H
+    開発者ツール: F12
+    新規プライベートウィンドウ: Ctrl + Shift + P

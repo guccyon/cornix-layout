@@ -1,0 +1,36 @@
+# Raycast のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Raycast:基本操作:Raycastを開く')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Raycast:
+  基本操作:
+    Raycastを開く: Option + Space
+    設定を開く: Command + ,
+    ウィンドウを閉じる: Command + W
+    前のページに戻る: Escape
+    メイン検索に戻る: Command + Escape
+  リスト操作:
+    下に移動: Ctrl + N
+    上に移動: Ctrl + P
+    1番目を選択: Command + 1
+    2番目を選択: Command + 2
+    3番目を選択: Command + 3
+    コマンド履歴を表示: Up
+  アクション:
+    アクションパネルを開く: Command + K
+    アイテムの設定を開く: Shift + Command + ,
+    グループ設定を開く: Option + Command + ,
+    お気に入りに追加/削除: Shift + Command + F
+    お気に入りを上に移動: Option + Command + Up
+    お気に入りを下に移動: Option + Command + Down
+  クイックアクセス:
+    ホームディレクトリを開く: "~"
+    ルートディレクトリを開く: "/"
+    絵文字ピッカー: ":"
+    クリップボード履歴: Shift + Command + V
+  ウィンドウ管理:
+    左半分: Ctrl + Option + Left
+    右半分: Ctrl + Option + Right
+    上半分: Ctrl + Option + Up
+    下半分: Ctrl + Option + Down
+    最大化: Ctrl + Option + Enter
+    中央に配置: Ctrl + Option + C

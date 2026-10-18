@@ -1,0 +1,29 @@
+# note のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('note:見出し:大見出し')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+note:
+  見出し:
+    大見出し: Option + Command + 2
+    小見出し: Option + Command + 3
+    見出しなし: Option + Command + 0
+  書式設定:
+    太字: Command + B
+    取り消し線: Shift + Command + X
+    中央揃え: Shift + Command + E
+    左揃え: Shift + Command + L
+    引用: Shift + Command + .
+    コード: Option + Command + \
+    リンクを設定/編集: Command + K
+  リスト:
+    箇条書き: Shift + Command + 8
+    番号付きリスト: Shift + Command + 7
+    階層を下げる: Command + [
+    階層を上げる: Command + ]
+  編集:
+    元に戻す: Command + Z
+    やり直し: Shift + Command + Z
+    保存: Command + S
+    段落内改行: Shift + Enter
+    書式なしで貼り付け: Shift + Command + V
+    段落を上に移動: Shift + Command + Up
+    段落を下に移動: Shift + Command + Down

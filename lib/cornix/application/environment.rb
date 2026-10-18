@@ -49,6 +49,7 @@ module Cornix
 
       def catalog = @catalog ||= Mapping::KeycodeCatalog.default
       def settings_catalog = @settings_catalog ||= Mapping::QmkSettingCatalog.default
+      def shortcut_catalog = @shortcut_catalog ||= Mapping::ShortcutCatalog.default
       def codec = @codec ||= Mapping::KeycodeCodec.new(catalog)
       def notation = @notation ||= Mapping::KeycodeNotation.new(catalog: catalog, codec: codec)
       def vial = @vial ||= Mapping::VialNotation.new(catalog: catalog, codec: codec)
@@ -56,7 +57,10 @@ module Cornix
       def mapper = @mapper ||= Mapping::ProfileMapper.new(codec: codec)
       def vil_file = @vil_file ||= Storage::VilFile.new(vial: vial)
       def backup_store = @backup_store ||= Storage::BackupStore.new(backup_dir, vil_file: vil_file)
-      def repository = @repository ||= Storage::ConfigRepository.new(config_dir, notation: notation, settings_catalog: settings_catalog)
+      def repository
+        @repository ||= Storage::ConfigRepository.new(config_dir, notation: notation, settings_catalog: settings_catalog,
+                                                                  shortcut_catalog: shortcut_catalog)
+      end
       def config_editor = @config_editor ||= Storage::ConfigEditor.new(config_dir)
       def decompile_lock = Storage::DecompileLock.new(config_dir)
       def claude = @claude ||= ClaudeCli.new

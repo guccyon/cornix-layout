@@ -1,0 +1,54 @@
+# Android Studio のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Android Studio:一般:ビルド')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Android Studio:
+  一般:
+    ビルド: Command + F9
+    実行: Ctrl + R
+    デバッグ実行: Ctrl + D
+    停止: Command + F2
+    変更を適用: Ctrl + Command + R
+    Gradle同期: Shift + Command + A
+  ナビゲーション:
+    クラスに移動: Command + O
+    ファイルに移動: Shift + Command + O
+    シンボルに移動: Option + Command + O
+    定義に移動: Command + B
+    実装に移動: Option + Command + B
+    戻る: Command + [
+    進む: Command + ]
+    最近使用したファイル: Command + E
+  編集:
+    行コメント切り替え: Command + /
+    ブロックコメント切り替え: Option + Command + /
+    行を複製: Command + D
+    行を削除: Command + Backspace
+    行を上に移動: Option + Shift + Up
+    行を下に移動: Option + Shift + Down
+    コード補完: Ctrl + Space
+    スマート補完: Ctrl + Shift + Space
+    クイックフィックス: Option + Enter
+    ドキュメントを整形: Option + Command + L
+    インポートを最適化: Ctrl + Option + O
+  ツール:
+    名前を変更: Shift + F6
+    メソッドを抽出: Option + Command + M
+    変数を抽出: Option + Command + V
+    定数を抽出: Option + Command + C
+    フィールドを抽出: Option + Command + F
+    リファクタリングメニュー: Ctrl + T
+  アクション:
+    ブレークポイント切り替え: Command + F8
+    ステップオーバー: F8
+    ステップイン: F7
+    ステップアウト: Shift + F8
+    続行: Option + Command + R
+    評価: Option + F8
+  パネル:
+    プロジェクト: Command + 1
+    お気に入り: Command + 2
+    検索を表示: Command + 3
+    実行: Command + 4
+    デバッグ: Command + 5
+    Logcat: Command + 6
+    ターミナル切り替え: Option + F12

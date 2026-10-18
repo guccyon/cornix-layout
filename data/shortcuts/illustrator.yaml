@@ -1,0 +1,30 @@
+# Illustrator のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Illustrator:ツール:選択ツール')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Illustrator:
+  ツール:
+    選択ツール: V
+    ダイレクト選択: A
+    ペンツール: P
+    曲線ツール: "~"
+    四角形: M
+    楕円: L
+    ブラシツール: B
+    鉛筆ツール: "N"
+    テキストツール: T
+    グラデーションツール: G
+    スポイトツール: I
+  オブジェクト:
+    オブジェクトをグループ化: Command + G
+    グループ解除: Shift + Command + G
+    最前面へ: Shift + Command + ]
+    最背面へ: Shift + Command + [
+    オブジェクトをロック: Command + 2
+    すべてロック解除: Option + Command + 2
+    クリッピングマスク: Command + 7
+    パスのアウトライン: Shift + Command + O
+  編集:
+    パスを結合: Command + J
+    アンカーポイントを追加: "+"
+    アンカーポイントを削除: "-"
+    パスを単純化: Shift + Command + P

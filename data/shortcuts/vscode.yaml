@@ -1,0 +1,38 @@
+# VS Code のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('VS Code:基本操作:コマンドパレット')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+VS Code:
+  基本操作:
+    コマンドパレット: Shift + Command + P
+    クイックオープン: Command + P
+    環境設定: Command + ,
+    新規ウィンドウ: Shift + Command + N
+    ウィンドウを閉じる: Command + W
+  編集:
+    行を上下に移動: Option + Up
+    行を上下にコピー: Option + Shift + Up
+    行を削除: Shift + Command + K
+    下に行を挿入: Command + Enter
+    上に行を挿入: Shift + Command + Enter
+    行コメント切り替え: Command + /
+    ブロックコメント切り替え: Shift + Command + /
+    ドキュメントを整形: Option + Shift + F
+  選択:
+    カーソルを上下に追加: Option + Command + Up
+    次の出現箇所を選択: Command + D
+    すべての出現箇所を選択: Shift + Command + L
+    選択範囲を拡大: Shift + Command + Right
+  ナビゲーション:
+    定義に移動: F12
+    定義をプレビュー: Option + F12
+    シンボルに移動: Shift + Command + O
+    行に移動: Ctrl + G
+    戻る: Ctrl + -
+    進む: Ctrl + Shift + -
+  パネル:
+    サイドバー切り替え: Command + B
+    エクスプローラーを表示: Shift + Command + E
+    検索を表示: Shift + Command + F
+    ソース管理を表示: Ctrl + Shift + G
+    ターミナル切り替え: Ctrl + `
+    問題を表示: Shift + Command + M

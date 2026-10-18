@@ -1,0 +1,57 @@
+# CLIP STUDIO PAINT のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('CLIP STUDIO PAINT:ツール:ペン')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+CLIP STUDIO PAINT:
+  ツール:
+    ペン: P
+    ブラシツール: B
+    消しゴムツール: E
+    バケツツール: G
+    スポイトツール: I
+    移動ツール: H
+    選択ツール: M
+    なげなわツール: L
+    自動選択ツール: W
+    テキストツール: T
+    シェイプツール: U
+    グラデーションツール: G
+  ブラシ:
+    ブラシサイズを大きく: "]"
+    ブラシサイズを小さく: "["
+    描画/透明を切り替え: C
+    色を入れ替え: X
+    不透明度10%: '1'
+    不透明度50%: '5'
+    不透明度100%: '0'
+  表示:
+    ズームイン: Command + =
+    ズームアウト: Command + -
+    全体表示: Command + 0
+    ズームをリセット: Option + Command + 0
+    キャンバスを左に回転: "-"
+    キャンバスを右に回転: "="
+    回転をリセット: Shift + R
+    水平方向に反転: "/"
+  レイヤー:
+    レイヤーを追加: Shift + Command + N
+    レイヤーを複製: Command + J
+    レイヤーを結合: Command + E
+    表示レイヤーを結合: Shift + Command + E
+    レイヤーを削除: Delete
+    透明ピクセルをロック: "/"
+  編集:
+    元に戻す: Command + Z
+    やり直し: Shift + Command + Z
+    コピー: Command + C
+    ペースト: Command + V
+    カット: Command + X
+    自由変形: Command + T
+    選択解除: Command + D
+    選択範囲を反転: Shift + Command + I
+    塗りつぶし: Option + Delete
+  ファイル:
+    新規ファイル: Command + N
+    開く: Command + O
+    保存: Command + S
+    名前を付けて保存: Shift + Command + S
+    書き出し: Shift + Command + E

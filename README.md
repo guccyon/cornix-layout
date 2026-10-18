@@ -349,6 +349,9 @@ mapping:
 - `Shortcut('name')` becomes exactly the keycode it defines. It also works inside function arguments (`LT1(Shortcut('name'))`) when the definition is a key allowed there (a basic key for `LT1`)
 - A name that is not defined is a validation error. `Shortcut(...)` cannot be used in the values of `shortcuts.yaml` or inside macros
 - `pull` does not create `shortcuts.yaml`; you write it yourself
+- Shortcuts shared on [cornixhub](https://cornixhub.com/shortcuts) (824 shortcuts for 27 apps) can be used without defining them, as `Shortcut('app:category:label')` (for example `Shortcut('Spotify:再生:次のクリップ')`). The available names are in the files under [data/shortcuts/](data/shortcuts/). Labels are cornixhub's Japanese names
+- A definition with the same name in `shortcuts.yaml` takes precedence over the bundled one
+- decompile writes `Shortcut(...)` back only for definitions in `shortcuts.yaml` (values equal to a bundled shortcut are written as plain keycodes)
 
 ### Key positions (`position_map.yaml`)
 

@@ -1,0 +1,37 @@
+# Microsoft Word のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Microsoft Word:基本操作:元に戻す')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Microsoft Word:
+  基本操作:
+    元に戻す: Command + Z
+    やり直し: Command + Y
+    保存: Command + S
+    名前を付けて保存: F12
+    印刷: Command + P
+    文書を閉じる: Command + W
+    アプリを終了: Command + Q
+  編集:
+    カット: Command + X
+    コピー: Command + C
+    ペースト: Command + V
+    全選択: Command + A
+    検索: Command + F
+    検索と置換: Ctrl + H
+    スペルチェック: F7
+  書式設定:
+    太字: Command + B
+    斜体: Command + I
+    下線: Command + U
+    取り消し線: Shift + Command + X
+    上付き文字: Shift + Command + =
+    下付き文字: Command + -
+    フォントダイアログ: Command + D
+    大文字/小文字を変更: Shift + F3
+  段落:
+    左揃え: Command + L
+    中央揃え: Command + E
+    右揃え: Command + R
+    両端揃え: Command + J
+    大見出し: Option + Command + 1
+    小見出し: Option + Command + 2
+    見出し3: Option + Command + 3

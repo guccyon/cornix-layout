@@ -98,6 +98,18 @@ RSpec.describe 'Storage::ConfigRepository と旧 compile の結果（authors-key
     expect(metadata.extra_keys).to eq(vil.slice('layout_options', 'alt_repeat_key', 'key_override'))
   end
 
+  it '旧 decompile の出力（tmp/baseline/decompiled_config）も読めて、キーコードが同じになる' do
+    old_dir = File.join(File.dirname(StorageHelpers::BASELINE_VIL), 'decompiled_config')
+    skip 'decompiled_config がありません' unless File.directory?(old_dir)
+
+    decompiled = repository(old_dir).load
+    expect(decompiled.layers.map { |l| [l.keys, l.encoders] }).to eq(profile.layers.map { |l| [l.keys, l.encoders] })
+    expect(decompiled.macros.map(&:steps)).to eq(profile.macros.map(&:steps))
+    expect(decompiled.tap_dances.map(&:actions)).to eq(profile.tap_dances.map(&:actions))
+    expect(decompiled.combos.map(&:output_key)).to eq(profile.combos.map(&:output_key))
+    expect(decompiled.settings).to eq(profile.settings)
+  end
+
   it 'save して読み直すと同じ Profile になる' do
     Dir.mktmpdir do |tmp|
       repo = repository(tmp)

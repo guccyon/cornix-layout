@@ -1,0 +1,76 @@
+---
+name: Numbers
+index: 2
+description: |-
+  Number layer and Numpad
+  左上: Parallels の IME 切り替え (Ctrl + Option + Space)
+mapping:
+  left_hand:
+    row0:
+      tab: Ctrl + Option + Space
+      Q: '1'
+      W: '2'
+      E: '3'
+      R: '4'
+      T: '5'
+    row1:
+      lctrl: NoKey
+      A: NoKey
+      S: NoKey
+      D: NoKey
+      F: NoKey
+      G: MouseButton1
+    row2:
+      lshift: Trans
+      Z: NoKey
+      X: NoKey
+      C: NoKey
+      V: Macro('Clipboard History')
+      B: NoKey
+    row3:
+      caps: NoKey
+      fn: NoKey
+      option: Trans
+    thumb_keys:
+      left: Trans
+      middle: NoKey
+      right: NoKey
+  right_hand:
+    row0:
+      Y: '6'
+      U: '7'
+      I: '8'
+      O: '9'
+      P: '0'
+      backspace: Trans
+    row1:
+      H: NoKey
+      J: Kp4
+      K: Kp5
+      L: Kp6
+      colon: KpPlus
+      enter: KpAsterisk
+    row2:
+      N: NoKey
+      M: Kp1
+      comma: Kp2
+      dot: Kp3
+      up: KpMinus
+      rshift: Trans
+    row3:
+      left: KpDot
+      down: KpSlash
+      right: NoKey
+    thumb_keys:
+      left: KpEqual
+      middle: Kp0
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: Home
+      cw: End
+    right:
+      push: MouseButton3
+      ccw: PageDown
+      cw: PageUp

@@ -1,0 +1,9 @@
+---
+name: Left Click
+description: ← + ↓ で左クリック（押している間ホールド。トラックボールとのドラッグ用）
+enabled: true
+index: 6
+trigger_keys:
+- KC_LEFT
+- KC_DOWN
+output_key: MouseButton1

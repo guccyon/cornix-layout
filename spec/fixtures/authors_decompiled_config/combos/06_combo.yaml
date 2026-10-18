@@ -1,0 +1,10 @@
+---
+index: 6
+name: Combo 6
+description: ''
+trigger_keys:
+- KC_LEFT
+- KC_DOWN
+- KC_NO
+- KC_NO
+output_key: KC_BTN1

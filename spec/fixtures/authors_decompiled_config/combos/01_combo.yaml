@@ -1,0 +1,10 @@
+---
+index: 1
+name: Combo 1
+description: ''
+trigger_keys:
+- KC_COMMA
+- KC_DOT
+- KC_NO
+- KC_NO
+output_key: M1

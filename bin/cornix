@@ -1,72 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-def show_usage
-  puts <<~USAGE
-    Cornix Keyboard Layout Manager
+# Cornix Keyboard Layout Manager（コマンドの一覧は cornix help）
+require_relative '../lib/cornix'
 
-    Usage:
-      cornix compile              Compile YAML to layout.vil (validates first)
-      cornix decompile [FILE]     Decompile layout.vil to YAML
-      cornix validate             Validate YAML config files
-      cornix rename               Rename config files intelligently
-      cornix cleanup [-f]         Clean up generated files
-      cornix device <action>      Read/diff/apply the connected keyboard (info, read, backup, diff, apply, restore)
-      cornix mcp                  Start the MCP server for the connected keyboard (stdio)
-      cornix help                 Show this help message
-
-    Examples:
-      # Convert layout.vil to YAML
-      cornix decompile
-      cornix decompile ~/Downloads/layout.vil
-
-      # Edit YAML files in config/...
-
-      # Compile (auto-validates first)
-      cornix compile
-
-      # Validate only
-      cornix validate
-
-      # Rename config files
-      cornix rename
-
-      # Clean up
-      cornix cleanup
-      cornix cleanup -f  # Force (with confirmation)
-
-      # Apply layout.vil to the connected keyboard (shows the diff and asks first)
-      cornix device diff
-      cornix device apply
-  USAGE
-end
-
-def main
-  command = ARGV.shift  # Remove command from ARGV
-
-  case command
-  when 'compile'
-    load File.expand_path('subcommands/compile.rb', __dir__)
-  when 'decompile'
-    load File.expand_path('subcommands/decompile.rb', __dir__)
-  when 'validate'
-    load File.expand_path('subcommands/validate.rb', __dir__)
-  when 'rename'
-    load File.expand_path('subcommands/rename.rb', __dir__)
-  when 'cleanup'
-    load File.expand_path('subcommands/cleanup.rb', __dir__)
-  when 'device'
-    load File.expand_path('subcommands/device.rb', __dir__)
-  when 'mcp'
-    load File.expand_path('subcommands/mcp.rb', __dir__)
-  when 'help', '-h', '--help', nil
-    show_usage
-  else
-    puts "Error: Unknown command '#{command}'"
-    puts
-    show_usage
-    exit 1
-  end
-end
-
-main if __FILE__ == $PROGRAM_NAME
+exit Cornix::Interface::Cli::Main.new.run(ARGV)

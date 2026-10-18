@@ -1,0 +1,10 @@
+---
+index: 5
+name: Combo 5
+description: ''
+trigger_keys:
+- KC_G
+- KC_H
+- KC_NO
+- KC_NO
+output_key: M9

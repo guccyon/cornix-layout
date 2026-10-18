@@ -1,320 +1,205 @@
 # Cornix Keyboard Layout Manager
 
-A human-readable layout configuration management system for the Cornix keyboard.
+A human-readable layout configuration manager for the Cornix keyboard.
 
-Since Vial's `layout.vil` file is difficult to edit directly, this tool provides an intuitive YAML-based configuration file system.
+Vial's `layout.vil` is hard to edit by hand, so this tool manages the layout as YAML configuration files, converts between them and `layout.vil`, and can write changes directly to a connected keyboard.
+
+[日本語の README](README.md)
 
 ## Features
 
-- 📝 **Human-Readable**: Easy-to-read and write YAML configuration files
-- 🔤 **Alias Support**: Automatically uses readable aliases like `KC_TAB` → `Tab`, `KC_TRNS` → `Trans`
-- 🗂️ **Modular**: Manage layers, macros, tap dances, and combos in separate files
-- 🏷️ **Named Entities**: Give meaningful names to layers, macros, and tap dances
-- 📊 **Differential Layers**: Upper layers only describe differences from Layer 0
-- 💬 **Comment Support**: Add comments with `#`
-- 🔄 **Bidirectional Conversion**: `layout.vil` ⇔ YAML configuration files
-- ✅ **Strict Validation**: QMK-compliant 2-layer validation (filesystem + model)
-- ⌨️ **Apply Directly to the Keyboard**: Write only the diff from the CLI / MCP server without Vial Web ([details](#applying-directly-to-the-keyboard-no-vial-web-needed))
+- 📝 **Readable YAML**: Layers, macros, tap dances, and combos live in separate files, and you can write `#` comments
+- 🔤 **Aliases**: Write readable names such as `KC_TAB` → `Tab`, `KC_TRNS` → `Trans`, `LSFT(KC_1)` → `!`
+- ⌨️ **Modifier expressions**: VS Code-style notation such as `Cmd + Q` and `Ctrl + Shift + F`
+- 🏷️ **Name-based references**: Refer to macros and tap dances by name, e.g. `Macro('Bracket Pair')`, `TapDance('Tab Escape')`
+- 🔄 **Bidirectional conversion**: `layout.vil` ⇔ YAML. decompile → compile reproduces the original 16-bit values
+- ✅ **Validation**: Before compiling, the YAML structure, keycodes, references, and limits are all checked, and every problem is reported as "file: location: message"
+- 🔌 **Direct keyboard updates**: Write only the differences from the CLI or an MCP server, without Vial Web ([details](#direct-keyboard-updates-no-vial-web))
 
 ## Installation
 
+You need Ruby (3.2 or later, since the code uses `Data.define`; CI uses 4.0) and Bundler.
+
 ```bash
-git clone https://github.com/yourusername/cornix-layout.git
+git clone https://github.com/guccyon/cornix-layout.git
 cd cornix-layout
+bundle install
 ```
+
+Put `bin/cornix` on your PATH or run `ruby bin/cornix <command>`. Below it is written as `cornix`.
+
+```bash
+cornix help             # list of commands
+cornix help decompile   # usage of a command
+```
+
+Messages printed by the tool are in Japanese.
 
 ## Usage
 
-### Typical Use Cases
-
-Cornix's main usage patterns are explained through three use cases.
+### Typical Workflows
 
 <details>
-<summary><b>Use Case 1: Decompile layout.vil from Any Location</b></summary>
+<summary><b>Use Case 1: Turn a layout.vil exported from Vial into YAML</b></summary>
 
-**Scenario**: Convert a `layout.vil` exported from Vial to YAML format for editing
-
-**Steps**:
 ```bash
-# 1. Download layout.vil (e.g., ~/Downloads/layout.vil)
-# Export from Vial: "File > Export Layout"
+# 1. Export layout.vil from Vial with "File > Export Layout" (e.g. ~/Downloads/layout.vil)
 
-# 2. Navigate to Cornix project
-cd ~/work/cornix
-
-# 3. Decompile (can specify any path)
+# 2. decompile (without an argument it reads tmp/layout.vil)
 cornix decompile ~/Downloads/layout.vil
 
-# 4. Check generated configuration
-ls -la config/
-# config/layers/     - Layer files
-# config/macros/     - Macro files
-# config/tap_dance/  - Tap dance files
-# config/combos/     - Combo files
+# 3. Review and edit the generated configuration
+ls config/
+vim config/layers/0_layer.yaml
 
-# 5. Edit configuration
-vim config/layers/0_base.yaml
-
-# 6. Compile (with auto-validation)
+# 4. compile (validates first, then writes layout.vil)
 cornix compile
 
-# 7. Import generated layout.vil into Vial
-# Vial: "File > Import Layout" → select layout.vil
+# 5. Load layout.vil in Vial with "File > Import Layout",
+#    or write it directly to the keyboard with cornix device apply
 ```
 
-**Key Points**:
-- `cornix decompile` accepts layout.vil from any path
-- Defaults to `tmp/layout.vil` when no argument provided
-- Automatically blocked by lock protection if `config/` already exists
+- decompile stops if `config/` already contains a configuration (overwrite protection)
 
 </details>
 
 <details>
-<summary><b>Use Case 2: Edit Existing Configuration and Compile</b></summary>
+<summary><b>Use Case 2: Edit an existing configuration and compile it</b></summary>
 
-**Scenario**: `config/` directory already exists and you want to edit and compile
-
-**Steps**:
 ```bash
-# 1. Check current configuration
-ls config/layers/
-
-# 2. Edit layer file
 vim config/layers/1_symbol.yaml
-
-# 3. Validate (optional, automatically run by compile)
-cornix validate
-
-# 4. Compile (with auto-validation)
+cornix validate          # optional (compile validates automatically)
 cornix compile
-
-# 5. Check changes (optional)
-git diff layout.vil
-
-# 6. Import into Vial
+git diff layout.vil      # review the change (optional)
 ```
 
-**Key Points**:
-- `cornix compile` automatically runs validation
-- Compilation aborts if validation errors exist
-- Version control (git) usage recommended
+- If validation fails, compile stops and does not write layout.vil
+- Managing the configuration with git is recommended
 
 </details>
 
 <details>
-<summary><b>Use Case 3: Intelligent Rename with LLM</b></summary>
+<summary><b>Use Case 3: File names suggested by Claude (cornix rename)</b></summary>
 
-**Scenario**: Rename files with generic names ("Macro 0", "Tap Dance 1") to meaningful names
-
-**Steps**:
 ```bash
-# 1. Check current configuration
 ls config/macros/
-# 00_macro.yml, 01_macro.yml, ... (generic names)
+# 00_macro.yaml, 01_macro.yaml, ... (default names written by decompile)
 
-# 2. Interactive rename (requires Claude CLI)
 cornix rename
+# Claude reads the files and suggests names → choose Y/n/e(dit) for each
+# → rename them all at once (automatic backup, reference rewriting, check that the compiled result is unchanged)
 
-# 3. Claude AI analysis and suggestions
-# Analyzes file contents and proposes meaningful names
-
-# 4. Respond to suggestions with y/n/edit
-# y: approve
-# n: skip
-# e: manual edit
-
-# 5. Execute rename (auto-backup)
-# Backup created at config.backup_<timestamp>/
-
-# 6. Compilation verification
-# Automatically verifies structure preservation
-
-# 7. Check results
 ls config/macros/
-# 00_bracket_pair.yml, 01_end_of_line.yml, ... (meaningful names)
+# 00_bracket_pair.yaml, 01_end_of_line.yaml, ...
 ```
 
-**Key Points**:
-- Requires Claude Code CLI (`claude` command)
-- Deeply infers purpose from macro key sequences
-- Transaction-based processing (all success or full rollback)
-- Auto-updates Name-based references only (Index-based/Legacy preserved)
+- Requires the Claude Code CLI (`claude` command)
+- On failure, everything is restored from the backup automatically
 
 </details>
 
-**Claude Code Usage Tips**:
-
-When editing configuration with `claude` command and Claude AI:
-
-1. **Validate before edit**: Check current configuration with `cornix validate`
-2. **Prefer modifier expressions**: `Cmd + Q` format is more readable than QMK syntax
-3. **Prefer name-based references**: Reference macros/tap dances with `Macro('name')` format
-4. **Validate after edit**: Auto-validate and compile with `cornix compile`
-5. **Use skills**: Intelligent rename with `/rename` skill
-
-### Generate Configuration Files from Existing layout.vil
+### Generate Configuration Files from an Existing layout.vil
 
 ```bash
-# Use default (tmp/layout.vil)
-cornix decompile
-
-# Or specify any file path
+cornix decompile                       # reads tmp/layout.vil
 cornix decompile ~/Downloads/layout.vil
-cornix decompile /path/to/custom.vil
 ```
 
-**⚠️ Critical - Lock Protection**: If the `config/` directory already contains configuration files, decompilation will be automatically blocked. This is a safety feature to prevent accidental overwrites.
+**Overwrite protection**: If `config/layers/` or `config/macros/` contains files, decompile exits without doing anything.
 
-**Error Message Example**:
 ```
 ⚠️  Error: config/ directory already contains configuration files.
 ```
 
-**Workaround**:
-```bash
-# Option 1: Use cleanup command to remove existing configuration
-cornix cleanup
-cornix decompile ~/Downloads/layout.vil
+Move the existing configuration aside, or delete it with `cornix cleanup`, then run decompile again.
 
-# Option 2: Manually backup and remove
+```bash
 mv config config.backup
 cornix decompile ~/Downloads/layout.vil
 ```
 
-**Background**: This feature prevents accidental overwriting of existing configurations. Always backup or remove existing configuration before decompiling a new `layout.vil`.
+A successful decompile creates `config/.decompile.lock` (the source file and its checksum).
 
-**Cleanup Command**:
-
-Use the `cornix cleanup` command to safely remove generated files:
+**cleanup command**:
 
 ```bash
-# Normal cleanup (protected if lock file exists)
-cornix cleanup
-
-# Force cleanup (prompts for confirmation to delete lock file)
-cornix cleanup -f
+cornix cleanup      # delete config/ and layout.vil (stops if the lock file exists)
+cornix cleanup -f   # delete even if the lock file exists, after a y/N confirmation
 ```
 
-- During normal execution, processing stops if `.decompile.lock` file exists
-- When using `-f` option for forced execution, a confirmation prompt is displayed
-- Deletion targets: `config/` directory, `layout.vil` file
+It deletes `config/` and `layout.vil` in the project root (the repository containing `bin/cornix`), regardless of the directory you run it from.
 
-The following files will be generated under the `config/` directory:
+#### Generated Files
 
 ```
 config/
-├── metadata.yaml              # Keyboard basic information
-├── position_map.yaml          # Physical position to symbol mapping
+├── .decompile.lock            # decompile record (protects against cleanup)
+├── metadata.yaml              # keyboard information (version / uid of layout.vil, etc.)
+├── position_map.yaml          # key names ⇔ physical positions
 ├── settings/
-│   └── qmk_settings.yaml      # QMK settings
+│   └── qmk_settings.yaml      # QMK Settings (tapping_term, etc.)
 ├── layers/
-│   ├── 0_base.yaml            # Base layer
-│   ├── 1_symbol.yaml          # Symbol layer
-│   └── ...
+│   ├── 0_layer.yaml           # layer 0
+│   └── ...                    # layers 1-9
 ├── macros/
-│   ├── bracket_pair.yaml
+│   ├── 00_macro.yaml          # macro 0
 │   └── ...
 ├── tap_dance/
+│   ├── 00_tap_dance.yaml      # tap dance 0
 │   └── ...
 └── combos/
+    ├── 00_combo.yaml          # combo 0
     └── ...
 ```
 
-**Note**:
-- **Keycode Aliases** (`keycode_aliases.yaml`): Fixed file in `lib/cornix/`, not generated in `config/` (no editing needed as it's QMK standard)
-- **Position Map** (`position_map.yaml`): Generated in `config/` from `lib/cornix/` template, customizable symbol names
+**File naming** (names written by decompile):
 
-### Intelligent File Renaming
+- Layers: `{index}_{name}.yaml` (e.g. `0_layer.yaml`, `1_symbol.yaml`)
+- Macros / tap dances / combos: `{2-digit index}_{name}.yaml` (e.g. `00_macro.yaml`, `03_end_of_line.yaml`)
+- `{name}` is the `name` lowercased with only letters, digits and `_`. For default names (`Layer 3`, `Macro 2`, `TapDance 4`, `Combo 1`) it is `layer` / `macro` / `tap_dance` / `combo`
 
-Use the `cornix rename` command to automatically rename macros, tap dances, combos, and layers using Claude AI's deep content analysis for meaningful names.
+Both `.yaml` and `.yml` are read. You can rename files freely. The index comes from the `index` field in the YAML; for layers only, the leading number of the file name must match `index`.
 
-#### Operation Modes
+What decompile writes:
 
-**Interactive Mode (Recommended)**: Interactive mode with user confirmation
+- Keycodes as aliases (`Tab`, `Trans`, `!`, ...); modified keys without an alias as modifier expressions (`Shift + Command + Enter`)
+- Macro and tap dance assignments as name-based references (`Macro('Macro 7')`, `TapDance('TapDance 4')`)
+- QMK Settings by name (`keyboard.tapping_term`, ...)
+
+**Notes**:
+- The keycode table (`data/keycodes.yaml`) and the alias table (`data/aliases.yaml`) belong to the tool and are not generated into `config/`
+- `position_map.yaml` is copied into `config/` from the template (`lib/cornix/position_map.yaml`) and you can change its symbol names
+
+### Naming Configuration Files (cornix rename)
+
+`cornix rename` asks Claude to read your macros, tap dances, combos, and layers and suggest meaningful names and file names.
 
 ```bash
 cornix rename
 ```
 
-In this mode, Claude AI analyzes each file and displays rename suggestions, and users respond with `y`/`n`/`e`(dit). This is the safest and recommended method.
+**Flow**:
 
-**Advanced Mode (For Advanced Users)**: Direct control with `bin/rename_file` command
-
-```bash
-# Single file rename (dry-run)
-ruby bin/rename_file \
-  --old-path config/macros/03_macro.yml \
-  --new-basename 03_end_of_line.yml \
-  --name "End of Line" \
-  --description "Jump to end of line" \
-  --dry-run
-
-# Batch rename (via JSON)
-ruby bin/rename_file --batch tmp/rename_plans.json
-```
-
-Advanced Mode is suitable for automation in scripts or CI pipelines, but **Interactive Mode** is recommended for normal usage.
-
-#### LLM Integration Architecture
-
-`cornix rename` uses a **hybrid architecture** combining Claude AI and Ruby execution:
-
-**1. LLM Part (Claude AI Skill)**:
-- Deep analysis of file contents
-- Intent inference from key sequences
-- Generation of meaningful names
-- Pattern detection (brackets, copy, function template, etc.)
-- Confidence level suggestions (high/medium/low)
-
-**2. Ruby Part (Static Execution)**:
-- File operations (rename, YAML updates)
-- Auto-backup/rollback
-- Compilation verification
-- Transaction processing
-
-**3. JSON Coordination**:
-```json
-// tmp/rename_plans.json
-[
-  {
-    "old_path": "config/macros/03_macro.yml",
-    "new_basename": "03_end_of_line.yml",
-    "content_updates": {
-      "name": "End of Line",
-      "description": "Jump to end of line with Cmd+Right"
-    }
-  }
-]
-```
-
-Claude AI generates suggestions → saves to JSON → Ruby safely applies
-
-**Prerequisites**:
-- Claude Code CLI (`claude` command) must be installed
-- If not installed, the process will abort with an error message
-
-**Execution Flow**:
-
-1. **Compile current configuration**: Save pre-rename state as baseline
-2. **Claude AI analysis**:
-   - Macros: Deeply infer purpose from key sequences (e.g., `[, ], Left` → "Bracket Pair")
-   - Tap Dances: Analyze tap/hold/double-tap actions (e.g., `MO(1)` → "Layer 1 Switch")
-   - Combos: Determine function from trigger keys and output
-   - Layers: Infer intent from description field and overrides
-3. **Display rename suggestions**: Show proposals for each file
-4. **User confirmation**: Respond with `y`/`n`/`e`(dit) for each suggestion
-5. **Execute renames**: Rename files and update YAML content after auto-backup
-6. **Compile verification**: Verify layout.vil structure is preserved
-7. **Cleanup temporary files**: Automatically delete logs and temporary files
+1. **Check the configuration**: `config/` is validated. If there are problems, it asks you to fix them first and exits
+2. **Suggestions from Claude**: Files with default names (`Macro N`, `TapDance N`, `Combo N`, `Layer N`) are passed to the Claude CLI and the suggestions are received in `tmp/rename_plans.json`
+   - Macros: infer the purpose from the key sequence (e.g. `[`, `]`, `Left` → "Bracket Pair")
+   - Tap dances: infer from tap / hold / double tap actions
+   - Combos: infer from triggers and output
+   - Layers: infer from the description and assignments
+3. **Review**: For each suggestion choose `Y` (accept) / `n` (skip) / `e` (edit file name, name and description)
+4. **Rename**: Back up to `config.backup_<timestamp>/`, change the file names and `name` / `description`,
+   and rewrite name-based references `Macro('old name')` / `TapDance('old name')` in every YAML file under `config/` to the new name (this is a text substitution, so references inside combo outputs, encoders and function arguments are updated too)
+5. **Verify**: Compile the configuration before and after the change and compare the results (16-bit values); if they differ, restore from the backup
+6. **Clean up**: Delete temporary files and ask whether to delete the backups
 
 **Example**:
 
 ```
 ──────────────────────────────────────────────────────────────────────
-1. MACRO: 00_macro.yml
+1. MACRO: 00_macro.yaml
 
-  Current:  00_macro.yml
-  Proposed: 00_bracket_pair.yml
+  Current:  00_macro.yaml
+  Proposed: 00_bracket_pair.yaml
 
   Name:        Bracket Pair
   Description: Insert bracket pair [] with cursor positioning
@@ -326,186 +211,151 @@ Claude AI generates suggestions → saves to JSON → Ruby safely applies
   ✓ Added to rename queue
 ```
 
-**Claude AI Analysis Capabilities**:
-- Understands intent of complex key sequences
-- Considers modifier key combinations (Shift, Cmd, Ctrl)
-- Infers operation purpose from cursor movement patterns
-- Context-aware naming (e.g., `function ()` + Left → "Function Template")
+**Safety**:
+- Index prefixes (`00_`, `0_`, ...) cannot be changed (attempting to do so is an error)
+- Renames are applied as a batch; if any one fails, everything is rolled back
+- Index-based references (`Macro(3)`, `M3`, `TD(2)`) do not depend on names and are left unchanged
 
-**Safety Features**:
-- Automatic backup creation (`config.backup_<timestamp>/`)
-- Transaction-based processing (all success or full rollback)
-- Compilation verification (structure preservation check)
-- Index prefix preservation (`00_`, `01_`, `0_`, `1_`, etc.)
-- Layer reference integrity guarantee (index-based)
-- Automatic rollback on errors
+**Running without Claude** (`bin/rename_file`):
 
-**Rename Targets**:
-- Macros: Files with generic names ("Macro N")
-- Tap Dances: Files with generic names ("Tap Dance N")
-- Combos: Files with generic names ("Combo N")
-- Layers: Files with generic names ("Layer N")
+```bash
+# One file (--dry-run only checks)
+ruby bin/rename_file \
+  --old-path config/macros/03_macro.yaml \
+  --new-basename 03_end_of_line.yaml \
+  --name "End of Line" \
+  --description "Jump to end of line" \
+  --dry-run
 
-**Backup Cleanup**:
-After successful rename, you'll be prompted to delete backup directories.
+# A batch from a JSON plan (delete the backup on success)
+ruby bin/rename_file --batch tmp/rename_plans.json --cleanup-backup
+```
 
-**Note**:
-- **Keycode Aliases** (`keycode_aliases.yaml`): Fixed file in `lib/cornix/`, not generated in `config/` (no editing needed as it's QMK standard)
-- **Position Map** (`position_map.yaml`): Generated in `config/` from `lib/cornix/` template, customizable symbol names
+Plan file format:
 
-### Edit Configuration Files
+```json
+[
+  {
+    "old_path": "config/macros/03_macro.yaml",
+    "new_basename": "03_end_of_line.yaml",
+    "content_updates": {
+      "name": "End of Line",
+      "description": "Jump to end of line with Cmd+Right"
+    }
+  }
+]
+```
 
-Layer files generated by `decompile` use readable alias format.
+The result is printed as JSON, with exit code 1 on failure. If the Claude CLI is not found or no JSON can be extracted from its output, `cornix rename` also asks you to write a plan file in this format by hand.
 
-Layer file (e.g., `config/layers/1_symbol.yaml`):
+### Editing Configuration Files
+
+Layer file (e.g. `config/layers/1_symbol.yaml`):
 
 ```yaml
 name: Symbol
 description: Symbol layer
-
-# Only describe keys that differ from Layer 0
-overrides:
-  Q: LSFT(1)         # Input ! (Shift+1)
-  W: LSFT(2)         # Input @ (Shift+2)
-  E: LSFT(3)         # Input # (Shift+3)
-
-  lshift: Trans      # Transparent (use key from lower layer)
-  D: NoKey           # Disabled
-
-  # Reference macro by name (recommended)
-  A: Macro('Bracket Pair')
-
-  # Reference tap dance by name (recommended)
-  fn: TapDance('Layer Switch')
+index: 1
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: "!"                       # LSFT(KC_1)
+      W: "@"
+    row1:
+      caps: Trans                  # use the key from the layer below
+      A: Macro('Bracket Pair')     # macro referenced by name
+    thumb_keys:
+      middle: TapDance('Tab Escape')
+  right_hand:
+    row0:
+      Y: Cmd + Space               # modifier expression
+  encoders:
+    left:
+      ccw: VolumeDown
+      cw: VolumeUp
 ```
 
-#### Macro, Tap Dance, and Combo References
+- The structure under `mapping` follows `position_map.yaml` (`row0`-`row3` and `thumb_keys` of `left_hand` / `right_hand`, and `left` / `right` of `encoders`)
+- Keys you don't write are unassigned (`-1` in layout.vil). Write `Trans` to use the key from the layer below
+- Encoder actions you don't write become `NoKey`
 
-Cornix supports three reference formats:
-
-**1. Name-based Format (Recommended)**: Reference by name for maximum readability
-```yaml
-# Reference macro by name
-A: Macro('Bracket Pair')
-
-# Reference tap dance by name
-fn: TapDance('Layer Switch')
-
-# Reference combo by name
-combo1: Combo('Escape Alternative')
-```
-
-**Benefits**:
-- Configuration files are self-documenting and highly readable
-- References auto-update when files are renamed (with `cornix rename`)
-- Function is immediately clear when editing
-
-**2. Index-based Format (Explicit)**: Reference by index
-```yaml
-# Reference macro by index
-A: Macro(0)
-
-# Reference tap dance by index
-fn: TapDance(2)
-```
-
-**Benefits**:
-- Useful when you want explicit index control
-- Easy migration from existing configs
-
-**3. QMK Legacy Format (Backward Compatible)**: Traditional QMK format
-```yaml
-# Macro (M prefix)
-A: M0
-
-# Tap Dance (TD function)
-fn: TD(2)
-```
-
-**Benefits**:
-- Familiar to QMK users
-- Existing configs work unchanged
-
-**Recommendation**: Use **Name-based format** for new configs. `cornix decompile` automatically generates Name-based format.
-
-**Note**:
-- All formats compile to the same `layout.vil` (Vial compatible)
-- `cornix rename` auto-updates Name-based references only
-- Index-based / Legacy formats are preserved for backward compatibility but won't auto-update
-
-**Alias Benefits**:
-- `KC_TRNS` → `Trans` (more concise)
-- `KC_NO` → `NoKey` (clearer meaning)
-- `LSFT(KC_1)` → `LSFT(1)` (inner keycodes also converted)
-- `KC_TAB` → `Tab` (more readable)
-
-Macro file (e.g., `config/macros/bracket_pair.yaml`):
+Macro file (e.g. `config/macros/00_bracket_pair.yaml`):
 
 ```yaml
-name: bracket_pair
-description: Insert [] and move cursor left
-enabled: true
-
+name: Bracket Pair
+description: "Type [] and move the cursor inside"
+index: 0
 sequence:
   - action: tap
     keys: ["[", "]", Left]
 ```
 
-### Compile to layout.vil
+### Referring to Macros and Tap Dances
 
-**Important**: Validation is automatically run before compilation.
+In key assignments (layer keys and encoders, tap dance actions, combo triggers and output) macros and tap dances can be referenced in three ways.
+
+| Form | Macro | Tap dance | Description |
+|---|---|---|---|
+| Name (recommended) | `Macro('Bracket Pair')` | `TapDance('Tab Escape')` | Refers to the file's `name`; rewritten automatically by `cornix rename` |
+| Index | `Macro(0)` | `TapDance(2)` | Refers to `index` |
+| QMK | `M0` | `TD(2)` | The traditional notation |
+
+- All forms produce the same layout.vil. decompile always writes the name form
+- An unknown name, or an index with no macro / tap dance defined, is a validation error
+- Wrap names containing `'` in `"..."` (`Macro("Rock'n Roll")`)
+- `Combo(...)` cannot be assigned to a key in layout.vil and is not supported (validation error)
+- Name-based references cannot be used inside macros (`keys` of `sequence`)
+
+### Converting to layout.vil
 
 ```bash
 cornix compile
 ```
 
-If there are validation errors, compilation will be automatically aborted. To run validation only:
+compile validates first; if there are problems it exits without writing layout.vil (exit code 1). Use `cornix validate` to only validate. Load the generated `layout.vil` in Vial, or write it directly with `cornix device apply` (next section).
+
+Errors such as a wrong command or an unreadable file are printed to standard error as `エラー: …` (Japanese for "Error:") and the command exits with code 1.
+
+## Direct Keyboard Updates (No Vial Web)
+
+You can apply `layout.vil` directly to a Cornix connected over Bluetooth / USB using the Vial protocol (macOS only. On first use a small HID bridge, `tmp/cornix-hid`, is built with `swiftc` from the Xcode Command Line Tools).
 
 ```bash
-cornix validate
+cornix device info              # info about the connected keyboard (layer count, lock state, ...)
+cornix device read -o now.vil   # save the keyboard's current state in layout.vil format
+cornix device backup            # save a timestamped copy under tmp/device_backups/
+cornix device diff              # show differences between layout.vil and the keyboard (no writes)
+cornix device apply             # show differences and write after confirmation (--yes skips it)
+cornix device restore           # restore the last backup (the state before the last apply)
 ```
 
-Import the generated `layout.vil` into Vial and flash it to your keyboard. You can also apply it directly without Vial using `cornix device apply` (next section).
+`apply` automatically takes a backup before writing, writes only the changed keys, encoders, tap dances, combos, macros, and settings, then reads them back to verify.
 
-## Applying Directly to the Keyboard (No Vial Web Needed)
-
-You can apply `layout.vil` directly to a Cornix connected over Bluetooth or USB using the Vial protocol (macOS only; on first use a small HID bridge `tmp/cornix-hid` is built with `swiftc` from the Xcode Command Line Tools).
-
-```bash
-cornix device info              # Info about the connected keyboard (layers, lock state, ...)
-cornix device read -o now.vil   # Save the keyboard's current state as layout.vil
-cornix device backup            # Save a timestamped backup under tmp/device_backups/
-cornix device diff              # Show the diff between layout.vil and the keyboard (no writes)
-cornix device apply             # Show the diff and write it after confirmation (--yes skips the prompt)
-cornix device restore           # Roll back to the latest backup (the state before the last apply)
-```
-
-`apply` takes a backup before writing, writes only the keys, encoders, tap dances, combos, macros and settings that changed, then reads them back to verify.
-
-To roll back, run `cornix device restore`. It shows the diff against the latest backup and writes it after confirmation. To go back to an older backup, pass the file, e.g. `cornix device restore tmp/device_backups/<timestamp>.vil`. `restore` also backs up the current state before writing, so running `restore` again returns to the state before the restore.
+To undo, run `cornix device restore`. It shows the differences from the latest backup and writes after confirmation. To restore an older backup, pass the file, e.g. `cornix device restore tmp/device_backups/<timestamp>.vil`. `restore` also backs up the current state before writing, so running `restore` again returns to the state before the restore.
 
 ### When the Keyboard Is Not Connected
 
-Every `cornix device` command and every MCP tool first looks for the keyboard and connects to it. If it is not found, nothing is written and it stops with the following error (the CLI exits with code 1, the MCP server returns an error response).
+Every `cornix device` command and every MCP tool first looks for the keyboard and connects to it. If it can't be found, nothing is written and the command fails (the CLI prints the error to standard error and exits with code 1; MCP returns an error response).
 
 ```
-Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください
+エラー: Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください
 ```
 
-(The message is in Japanese: "Cornix not found. Check that it is connected to the Mac over Bluetooth (or USB), that it is not asleep, and that it has not switched to another device.")
+(The message says: Cornix not found. Check that it is connected to the Mac via Bluetooth (or USB), is not asleep, and has not switched to another device.)
 
-- **Bluetooth disconnected or the keyboard is off**: You get the error above. Press a key to wake it up or check the connection to the Mac, then try again.
-- **The keyboard switched to another device (BT1 / BT2, etc.)**: The Mac cannot see it, so you get the same error. Switch to the channel paired with the Mac.
-- **The connection dropped while reading or writing**: If there is no response within 1 second, it stops with "キーボードから応答がありません" (no response from the keyboard). If it was writing, it shows how many changes were written and the path of the pre-apply backup; reconnect and run `cornix device apply` again, or go back with `cornix device restore` (both write only the diff).
+- **Bluetooth disconnected / keyboard powered off**: You get the error above. Press a key once to wake the keyboard, or check the connection to the Mac, and try again.
+- **Keyboard switched to another device (BT1 / BT2, etc.)**: The Mac can't see it, so you get the same error. Switch to the channel connected to the Mac.
+- **Connection lost while reading or writing**: If there is no response within 1 second, it aborts with a "no response from the keyboard" error. If it was writing, it shows how many entries were written and the path of the pre-apply backup; reconnect and run `cornix device apply` again, or go back with `cornix device restore` (both write only the differences).
 
 ### MCP Server
 
-`cornix mcp` starts an MCP server over stdio, so an AI agent can do things like "read the keyboard's current settings" or "apply this layout.vil".
+`cornix mcp` starts an MCP server (stdio). AI agents can then do things like "read the keyboard's current settings" or "apply this layout.vil".
 
 #### Setup
 
-- **Claude Code**: It is registered as `cornix-device` in `.mcp.json` at the repository root. Open Claude Code in this directory and approve the MCP server when prompted.
-- **Other clients** (Claude Desktop, etc.): Register it with an absolute path as below. If `ruby` is not found (mise / rbenv, etc.), set `command` to the absolute path of Ruby.
+- **Claude Code**: It is already registered as `cornix-device` in `.mcp.json` at the repository root. Open Claude Code in this directory and approve the MCP server when prompted the first time.
+- **Other clients** (Claude Desktop, etc.): Register it with an absolute path as below. If `ruby` can't be found (mise / rbenv, etc.), put the absolute path to Ruby in `command`.
 
 ```json
 {
@@ -518,799 +368,275 @@ Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で
 }
 ```
 
-`cornix mcp` reads and writes UTF-8 even when `LANG` is unset, and escapes non-ASCII characters in its JSON responses as `\uXXXX`, so clients can read them regardless of their locale.
+`cornix mcp` reads and writes UTF-8 even if `LANG` is not set, and escapes non-ASCII characters in response JSON as `\uXXXX`, so responses are readable regardless of the client's locale.
 
 #### Tools
 
 | Tool | Description |
 |---|---|
 | `keyboard_info` | Keyboard information (read-only) |
-| `read_keymap` | Return or save the current state as layout.vil (read-only) |
+| `read_keymap` | Return / save the current state in layout.vil format (read-only) |
 | `backup` / `list_backups` | Save and list backups |
-| `apply_layout` | Dry run by default, returning the diff and a `confirm_token`. Writes only with `dry_run: false` and the `confirm_token` |
-| `restore_backup` | Roll back to the latest backup (or the one given by `backup_path`). Dry run and `confirm_token` work the same as `apply_layout` |
+| `apply_layout` | Dry run by default: returns the differences and a `confirm_token`. Writes only with `dry_run: false` and the `confirm_token` |
+| `restore_backup` | Restore the latest backup (or the one given in `backup_path`). Dry run and `confirm_token` work like `apply_layout` |
 
 If the keyboard is not connected, every tool returns an error response and writes nothing.
 
-#### Applying Changes
+#### Apply Flow
 
 1. Generate `layout.vil` with `cornix compile`
-2. Call `apply_layout` (dry run) to get the diff and a `confirm_token`, and review it
-3. Once approved, call `apply_layout` with `dry_run: false` and the `confirm_token`. It backs up, writes only the diff, and reads it back to verify
-4. To roll back, call `restore_backup` the same way (dry run, then with the `confirm_token`). For an older backup, pick one with `list_backups` and pass it as `backup_path`
+2. Call `apply_layout` (dry run) to get the differences and a `confirm_token`, and review them
+3. If you agree, call `apply_layout` with `dry_run: false` and the `confirm_token`. It backs up, writes only the differences, and verifies by reading back
+4. To undo, call `restore_backup` the same way: dry run, then with the `confirm_token` (choose an older backup with `list_backups` and pass it as `backup_path`)
 
-If the diff has changed since it was reviewed (the keyboard or the file was modified), the token no longer matches and the write is refused.
+If the differences changed after the dry run (the keyboard or the file was modified), the token doesn't match and the write is refused.
 
-#### About the Unlock Prompt When Changing Macros
+#### About Unlocking for Macro Changes
 
-Vial (Web / GUI) asks you to hold two designated keys ("unlock") when saving macros or assigning `QK_BOOT`. This is behavior of the Vial app; the Cornix firmware (RMK 0.8) does not check the lock state for macro writes. Therefore `cornix device` / the MCP server does not need the unlock step (boot keycodes such as `QK_BOOT` cannot be written at all).
+Vial (Web / GUI) asks you to hold two specific keys ("unlock") when saving macros or assigning `QK_BOOT`. This is behavior of the Vial app; the Cornix firmware (RMK 0.8 series) does not check the lock state when writing macros. So no unlock is needed with `cornix device` / MCP (boot keycodes such as `QK_BOOT` can't be written at all).
 
 ### Safety
 
-The Cornix firmware is based on RMK 0.8, which, unlike vial-qmk, has almost no locking or bounds checks (bootloader jump and EEPROM reset run without unlocking, and out-of-range writes make the firmware panic). Therefore:
+The Cornix firmware is RMK 0.8 series and, unlike vial-qmk, has almost no locks or range checks (bootloader jump and EEPROM reset run without a lock, and out-of-range writes make the firmware panic). Therefore:
 
-- The HID bridge (`ext/cornix_hid/main.swift`) only sends allow-listed commands. Bootloader jump, EEPROM reset, bulk resets, unlock and bulk keymap writes (buggy in RMK 0.8) cannot be sent (check with `tmp/cornix-hid --self-test`).
-- Keys are written one at a time, the same way Vial GUI does, and layer/row/col, macro offsets and entry indexes are all range-checked before sending.
-- Boot keycodes such as `QK_BOOT` are never written.
+- The HID bridge (`ext/cornix_hid/main.swift`) only sends commands on an allowlist. Bootloader jump, EEPROM reset, full erase, unlock, and bulk keymap write (buggy in RMK 0.8) can't be sent (check with `tmp/cornix-hid --self-test`).
+- Keys are written one at a time, like Vial GUI does, and layer / row / col, macro offsets, and every entry index are range-checked before sending.
+- Boot keycodes such as `QK_BOOT` (`data/dangerous_keycodes.yaml`) are never written.
 
-## Configuration Validation
-
-Use the `cornix validate` command to validate configuration files before compilation.
+## Validating Configuration Files
 
 ```bash
-# Validate configuration files
 cornix validate
+```
 
-# On success
+```
+# Success
 ✓ All validations passed
 
-# On failure
+# Failure (exit code 1)
 ✗ Validation failed:
-  Error: Layer 0_base.yaml, symbol 'LT1': Invalid keycode 'InvalidKeycode'
-  Error: Layer 1_symbols.yaml: Unknown position symbol 'UnknownSymbol'
+  Error: layers/1_symbol.yaml: mapping.left_hand.row0.tab: キーコード「Spce」を解釈できません: 「Spce」は不明なキーコードです
+  Error: layers/1_symbol.yaml: mapping.left_hand.row1.capz: position_map の left_hand.row1 にないキーです（使えるキー: caps, A, S, D, F, G）
+  Error: macros/01_macro.yaml: name: マクロの名前が重複しています: Bracket Pair
 ```
 
-**Important**: `cornix compile` automatically runs validation, so explicit `validate` calls are usually unnecessary.
+(Unknown keycode "Spce"; key not in position_map's left_hand.row1; duplicate macro name.)
 
-### Phase 1 Implemented Validation Items
+All problems are collected rather than stopping at the first one, and each is shown as "file: key location: message". `cornix compile` runs the same validation first. If there are only warnings (`⚠  Warning: …`), compile continues.
 
-The following validation items are implemented (Phase 1 complete):
+Validation has two stages.
 
 <details>
-<summary><b>1. YAML Syntax Validation</b></summary>
+<summary><b>1. File structure (while loading)</b></summary>
 
-- Detects syntax errors in all YAML files
-- Displays user-friendly error messages for parse errors
-- Skips further validation for files with YAML errors (prevents multiple errors)
-
-**Detection Example**:
-```
-Error: config/layers/0_base.yaml: Invalid YAML syntax - mapping values are not allowed here
-```
+- **YAML**: Syntax errors, duplicate keys, and YAML aliases (`&` / `*`) are errors. Having both `.yaml` and `.yml` with the same name (for `metadata.yaml` etc.) is an error
+- **Fields**: Required fields exist (`name` / `index` / `mapping` for layers, etc.), there are no unknown fields, and types are correct.
+  YAML pitfalls, such as an unquoted `1` becoming an integer or `yes` / `no` / `on` / `off` becoming booleans, are reported with how to fix them
+- **metadata.yaml**: `keyboard` and `version` are required; `uid` etc. must be non-negative integers
+- **position_map.yaml**: Number of keys in each group, symbol format, duplicates within a group
+- **Key names**: Each layer key exists in that group of `position_map.yaml`
+- **Keycodes**: Every assignment can be interpreted (aliases, QMK names, function forms, modifier expressions, references, including function arguments)
+- **Indexes**: Ranges of layers (0-9) and macro / tap dance / combo indexes; a layer's file name number matches its `index`
+- **Macros**: `action` is `tap` / `down` / `up` / `delay` / `text` (`beep` is not supported)
+- **QMK Settings**: Setting names and value types / widths
 
 </details>
 
 <details>
-<summary><b>2. Metadata Validation</b></summary>
+<summary><b>2. Consistency of the whole configuration</b></summary>
 
-- Checks for existence of `metadata.yaml`
-- Validates required fields: `keyboard`, `version`, `uid`, `vial_protocol`, `via_protocol`
-- Validates `vendor_product_id` format (`0xXXXX` format)
-- Validates `matrix` configuration type and range (`rows`, `cols` are positive integers)
-
-**Detection Example**:
-```
-Error: metadata.yaml: Missing required field 'keyboard'
-Error: metadata.yaml: Invalid vendor_product_id format (expected 0xXXXX)
-```
+- **Limits**: 10 layers, 32 macros, 32 tap dances, 32 combos, 4 trigger keys per combo
+- **Duplicates**: Indexes of layers / macros / tap dances / combos; names of macros / tap dances / combos
+- **Reference targets**: The targets of `Macro(...)` / `M3` / `TapDance(...)` / `TD(2)` are defined
+- **Layer numbers**: Layer numbers in `MO(n)` / `LT(n, ...)` etc. don't exceed the layer count (error) and point to defined layers (warning)
+- **Missing layers**: Gaps in layer numbers (warning)
 
 </details>
 
-<details>
-<summary><b>3. Position Map Validation</b></summary>
-
-- Verifies symbols in `position_map.yaml` are unique
-- Detects when the same symbol is assigned to multiple physical positions
-- Detects duplicates across left and right hands
-- Ignores nil or empty strings
-
-**Detection Example**:
-```
-Error: position_map.yaml: Duplicate symbol 'Q' at: left_hand.row0[1], right_hand.row0[2]
-```
-
-</details>
-
-<details>
-<summary><b>4. Keycode Validation</b></summary>
-
-- Verifies all keycodes in layers are valid QMK keycodes or aliases
-- Validates function-style keycodes (`MO(1)`, `LSFT(A)`, `LT(2, Space)`, etc.)
-- Recursively validates function arguments (supports nested functions)
-- Validates modifier expressions (`Cmd + Q`, etc.)
-- Catches typos early
-
-**Detection Example**:
-```
-Error: Layer 0_base.yaml, symbol 'Q': Invalid keycode 'Spce' (did you mean 'Space'?)
-Error: Layer 1_symbol.yaml, symbol 'W': Invalid function argument in 'LSFT(InvalidKey)'
-```
-
-</details>
-
-<details>
-<summary><b>5. Position Map Reference Validation</b></summary>
-
-- Verifies symbols used in layers (`LT1`, `RT1`, etc.) are defined in `position_map.yaml`
-- Detects undefined position symbol references
-- Warns (not error) if `position_map.yaml` doesn't exist
-
-**Detection Example**:
-```
-Error: Layer 0_base.yaml: Unknown position symbol 'UnknownKey' (not defined in position_map.yaml)
-```
-
-</details>
-
-<details>
-<summary><b>6. Layer Index Validation</b></summary>
-
-- Layer filenames must start with a number (e.g., `0_base.yaml`)
-- Layer indices must be in the 0-9 range
-- No duplicate layer indices
-
-**Detection Example**:
-```
-Error: Layer file 'base.yaml' must start with layer index (e.g., 0_base.yaml)
-Error: Duplicate layer index 1: 1_symbol.yaml, 1_number.yaml
-```
-
-</details>
-
-<details>
-<summary><b>7. Macro/Tap Dance/Combo Name Uniqueness</b></summary>
-
-- Each file must have a `name` field
-- Names must be unique across files
-
-**Detection Example**:
-```
-Error: Duplicate macro name 'Bracket Pair' in files: 00_bracket.yml, 01_bracket_copy.yml
-```
-
-</details>
-
-<details>
-<summary><b>8. Layer Reference Validation</b></summary>
-
-- Name-based references (`Macro('name')`, `TapDance('name')`) must point to existing names
-- Index-based references (`Macro(0)`, `TapDance(2)`) range check only (0-31)
-- Legacy references (`M0`, `TD(2)`) range check only
-
-**Detection Example**:
-```
-Error: Layer 0_base.yaml, symbol 'Q': Macro 'Unknown Macro' not found
-Error: Layer 1_symbol.yaml, symbol 'W': Macro index 99 out of range (0-31)
-```
-
-</details>
-
-### Phase 2 Not Yet Implemented
-
-The following validations are planned for future Phase 2:
-
-- Macro sequence syntax validation
-- Tap dance action syntax validation
-- Combo trigger count validation
-- QMK Settings type and range checking
-- Encoder configuration validation
-
-### Recommended Workflow
-
-```bash
-# Edit configuration
-vim config/layers/0_base.yaml
-
-# Compile (with auto-validation)
-cornix compile
-```
-
-Compilation automatically aborts if validation errors exist.
-
-## File Structure
+## File Formats
 
 ### Layer Files
 
-Layer files are named in the format `{index}_{name}.yaml`.
+See [Editing Configuration Files](#editing-configuration-files). The file name is `{index}_{name}.yaml`, and the leading number must equal `index`.
 
-- `index`: Layer number (0-9)
-- `name`: Any descriptive name
+To change a layer number, change both the file name and `index`, and update `MO(2)`, `LT2(...)` etc. in other files by hand.
 
-**Examples:** `0_base.yaml`, `1_symbol_mac.yaml`, `2_number.yaml`
-
-To change layer numbers:
-
-```bash
-# To change 2_number.yaml to 5_number.yaml
-mv config/layers/2_number.yaml config/layers/5_number.yaml
-
-# Manually update MO(2), LT(2, ...) to MO(5), LT(5, ...) in other layer files
-```
-
-### Macro, Tap Dance, and Combo Files
-
-These are named in the format `{name}.yaml` (no index prefix).
-
-**The index is determined by alphabetical order of filenames.**
-
-#### Macro File Example
+### Macro Files
 
 ```yaml
-name: curly_bracket_pair
-description: Insert {} and move cursor left
-enabled: true
-
+name: Curly Bracket Pair
+description: "Type {} and move the cursor inside"
+index: 1
 sequence:
   - action: down
-    key: LShift
-
+    keys: LShift
   - action: tap
     keys: ["[", "]"]
-
   - action: up
-    key: LShift
-
+    keys: LShift
   - action: tap
-    key: Left
+    keys: Left
 ```
 
-#### Tap Dance File Example
+### Tap Dance Files
 
 ```yaml
-name: screenshot_combo
-description: Cmd+Shift+4 on tap, Cmd+Shift+5 on double tap
-enabled: true
-
+name: Tab Escape
+description: Tab on tap, Escape on hold
+index: 0
 actions:
-  on_tap: "LCmd+LShift+[4]"
-  on_double_tap: "LCmd+LShift+[5]"
-  on_hold: "-"
-  on_tap_hold: "-"
-
-tapping_term: 250
+  on_tap: Tab
+  on_hold: Escape
+  on_double_tap: NoKey
+  on_tap_hold: NoKey
+tapping_term: 200        # milliseconds (250 if omitted)
 ```
 
-#### Combo File Example
+Omitted actions are `NoKey`.
+
+### Combo Files
 
 ```yaml
 name: Left Click
-description: Left + Down for a left click
-enabled: true
+description: Left + Down for left click
 index: 6
 trigger_keys:
   - Left
   - Down
-output_key: MouseButton1    # aliases are converted to KC_BTN1 at compile time
+output_key: MouseButton1
 ```
 
-Like layers, `trigger_keys` and `output_key` accept both aliases (`Left`, `MouseButton1`, etc.) and QMK keycodes (`KC_LEFT`, `KC_BTN1`). `output_key` also accepts references such as `Macro('Name')`. Encoder `push` / `ccw` / `cw` also accept references such as `TapDance('Name')`.
+Like layers, `trigger_keys` (up to 4 keys) and `output_key` accept both aliases (`Left`, `MouseButton1`) and QMK names (`KC_LEFT`, `KC_BTN1`). `output_key` can also be a reference such as `Macro('name')`.
 
-### Referencing in Layers
+`enabled` in macro / tap dance / combo files is ignored (writing it is not an error).
+
+### QMK Settings
 
 ```yaml
-# config/layers/1_symbol.yaml
-overrides:
-  # Reference macro by name (recommended)
-  A: MACRO(bracket_pair)
-
-  # Reference tap dance by name (recommended)
-  fn: TD(layer_switch)
-
-  # Index reference also possible (not recommended)
-  B: MACRO(0)  # Hard to understand which macro
+# config/settings/qmk_settings.yaml
+keyboard:
+  oneshot_timeout: 1000
+  tapping_term: 180
+  tap_code_delay: 20
+  tap_hold_caps_delay: 20
+  permissive_hold: false
+  hold_on_other_key_press: true
+  chordal_hold: true
+  flow_tap: 120
+vial:
+  combo_timing_window: 50
 ```
 
-## Flexible Reference System
+Available names and widths are in `data/qmk_settings.yaml`. The QSID-number form written by older decompiles (`'7': 180`) is also read.
 
-Cornix supports three reference formats for macros, tap dances, and combos. Each format has its own advantages and can be used depending on the use case.
+## Modifier Expressions (VS Code Style)
 
-### Three Reference Formats
-
-#### 1. Name-based Format (Recommended)
-
-**The most readable and self-documenting format**. Referencing by name makes it immediately clear what each macro/tap dance/combo does just by looking at the configuration file.
+Writing `Cmd + Q` produces a keycode with modifiers.
 
 ```yaml
-# In layer file
-mapping:
-  Q: Macro('End of Line')           # Reference macro by name
-  W: TapDance('Escape or Layer')    # Reference tap dance by name
-  E: Combo('Bracket Pair')          # Reference combo by name
+Q: Cmd + Q               # LGUI(KC_Q)
+W: Shift + W             # LSFT(KC_W)
+E: Ctrl + C              # LCTL(KC_C)
+R: Alt + Tab             # LALT(KC_TAB)
+T: Shift + Cmd + Q       # SGUI(KC_Q)
+Y: Ctrl + Shift + F      # C_S(KC_F)
+U: Ctrl + Shift + Alt + Cmd + Y   # HYPR(KC_Y)
 ```
 
-**Benefits**:
-- **High Readability**: `Macro('End of Line')` is clearer than `M3`
-- **Self-Documenting**: Configuration files are understandable without comments
-- **Auto-Update**: References automatically update when renamed with `cornix rename`
+- Modifier order and spaces around `+` don't matter (`Cmd + Shift + W` = `Shift+Cmd+W`)
+- The key can be an alias or a QMK name (`Cmd + Space`, `Alt + KC_ESCAPE`, `Cmd + "+"`)
+- Modifier combinations are written to layout.vil in a form Vial can read: combinations with a Vial name use it (`C_S`, `SGUI`, `LCA`, `LSA`, `MEH`, `LCG`, `LAG`, `LCAG`, `HYPR`, `RCG`, ...), and combinations without one (`Ctrl + Shift + Cmd`, ...) are written as 16-bit values (`0x0B17`, ...)
+- Right-side modifiers are written as `RShift` / `RCtrl` / `RAlt` / `RCmd` etc. **Mixing left and right modifiers is an error** (e.g. `Shift + RCmd + A`, because a QMK value can't represent it)
+- Only basic keys can be modified (`Cmd + LT(1, Space)` is an error)
 
-**Use Cases**:
-- Creating new layers (recommended)
-- Sharing configurations in team development
-- Configurations maintained long-term
+### Modifier Names
 
-#### 2. Index-based Format (Explicit)
+| Notation | Side | Modifier |
+|---|---|---|
+| `Shift`, `LShift` | left | Shift |
+| `Ctrl`, `LCtrl`, `Control`, `LControl` | left | Ctrl |
+| `Alt`, `LAlt`, `Option`, `LOption` | left | Alt / Option |
+| `Cmd`, `LCmd`, `Command`, `LCommand`, `Win`, `LWin`, `Gui`, `LGui` | left | GUI / Command |
+| `RShift` | right | Shift |
+| `RCtrl`, `RControl` | right | Ctrl |
+| `RAlt`, `ROption` | right | Alt / Option |
+| `RCmd`, `RCommand`, `RWin`, `RGui` | right | GUI / Command |
 
-**Explicitly specifies indices**. References by numeric index (0-31 range).
+### Function Form
+
+QMK function forms can be written as they are.
 
 ```yaml
-# In layer file
-mapping:
-  Q: Macro(0)           # Reference macro by index
-  W: TapDance(2)        # Reference tap dance by index
-  E: Combo(1)           # Reference combo by index
+Q: LGUI(KC_Q)
+W: LSFT(1)               # arguments may be aliases (LSFT(KC_1))
+E: LCS(KC_F)             # same as C_S(KC_F)
+R: LCTL_T(A)             # Ctrl on hold, A on tap
+T: LT(1, Space)          # can also be written LT1(Space)
 ```
 
-**Benefits**:
-- **Explicit**: Useful when you want direct index control
-- **Stable**: References don't change during rename
-- **Flexible**: Can reference even if file doesn't exist (for files to be added later)
+### How decompile Writes Them
 
-**Use Cases**:
-- Dynamically generated configurations
-- When index needs to be fixed
-- When auto-update during rename is not desired
+decompile writes modified keys in this order of preference:
 
-#### 3. QMK Legacy Format (Backward Compatible)
+1. An alias if one exists (`LSFT(KC_1)` → `!`, `LSFT(KC_9)` → `(`)
+2. Otherwise a modifier expression (in the order `Ctrl, Option, Shift, Command`; right side `RCtrl, ROption, RShift, RCommand`)
+   - `LGUI(KC_Q)` → `Command + Q`, `HYPR(KC_LEFT)` → `Ctrl + Option + Shift + Command + Left`
 
-**Traditional QMK standard format**. Maintains compatibility with existing QMK configurations.
-
-```yaml
-# In layer file
-mapping:
-  Q: M0           # Legacy macro format
-  W: TD(2)        # Legacy tap dance format
-```
-
-**Benefits**:
-- **Backward Compatibility**: Existing QMK configurations work as-is
-- **QMK Standard**: Familiar to QMK users
-- **No Migration Required**: Can use existing configurations unchanged
-
-**Use Cases**:
-- Migrating from existing QMK configurations
-- When maintaining QMK standard format
-
-### Behavioral Differences
-
-| Feature | Name-based | Index-based | Legacy |
-|---------|-----------|------------|--------|
-| **Readability** | ⭐⭐⭐ | ⭐ | ⭐ |
-| **Decompile Output** | ✅ Always this format | ❌ Converted to Name-based | ❌ Converted to Name-based |
-| **Rename Auto-Update** | ✅ Auto-updated | ❌ Preserved | ❌ Preserved |
-| **Validator Check** | ✅ File existence check | ⚠️ Range check only | ⚠️ Range check only |
-| **File Required** | ❌ Required | ✅ Not required (0-31 range) | ✅ Not required |
-
-### Recommendations
-
-**For New Configs**: Use Name-based format. `cornix decompile` automatically generates Name-based format.
-
-**For Existing Configs**: All formats are fully supported and migration is not required. Existing legacy format works as-is.
-
-### Decompiler Behavior
-
-`cornix decompile` always generates YAML files in **Name-based format**. This is by design to maximize readability.
-
-```yaml
-# layout.vil (QMK format)
-M5, TD(2), COMBO(1)
-
-# ↓ After decompile (YAML)
-mapping:
-  Q: Macro('End of Line')      # Name-based format
-  W: TapDance('Escape')        # Name-based format
-  E: Combo('Bracket')          # Name-based format
-```
-
-**Note**: Even if written in Index-based or Legacy format, it will be converted to Name-based format after decompile. This is intentional design (unification to more readable format).
-
-### FileRenamer Behavior (Selective Update)
-
-When renaming files with `cornix rename`, **only Name-based references** are automatically updated.
-
-```yaml
-# Before rename
-config/macros/03_macro.yml: name: "Old Name"
-
-# In layer file
-mapping:
-  Q: Macro('Old Name')    # ✅ Will be auto-updated
-  W: Macro(3)             # ❌ Will not change (Index-based)
-  E: M3                   # ❌ Will not change (Legacy)
-
-# After rename (cornix rename executed)
-config/macros/03_end_of_line.yml: name: "End of Line"
-
-# In layer file
-mapping:
-  Q: Macro('End of Line') # ✅ Auto-updated
-  W: Macro(3)             # ❌ Unchanged (intentional)
-  E: M3                   # ❌ Unchanged (intentional)
-```
-
-**Design Reason**: Respects user choice and maintains predictability. Users who chose Name-based format expect auto-updates, while users using Index-based/Legacy formats prioritize stability.
-
-### Round-trip Integrity
-
-All formats guarantee compilation to layout.vil and round-trip integrity.
-
-```bash
-# Same layout.vil generated regardless of format used
-cornix compile  # → layout.vil (QMK format)
-
-# round-trip check
-mv config config.backup
-cornix decompile  # Generated in Name-based format
-cornix compile
-ruby bin/diff_layouts  # ✓ FILES ARE IDENTICAL
-```
-
-## Modifier Expressions (VS Code-style)
-
-Cornix supports readable modifier expressions similar to VS Code or IDE keybindings. Write `Cmd + Q` and it automatically compiles to QMK format (`LGUI(KC_Q)`).
-
-### Basic Usage
-
-```yaml
-# config/layers/0_base.yaml
-mapping:
-  Q: Cmd + Q              # → LGUI(KC_Q)
-  W: Shift + W            # → LSFT(KC_W)
-  E: Ctrl + C             # → LCTL(KC_C)
-  R: Alt + Tab            # → LALT(KC_TAB)
-```
-
-### Automatic QMK Shortcut Detection
-
-When combining multiple modifiers, QMK shortcut functions are automatically used:
-
-```yaml
-mapping:
-  # 2 modifiers
-  Q: Shift + Cmd + Q          # → LSG(KC_Q)
-  W: Ctrl + Shift + W         # → LCS(KC_W)
-  E: Ctrl + Alt + E           # → LCA(KC_E)
-
-  # 3 modifiers
-  R: Ctrl + Shift + Alt + R   # → MEH(KC_R)
-  T: Ctrl + Shift + Cmd + T   # → LCSG(KC_T)
-
-  # 4 modifiers (HYPR)
-  Y: Ctrl + Shift + Alt + Cmd + Y  # → HYPR(KC_Y)
-```
-
-### Order Independent
-
-Modifier order doesn't matter. Both compile to the same QMK code:
-
-```yaml
-Q: Shift + Cmd + Q    # → LSG(KC_Q)
-W: Cmd + Shift + W    # → LSG(KC_W)  # Same despite different order
-```
-
-### Supported Modifiers
-
-#### Left-side Modifiers (default)
-
-| Notation | QMK Function | Description |
-|----------|--------------|-------------|
-| `Shift` | `LSFT` | Left Shift |
-| `Ctrl`, `Control` | `LCTL` | Left Ctrl |
-| `Alt`, `Option` | `LALT` | Left Alt/Option |
-| `Cmd`, `Command`, `Win`, `Gui` | `LGUI` | Left Cmd/Win |
-
-#### Right-side Modifiers (explicit)
-
-| Notation | QMK Function | Description |
-|----------|--------------|-------------|
-| `RShift` | `RSFT` | Right Shift |
-| `RCtrl`, `RControl` | `RCTL` | Right Ctrl |
-| `RAlt`, `ROption` | `RALT` | Right Alt/Option |
-| `RCmd`, `RCommand`, `RWin`, `RGui` | `RGUI` | Right Cmd/Win |
-
-### QMK Shortcut List
-
-Cornix automatically detects the following QMK shortcuts:
-
-#### 2 Modifiers
-
-| Combination | QMK | Combination | QMK |
-|------------|-----|------------|-----|
-| Ctrl + Shift | LCS | RCtrl + RShift | RCS |
-| Ctrl + Alt | LCA | RCtrl + RAlt | RCA |
-| Ctrl + Cmd | LCG | RCtrl + RCmd | RCG |
-| Shift + Alt | LSA | RShift + RAlt | RSA |
-| Shift + Cmd | LSG | RShift + RCmd | RSG |
-| Alt + Cmd | LAG | RAlt + RCmd | RAG |
-
-#### 3 Modifiers
-
-| Combination | QMK | Description |
-|------------|-----|-------------|
-| Ctrl + Shift + Alt | MEH | MEH key |
-| Ctrl + Shift + Cmd | LCSG | Left 3-mod |
-| Ctrl + Alt + Cmd | LCAG | Left 3-mod |
-| Shift + Alt + Cmd | LSAG | Left 3-mod |
-
-#### 4 Modifiers
-
-| Combination | QMK | Description |
-|------------|-----|-------------|
-| Ctrl + Shift + Alt + Cmd | HYPR | HYPR key |
-
-### Flexible Spacing
-
-Spaces are optional:
-
-```yaml
-Q: Cmd + Q      # Recommended (readable)
-W: Cmd+W        # Also works
-E: Cmd  +  E    # Also works
-```
-
-### Combined with Key Aliases
-
-Keys can use aliases:
-
-```yaml
-mapping:
-  Q: Cmd + Space      # → LGUI(KC_SPACE)
-  W: Shift + Tab      # → LSFT(KC_TAB)
-  E: Ctrl + Enter     # → LCTL(KC_ENTER)
-  R: Alt + KC_ESCAPE  # → LALT(KC_ESCAPE)
-```
-
-### Usage Examples
-
-#### Application Operations
-
-```yaml
-mapping:
-  Q: Cmd + Q          # Quit app
-  W: Cmd + W          # Close window
-  N: Cmd + N          # New window
-  T: Cmd + T          # New tab
-```
-
-#### Editor Shortcuts
-
-```yaml
-mapping:
-  C: Cmd + C          # Copy
-  V: Cmd + V          # Paste
-  X: Cmd + X          # Cut
-  Z: Cmd + Z          # Undo
-  S: Cmd + S          # Save
-```
-
-#### Advanced Combinations
-
-```yaml
-mapping:
-  F: Ctrl + Shift + F     # → LCS(KC_F) - Project search
-  R: Ctrl + Shift + R     # → LCS(KC_R) - Refactor
-  P: Ctrl + Shift + P     # → LCS(KC_P) - Command palette
-```
-
-### Escape Hatch
-
-You can still write QMK function syntax directly:
-
-```yaml
-mapping:
-  Q: LGUI(KC_Q)           # Direct QMK syntax
-  W: Cmd + W              # Modifier expression (recommended)
-```
-
-### Decompile Behavior
-
-**⚠️ Critical - Irreversible Conversion**: The `cornix decompile` command does not automatically convert back to modifier expressions. QMK format is preserved.
-
-```yaml
-# Before compile (original YAML)
-mapping:
-  Q: Cmd + Q
-
-# layout.vil (after compile)
-# → LGUI(KC_Q)
-
-# After decompile (YAML)
-mapping:
-  Q: LGUI(Q)    # Does not revert to modifier expression
-```
-
-**Reason**: The layout.vil file only contains QMK format, and information about the original notation (modifier expression vs QMK syntax) is lost. Additionally, QMK functions can be written in various ways (`LGUI(KC_Q)`, `Cmd + Q`, `LGUI_T(KC_Q)`, etc.), making it difficult to accurately restore the original notation.
-
-**Impact**:
-- **Initial decompile**: YAML generated from layout.vil is always in QMK format (e.g., `LGUI(Q)`)
-- **Round-trip after edit**: Written in modifier expression (`Cmd + Q`) → compile → decompile → converted to QMK format (`LGUI(Q)`)
-- **Manual maintenance**: To continue using modifier expressions, you need to manually edit YAML files
-
-**Best Practices**:
-1. **Use version control**: Manage YAML files with `git` etc. and check with `git diff` after decompile
-2. **Manual correction after round-trip**: Convert QMK format back to modifier expressions as needed
-3. **Mixing allowed**: QMK format and modifier expressions can coexist in the same layer
-
-**Round-trip Integrity**:
-While modifier expressions don't revert, round-trip integrity as QMK format is fully guaranteed:
-
-```bash
-# 1. Create YAML using modifier expressions
-echo "Q: Cmd + Q" > config/layers/0_base.yaml
-
-# 2. Compile
-cornix compile  # → LGUI(KC_Q) in layout.vil
-
-# 3. Decompile
-mv config config.backup
-cornix decompile  # → LGUI(Q) in config/layers/*.yaml
-
-# 4. Recompile
-cornix compile
-
-# 5. Verify
-ruby bin/diff_layouts  # ✓ FILES ARE IDENTICAL (complete match as QMK format)
-```
-
-### Limitations
-
-1. **Plus sign as key**: `Shift + +` cannot be parsed. Use `LSFT(KC_PLUS)` instead.
-
-2. **Function as key**: `Cmd + LT(1, Space)` cannot be parsed. Use `LGUI(LT(1, Space))` instead.
-
-3. **Modifier as key**: Possible, but be explicit:
-   ```yaml
-   Q: Shift + Shift    # → LSFT(KC_LSHIFT) (sticky Shift)
-   ```
+So a configuration written as `Cmd + Q` becomes `Command + Q` after compile → decompile (the value is the same).
 
 ## Keycode Aliases
 
-Keycode aliases are stored as a fixed file in `lib/cornix/keycode_aliases.yaml`. This file provides comprehensive keycode definitions based on the QMK official documentation ([https://docs.qmk.fm/keycodes](https://docs.qmk.fm/keycodes)).
+Keycode names come from two tables. Both belong to the tool and are not generated into `config/`.
 
-**Important**: This file is a system-provided reference file and is not generated in the `config/` directory. It is automatically referenced during compilation.
-
-### Supported Keycodes
-
-`lib/cornix/keycode_aliases.yaml` includes comprehensive coverage of:
-
-- **Basic Keycodes**: Letters, numbers, symbols, function keys, navigation keys, modifiers
-- **Layer Switching**: `MO()`, `DF()`, `TG()`, `TO()`, `TT()`, `OSL()`, `LT()`
-- **Modifiers**: Mod-Tap (`MT`, `LCTL_T`, etc.), One Shot Modifiers (`OSM`), modifier combinations (`C()`, `S()`, `A()`, `G()`)
-- **Media Keys**: Volume control, playback, media controls
-- **Mouse Keys**: Mouse movement, buttons, wheel operations
-- **Backlight/RGB**: Backlight and RGB control
-- **Quantum Keys**: Reset, debug, EEPROM operations
-
-### Alias Examples
+- **`data/keycodes.yaml`**: Named keycodes of Cornix (Vial protocol 6) and their 16-bit values: the name written to layout.vil (the name Vial GUI saves) and other accepted QMK names
+- **`data/aliases.yaml`**: Human-readable aliases in the form `QMK name: [canonical name, aliases...]`. The first entry is the name decompile writes. Aliases and QMK names are unique across the whole table
 
 ```yaml
-aliases:
-  # Basic keys
-  A: KC_A
-  Space: KC_SPACE
-  Enter: KC_ENTER
-  Escape: KC_ESCAPE
-
-  # Modifiers
-  LShift: KC_LSHIFT
-  LCmd: KC_LGUI
-  LCtrl: KC_LCTRL
-
-  # Symbols (can be used as-is)
-  "-": KC_MINUS
-  "=": KC_EQUAL
-  "[": KC_LBRACKET
-  "]": KC_RBRACKET
-
-  # Media keys
-  VolumeUp: KC_VOLU
-  VolumeDown: KC_VOLD
-  Mute: KC_MUTE
-
-  # Special keys
-  Transparent: KC_TRNS
-  Trans: KC_TRNS
-  ___: KC_TRNS
-  NoKey: KC_NO
+# data/aliases.yaml (excerpt)
+special:
+  KC_NO: [NoKey, None, Nop]
+  KC_TRNS: [Trans, Transparent, ___]
+basic:
+  KC_A: [A]
+  KC_ESCAPE: [Escape, Esc]
+  KC_ENTER: [Enter, Return, Ent]
+  KC_LGUI: [LGui, LCmd, LWin]
+  KC_VOLU: [VolumeUp, VolUp]
+  KC_BTN1: [MouseButton1, MouseBtn1]
+quantum:
+  QK_BOOT: [Reset, Boot]
+modified:
+  "LSFT(KC_1)": ["!", Exclaim]
+  "LSFT(KC_SCOLON)": [":", Colon]
 ```
 
-### Usage in Layer Files
+- Configuration files accept aliases, QMK names (`KC_TAB`, `KC_LSHIFT`), and Vial names
+- Keycodes with arguments such as `MO(n)` / `LT(n, kc)` / `LSFT(kc)` / `TD(n)` / `M0` are not in the tables; they are built into values
+- Values the tables can't express can be written as `0xHHHH` (decompile also writes uninterpretable values this way)
 
-```yaml
-# config/layers/1_symbol.yaml
-overrides:
-  # Basic keys
-  Q: LShift
-  W: Space
+## Position Map
 
-  # Layer switching
-  fn: MO(1)                    # Layer 1 while held
-  raise: TG(2)                 # Toggle layer 2
+`position_map.yaml` maps physical key positions to symbol names. Layer files specify keys by symbol, such as `left_hand.row0.Q`.
 
-  # Mod-Tap (modifier when held, key when tapped)
-  A: LCTL_T(A)                # Ctrl when held, A when tapped
-
-  # Layer Tap
-  space: LT(1, Space)         # Layer 1 when held, Space when tapped
-
-  # Thumb keys (defined within left_hand/right_hand thumb_keys in position_map.yaml)
-  l_thumb_left: LGUI_T(KC_LANG2)    # Left thumb, left: GUI when held, LANG2 when tapped
-  l_thumb_middle: LT(1, Space)      # Left thumb, middle: Layer 1 when held, Space when tapped
-  l_thumb_right: LT(2, Escape)      # Left thumb, right: Layer 2 when held, Escape when tapped
-  r_thumb_left: LT(2, Enter)        # Right thumb, left: Layer 2 when held, Enter when tapped
-  r_thumb_middle: MO(1)             # Right thumb, middle: Layer 1 while held
-  r_thumb_right: LT(3, KC_LANG1)    # Right thumb, right: Layer 3 when held, LANG1 when tapped
-
-  # Transparent key (pass through to lower layer)
-  B: Trans                    # or Transparent, ___
-```
-
-**Note**: Files generated by `decompile` automatically use alias format, but you can manually write `KC_A` or `Transparent` and they will work (treated equally during compile).
-
-## Position Map (Physical Position Mapping)
-
-The `position_map.yaml` defines the mapping between physical positions on the keyboard and symbol names. This file allows you to reference keys with intuitive names like `Q` or `A` in layer files.
-
-### File Placement and Generation
-
-**System Template**: `lib/cornix/position_map.yaml`
-- Default template provided by the system (Cornix standard layout)
-- Users do not edit this directly
-
-**User Configuration**: `config/position_map.yaml`
-- Automatically generated from `lib/cornix/position_map.yaml` when `cornix decompile` is executed
-- **User customizable** (symbol names can be freely changed)
-- Loaded when `cornix compile` is executed
-
-**Workflow**:
-```
-1. cornix decompile
-   → Load lib/cornix/position_map.yaml (template)
-   → Generate config/position_map.yaml
-
-2. User customizes symbol names (optional)
-   → Edit config/position_map.yaml
-
-3. cornix compile
-   → Load config/position_map.yaml (user version)
-   → Generate layout.vil
-```
-
-**Important Design Principle**:
-- `lib/cornix/position_map.yaml`: Template that requires **no reconstruction** (not actual data from layout.vil)
-- `config/position_map.yaml`: **User-specific** customizable file
-
-### File Format
-
-Defines the mapping between physical positions and symbol names.
+- **Template**: `lib/cornix/position_map.yaml` (the tool's default)
+- **User configuration**: `config/position_map.yaml` (created from the template by decompile; you can change the symbol names freely; compile reads this one)
 
 ```yaml
 left_hand:
-  row0: [tab, Q, W, E, R, T]          # 6 elements
-  row1: [caps, A, S, D, F, G]         # 6 elements
-  row2: [lshift, Z, X, C, V, B]       # 6 elements
-  row3: [lctrl, command, option]      # 3 elements (standard grid keys only)
-  thumb_keys: [left, middle, right]   # simplified symbol names
-
+  row0: [tab, Q, W, E, R, T]           # 6 keys
+  row1: [caps, A, S, D, F, G]          # 6 keys
+  row2: [lshift, Z, X, C, V, B]        # 6 keys
+  row3: [lctrl, command, option]       # 3 keys
+  thumb_keys: [left, middle, right]    # 3 thumb keys
 right_hand:
-  row0: [Y, U, I, O, P, backspace]    # 6 elements
-  row1: [H, J, K, L, colon, enter]    # 6 elements
-  row2: [N, M, comma, dot, up, rshift]# 6 elements
-  row3: [left, down, right]           # 3 elements (standard grid keys only)
-  thumb_keys: [left, middle, right]   # simplified symbol names
-
+  row0: [Y, U, I, O, P, backspace]
+  row1: [H, J, K, L, colon, enter]
+  row2: [N, M, comma, dot, up, rshift]
+  row3: [left, down, right]
+  thumb_keys: [left, middle, right]
 encoders:
   left:
-    push: push    # simplified symbol names (uniqueness guaranteed by hierarchical path)
+    push: push
     ccw: ccw
     cw: cw
   right:
@@ -1319,912 +645,197 @@ encoders:
     cw: cw
 ```
 
-### Key Array Order and Structure
-
-**Standard Grid Keys**:
-- **left_hand**: Keys are arranged **physically from left to right** as `col0`, `col1`, `col2`, ...
-- **right_hand**: Keys are also arranged **physically from left to right** as `col0`, `col1`, `col2`, ...
-  - Example: `row0` is `Y` (leftmost) → `U` → `I` → `O` → `P` → `backspace` (rightmost)
-
-**Row Structure**:
-- `row0`, `row1`, `row2`: 6 elements each (standard grid keys)
-- `row3`: 3 elements each (standard grid keys only)
-
-**Thumb Keys**:
-- Defined as `thumb_keys` within `left_hand`/`right_hand` sections (3 keys each)
-- Physically located in the latter half of `row3` (cols 3-5), but logically treated as an independent section within each hand
-- Placed immediately after row3, aligning the physical placement with the structure
-- Symbol names are simplified (`left`, `middle`, `right`)
-- Referenced in layer files with hierarchical paths:
-  - Left thumb keys: `left_hand.thumb_keys.left`, `left_hand.thumb_keys.middle`, `left_hand.thumb_keys.right`
-  - Right thumb keys: `right_hand.thumb_keys.left`, `right_hand.thumb_keys.middle`, `right_hand.thumb_keys.right`
-
-**Encoders**:
-- Rotary encoder push buttons and rotations are defined separately in the `encoders` section
-- Kept as an independent section since they are clearly at a different physical location from keys
-- Symbol names are simplified (`push`, `ccw`, `cw`)
-- Referenced in layer files with hierarchical paths:
-  - Left encoder: `encoders.left.push`, `encoders.left.ccw`, `encoders.left.cw`
-  - Right encoder: `encoders.right.push`, `encoders.right.ccw`, `encoders.right.cw`
-
-**Uniqueness Guaranteed by Hierarchical Paths**:
-- Since v2.0, symbol names are guaranteed unique by their full hierarchical path
-- Example: `left_hand.thumb_keys.left` and `right_hand.thumb_keys.left` are recognized as different keys
-- This eliminates the need for redundant prefixes (`l_`, `r_`, etc.) in symbol names
-
-This mapping allows you to reference keys with an intuitive hierarchical structure in layer files.
-
-## Available Macro Actions
+- For both hands, list keys **physically from left to right** (right-hand row0 goes `Y` (leftmost) → ... → `backspace` (rightmost))
+- Symbols must be unique within the same hand and group; different groups may reuse a name (e.g. `left` / `right` in right-hand `row3` and `thumb_keys`). Symbols may contain letters, digits, `_` and `-`
+- Thumb keys are physically the second half of row3, but are written separately as `thumb_keys`
+- Encoder push is a key in the key matrix; rotation (`ccw` / `cw`) goes to `encoder_layout` in layout.vil
 
 ```yaml
-# Tap a key
+# Renaming symbols (config/position_map.yaml)
+right_hand:
+  row0: [y, u, i, o, p, bs]
+```
+
+## Macro Actions
+
+```yaml
+- action: tap            # tap in order
+  keys: [A, B, C]
 - action: tap
-  key: A              # Single key
-
-- action: tap
-  keys: [A, B, C]     # Multiple keys in sequence
-
-# Hold a key down
-- action: down
-  key: LShift
-
-- action: down
-  keys: [LCmd, LShift]  # Multiple keys simultaneously
-
-# Release a key
-- action: up
-  key: LShift
-
-# Input text
-- action: text
+  keys: A                # a single key may be a string
+- action: down           # press (simultaneously if several)
+  keys: [LCmd, LShift]
+- action: up             # release
+  keys: LShift
+- action: text           # type a string (ASCII only)
   content: "function ()"
-
-# Delay
-- action: delay
-  duration: 100  # ms
+- action: delay          # wait (milliseconds)
+  duration: 100
 ```
 
-## Library Feature (Community Macros)
-
-Place community-created macros and tap dances in the `library/` directory.
-
-```yaml
-# config/metadata.yaml
-library:
-  enabled: true
-
-  macros:
-    - name: vscode_shortcuts
-      enabled: true
-    - name: emacs_keybinds
-      enabled: false
-```
-
-⚠️ **Security Warning**: Always review the content of library macros before enabling them.
+`keys` takes keycodes (aliases, QMK names, modifier expressions). `beep` is not supported.
 
 ## Development
 
-### bin/ Architecture
+### Structure
 
-Cornix's command-line interface has a clean structure focused on maintainability.
-
-#### Directory Structure
+The internals are layered: configuration files, layout.vil and HID bytes are all treated as outer representations, and the inside works only with typed values (the domain model).
 
 ```
-bin/
-├── cornix                    # Main CLI dispatcher (~62 lines)
-├── subcommands/              # Subcommand implementations
-│   ├── compile.rb           # Compile with auto-validation
-│   ├── decompile.rb         # Decompile with lock protection
-│   ├── validate.rb          # Validation-only
-│   ├── cleanup.rb           # Safe cleanup
-│   ├── rename.rb            # RenameCommand wrapper
-│   ├── device.rb            # Direct keyboard read/write (info/read/backup/diff/apply)
-│   └── mcp.rb               # MCP server (stdio)
-├── diff_layouts              # Round-trip check tool
-└── rename_file               # File renamer CLI (advanced)
+Interface       CLI (bin/cornix → Interface::Cli::Main), MCP server
+Application     Use cases (Compile / Decompile / Validate / Cleanup / RenameFiles / Device*) and Environment
+Mapping         Keycode notations and values (KeycodeNotation / VialNotation / KeycodeCodec), Profile ⇄ DeviceImage (ProfileMapper)
+Planning        Differences between DeviceImages and write plans
+Domain          Profile and value objects (Keycode, Layer, Macro, TapDance, Combo, PositionMap, ...)
+Image           DeviceImage (layout.vil / device state as raw 16-bit values)
+Storage         config/*.yaml (ConfigRepository), layout.vil (VilFile), backups
+Device          Communication with the HID bridge; reading and writing the device
 ```
 
-#### Delegation Pattern
-
-`bin/cornix` functions as a simple dispatcher, delegating actual processing to each subcommand.
-
-```ruby
-# Excerpt from bin/cornix
-case command
-when 'compile'
-  load File.expand_path('subcommands/compile.rb', __dir__)
-when 'decompile'
-  load File.expand_path('subcommands/decompile.rb', __dir__)
-when 'validate'
-  load File.expand_path('subcommands/validate.rb', __dir__)
-# ...
-end
+```
+compile    config/ → Profile → DeviceImage → layout.vil
+decompile  layout.vil → DeviceImage → Profile → config/
+device     write the difference between layout.vil → DeviceImage (target) and device → DeviceImage (current), then read back and verify
 ```
 
-**Benefits**:
-- **Code deduplication**: Eliminated 100% duplication, all commands go through `cornix` dispatcher
-- **Consistency**: Common initialization process for all subcommands
-- **Maintainability**: Each subcommand managed in independent file
-
-#### Auto-validation Feature
-
-`cornix compile` automatically runs validation. This eliminates the need for users to explicitly call `validate`.
-
-```ruby
-# Excerpt from bin/subcommands/compile.rb
-# 1. Run validation
-validator = Cornix::Validator.new(config_dir)
-unless validator.validate
-  puts validator.errors
-  exit 1
-end
-
-# 2. Run compilation
-compiler = Cornix::Compiler.new(config_dir)
-compiler.compile
-```
-
-#### CLI Helpers (CliHelpers)
-
-Provides utility functions shared across all subcommands.
-
-```ruby
-# lib/cornix/cli_helpers.rb
-module Cornix
-  module CliHelpers
-    # Protect existing files in config/ directory
-    def self.check_config_lock(config_dir)
-      # ...
-    end
-
-    # Verify config/ directory exists
-    def self.ensure_config_exists(config_dir)
-      # ...
-    end
-
-    # Safe deletion of generated files
-    def self.cleanup(config_dir, layout_path)
-      # ...
-    end
-  end
-end
-```
-
-#### Data Flow
-
-```
-User Input
-    ↓
-cornix [command] [args]
-    ↓
-bin/cornix (dispatcher)
-    ↓
-    ├─ compile.rb → Validator → Compiler → layout.vil
-    ├─ decompile.rb → CliHelpers.check_config_lock → Decompiler → config/
-    ├─ validate.rb → Validator → error/success
-    ├─ cleanup.rb → CliHelpers.cleanup → file deletion
-    └─ rename.rb → RenameCommand → FileRenamer → config/
-```
+Principles, dependency direction and coding conventions are in [docs/architecture.md](docs/architecture.md); public methods of the main classes are in [docs/tasks.md](docs/tasks.md) (both in Japanese).
 
 ### Directory Structure
 
 ```
 cornix-layout/
-├── README.md                   # Japanese README
-├── README.en.md                # English README
 ├── bin/
-│   ├── compile                 # Compiler
-│   ├── decompile               # Decompiler
-│   └── verify                  # Verification script
+│   ├── cornix                # CLI (Interface::Cli::Main)
+│   ├── diff_layouts          # compare two layout.vil files by 16-bit values
+│   └── rename_file           # run renames directly (prints the result as JSON)
+├── data/
+│   ├── keycodes.yaml         # named keycode table (Vial protocol 6)
+│   ├── aliases.yaml          # keycode aliases (QMK name: [canonical, aliases...])
+│   ├── qmk_settings.yaml     # QSID, name and width of QMK Settings
+│   └── dangerous_keycodes.yaml # keycodes never written to the device
 ├── lib/
+│   ├── cornix.rb             # requires every file in layer order
 │   └── cornix/
-│       ├── compiler.rb
-│       ├── decompiler.rb
-│       ├── keycode_resolver.rb
-│       ├── keycode_aliases.yaml # System-provided keycode aliases
-│       ├── position_map.yaml    # Default physical position map template
-│       ├── position_map.rb
-│       └── device/              # Direct keyboard access (protocol, keycode table, diff/apply, MCP server)
-├── ext/
-│   └── cornix_hid/main.swift   # Raw HID bridge (allow-listed, built to tmp/cornix-hid)
-├── .mcp.json                   # MCP server registration for Claude Code
-├── config/                     # Configuration files
-└── layout.vil                  # Generated file
+│       ├── domain/ image/ mapping/ planning/ storage/ device/ application/ interface/
+│       ├── errors.rb         # Cornix::Error exceptions
+│       └── position_map.yaml # position_map template
+├── ext/cornix_hid/main.swift # raw HID bridge (with allowlist, built to tmp/cornix-hid)
+├── spec/                     # RSpec (same layer structure as lib; see spec/README.md)
+├── docs/                     # architecture.md, tasks.md
+├── .mcp.json                 # MCP server registration for Claude Code
+├── config/                   # configuration files (generated)
+└── layout.vil                # output of compile
 ```
 
-### Testing
-
-The project includes a comprehensive RSpec test suite.
+### Tests
 
 ```bash
-# Run all tests
-bundle exec rspec
-
-# Run specific test files
-bundle exec rspec spec/compiler_spec.rb
-bundle exec rspec spec/decompiler_spec.rb
-bundle exec rspec spec/keycode_resolver_spec.rb
-bundle exec rspec spec/position_map_spec.rb
-bundle exec rspec spec/validator_spec.rb
-bundle exec rspec spec/integration_spec.rb
-
-# Run with detailed output
-bundle exec rspec --format documentation
+LANG=ja_JP.UTF-8 bundle exec rspec                       # everything
+LANG=ja_JP.UTF-8 bundle exec rspec spec/mapping          # one layer
+LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb
 ```
 
-#### Test Suite Details
+- Specs follow the same layer structure as lib (`spec/domain`, `spec/mapping`, ... `spec/interface`)
+- `spec/end_to_end_spec.rb` compiles `spec/fixtures/test_config` and the author's keymap (`spec/fixtures/authors_config`), checks that the results match the stored layout.vil files by 16-bit values, and that decompile → compile reproduces them
+- `spec/architecture_spec.rb` checks the dependency direction between layers
+- A `FakeRmkDevice` that mimics RMK 0.8 responses replaces the real keyboard, so tests run without one
 
-**Total Test Cases**: 479 tests (all passing)
-**Total Lines**: 5,400+ lines
-**Execution Time**: ~1.8 seconds
+See [spec/README.md](spec/README.md) for details. GitHub Actions also runs RSpec on every push / pull request.
 
-<details>
-<summary><b>Test File Breakdown</b></summary>
+### Round-Trip Check
 
-| Test File | Tests | Content |
-|-----------|-------|---------|
-| `keycode_parser_spec.rb` | 106 | KeycodeParser features (reference format parsing, function parsing, modifier expression parsing, unparse) |
-| `modifier_expression_compiler_spec.rb` | 52 | ModifierExpressionCompiler features (QMK shortcut auto-detection, modifier aliases) |
-| `compiler_spec.rb` | 48 | Compiler features (keycode conversion, layer/macro/tap dance/combo compilation) |
-| `reference_resolver_spec.rb` | 44 | ReferenceResolver features (name⇔index resolution, caching, validation) |
-| `file_renamer_spec.rb` | 57 | FileRenamer features (rename, YAML updates, backup/rollback, layer reference updates) |
-| `decompiler_spec.rb` | 37 | Decompiler features (QMK→alias conversion, YAML generation, legacy→name-based upgrade) |
-| `validator_spec.rb` | 73 | Validator features (Phase 1 all validation items, modifier expression validation) |
-| `keycode_resolver_spec.rb` | 21 | KeycodeResolver features (alias⇔QMK bidirectional conversion) |
-| `position_map_spec.rb` | 17 | PositionMap features (physical position mapping) |
-| `integration_spec.rb` | 17 | Integration tests (full round-trip, reference system integration, modifier expression integration) |
+A procedure to check that decompile → compile reproduces your own layout.vil:
 
-</details>
-
-<details>
-<summary><b>Test Coverage Details</b></summary>
-
-**Flexible Reference System**:
-- Name-based reference parsing and resolution
-- Index-based reference parsing and resolution
-- Legacy reference backward compatibility
-- Auto-upgrade by Decompiler (Legacy → Name-based)
-- Selective update by FileRenamer (Name-based only auto-update)
-- Differential validation by Validator (Name-based: existence check, Index-based: range only)
-- Round-trip integrity (complete match for all formats)
-
-**Modifier Expression System**:
-- Modifier expression parsing (`Cmd + Q`, etc.)
-- QMK shortcut auto-detection (LCS, LSG, MEH, HYPR, etc.)
-- Order-independent matching (`Cmd + Shift` = `Shift + Cmd`)
-- Modifier alias resolution (Command, Win, Option, etc.)
-- Nested function fallback
-- Validation by Validator (modifier names, key names)
-- Round-trip integrity (complete match as QMK format)
-
-**Compiler**:
-- Keycode resolution (alias → QMK format)
-- Function argument processing (layer number preservation, modifier argument conversion)
-- Layer structure compilation
-- Macro/tap dance/combo compilation
-- Reference system integration
-- Modifier expression integration
-
-**Decompiler**:
-- QMK → alias conversion (reverse resolution)
-- YAML generation (readable format)
-- Legacy format auto-upgrade
-- Position Map template generation
-- Round-trip integrity
-
-**Validator**:
-- Phase 1 all validation items (8 items)
-- Reference format validation (Name-based, Index-based, Legacy)
-- Modifier expression validation
-- Clear error messages
-
-**FileRenamer**:
-- File rename (index prefix preservation)
-- YAML content updates (name, description fields)
-- Backup/rollback (transaction-based)
-- Layer reference auto-update (Name-based only)
-- Compilation verification
-
-**Integration**:
-- Compile → Decompile → Compile full round-trip
-- Integrity for all reference formats
-- QMK format preservation for modifier expressions
-- No data loss
-
-</details>
-
-**Round-trip Check** (Manual Verification):
 ```bash
-# 1. Backup existing config
-mv config config.backup
-
-# 2. Decompile from original
-cornix decompile  # Uses tmp/layout.vil
-
-# 3. Compile from generated config
-cornix compile
-
-# 4. Compare
-ruby bin/diff_layouts
+mv config config.backup          # move the existing configuration aside
+cp ~/Downloads/layout.vil tmp/layout.vil
+cornix decompile                 # tmp/layout.vil → config/
+cornix compile                   # config/ → layout.vil
+ruby bin/diff_layouts            # compare tmp/layout.vil and layout.vil
 # Expected: === ✓ FILES ARE IDENTICAL ===
 ```
 
+`bin/diff_layouts [FILE1 FILE2]` reads two layout.vil files and compares keys, encoders, macros, tap dances, combos and settings by 16-bit values. Different spellings of the same value (`KC_PGDN` and `KC_PGDOWN`, etc.) are treated as equal. If they differ, it shows where and exits with code 1.
+
 ## Troubleshooting
 
-Common issues and solutions.
-
 <details>
-<summary><b>Common Issues</b></summary>
+<summary><b>Common problems</b></summary>
 
-### 1. Decompile Blocked
+### 1. decompile is blocked
 
-**Symptom**:
 ```
 ⚠️  Error: config/ directory already contains configuration files.
 ```
 
-**Cause**: Lock protection feature is activated because existing `config/` directory exists.
+`config/` already contains a configuration. Move it aside with `mv config config.backup` or delete it with `cornix cleanup`, then decompile again. If cleanup stops with `Protected: config/ directory has an active lock file`, use `cornix cleanup -f`.
 
-**Solution**:
-```bash
-# Option 1: Use cleanup command
-cornix cleanup
+### 2. A keycode can't be interpreted
 
-# Option 2: Manual backup
-mv config config.backup
-
-# Decompile again
-cornix decompile
+```
+Error: layers/0_base.yaml: mapping.left_hand.row0.Q: キーコード「Spce」を解釈できません: 「Spce」は不明なキーコードです
 ```
 
----
+A typo (`Spce` → `Space`). Valid names are in `data/aliases.yaml` and `data/keycodes.yaml`.
 
-### 2. Compilation Error: Invalid keycode
+### 3. A key that isn't in position_map
 
-**Symptom**:
 ```
-Error: Layer 0_base.yaml, symbol 'Q': Invalid keycode 'Spce'
-```
-
-**Cause**: Typo in keycode (`Spce` → should be `Space`)
-
-**Solution**:
-```bash
-# 1. Identify file and line from error message
-vim config/layers/0_base.yaml
-
-# 2. Fix typo
-# Spce → Space
-
-# 3. Validate
-cornix validate
-
-# 4. Recompile
-cornix compile
+Error: layers/0_base.yaml: mapping.left_hand.row1.capz: position_map の left_hand.row1 にないキーです（使えるキー: caps, A, S, D, F, G）
 ```
 
-**Common Typos**:
-- `Spce` → `Space`
-- `Entr` → `Enter`
-- `Backspce` → `Backspace`
-- `Trans` → `Transparent` (both correct but `Trans` recommended)
+Use a symbol from that group of `config/position_map.yaml`, or change `position_map.yaml`.
 
----
+### 4. Duplicate indexes or names
 
-### 3. Undefined Position Symbol
-
-**Symptom**:
 ```
-Error: Layer 0_base.yaml: Unknown position symbol 'UnknownKey'
+Error: layers/2_layer.yaml: index: レイヤーの番号が重複しています: 2
+Error: macros/01_macro.yaml: name: マクロの名前が重複しています: Bracket Pair
 ```
 
-**Cause**: Referencing a symbol not defined in `position_map.yaml`.
+Change the `index` / `name` of one of the files.
 
-**Solution**:
-```bash
-# 1. Check position_map.yaml
-cat config/position_map.yaml
+### 5. Reference to a nonexistent macro / tap dance
 
-# 2. Check symbol usage in layer file
-grep "UnknownKey" config/layers/*.yaml
-
-# 3. Option A: Add symbol to position_map.yaml
-vim config/position_map.yaml
-
-# 3. Option B: Fix symbol in layer file
-vim config/layers/0_base.yaml
+```
+Error: layers/0_base.yaml: mapping.left_hand.row0.Q: キーコード「Macro('Unknown')」を解釈できません: マクロ「Unknown」が見つかりません
 ```
 
----
+Check the `name` fields in `config/macros/*.yaml` and fix the reference (`grep '^name:' config/macros/*.yaml`).
 
-### 4. Duplicate Layer Index
+### 6. Mixed left and right modifiers
 
-**Symptom**:
 ```
-Error: Duplicate layer index 1: 1_symbol.yaml, 1_number.yaml
-```
-
-**Cause**: Multiple files with the same layer index (`1_`).
-
-**Solution**:
-```bash
-# Change layer index of one file
-mv config/layers/1_number.yaml config/layers/2_number.yaml
+キーコード「Shift + RCmd + A」を解釈できません: 左右の修飾キーは混在できません（例: Shift と RCmd）
 ```
 
----
+A QMK modified keycode can only represent one side. Use the same side for all modifiers.
 
-### 5. Duplicate Macro Name
+### 7. The round-trip check fails
 
-**Symptom**:
+Look at the output of `ruby bin/diff_layouts` to see which layer, row or item differs. Please open an issue with the original and the generated layout.vil.
+
+### 8. The Claude Code CLI (`claude` command) is not found
+
 ```
-Error: Duplicate macro name 'Bracket Pair' in files: 00_bracket.yml, 01_bracket_copy.yml
-```
-
-**Cause**: Multiple macro files with the same `name` field.
-
-**Solution**:
-```bash
-# Change name in one file
-vim config/macros/01_bracket_copy.yml
-# name: "Bracket Pair" → "Bracket Pair Alt"
+  ❌ Error: Claude CLI not found
 ```
 
----
+`cornix rename` requires the Claude Code CLI. Install it from https://claude.ai/download and check with `claude --version`.
 
-### 6. Non-existent Macro/Tap Dance Reference
+### 9. YAML syntax or type errors
 
-**Symptom**:
-```
-Error: Layer 0_base.yaml, symbol 'Q': Macro 'Unknown Macro' not found
-```
-
-**Cause**: Name-based reference pointing to non-existent name.
-
-**Solution**:
-```bash
-# 1. Check existing macro names
-ls config/macros/
-cat config/macros/*.yml | grep "^name:"
-
-# 2. Fix reference in layer file
-vim config/layers/0_base.yaml
-# Macro('Unknown Macro') → Macro('Existing Macro')
-```
-
----
-
-### 7. Round-trip Check Fails
-
-**Symptom**:
-```
-=== ✗ FILES DIFFER ===
-Layer 0: ...
-```
-
-**Cause**: Data inconsistency in Compile/Decompile process.
-
-**Solution**:
-```bash
-# 1. Check which section has differences
-ruby bin/diff_layouts
-
-# 2. Collect detailed information for bug report
-cp tmp/layout.vil tmp/layout.original.vil
-cp layout.vil tmp/layout.recompiled.vil
-
-# 3. Report issue on GitHub
-# https://github.com/anthropics/claude-code/issues
-```
-
----
-
-### 8. Modifier Expression Disappears After Decompile
-
-**Symptom**: Wrote `Cmd + Q` but after decompile it becomes `LGUI(Q)`.
-
-**Cause**: By design. Decompiler does not automatically convert back to modifier expressions.
-
-**Explanation**:
-- Only QMK format is saved in layout.vil
-- Information about original notation (modifier expression vs QMK syntax) is lost
-- See "Modifier Expressions > Decompile Behavior" section for details
-
-**Workaround**:
-- Use version control (git) to manually maintain modifier expressions
-- Accept QMK format (functionally equivalent)
-
----
-
-### 9. Claude Code CLI (`claude` command) Not Found
-
-**Symptom**:
-```
-Error: claude command not found. Please install Claude Code CLI.
-```
-
-**Cause**: Claude Code CLI required for `cornix rename` is not installed.
-
-**Solution**:
-```bash
-# Install Claude Code CLI
-# https://claude.ai/download
-
-# Verify installation
-claude --version
-```
-
----
-
-### 10. YAML Syntax Error
-
-**Symptom**:
-```
-Error: config/layers/0_base.yaml: Invalid YAML syntax - mapping values are not allowed here
-```
-
-**Cause**: YAML syntax error (invalid indentation, illegal characters, etc.)
-
-**Solution**:
-```bash
-# 1. Check file from error message
-vim config/layers/0_base.yaml
-
-# 2. Common causes
-# - Mixed spaces and tabs in indentation
-# - Missing colon after key
-# - Special characters in string (quotes needed)
-
-# 3. Validate YAML (optional)
-ruby -ryaml -e "YAML.load_file('config/layers/0_base.yaml')"
-```
+Check the file named in the message. Common causes are wrong indentation, mixed tabs, and strings that need quotes (`"!"`, `"["`, `"1"`, ...). When, for example, an unquoted `1` is read as an integer, the message shows how to rewrite it.
 
 </details>
 
-### Configuration Validation
-
-**Note**: Validation is automatically performed during `cornix compile`. You can also validate separately:
-
-```bash
-# Validate configuration files
-cornix validate
-
-# On success
-✓ All validations passed
-
-# On failure
-✗ Validation failed:
-  Error: Layer 0_base.yaml, symbol 'LT1': Invalid keycode 'InvalidKeycode'
-  Error: Layer 1_symbols.yaml: Unknown position symbol 'UnknownSymbol'
-```
-
-**Validation checks** (Phase 1 implemented):
-
-1. **YAML Syntax Validation**
-   - Detects syntax errors in all YAML files
-   - Provides user-friendly error messages for parse errors
-
-2. **Metadata Validation**
-   - Checks for existence of `metadata.yaml`
-   - Validates required fields (`keyboard`, `version`, `uid`, `vial_protocol`, `via_protocol`)
-   - Validates `vendor_product_id` format (`0xXXXX`)
-   - Validates `matrix` configuration type and range
-
-3. **Position Map Validation**
-   - Verifies symbols in `position_map.yaml` are unique
-   - Detects when the same symbol is assigned to multiple physical positions
-   - Detects duplicates across left and right hands
-
-4. **Keycode Validation**
-   - Verifies all keycodes in layers are valid QMK keycodes or aliases
-   - Validates function-style keycodes (`MO(1)`, `LSFT(A)`, `LT(2, Space)`, etc.)
-   - Catches typos early
-
-5. **Position Map Reference Validation**
-   - Verifies symbols used in layers (`LT1`, `RT1`, etc.) are defined in `position_map.yaml`
-   - Detects undefined position symbol references
-
-6. **Layer Index Validation**
-   - Layer filenames must start with a number (e.g., `0_base.yaml`)
-   - Layer indices must be in the 0-9 range
-   - No duplicate layer indices
-
-7. **Macro/Tap Dance/Combo Name Uniqueness**
-   - Each file must have a `name` field
-   - Names must be unique across files
-
-8. **Layer Reference Validation**
-   - `MACRO(name)` and `TD(name)` references must point to existing names
-
-**Recommended workflow**:
-
-```bash
-# Edit configuration
-vim config/layers/0_base.yaml
-
-# Validate & compile (auto-validation)
-cornix compile
-```
-
-### Compilation Errors
-
-Common errors:
-
-- **YAML syntax errors**: Invalid indentation, illegal characters
-- **Invalid keycodes**: Typos (`Spce` → should be `Space`)
-- **Undefined position symbols**: Referencing symbols not in `position_map.yaml`
-- **Duplicate layer numbers**: Multiple layer files with the same number
-- **Duplicate macro names**: Multiple macro files with the same name
-- **Invalid references**: Referencing non-existent macros like `MACRO(unknown_macro)`
-
-See "Troubleshooting" section for details.
-
-## Tips & Best Practices
-
-Tips and best practices for using Cornix effectively.
-
-### Configuration Management
-
-**1. Prefer Name-based References**
-
-```yaml
-# ✅ Recommended: Name-based format
-Q: Macro('End of Line')
-W: TapDance('Escape or Layer')
-
-# ❌ Not recommended: Index-based/Legacy format (low readability)
-Q: Macro(5)
-W: TD(2)
-```
-
-**Reasons**:
-- Configuration files are self-documenting with high readability
-- Auto-updates when files are renamed with `cornix rename`
-- Clear for team development
-
-**2. Use Modifier Expressions**
-
-```yaml
-# ✅ Recommended: Modifier expressions (readable)
-Q: Cmd + Q
-W: Ctrl + Shift + F
-
-# ❌ Not recommended: QMK syntax (functionally equivalent but less readable)
-Q: LGUI(KC_Q)
-W: LCS(KC_F)
-```
-
-**Note**: Automatically reverts to QMK format after decompile. Maintain with version control.
-
-**3. Use Version Control**
-
-```bash
-# Manage configuration files with Git
-git init
-git add config/
-git commit -m "Initial keyboard configuration"
-
-# Check changes after editing
-vim config/layers/0_base.yaml
-git diff config/
-
-# Commit
-git commit -am "Update base layer: add Cmd+Q shortcut"
-```
-
-**Reasons**:
-- Configuration history can be tracked
-- Easy rollback of incorrect changes
-- Easy to manually restore modifier expressions after decompile
-
-**4. Regular Validation**
-
-```bash
-# Before editing
-cornix validate
-
-# Edit
-vim config/layers/0_base.yaml
-
-# After editing (with auto-validation)
-cornix compile
-```
-
-### File Naming
-
-**1. Use Descriptive Filenames**
-
-```bash
-# ✅ Good examples
-config/layers/0_base.yaml
-config/layers/1_symbol.yaml
-config/layers/2_number.yaml
-config/macros/00_bracket_pair.yml
-config/macros/01_end_of_line.yml
-
-# ❌ Bad examples (too generic)
-config/layers/0_layer.yaml
-config/layers/1_layer.yaml
-config/macros/00_macro.yml
-config/macros/01_macro.yml
-```
-
-**Reasons**:
-- Contents can be inferred from filename alone
-- Can auto-rename with `cornix rename`
-
-**2. Preserve Index Prefix**
-
-```bash
-# Preserve index when renaming
-mv config/macros/03_macro.yml config/macros/03_end_of_line.yml
-# ✅ Correct: 03_ preserved
-
-mv config/macros/03_macro.yml config/macros/05_end_of_line.yml
-# ❌ Wrong: Changing index breaks references
-```
-
-**Reasons**:
-- Index determines order in layout.vil
-- Changing breaks references from layers
-
-### Claude Code Integration
-
-**1. Validation Before and After Editing**
-
-```bash
-# Before editing with Claude Code
-cornix validate
-
-# Claude Code session
-claude
-
-# Edit files in session
-# ...
-
-# After editing
-cornix compile  # with auto-validation
-```
-
-**2. Use Skills**
-
-```bash
-# Intelligent rename
-claude
-> /rename
-
-# Use custom skills if available
-> /compile
-> /validate
-```
-
-**3. Incremental Changes**
-
-```yaml
-# ❌ Bad: Too many changes at once
-Q: Cmd + Q
-W: Cmd + W
-E: Cmd + E
-# ... 50 lines of changes
-
-# ✅ Good: Small repeated changes
-Q: Cmd + Q
-# Compile & test
-
-W: Cmd + W
-# Compile & test
-```
-
-**Reason**: Easier to identify cause when errors occur
-
-### Common Mistakes to Avoid
-
-<details>
-<summary><b>1. Specifying Layer Number as KC_*</b></summary>
-
-```yaml
-# ❌ Wrong
-Q: MO(KC_3)    # Switch to layer 3
-
-# ✅ Correct
-Q: MO(3)       # Specify number directly
-```
-
-**Reason**: Layer numbers are preserved as-is (`KC_3` is the "3" key keycode)
-
-</details>
-
-<details>
-<summary><b>2. Not Converting Modifier Arguments</b></summary>
-
-```yaml
-# ❌ Wrong
-Q: LSFT(1)     # This is not "Shift+1" but will error
-
-# ✅ Correct (auto-converted)
-Q: LSFT(1)     # Automatically converted to LSFT(KC_1) during compile
-
-# Or explicit
-Q: LSFT(KC_1)
-```
-
-**Note**: Compiler automatically converts numeric arguments in modifier functions to `KC_*` format.
-
-</details>
-
-<details>
-<summary><b>3. Expecting All Reference Formats to Auto-Update</b></summary>
-
-```yaml
-# Before rename
-config/macros/03_macro.yml: name: "Old Name"
-
-# In layer
-Q: Macro('Old Name')  # ✅ Will auto-update
-W: Macro(3)           # ❌ Won't update
-E: M3                 # ❌ Won't update
-
-# After rename (cornix rename executed)
-Q: Macro('New Name')  # ✅ Auto-updated
-W: Macro(3)           # ❌ Unchanged (intentional)
-E: M3                 # ❌ Unchanged (intentional)
-```
-
-**Reason**: Only Name-based references auto-update. Index-based/Legacy formats are preserved to respect user choice.
-
-</details>
-
-<details>
-<summary><b>4. Expecting Modifier Expressions to Revert After Decompile</b></summary>
-
-```yaml
-# Before compile
-Q: Cmd + Q
-
-# layout.vil (after compile)
-# LGUI(KC_Q)
-
-# After decompile
-Q: LGUI(Q)    # ❌ Does not revert to modifier expression
-```
-
-**Reason**: Only QMK format is saved in layout.vil, and information about original notation is lost.
-
-**Workaround**: Manually maintain with version control (git), or accept QMK format.
-
-</details>
-
-<details>
-<summary><b>5. Changing Index Prefix</b></summary>
-
-```bash
-# ❌ Wrong
-mv config/macros/03_macro.yml config/macros/05_macro.yml
-# Index changes from 03→05, breaking layer references
-
-# ✅ Correct
-mv config/macros/03_macro.yml config/macros/03_end_of_line.yml
-# Index 03 preserved, only filename changed
-```
-
-**Reason**: Index determines order in layout.vil and is referenced from layers.
-
-</details>
-
-### Performance and Efficiency
-
-**1. ReferenceResolver Caching**
-
-ReferenceResolver caches YAML files on first reference (~7KB, 100ms). Subsequent resolutions are instantaneous.
-
-**2. Use Validator**
-
-Running `cornix validate` before compilation catches errors early. However, `cornix compile` automatically runs validation, so it's usually unnecessary.
-
-**3. Batch Rename**
-
-When renaming many files, use `cornix rename` batch mode for efficiency (transaction-based processing).
+## Tips
+
+- **Use name-based references**: `Macro('End of Line')` is more readable than `M5`, and `cornix rename` rewrites it automatically
+- **Use modifier expressions**: `Cmd + Q` and `Ctrl + Shift + F` read better than `LGUI(KC_Q)` and `C_S(KC_F)`, and decompile writes modifier expressions too
+- **Use git**: Managing `config/` with git makes reviewing and reverting changes easy
+- **Keep index prefixes**: Keep prefixes like `03_` when renaming files (for layers, the file name number must match `index`)
+- **Change a little, then check**: Running `cornix compile` (with automatic validation) after each change pinpoints problems quickly
 
 ## Contributing
 
@@ -2232,9 +843,9 @@ Pull requests are welcome!
 
 1. Fork this repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Create a pull request
+3. Make sure `LANG=ja_JP.UTF-8 bundle exec rspec` passes
+4. Commit and push
+5. Open a pull request
 
 ## License
 
@@ -2248,303 +859,117 @@ MIT License
 
 ---
 
-Made with ❤️ for the Cornix keyboard community
+## Appendix
+
+### Main Keycodes
+
+See `data/aliases.yaml` (aliases) and `data/keycodes.yaml` (QMK / Vial names) for the complete list.
+
+<details>
+<summary><b>Main keycode categories</b></summary>
+
+**Basic keys**:
+- Letters `A`-`Z`, digits `"0"`-`"9"`, function keys `F1`-`F24`
+- Navigation: `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `PageUp`, `PageDown`
+- Editing: `Enter`, `Escape`, `Backspace`, `Tab`, `Space`, `Delete`
+- Modifiers: `LShift`, `RShift`, `LCtrl`, `RCtrl`, `LAlt`, `RAlt`, `LGui` (`LCmd`), `RGui` (`RCmd`)
+- Symbols: `"-"`, `"="`, `"["`, `"]"`, `"\\"`, `";"`, `"'"`, `` "`" ``, `","`, `"."`, `"/"`
+- Shifted symbols: `"!"`, `"@"`, `"#"`, `"("`, `")"`, `":"`, ...
+
+**Layer switching**:
+- `MO(n)` (while held), `TG(n)` (toggle), `TO(n)` (switch), `TT(n)` (tap toggle), `DF(n)` (default), `OSL(n)` (one shot)
+- `LT(n, key)` / `LTn(key)`: layer on hold, key on tap
+- The argument is a number (`MO(KC_3)` is an error)
+
+**Modifiers**:
+- Mod-Tap: `LCTL_T(key)`, `LSFT_T(key)`, `LALT_T(key)`, `LGUI_T(key)`, `MEH_T(key)`, ..., `MT(MOD_LCTL|MOD_LSFT, key)`
+- One Shot: `OSM(MOD_LSFT)`
+- Modified keys: `LSFT(key)`, `C(key)`, `S(key)`, `A(key)`, `G(key)` and combinations (`C_S`, `SGUI`, `MEH`, `HYPR`, ...)
+- `LM(n, MOD_LCTL)`
+
+**Media / mouse**:
+- `VolumeUp`, `VolumeDown`, `Mute`, `MediaPlayPause`, ...
+- `MouseUp`, `MouseDown`, `MouseLeft`, `MouseRight`, `MouseButton1`..., `MouseWheelUp`, ...
+
+**Special keys**:
+- `Trans` (`Transparent`, `___`): use the layer below
+- `NoKey`: disabled
+- `Reset` (`QK_BOOT`): can be written in configuration files, but `cornix device` never writes it
+
+</details>
+
+### Modifier Functions and Modifier Expressions
+
+| Function | Modifier expression | Notation in layout.vil |
+|---|---|---|
+| `LCTL` / `C` | `Ctrl + key` | `LCTL(...)` |
+| `LSFT` / `S` | `Shift + key` | `LSFT(...)` |
+| `LALT` / `A` | `Alt + key` | `LALT(...)` |
+| `LGUI` / `G` | `Cmd + key` | `LGUI(...)` |
+| `LCS` / `C_S` | `Ctrl + Shift + key` | `C_S(...)` |
+| `LCA` | `Ctrl + Alt + key` | `LCA(...)` |
+| `LCG` | `Ctrl + Cmd + key` | `LCG(...)` |
+| `LSA` | `Shift + Alt + key` | `LSA(...)` |
+| `LSG` / `SGUI` | `Shift + Cmd + key` | `SGUI(...)` |
+| `LAG` | `Alt + Cmd + key` | `LAG(...)` |
+| `MEH` | `Ctrl + Shift + Alt + key` | `MEH(...)` |
+| `LCSG` | `Ctrl + Shift + Cmd + key` | 16-bit value (`0x0Bxx`) |
+| `LCAG` | `Ctrl + Alt + Cmd + key` | `LCAG(...)` |
+| `LSAG` | `Shift + Alt + Cmd + key` | 16-bit value (`0x0Exx`) |
+| `HYPR` | `Ctrl + Shift + Alt + Cmd + key` | `HYPR(...)` |
+
+The right-side versions (`RCTL`, `RSFT`, `RALT`, `RGUI`, `RCS`, `RCA`, `RCG`, `RSA`, `RSG`, `RAG`, `RCSG`, `RCAG`, `RSAG`) work the same way. Combinations without a Vial name are written to layout.vil as 16-bit values.
+
+### Sample Configurations
+
+Switch branches to use sample configurations.
+
+<details>
+<summary><b>Available sample configurations</b></summary>
+
+#### 1. Official default keymap (recommended)
+
+```bash
+git checkout cornix-default-keymap
+ls config/
+cornix compile
+```
+
+The standard Cornix layout. Recommended for beginners.
+
+#### 2. The author's keymap
+
+```bash
+git checkout authors-keymap
+ls config/
+cornix compile
+```
+
+A keymap in daily use, with examples of name-based references, modifier expressions, combos, and more.
+
+#### 3. From your own layout.vil
+
+```bash
+git checkout main
+cornix decompile ~/Downloads/my_layout.vil
+vim config/layers/0_layer.yaml
+cornix compile
+```
+
+#### Switching branches
+
+```bash
+mv config config.my_backup             # move the current configuration aside
+git checkout cornix-default-keymap
+# ...
+git checkout main
+mv config.my_backup config             # put it back
+```
+
+</details>
+
+Contributions of sample configurations are welcome (share them on a new branch and open a pull request).
 
 ---
 
-## Appendix
-
-### Complete Keycode List
-
-Cornix supports 337 QMK official keycode aliases. See `lib/cornix/keycode_aliases.yaml` for the complete list.
-
-<details>
-<summary><b>Main Keycode Categories</b></summary>
-
-**Basic Keycodes**:
-- Letters: `A`-`Z`
-- Numbers: `0`-`9`
-- Function keys: `F1`-`F24`
-- Navigation: `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `PageUp`, `PageDown`
-- Editing: `Enter`, `Escape`, `Backspace`, `Tab`, `Space`, `Delete`
-- Modifiers: `LShift`, `RShift`, `LCtrl`, `RCtrl`, `LAlt`, `RAlt`, `LCmd` (LGUI), `RCmd` (RGUI)
-
-**Symbol Keys**:
-```yaml
-"-": KC_MINUS
-"=": KC_EQUAL
-"[": KC_LBRACKET
-"]": KC_RBRACKET
-"\\": KC_BSLASH
-";": KC_SCOLON
-"'": KC_QUOTE
-"`": KC_GRAVE
-",": KC_COMMA
-".": KC_DOT
-"/": KC_SLASH
-```
-
-**Layer Switching**:
-- `MO(layer)`: Momentary (while held)
-- `TG(layer)`: Toggle
-- `TO(layer)`: To (switch)
-- `TT(layer)`: Tap Toggle (tap to toggle, hold for MO)
-- `DF(layer)`: Default (change default layer)
-- `OSL(layer)`: One Shot Layer (once only)
-- `LT(layer, key)`: Layer Tap (layer when held, key when tapped)
-
-**Modifiers**:
-- Mod-Tap: `LCTL_T(key)`, `LSFT_T(key)`, `LALT_T(key)`, `LGUI_T(key)`
-- One Shot Modifiers: `OSM(mod)`
-- Modifier combinations: `C(key)`, `S(key)`, `A(key)`, `G(key)`
-- QMK shortcuts: `LCS`, `LSG`, `MEH`, `HYPR` (see "QMK Modifier Shortcuts" for details)
-
-**Media Keys**:
-- `VolumeUp`, `VolumeDown`, `Mute`
-- `MediaPlayPause`, `MediaNextTrack`, `MediaPrevTrack`, `MediaStop`
-- `MediaFastForward`, `MediaRewind`, `MediaEject`
-
-**Mouse Keys**:
-- Movement: `MouseUp`, `MouseDown`, `MouseLeft`, `MouseRight`
-- Buttons: `MouseBtn1`-`MouseBtn8`
-- Wheel: `MouseWheelUp`, `MouseWheelDown`, `MouseWheelLeft`, `MouseWheelRight`
-- Acceleration: `MouseAccel0`-`MouseAccel2`
-
-**Special Keys**:
-- `Transparent` / `Trans` / `___`: Transparent (pass through to lower layer)
-- `NoKey`: Disabled
-- `Reset`: Keyboard reset
-- `Debug`: Debug mode
-
-**Backlight/RGB**:
-- Backlight: `BL_ON`, `BL_OFF`, `BL_TOGG`, `BL_INC`, `BL_DEC`
-- RGB: `RGB_TOG`, `RGB_MOD`, `RGB_HUI`, `RGB_SAI`, `RGB_VAI`
-
-</details>
-
-### QMK Modifier Shortcuts
-
-Cornix automatically detects 20+ QMK modifier shortcuts.
-
-<details>
-<summary><b>Complete Shortcut List</b></summary>
-
-#### Left-side Modifiers (L prefix)
-
-**2-modifier Combinations**:
-| QMK | Combination | Description |
-|-----|-------------|-------------|
-| `LCS` | Ctrl + Shift | Left Ctrl + Shift |
-| `LCA` | Ctrl + Alt | Left Ctrl + Alt |
-| `LCG` | Ctrl + Cmd | Left Ctrl + GUI |
-| `LSA` | Shift + Alt | Left Shift + Alt |
-| `LSG` | Shift + Cmd | Left Shift + GUI |
-| `LAG` | Alt + Cmd | Left Alt + GUI |
-
-**3-modifier Combinations**:
-| QMK | Combination | Description |
-|-----|-------------|-------------|
-| `MEH` | Ctrl + Shift + Alt | MEH key |
-| `LCSG` | Ctrl + Shift + Cmd | Left Ctrl + Shift + GUI |
-| `LCAG` | Ctrl + Alt + Cmd | Left Ctrl + Alt + GUI |
-| `LSAG` | Shift + Alt + Cmd | Left Shift + Alt + GUI |
-
-#### Right-side Modifiers (R prefix)
-
-**2-modifier Combinations**:
-| QMK | Combination | Description |
-|-----|-------------|-------------|
-| `RCS` | RCtrl + RShift | Right Ctrl + Shift |
-| `RCA` | RCtrl + RAlt | Right Ctrl + Alt |
-| `RCG` | RCtrl + RCmd | Right Ctrl + GUI |
-| `RSA` | RShift + RAlt | Right Shift + Alt |
-| `RSG` | RShift + RCmd | Right Shift + GUI |
-| `RAG` | RAlt + RCmd | Right Alt + GUI |
-
-**3-modifier Combinations**:
-| QMK | Combination | Description |
-|-----|-------------|-------------|
-| `RCSG` | RCtrl + RShift + RCmd | Right Ctrl + Shift + GUI |
-| `RCAG` | RCtrl + RAlt + RCmd | Right Ctrl + Alt + GUI |
-| `RSAG` | RShift + RAlt + RCmd | Right Shift + Alt + GUI |
-
-#### Special Combinations
-
-**4 Modifiers**:
-| QMK | Combination | Description |
-|-----|-------------|-------------|
-| `HYPR` | Ctrl + Shift + Alt + Cmd | HYPR key (all 4 modifiers) |
-
-**Usage Example**:
-```yaml
-# Write in Cornix
-Q: Ctrl + Shift + Alt + Cmd + Q
-
-# Automatically converted to
-# → HYPR(KC_Q)
-```
-
-</details>
-
-### Position Map Template
-
-Default template structure of `lib/cornix/position_map.yaml`.
-
-<details>
-<summary><b>Template Structure</b></summary>
-
-```yaml
-left_hand:
-  row0: [tab, Q, W, E, R, T]
-  row1: [lctrl, A, S, D, F, G]
-  row2: [lshift, Z, X, C, V, B]
-  row3: [caps, fn, command, option, space, esc]
-
-right_hand:
-  row0: [Y, U, I, O, P, backspace]
-  row1: [H, J, K, L, colon, enter]
-  row2: [N, M, comma, dot, up, rshift]
-  row3: [enter, raise, lang, left, down, right]
-
-encoders:
-  left:
-    push: l_rotary_push
-    ccw: l_rotary_ccw
-    cw: l_rotary_cw
-  right:
-    push: r_rotary_push
-    ccw: r_rotary_ccw
-    cw: r_rotary_cw
-```
-
-**Structure**:
-- `left_hand` / `right_hand`: 6 keys per row (row0-row3)
-- `encoders`: Rotary encoder configuration (push, ccw, cw)
-
-**Array Order**:
-- Both left and right hands ordered **physically from left to right**
-- Right hand `row0` is `Y` (leftmost) → `U` → `I` → `O` → `P` → `backspace` (rightmost)
-
-**Customization**:
-Edit `config/position_map.yaml` to freely change symbol names.
-
-```yaml
-# Custom example
-left_hand:
-  row0: [tab, q, w, e, r, t]  # Changed to lowercase
-  # ...
-
-right_hand:
-  row0: [y, u, i, o, p, bs]   # Shortened 'backspace' → 'bs'
-  # ...
-```
-
-</details>
-
-### Sample Configuration
-
-Cornix provides different sample configurations through branch switching.
-
-<details>
-<summary><b>Available Sample Configurations</b></summary>
-
-#### 1. Official Default Keymap (Recommended)
-
-To edit based on the official Cornix default keymap:
-
-```bash
-# Check out cornix-default-keymap branch
-git checkout cornix-default-keymap
-
-# Check config/ directory
-ls config/
-
-# Edit configuration
-vim config/layers/0_base.yaml
-
-# Compile
-cornix compile
-```
-
-**Features**:
-- Cornix standard layout
-- Recommended for beginners
-- Configuration consistent with documentation
-
-#### 2. Author's Keymap
-
-To reference the author's (project maintainer's) keymap:
-
-```bash
-# Check out authors-keymap branch
-git checkout authors-keymap
-
-# Check config/ directory
-ls config/
-
-# View/edit configuration
-vim config/layers/0_base.yaml
-
-# Compile
-cornix compile
-```
-
-**Features**:
-- Real-world usage example
-- Advanced feature utilization examples
-- Customization hints
-
-#### 3. Generate from Your Own layout.vil
-
-To base on your own Vial configuration:
-
-```bash
-# Return to main branch
-git checkout main
-
-# Decompile your layout.vil
-cornix decompile ~/Downloads/my_layout.vil
-
-# Edit generated config/
-vim config/layers/0_base.yaml
-
-# Compile
-cornix compile
-```
-
-#### How to Switch Branches
-
-**If you have existing config/**:
-
-```bash
-# Backup current configuration
-mv config config.my_backup
-
-# Switch branch
-git checkout cornix-default-keymap
-
-# Check sample configuration
-ls config/
-```
-
-**Return to original branch**:
-
-```bash
-# Return to main branch
-git checkout main
-
-# Restore backup
-mv config.my_backup config
-```
-
-</details>
-
-#### Community Contributions
-
-Sample configurations are welcome:
-- Share your own sample configurations in a new branch
-- Contribute via pull request
-- Add documentation to `examples/` directory
-
-See "Contributing" section for details.
-
+Made with ❤️ for the Cornix keyboard community

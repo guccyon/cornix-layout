@@ -1,0 +1,82 @@
+---
+name: Symbols
+index: 1
+description: |-
+  記号レイヤー
+  記号はそれぞれ英名の頭文字に対応する文字キーに配置
+  SingleQuote => S, Doller => D, ...
+
+  矢印キー: ウインドウの配置
+  エンコーダ左: ボリュームコントロール
+  エンコーダ右: 拡大・縮小
+
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: Question
+      W: DoubleQuote
+      E: Equal
+      R: NoKey
+      T: Tilde
+    row1:
+      lctrl: Trans
+      A: "@"
+      S: Quote
+      D: Dollar
+      F: Slash
+      G: Grave
+    row2:
+      lshift: Trans
+      Z: NoKey
+      X: ExclamationMark
+      C: Caret
+      V: VerticalBar
+      B: Backslash
+    row3:
+      caps: NoKey
+      fn: NoKey
+      option: Trans
+    thumb_keys:
+      left: Trans
+      middle: Space
+      right: NoKey
+  right_hand:
+    row0:
+      Y: ¥
+      U: Underscore
+      I: LParenthesis
+      O: RParenthesis
+      P: Percent
+      backspace: Minus
+    row1:
+      H: Hash
+      J: Plus
+      K: LBracket
+      L: RBracket
+      colon: Colon
+      enter: Semicolon
+    row2:
+      N: And
+      M: Minus
+      comma: LBrace
+      dot: RBrace
+      up: Slash
+      rshift: Trans
+    row3:
+      left: Ctrl + Option + Shift + Command + Left
+      down: Ctrl + Option + Shift + Command + Enter
+      right: Ctrl + Option + Shift + Command + Right
+    thumb_keys:
+      left: Shift + Command + Enter
+      middle: Command + Space
+      right: NoKey
+  encoders:
+    left:
+      push: PlayPause
+      ccw: Rewind
+      cw: FastForward
+    right:
+      push: LGUI(KC_0)
+      ccw: Command + Minus
+      cw: Command + Plus

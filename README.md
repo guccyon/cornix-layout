@@ -1,342 +1,203 @@
 # Cornix Keyboard Layout Manager
 
-cornixキーボード用のヒューマンリーダブルなレイアウト設定管理システムです。
+Cornix キーボード用の、人が読み書きできるレイアウト設定管理ツールです。
 
-Vialの`layout.vil`ファイルは直接編集が困難なため、YAMLベースの直感的な設定ファイルシステムを提供します。
+Vial の `layout.vil` は直接編集しにくいため、YAML の設定ファイルで管理し、`layout.vil` との相互変換と、接続中のキーボードへの直接反映を行います。
+
+[English README](README.en.md)
 
 ## 特徴
 
-- 📝 **ヒューマンリーダブル**: YAMLで読みやすく書きやすい設定ファイル
-- 🔤 **エイリアス対応**: `KC_TAB` → `Tab`, `KC_TRNS` → `Trans` など、読みやすいエイリアスを自動使用
-- 🗂️ **モジュール化**: レイヤー、マクロ、タップダンス、コンボを個別のファイルで管理
-- 🏷️ **名前管理**: レイヤー、マクロ、タップダンスに意味のある名前を付けられる
-- 📊 **差分管理**: 上位レイヤーはLayer 0からの差分のみ記述
-- 💬 **コメント対応**: `#`でコメントを記述可能
-- 🔄 **双方向変換**: `layout.vil` ⇔ YAML設定ファイル
-- ✅ **厳密なバリデーション**: QMK仕様準拠の2層バリデーション（ファイルシステム＋モデル）
-- ⌨️ **キーボードへ直接反映**: Vial Web を使わずに CLI / MCP サーバーから差分だけを書き込み（[詳細](#キーボードへの直接反映vial-web-不要)）
+- 📝 **読みやすい YAML**: レイヤー・マクロ・タップダンス・コンボを個別のファイルで管理し、`#` でコメントも書けます
+- 🔤 **エイリアス**: `KC_TAB` → `Tab`、`KC_TRNS` → `Trans`、`LSFT(KC_1)` → `!` のような読みやすい名前で書けます
+- ⌨️ **修飾キー表現**: `Cmd + Q`、`Ctrl + Shift + F` のような VS Code 風の書き方ができます
+- 🏷️ **名前で参照**: `Macro('Bracket Pair')`、`TapDance('Tab Escape')` のように名前でマクロ・タップダンスを指定できます
+- 🔄 **双方向変換**: `layout.vil` ⇔ YAML。decompile → compile で 16bit 値が元と一致します
+- ✅ **検証**: compile の前に、YAML の構造とキーコード・参照・件数の上限などをすべて検査し、問題を「ファイル: 場所: 内容」でまとめて表示します
+- 🔌 **キーボードへ直接反映**: Vial Web を使わずに CLI / MCP サーバーから差分だけを書き込めます（[詳細](#キーボードへの直接反映vial-web-不要)）
 
 ## インストール
 
+Ruby（`Data.define` を使うので 3.2 以上。CI は 4.0 系）と Bundler が必要です。
+
 ```bash
-git clone https://github.com/yourusername/cornix-layout.git
+git clone https://github.com/guccyon/cornix-layout.git
 cd cornix-layout
+bundle install
+```
+
+`bin/cornix` を PATH に通すか、`ruby bin/cornix <コマンド>` で実行します。以下では `cornix` と書きます。
+
+```bash
+cornix help             # コマンドの一覧
+cornix help decompile   # コマンドごとの使い方
 ```
 
 ## 使い方
 
 ### 典型的な使い方
 
-Cornixの主な使用パターンを3つのユースケースで説明します。
-
 <details>
-<summary><b>Use Case 1: 任意の場所からのlayout.vilをデコンパイル</b></summary>
+<summary><b>Use Case 1: Vial から書き出した layout.vil を YAML にする</b></summary>
 
-**シナリオ**: Vialでエクスポートした`layout.vil`をYAML形式に変換して編集したい
-
-**手順**:
 ```bash
-# 1. layout.vilをダウンロード（例：~/Downloads/layout.vil）
-# Vialから "File > Export Layout" でエクスポート
+# 1. Vial の "File > Export Layout" で layout.vil を書き出す（例: ~/Downloads/layout.vil）
 
-# 2. Cornixプロジェクトに移動
-cd ~/work/cornix
-
-# 3. デコンパイル（任意のパスを指定可能）
+# 2. decompile（引数を省略すると tmp/layout.vil を読む）
 cornix decompile ~/Downloads/layout.vil
 
-# 4. 生成された設定を確認
-ls -la config/
-# config/layers/     - レイヤーファイル
-# config/macros/     - マクロファイル
-# config/tap_dance/  - タップダンスファイル
-# config/combos/     - コンボファイル
+# 3. 生成された設定を確認・編集
+ls config/
+vim config/layers/0_layer.yaml
 
-# 5. 設定を編集
-vim config/layers/0_base.yaml
-
-# 6. コンパイル（自動検証付き）
+# 4. compile（自動で検証してから layout.vil を書く）
 cornix compile
 
-# 7. 生成されたlayout.vilをVialでインポート
-# Vial: "File > Import Layout" → layout.vil を選択
+# 5. Vial の "File > Import Layout" で layout.vil を読み込む
+#    または cornix device apply でキーボードへ直接反映する
 ```
 
-**ポイント**:
-- `cornix decompile`は任意のパスの`layout.vil`を受け付けます
-- デフォルト（引数なし）の場合は`tmp/layout.vil`を使用
-- 既存の`config/`がある場合はロック保護により自動ブロック
+- すでに `config/` に設定があると decompile は止まります（上書き防止）
 
 </details>
 
 <details>
-<summary><b>Use Case 2: 既存設定の編集とコンパイル</b></summary>
+<summary><b>Use Case 2: 既存の設定を編集して compile する</b></summary>
 
-**シナリオ**: 既に`config/`ディレクトリがあり、設定を編集してコンパイルしたい
-
-**手順**:
 ```bash
-# 1. 現在の設定を確認
-ls config/layers/
-
-# 2. レイヤーファイルを編集
 vim config/layers/1_symbol.yaml
-
-# 3. 検証（オプション、compileで自動実行される）
-cornix validate
-
-# 4. コンパイル（自動検証付き）
+cornix validate          # 任意（compile でも自動で検証される）
 cornix compile
-
-# 5. 変更を確認（オプション）
-git diff layout.vil
-
-# 6. Vialでインポート
+git diff layout.vil      # 変更を確認（任意）
 ```
 
-**ポイント**:
-- `cornix compile`は自動的に検証を実行します
-- 検証エラーがある場合、コンパイルは中断されます
-- バージョン管理（git）の使用を推奨
+- 検証エラーがあると compile は中断し、layout.vil は書きません
+- 設定は git で管理することをおすすめします
 
 </details>
 
 <details>
-<summary><b>Use Case 3: LLMによるインテリジェントリネーム</b></summary>
+<summary><b>Use Case 3: Claude によるファイル名の提案（cornix rename）</b></summary>
 
-**シナリオ**: 汎用名（"Macro 0", "Tap Dance 1"）を持つファイルを意味のある名前にリネームしたい
-
-**手順**:
 ```bash
-# 1. 現在の設定を確認
 ls config/macros/
-# 00_macro.yml, 01_macro.yml, ...（汎用名）
+# 00_macro.yaml, 01_macro.yaml, ...（decompile が付けた既定の名前）
 
-# 2. インタラクティブリネーム（Claude CLI必須）
 cornix rename
+# Claude が内容を読んで名前を提案 → 1 件ずつ Y/n/e(dit) で選ぶ
+# → まとめてリネーム（自動バックアップ・参照の書き換え・compile 結果が変わらないことの確認）
 
-# 3. Claude AIによる解析と提案
-# 各ファイルの内容を解析して意味のある名前を提案
-
-# 4. 提案を確認してy/n/editで応答
-# y: 承認
-# n: スキップ
-# e: 手動編集
-
-# 5. リネーム実行（自動バックアップ）
-# config.backup_<timestamp>/ にバックアップ作成
-
-# 6. コンパイル検証
-# 構造が保持されていることを自動確認
-
-# 7. 結果確認
 ls config/macros/
-# 00_bracket_pair.yml, 01_end_of_line.yml, ...（意味のある名前）
+# 00_bracket_pair.yaml, 01_end_of_line.yaml, ...
 ```
 
-**ポイント**:
-- Claude Code CLI (`claude`コマンド) が必要
-- マクロのキーシーケンスから目的を深く推測
-- トランザクション型処理（全成功 or 全ロールバック）
-- Name-based参照のみ自動更新（Index-based/Legacyは保持）
+- Claude Code CLI（`claude` コマンド）が必要です
+- 失敗した場合は自動でバックアップから元に戻します
 
 </details>
 
-**Claude Code使用時のTips**:
-
-`claude`コマンドでClaude AIと対話しながら設定を編集する場合：
-
-1. **編集前に検証**: `cornix validate`で現在の設定を確認
-2. **修飾キー表現を推奨**: QMK構文より`Cmd + Q`形式の方が読みやすい
-3. **Name-based参照を推奨**: `Macro('name')`形式でマクロ/タップダンスを参照
-4. **編集後に検証**: `cornix compile`で自動検証とコンパイル
-5. **Skills活用**: `/rename`スキルでインテリジェントリネーム
-
-### 既存のlayout.vilから設定ファイルを生成
+### 既存の layout.vil から設定ファイルを生成する
 
 ```bash
-# デフォルト（tmp/layout.vil）を使用
-cornix decompile
-
-# または、任意のファイルパスを指定
+cornix decompile                       # tmp/layout.vil を読む
 cornix decompile ~/Downloads/layout.vil
-cornix decompile /path/to/custom.vil
 ```
 
-**⚠️ 重要 - ロック保護機能**: 既に`config/`ディレクトリに設定ファイルが存在する場合、デコンパイルは自動的にブロックされます。これは意図しない上書きを防ぐための安全機能です。
+**上書き防止**: `config/layers/` か `config/macros/` にファイルがあると、decompile は何もせずに終了します。
 
-**エラーメッセージ例**:
 ```
 ⚠️  Error: config/ directory already contains configuration files.
 ```
 
-**対処方法**:
-```bash
-# オプション1: cleanupコマンドで既存設定を削除
-cornix cleanup
-cornix decompile ~/Downloads/layout.vil
+その場合は既存の設定を退避するか、`cornix cleanup` で消してから実行します。
 
-# オプション2: 手動でバックアップしてから削除
-mv config config.backup
+```bash
+mv config config.backup                 # 退避する
 cornix decompile ~/Downloads/layout.vil
 ```
 
-**背景**: この機能により、既存の設定を誤って上書きする事故を防ぎます。新しい`layout.vil`をデコンパイルする前に、必ず既存の設定をバックアップまたは削除してください。
+decompile に成功すると `config/.decompile.lock`（元ファイルとチェックサム）を作ります。
 
-**cleanupコマンド**:
-
-`cornix cleanup`コマンドを使用すると、生成されたファイルを安全に削除できます：
+**cleanup コマンド**:
 
 ```bash
-# 通常のクリーンアップ（lockファイルがある場合は保護される）
-cornix cleanup
-
-# 強制クリーンアップ（確認プロンプトでlockファイルも削除）
-cornix cleanup -f
+cornix cleanup      # config/ と layout.vil を消す（ロックファイルがあれば消さずに止まる）
+cornix cleanup -f   # ロックファイルがあっても、確認（y/N）してから消す
 ```
 
-- 通常実行時、`.decompile.lock`ファイルが存在する場合は処理が停止します
-- `-f`オプションで強制実行する場合は、確認プロンプトが表示されます
-- 削除対象: `config/`ディレクトリ、`layout.vil`ファイル
+消すのはプロジェクトのルート（`bin/cornix` のあるリポジトリ）の `config/` と `layout.vil` です。どのディレクトリで実行しても同じ場所を対象にします。
 
-`config/`ディレクトリ以下に以下のファイルが生成されます：
+#### 生成されるファイル
 
 ```
 config/
-├── metadata.yaml              # キーボード基本情報
-├── position_map.yaml          # 物理位置とシンボルのマッピング
+├── .decompile.lock            # decompile の記録（cleanup の保護に使う）
+├── metadata.yaml              # キーボードの情報（layout.vil の version / uid など）
+├── position_map.yaml          # キーの名前と物理位置の対応
 ├── settings/
-│   └── qmk_settings.yaml      # QMK設定
+│   └── qmk_settings.yaml      # QMK Settings（tapping_term など）
 ├── layers/
-│   ├── 0_layer.yml            # レイヤー0（ベース）
-│   ├── 1_layer.yml            # レイヤー1
-│   └── ...                    # レイヤー2-9
+│   ├── 0_layer.yaml           # レイヤー 0
+│   └── ...                    # レイヤー 1〜9
 ├── macros/
-│   ├── 00_macro.yml           # マクロ0
-│   ├── 01_macro.yml           # マクロ1
+│   ├── 00_macro.yaml          # マクロ 0
 │   └── ...
 ├── tap_dance/
-│   ├── 00_tap_dance.yml       # タップダンス0
-│   ├── 01_tap_dance.yml       # タップダンス1
+│   ├── 00_tap_dance.yaml      # タップダンス 0
 │   └── ...
 └── combos/
-    ├── 00_combo.yml           # コンボ0
-    ├── 01_combo.yml           # コンボ1
+    ├── 00_combo.yaml          # コンボ 0
     └── ...
 ```
 
-**ファイル名の命名規則**:
-- **Layers**: `{index}_layer.yml` (例: `0_layer.yml`, `1_layer.yml`)
-- **Macros**: `{index:02d}_macro.yml` (例: `00_macro.yml`, `01_macro.yml`)
-- **Tap Dance**: `{index:02d}_tap_dance.yml` (例: `00_tap_dance.yml`, `01_tap_dance.yml`)
-- **Combos**: `{index:02d}_combo.yml` (例: `00_combo.yml`, `01_combo.yml`)
+**ファイル名の規則**（decompile が書く名前）:
 
-**ファイル名のカスタマイズ**:
-生成されたファイルは汎用的な名前で作成されますが、自由にリネーム可能です：
+- レイヤー: `{番号}_{名前}.yaml`（例: `0_layer.yaml`, `1_symbol.yaml`）
+- マクロ / タップダンス / コンボ: `{番号 2 桁}_{名前}.yaml`（例: `00_macro.yaml`, `03_end_of_line.yaml`）
+- `{名前}` は `name` を小文字・英数字と `_` にしたもの。既定の名前（`Layer 3`, `Macro 2`, `TapDance 4`, `Combo 1`）なら `layer` / `macro` / `tap_dance` / `combo`
 
-```bash
-# レイヤーファイル名を意味のある名前に変更
-mv config/layers/1_layer.yml config/layers/1_symbol.yml
-mv config/layers/2_layer.yml config/layers/2_number.yml
+拡張子は `.yaml` と `.yml` のどちらでも読みます。ファイル名は自由に変えられます。番号は YAML の `index` で決まり、レイヤーだけはファイル名の先頭の番号と `index` が一致している必要があります。
 
-# マクロファイル名を機能に応じた名前に変更
-mv config/macros/00_macro.yml config/macros/00_bracket_pair.yml
-mv config/macros/01_macro.yml config/macros/01_curly_bracket_pair.yml
-```
+decompile が書く内容:
 
-**重要**: Compilerはファイル名に依存しません（レイヤーのインデックスプレフィックスを除く）。YAML内の`index`フィールドを使用してインデックスを管理します。
+- キーコードはエイリアス（`Tab`, `Trans`, `!` など）、エイリアスのない修飾キー付きのキーは修飾キー表現（`Shift + Command + Enter`）
+- マクロ・タップダンスの割り当ては名前参照（`Macro('Macro 7')`, `TapDance('TapDance 4')`）
+- QMK Settings は名前（`keyboard.tapping_term` など）
 
-### 設定ファイルのインテリジェントリネーム
+**注意**:
+- キーコードの表（`data/keycodes.yaml`）とエイリアスの表（`data/aliases.yaml`）はツールが持つファイルで、`config/` には生成しません
+- `position_map.yaml` はテンプレート（`lib/cornix/position_map.yaml`）から `config/` に複写され、シンボル名を変えられます
 
-`cornix rename`コマンドを使用すると、Claude AIがマクロ、タップダンス、コンボ、レイヤーの内容を解析して、意味のある名前に自動リネームできます。
+### 設定ファイルに名前を付ける（cornix rename）
 
-#### 動作モード
-
-**Interactive Mode（推奨）**: ユーザー確認付きのインタラクティブモード
+`cornix rename` は、Claude がマクロ・タップダンス・コンボ・レイヤーの内容を読んで、意味のある名前とファイル名を提案します。
 
 ```bash
 cornix rename
 ```
 
-このモードでは、Claude AIが各ファイルを解析してリネーム提案を表示し、ユーザーが`y`/`n`/`e`(dit)で応答します。最も安全で推奨される方法です。
+**流れ**:
 
-**Advanced Mode（上級者向け）**: `bin/rename_file`コマンドで直接制御
+1. **設定の確認**: `config/` を検証します。問題があれば先に直すよう表示して終了します
+2. **Claude による提案**: 既定の名前（`Macro N`, `TapDance N`, `Combo N`, `Layer N`）のファイルを Claude CLI に渡し、提案を `tmp/rename_plans.json` に受け取ります
+   - マクロ: キーの並びから目的を推測（例: `[`, `]`, `Left` → "Bracket Pair"）
+   - タップダンス: tap / hold / double tap の動作から推測
+   - コンボ: トリガーと出力から推測
+   - レイヤー: description や割り当てから推測
+3. **提案の確認**: 1 件ずつ `Y`（承認）/ `n`（スキップ）/ `e`（ファイル名・名前・説明を編集）で選びます
+4. **リネーム**: `config.backup_<日時>/` にバックアップを取り、ファイル名と `name` / `description` を変え、
+   `config/` のすべての YAML にある名前参照 `Macro('旧名')` / `TapDance('旧名')` を新しい名前に書き換えます（テキストの置換なので、コンボの出力やエンコーダ、関数の引数の中にある参照も対象です）
+5. **検証**: 変更の前後で設定を compile した結果（16bit 値）を比べ、違えばバックアップから元に戻します
+6. **後片付け**: 一時ファイルを消し、バックアップを消すかどうかを尋ねます
 
-```bash
-# 単一ファイルのリネーム（dry-run）
-ruby bin/rename_file \
-  --old-path config/macros/03_macro.yml \
-  --new-basename 03_end_of_line.yml \
-  --name "End of Line" \
-  --description "Jump to end of line" \
-  --dry-run
-
-# バッチリネーム（JSON経由）
-ruby bin/rename_file --batch tmp/rename_plans.json
-```
-
-Advanced Modeは、スクリプトやCIパイプラインでの自動化に適していますが、通常は**Interactive Mode**を推奨します。
-
-#### LLM統合の仕組み
-
-`cornix rename`は、Claude AIとRuby実行部分を連携させた**ハイブリッドアーキテクチャ**です：
-
-**1. LLM部分（Claude AI Skill）**:
-- ファイル内容の深い解析
-- キーシーケンスからの意図推測
-- 意味のある名前の生成
-- パターン検出（brackets, copy, function template等）
-- 信頼度レベル付き提案（high/medium/low）
-
-**2. Ruby部分（静的実行）**:
-- ファイル操作（リネーム、YAML更新）
-- 自動バックアップ/ロールバック
-- コンパイル検証
-- トランザクション処理
-
-**3. JSON連携**:
-```json
-// tmp/rename_plans.json
-[
-  {
-    "old_path": "config/macros/03_macro.yml",
-    "new_basename": "03_end_of_line.yml",
-    "content_updates": {
-      "name": "End of Line",
-      "description": "Jump to end of line with Cmd+Right"
-    }
-  }
-]
-```
-
-Claude AIが提案を生成 → JSON保存 → Ruby実行で安全に適用
-
-**前提条件**：
-- Claude Code CLI (`claude`コマンド) がインストールされている必要があります
-- インストールされていない場合はエラーメッセージとともに処理が中断されます
-
-**実行フロー**：
-
-1. **現在の設定をコンパイル**: リネーム前の状態をベースラインとして保存
-2. **Claude AIによる解析**:
-   - マクロ: キーシーケンスから目的を深く推測（例：`[, ], Left` → "Bracket Pair"）
-   - タップダンス: tap/hold/double-tap アクションを分析（例：`MO(1)` → "Layer 1 Switch"）
-   - コンボ: トリガーキーと出力から機能を判定
-   - レイヤー: descriptionフィールドやoverridesから意図を推測
-3. **リネーム提案を表示**: 各ファイルに対して提案を表示
-4. **ユーザー確認**: 各提案に対して`y`/`n`/`e`(dit)で応答
-5. **リネーム実行**: 自動バックアップ作成後、ファイルリネームとYAML内容更新
-6. **コンパイル検証**: layout.vilの構造が保持されていることを確認
-7. **一時ファイル削除**: ログや一時ファイルを自動削除
-
-**例**：
+**例**:
 
 ```
 ──────────────────────────────────────────────────────────────────────
-1. MACRO: 00_macro.yml
+1. MACRO: 00_macro.yaml
 
-  Current:  00_macro.yml
-  Proposed: 00_bracket_pair.yml
+  Current:  00_macro.yaml
+  Proposed: 00_bracket_pair.yaml
 
   Name:        Bracket Pair
   Description: Insert bracket pair [] with cursor positioning
@@ -348,151 +209,111 @@ Claude AIが提案を生成 → JSON保存 → Ruby実行で安全に適用
   ✓ Added to rename queue
 ```
 
-**Claude AIの解析能力**：
-- 複雑なキーシーケンスの意図を理解
-- 修飾キー（Shift, Cmd, Ctrl）の組み合わせを考慮
-- カーソル移動パターンから操作の目的を推測
-- コンテキストを考慮した命名（例：`function ()` + Left → "Function Template"）
+**安全のための仕組み**:
+- 番号のプレフィックス（`00_`, `0_` など）は変えられません（変えようとするとエラー）
+- まとめて実行し、1 件でも失敗したら全体を元に戻します
+- 番号参照（`Macro(3)`, `M3`, `TD(2)`）は名前に依存しないので書き換えません
 
-**安全機能**：
-- 自動バックアップ作成（`config.backup_<timestamp>/`）
-- トランザクション型処理（全成功 or 全ロールバック）
-- コンパイル検証（構造保持確認）
-- インデックスプレフィックス保持（`00_`, `01_`, `0_`, `1_` 等）
-- レイヤー参照の整合性保証（indexベース）
-- エラー時の自動ロールバック
+**Claude を使わずに実行する**（`bin/rename_file`）:
 
-**リネーム対象**：
-- マクロ: 汎用名（"Macro N"）を持つファイル
-- タップダンス: 汎用名（"Tap Dance N"）を持つファイル
-- コンボ: 汎用名（"Combo N"）を持つファイル
-- レイヤー: 汎用名（"Layer N"）を持つファイル
+```bash
+# 1 ファイル（--dry-run で確認だけ）
+ruby bin/rename_file \
+  --old-path config/macros/03_macro.yaml \
+  --new-basename 03_end_of_line.yaml \
+  --name "End of Line" \
+  --description "Jump to end of line" \
+  --dry-run
 
-**バックアップのクリーンアップ**：
-リネーム完了後、バックアップディレクトリの削除を確認するプロンプトが表示されます。
-
-**注意**:
-- **キーコードエイリアス** (`keycode_aliases.yaml`): `lib/cornix/`に固定配置、`config/`には生成されません（QMK標準定義のため編集不要）
-- **Position Map** (`position_map.yaml`): `lib/cornix/`のテンプレートから`config/`に生成され、シンボル名をカスタマイズできます
-
-### 設定ファイルを編集
-
-`decompile`で生成されたレイヤーファイルは、読みやすいエイリアス形式で記述されています。
-
-レイヤーファイル（例：`config/layers/1_layer.yml`）：
-
-```yaml
-name: Layer 1
-description: Layer 1
-
-# Layer 0と異なるキーのみ記述
-overrides:
-  Q: LSFT(1)         # ! を入力（Shift+1）
-  W: LSFT(2)         # @ を入力（Shift+2）
-  E: LSFT(3)         # # を入力（Shift+3）
-
-  lshift: Trans      # 透過（下のレイヤーのキーを使用）
-  D: NoKey           # 無効化
-
-  # マクロを参照（名前で指定）- 推奨
-  A: Macro('Bracket Pair')
-
-  # タップダンスを参照（名前で指定）- 推奨
-  fn: TapDance('Layer Switch')
+# JSON の計画でまとめて（成功したらバックアップを消す）
+ruby bin/rename_file --batch tmp/rename_plans.json --cleanup-backup
 ```
 
-#### マクロ・タップダンス・コンボの参照方法
+計画ファイルの形式:
 
-Cornixは3つの参照形式をサポートしています：
-
-**1. Name-based形式（推奨）**：名前で参照する最も読みやすい形式
-```yaml
-# マクロを名前で参照
-A: Macro('Bracket Pair')
-
-# タップダンスを名前で参照
-fn: TapDance('Layer Switch')
-
-# コンボを名前で参照
-combo1: Combo('Escape Alternative')
+```json
+[
+  {
+    "old_path": "config/macros/03_macro.yaml",
+    "new_basename": "03_end_of_line.yaml",
+    "content_updates": {
+      "name": "End of Line",
+      "description": "Jump to end of line with Cmd+Right"
+    }
+  }
+]
 ```
 
-**メリット**：
-- 設定ファイルが自己文書化され、可読性が高い
-- ファイルをリネームしても参照が自動更新される（`cornix rename`使用時）
-- 編集時にマクロ/タップダンスの機能が一目で分かる
+結果は JSON で表示し、失敗したときは終了コード 1 です。Claude CLI が見つからない、または出力から JSON を取り出せないときは、`cornix rename` もこの形式の計画ファイルを手で書くよう案内します。
 
-**2. Index-based形式（明示的）**：インデックスで参照する形式
+### 設定ファイルを編集する
+
+レイヤーファイル（例: `config/layers/1_symbol.yaml`）:
+
 ```yaml
-# マクロをインデックスで参照
-A: Macro(0)
-
-# タップダンスをインデックスで参照
-fn: TapDance(2)
+name: Symbol
+description: 記号レイヤー
+index: 1
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: "!"                       # LSFT(KC_1)
+      W: "@"
+    row1:
+      caps: Trans                  # 下のレイヤーのキーを使う
+      A: Macro('Bracket Pair')     # マクロを名前で参照
+    thumb_keys:
+      middle: TapDance('Tab Escape')
+  right_hand:
+    row0:
+      Y: Cmd + Space               # 修飾キー表現
+  encoders:
+    left:
+      ccw: VolumeDown
+      cw: VolumeUp
 ```
 
-**メリット**：
-- インデックスを明示的に管理したい場合に便利
-- 既存の設定からの移行が簡単
+- `mapping` の下は `position_map.yaml` と同じ階層（`left_hand` / `right_hand` の `row0`〜`row3`・`thumb_keys`、`encoders` の `left` / `right`）です
+- 書かなかったキーは割り当てなし（layout.vil では `-1`）になります。下のレイヤーを使うには `Trans` を書きます
+- 書かなかったエンコーダの操作は `NoKey` になります
 
-**3. QMK Legacy形式（後方互換）**：従来のQMK形式
-```yaml
-# マクロ（Mプレフィックス）
-A: M0
-
-# タップダンス（TD関数）
-fn: TD(2)
-```
-
-**メリット**：
-- QMKに慣れている場合は親しみやすい
-- 既存の設定を変更せずそのまま使える
-
-**推奨**：新規作成時は**Name-based形式**を使用してください。`cornix decompile`は自動的にName-based形式で生成します。
-
-**注意**：
-- すべての形式が同じ`layout.vil`にコンパイルされます（Vial互換）
-- `cornix rename`でファイルをリネームすると、Name-based参照のみ自動更新されます
-- Index-based / Legacy形式は後方互換性のため保持されますが、自動更新されません
-
-**注**: ファイル名や内部の`name`フィールドは自由に変更できます。インデックスはYAML内の`index`フィールド（マクロ・タップダンス・コンボ）またはファイル名のプレフィックス（レイヤー）で管理されます。
-
-**エイリアスの利点**:
-- `KC_TRNS` → `Trans` （より簡潔）
-- `KC_NO` → `NoKey` （意味が明確）
-- `LSFT(KC_1)` → `LSFT(1)` （関数内部も変換）
-- `KC_TAB` → `Tab` （読みやすい）
-
-マクロファイル（例：`config/macros/00_macro.yml`）：
+マクロファイル（例: `config/macros/00_bracket_pair.yaml`）:
 
 ```yaml
-name: Macro 0
-description: Macro 0
-enabled: true
+name: Bracket Pair
+description: "[] を入力してカーソルを中に戻す"
 index: 0
-
 sequence:
   - action: tap
     keys: ["[", "]", Left]
 ```
 
-**注**: ファイル名は自由に変更できます（例: `00_bracket_pair.yml`）。Compilerは`index`フィールドを使用してマクロのインデックスを決定します。
+### マクロ・タップダンスの参照方法
 
-### layout.vilに変換
+キーの割り当て（レイヤーのキー・エンコーダ、タップダンスの動作、コンボのトリガーと出力）では、マクロとタップダンスを 3 つの書き方で参照できます。
 
-**重要**: コンパイル時に自動的に設定ファイルの検証が実行されます。
+| 書き方 | マクロ | タップダンス | 説明 |
+|---|---|---|---|
+| 名前（推奨） | `Macro('Bracket Pair')` | `TapDance('Tab Escape')` | ファイルの `name` で参照。`cornix rename` で自動的に書き換わる |
+| 番号 | `Macro(0)` | `TapDance(2)` | `index` で参照 |
+| QMK 形式 | `M0` | `TD(2)` | 従来の書き方 |
+
+- どの書き方でも同じ layout.vil になります。decompile は常に名前の形で書きます
+- 名前が見つからない、または番号のマクロ・タップダンスが定義されていないと検証エラーです
+- `'` を含む名前は `"..."` で囲みます（`Macro("Rock'n Roll")`）
+- `Combo(...)` は layout.vil のキーに割り当てられないので使えません（検証エラー）
+- マクロの中（`sequence` の `keys`）では名前参照は使えません
+
+### layout.vil に変換する
 
 ```bash
 cornix compile
 ```
 
-検証エラーがある場合、コンパイルは自動的に中断されます。検証のみを実行したい場合は：
+compile は先に検証を行い、問題があれば layout.vil を書かずに終了します（終了コード 1）。検証だけを行うときは `cornix validate` を使います。生成した `layout.vil` は Vial で読み込むか、`cornix device apply` で直接反映します（次の節）。
 
-```bash
-cornix validate
-```
-
-生成された`layout.vil`をVialでインポートしてキーボードに書き込みます。`cornix device apply` で Vial を使わずに直接反映することもできます（次の節）。
+コマンドの誤りや読めないファイルなどのエラーは、標準エラー出力に `エラー: …` の形で表示し、終了コード 1 で終わります。
 
 ## キーボードへの直接反映（Vial Web 不要）
 
@@ -513,10 +334,10 @@ cornix device restore           # 最後のバックアップ（直前の apply 
 
 ### キーボードが接続されていないとき
 
-`cornix device` の各コマンドと MCP の各ツールは、最初にキーボードを探して接続します。見つからない場合は何も書き込まずに次のエラーで終了します（CLI は終了コード 1、MCP はエラー応答）。
+`cornix device` の各コマンドと MCP の各ツールは、最初にキーボードを探して接続します。見つからない場合は何も書き込まずにエラーで終了します（CLI は標準エラー出力に表示して終了コード 1、MCP はエラー応答）。
 
 ```
-Error: Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください
+エラー: Cornix が見つかりません。Mac と Bluetooth（または USB）で接続されているか、スリープしていないか、別の機器に接続先が切り替わっていないかを確認してください
 ```
 
 - **Bluetooth が切れている・キーボードの電源が切れている**: 上のエラーになります。キーを 1 回押してスリープを解除するか、Mac との接続を確認してから再実行してください。
@@ -576,841 +397,240 @@ Cornix のファームウェアは RMK 0.8 系で、vial-qmk と違ってロッ�
 
 - HID ブリッジ（`ext/cornix_hid/main.swift`）は許可リストにあるコマンドしか送りません。bootloader 移行・EEPROM リセット・全消去・アンロック・キーマップ一括書き込み（RMK 0.8 にバグあり）は送れません（`tmp/cornix-hid --self-test` で確認できます）。
 - キーは Vial GUI と同じ 1 キーずつの書き込みだけを使い、layer / row / col・マクロのオフセット・各エントリ番号はすべて送信前に範囲を検査します。
-- `QK_BOOT` などの boot 系キーコードは書き込みません。
+- `QK_BOOT` などの boot 系キーコード（`data/dangerous_keycodes.yaml`）は書き込みません。
 
 ## 設定ファイルの検証
 
-`cornix validate`コマンドで、コンパイル前に設定ファイルの妥当性を検証できます。
-
 ```bash
-# 設定ファイルを検証
 cornix validate
+```
 
+```
 # 成功時
 ✓ All validations passed
 
-# 失敗時
+# 失敗時（終了コード 1）
 ✗ Validation failed:
-  Error: Layer 0_base.yaml, symbol 'LT1': Invalid keycode 'InvalidKeycode'
-  Error: Layer 1_symbols.yaml: Unknown position symbol 'UnknownSymbol'
+  Error: layers/1_symbol.yaml: mapping.left_hand.row0.tab: キーコード「Spce」を解釈できません: 「Spce」は不明なキーコードです
+  Error: layers/1_symbol.yaml: mapping.left_hand.row1.capz: position_map の left_hand.row1 にないキーです（使えるキー: caps, A, S, D, F, G）
+  Error: macros/01_macro.yaml: name: マクロの名前が重複しています: Bracket Pair
 ```
 
-**重要**: `cornix compile`は自動的に検証を実行するため、通常は明示的な`validate`呼び出しは不要です。
+問題は 1 件ずつ止まらずにすべて集め、「ファイル: キーの位置: 内容」で表示します。`cornix compile` も同じ検証を先に行います。警告（`⚠  Warning: …`）だけなら compile は続行します。
 
-### Phase 1実装済み検証項目
-
-以下の検証項目が実装されています（Phase 1完了）：
+検証は 2 段階です。
 
 <details>
-<summary><b>1. YAML構文の正当性</b></summary>
+<summary><b>1. ファイルの構造（読み込み時）</b></summary>
 
-- 全YAMLファイルの構文エラーを検出
-- パースエラーのある場合、ユーザーフレンドリーなエラーメッセージを表示
-- YAMLエラーのあるファイルは以降の検証をスキップ（多重エラー防止）
-
-**検出例**:
-```
-Error: config/layers/0_base.yaml: Invalid YAML syntax - mapping values are not allowed here
-```
+- **YAML**: 構文エラー、キーの重複、YAML のエイリアス（`&` / `*`）はエラー。`metadata.yaml` などで `.yaml` と `.yml` の同名ファイルが両方あるとエラー
+- **項目**: 必須の項目（レイヤーの `name` / `index` / `mapping` など）があるか、知らない項目がないか、型が正しいか。
+  引用符のない `1` が整数に、`yes` / `no` / `on` / `off` が真偽値になるといった YAML の落とし穴は、書き直し方つきで表示します
+- **metadata.yaml**: `keyboard` と `version` が必須。`uid` などは 0 以上の整数
+- **position_map.yaml**: 各グループのキーの数、シンボルの形式、同じグループ内での重複
+- **キーの名前**: レイヤーのキーが `position_map.yaml` のそのグループにあるか
+- **キーコード**: すべての割り当てが解釈できるか（エイリアス・QMK 名・関数形式・修飾キー表現・参照。関数の引数も含む）
+- **番号**: レイヤー 0〜9、マクロ・タップダンス・コンボの番号の範囲。レイヤーのファイル名の番号と `index` の一致
+- **マクロ**: `action` は `tap` / `down` / `up` / `delay` / `text`（`beep` は対応していません）
+- **QMK Settings**: 設定名と値の型・幅
 
 </details>
 
 <details>
-<summary><b>2. メタデータの妥当性</b></summary>
+<summary><b>2. 設定全体の整合性</b></summary>
 
-- `metadata.yaml`の存在チェック
-- 必須フィールド検証: `keyboard`, `version`, `uid`, `vial_protocol`, `via_protocol`
-- `vendor_product_id`の形式チェック（`0xXXXX`形式）
-- `matrix`設定の型・範囲チェック（`rows`, `cols`は正の整数）
-
-**検出例**:
-```
-Error: metadata.yaml: Missing required field 'keyboard'
-Error: metadata.yaml: Invalid vendor_product_id format (expected 0xXXXX)
-```
+- **件数の上限**: レイヤー 10、マクロ 32、タップダンス 32、コンボ 32、コンボのトリガー 4 キー
+- **重複**: レイヤー・マクロ・タップダンス・コンボの番号、マクロ・タップダンス・コンボの名前
+- **参照先**: `Macro(...)` / `M3` / `TapDance(...)` / `TD(2)` の参照先が定義されているか
+- **レイヤー番号**: `MO(n)` / `LT(n, ...)` などのレイヤー番号がレイヤー数を超えていないか（エラー）、定義されていないレイヤーを指していないか（警告）
+- **レイヤーの抜け**: 番号が飛んでいるレイヤー（警告）
 
 </details>
 
-<details>
-<summary><b>3. Position Map の妥当性</b></summary>
-
-- `position_map.yaml`内のシンボルが一意であることを検証
-- 同じシンボルが複数の物理位置に割り当てられている場合はエラー
-- 左手・右手間での重複も検出
-- nil や空文字列は無視
-
-**検出例**:
-```
-Error: position_map.yaml: Duplicate symbol 'Q' at: left_hand.row0[1], right_hand.row0[2]
-```
-
-</details>
-
-<details>
-<summary><b>4. キーコードの妥当性</b></summary>
-
-- レイヤー内の全キーコードが有効なQMKキーコードまたはエイリアスか検証
-- 関数形式のキーコード（`MO(1)`, `LSFT(A)`, `LT(2, Space)`等）の引数も検証
-- 関数内部の引数も再帰的に検証（ネストされた関数にも対応）
-- 修飾キー表現（`Cmd + Q`等）の検証
-- タイプミスの早期発見
-
-**検出例**:
-```
-Error: Layer 0_base.yaml, symbol 'Q': Invalid keycode 'Spce' (did you mean 'Space'?)
-Error: Layer 1_symbol.yaml, symbol 'W': Invalid function argument in 'LSFT(InvalidKey)'
-```
-
-</details>
-
-<details>
-<summary><b>5. Position Map参照の整合性</b></summary>
-
-- レイヤーで使用されるシンボル（`LT1`, `RT1`等）が`position_map.yaml`に定義されているか検証
-- 未定義のポジションシンボル参照を検出
-- `position_map.yaml`が存在しない場合は警告（エラーではない）
-
-**検出例**:
-```
-Error: Layer 0_base.yaml: Unknown position symbol 'UnknownKey' (not defined in position_map.yaml)
-```
-
-</details>
-
-<details>
-<summary><b>6. レイヤーインデックスの妥当性</b></summary>
-
-- レイヤーファイル名が数字で始まること（例: `0_base.yaml`）
-- レイヤーインデックスが0-9の範囲内
-- 重複するレイヤーインデックスがないこと
-
-**検出例**:
-```
-Error: Layer file 'base.yaml' must start with layer index (e.g., 0_base.yaml)
-Error: Duplicate layer index 1: 1_symbol.yaml, 1_number.yaml
-```
-
-</details>
-
-<details>
-<summary><b>7. マクロ/タップダンス/コンボ名の一意性</b></summary>
-
-- 各ファイルに`name`フィールドが存在
-- 名前がファイル間で一意
-
-**検出例**:
-```
-Error: Duplicate macro name 'Bracket Pair' in files: 00_bracket.yml, 01_bracket_copy.yml
-```
-
-</details>
-
-<details>
-<summary><b>8. レイヤー内の参照妥当性</b></summary>
-
-- Name-based参照（`Macro('name')`, `TapDance('name')`）が実在する名前を指していること
-- Index-based参照（`Macro(0)`, `TapDance(2)`）は範囲チェックのみ（0-31）
-- Legacy参照（`M0`, `TD(2)`）は範囲チェックのみ
-
-**検出例**:
-```
-Error: Layer 0_base.yaml, symbol 'Q': Macro 'Unknown Macro' not found
-Error: Layer 1_symbol.yaml, symbol 'W': Macro index 99 out of range (0-31)
-```
-
-</details>
-
-### Phase 2未実装項目
-
-以下の検証は将来のPhase 2で実装予定です：
-
-- マクロシーケンス構文の妥当性
-- タップダンスアクション構文の妥当性
-- コンボトリガー数の妥当性
-- QMK Settings の型・範囲チェック
-- エンコーダー設定の妥当性
-
-### 推奨ワークフロー
-
-```bash
-# 設定を編集
-vim config/layers/0_base.yaml
-
-# コンパイル（自動検証付き）
-cornix compile
-```
-
-検証エラーがある場合、コンパイルは自動的に中断されます。
-
-## ファイル構造
+## ファイル形式
 
 ### レイヤーファイル
 
-レイヤーファイルは`{index}_{name}.yaml`形式で命名します。
+[設定ファイルを編集する](#設定ファイルを編集する) を参照してください。ファイル名は `{番号}_{名前}.yaml` で、先頭の番号は `index` と同じにします。
 
-- `index`: レイヤー番号（0-9）
-- `name`: 任意の説明的な名前
+レイヤー番号を変えるときは、ファイル名と `index` の両方を変え、他のファイルの `MO(2)`, `LT2(...)` などを手で書き換えます。
 
-**例：** `0_base.yaml`, `1_symbol_mac.yaml`, `2_number.yaml`
-
-レイヤー番号の変更：
-
-```bash
-# 2_number.yaml を 5_number.yaml に変更する場合
-mv config/layers/2_number.yaml config/layers/5_number.yaml
-
-# 他のレイヤーファイル内のMO(2), LT(2, ...)等を手動でMO(5), LT(5, ...)に変更
-```
-
-### マクロ・タップダンス・コンボファイル
-
-これらは`{name}.yaml`形式で命名します（番号不要）。
-
-**ファイル名の辞書順でインデックスが決まります。**
-
-#### マクロファイルの例
+### マクロファイル
 
 ```yaml
-name: curly_bracket_pair
-description: {}を挿入してカーソルを左に移動
-enabled: true
-
+name: Curly Bracket Pair
+description: "{} を入力してカーソルを中に戻す"
+index: 1
 sequence:
   - action: down
-    key: LShift
-
+    keys: LShift
   - action: tap
     keys: ["[", "]"]
-
   - action: up
-    key: LShift
-
+    keys: LShift
   - action: tap
-    key: Left
+    keys: Left
 ```
 
-#### タップダンスファイルの例
+### タップダンスファイル
 
 ```yaml
-name: screenshot_combo
-description: タップでCmd+Shift+4、ダブルタップでCmd+Shift+5
-enabled: true
-
+name: Tab Escape
+description: タップで Tab、長押しで Escape
+index: 0
 actions:
-  on_tap: "LCmd+LShift+[4]"
-  on_double_tap: "LCmd+LShift+[5]"
-  on_hold: "-"
-  on_tap_hold: "-"
-
-tapping_term: 250
+  on_tap: Tab
+  on_hold: Escape
+  on_double_tap: NoKey
+  on_tap_hold: NoKey
+tapping_term: 200        # ミリ秒（省略すると 250）
 ```
 
-#### コンボファイルの例
+省略した動作は `NoKey` です。
+
+### コンボファイル
 
 ```yaml
 name: Left Click
 description: ← + ↓ で左クリック
-enabled: true
 index: 6
 trigger_keys:
   - Left
   - Down
-output_key: MouseButton1    # エイリアスは compile 時に KC_BTN1 に変換されます
+output_key: MouseButton1
 ```
 
-`trigger_keys` と `output_key` には、レイヤーと同じくエイリアス（`Left`, `MouseButton1` など）と QMK キーコード（`KC_LEFT`, `KC_BTN1`）のどちらも書けます。`output_key` には `Macro('名前')` などの参照も書けます。エンコーダの `push` / `ccw` / `cw` にも `TapDance('名前')` などの参照を書けます。
+`trigger_keys`（最大 4 キー）と `output_key` には、レイヤーと同じくエイリアス（`Left`, `MouseButton1`）も QMK 名（`KC_LEFT`, `KC_BTN1`）も書けます。`output_key` には `Macro('名前')` などの参照も書けます。
 
-### レイヤーでの参照方法
+マクロ・タップダンス・コンボの `enabled` は読み飛ばします（書いてもエラーにはなりません）。
+
+### QMK Settings
 
 ```yaml
-# config/layers/1_symbol.yaml
-overrides:
-  # マクロを名前で参照（推奨）
-  A: MACRO(bracket_pair)
-
-  # タップダンスを名前で参照（推奨）
-  fn: TD(layer_switch)
-
-  # インデックス参照も可能（非推奨）
-  B: MACRO(0)  # どのマクロか分かりにくい
+# config/settings/qmk_settings.yaml
+keyboard:
+  oneshot_timeout: 1000
+  tapping_term: 180
+  tap_code_delay: 20
+  tap_hold_caps_delay: 20
+  permissive_hold: false
+  hold_on_other_key_press: true
+  chordal_hold: true
+  flow_tap: 120
+vial:
+  combo_timing_window: 50
 ```
 
-## 柔軟な参照システム（Flexible Reference System）
+使える名前と幅は `data/qmk_settings.yaml` にあります。以前の decompile が書いた QSID の番号の形（`'7': 180`）も読めます。
 
-Cornixは、マクロ、タップダンス、コンボへの参照を3つの形式でサポートしています。それぞれに利点があり、用途に応じて使い分けることができます。
+## 修飾キー表現（VS Code 風）
 
-### 3つの参照形式
-
-#### 1. Name-based形式（推奨）
-
-**最も読みやすく、自己文書化された形式**です。名前で参照するため、設定ファイルを見ただけで何をするマクロ/タップダンス/コンボかが一目で分かります。
+`Cmd + Q` のように書くと、修飾キー付きのキーコードになります。
 
 ```yaml
-# レイヤーファイル内
-mapping:
-  Q: Macro('End of Line')           # マクロを名前で参照
-  W: TapDance('Escape or Layer')    # タップダンスを名前で参照
-  E: Combo('Bracket Pair')          # コンボを名前で参照
+Q: Cmd + Q               # LGUI(KC_Q)
+W: Shift + W             # LSFT(KC_W)
+E: Ctrl + C              # LCTL(KC_C)
+R: Alt + Tab             # LALT(KC_TAB)
+T: Shift + Cmd + Q       # SGUI(KC_Q)
+Y: Ctrl + Shift + F      # C_S(KC_F)
+U: Ctrl + Shift + Alt + Cmd + Y   # HYPR(KC_Y)
 ```
 
-**メリット**:
-- **可読性が高い**: `M3`より`Macro('End of Line')`の方が機能が明確
-- **自己文書化**: コメント不要で設定ファイルが理解できる
-- **自動更新**: `cornix rename`でファイル名を変更すると、参照も自動更新される
+- 修飾キーの順序と `+` の前後の空白は自由です（`Cmd + Shift + W` = `Shift+Cmd+W`）
+- キーにはエイリアスも QMK 名も書けます（`Cmd + Space`, `Alt + KC_ESCAPE`, `Cmd + "+"`）
+- 修飾キーの組み合わせは layout.vil に Vial が読める形で書きます。Vial に名前のある組み合わせはその名前（`C_S`, `SGUI`, `LCA`, `LSA`, `MEH`, `LCG`, `LAG`, `LCAG`, `HYPR`, `RCG` など）、名前のない組み合わせ（`Ctrl + Shift + Cmd` など）は 16bit 値（`0x0B17` など）です
+- 右側の修飾キーは `RShift` / `RCtrl` / `RAlt` / `RCmd` などで書きます。**左右の修飾キーを混ぜるとエラー**です（例: `Shift + RCmd + A`。QMK の値で表せないため）
+- 修飾できるのは基本キーだけです（`Cmd + LT(1, Space)` はエラー）
 
-**使用場面**:
-- 新規レイヤー作成時（推奨）
-- チーム開発での設定共有
-- 長期的にメンテナンスする設定
+### 修飾キーの名前
 
-#### 2. Index-based形式（明示的）
+| 書き方 | 左右 | 修飾キー |
+|---|---|---|
+| `Shift`, `LShift` | 左 | Shift |
+| `Ctrl`, `LCtrl`, `Control`, `LControl` | 左 | Ctrl |
+| `Alt`, `LAlt`, `Option`, `LOption` | 左 | Alt / Option |
+| `Cmd`, `LCmd`, `Command`, `LCommand`, `Win`, `LWin`, `Gui`, `LGui` | 左 | GUI / Command |
+| `RShift` | 右 | Shift |
+| `RCtrl`, `RControl` | 右 | Ctrl |
+| `RAlt`, `ROption` | 右 | Alt / Option |
+| `RCmd`, `RCommand`, `RWin`, `RGui` | 右 | GUI / Command |
 
-**インデックスを明示的に指定する形式**です。数値（0-31の範囲）で参照します。
+### 関数形式
+
+QMK の関数形式もそのまま書けます。
 
 ```yaml
-# レイヤーファイル内
-mapping:
-  Q: Macro(0)           # マクロをインデックスで参照
-  W: TapDance(2)        # タップダンスをインデックスで参照
-  E: Combo(1)           # コンボをインデックスで参照
+Q: LGUI(KC_Q)
+W: LSFT(1)               # 引数はエイリアスでもよい（LSFT(KC_1)）
+E: LCS(KC_F)             # C_S(KC_F) と同じ
+R: LCTL_T(A)             # 長押しで Ctrl、タップで A
+T: LT(1, Space)          # LT1(Space) とも書ける
 ```
 
-**メリット**:
-- **明示的**: インデックスを直接管理したい場合に便利
-- **安定性**: リネーム時に参照が変更されない
-- **柔軟性**: ファイルが存在しなくても参照可能（後でファイル追加予定の場合）
+### decompile の書き方
 
-**使用場面**:
-- プログラムで動的に生成する設定
-- インデックスを固定したい場合
-- リネーム自動追従が不要な場合
+decompile は修飾キー付きのキーを次の順で書きます。
 
-#### 3. QMK Legacy形式（後方互換）
+1. エイリアスがあればエイリアス（`LSFT(KC_1)` → `!`、`LSFT(KC_9)` → `(`）
+2. なければ修飾キー表現（`Ctrl, Option, Shift, Command` の順。右側は `RCtrl, ROption, RShift, RCommand`）
+   - `LGUI(KC_Q)` → `Command + Q`、`HYPR(KC_LEFT)` → `Ctrl + Option + Shift + Command + Left`
 
-**従来のQMK標準形式**です。既存のQMK設定との互換性を保ちます。
-
-```yaml
-# レイヤーファイル内
-mapping:
-  Q: M0           # レガシーマクロ形式
-  W: TD(2)        # レガシータップダンス形式
-```
-
-**メリット**:
-- **後方互換性**: 既存のQMK設定がそのまま動作
-- **QMK標準**: QMKに慣れている場合は親しみやすい
-- **移行不要**: 既存の設定を変更せず使える
-
-**使用場面**:
-- 既存のQMK設定からの移行
-- QMK標準形式を維持したい場合
-
-### 各形式の動作の違い
-
-| 機能 | Name-based | Index-based | Legacy |
-|-----|-----------|------------|--------|
-| **可読性** | ⭐⭐⭐ | ⭐ | ⭐ |
-| **Decompile出力** | ✅ 常にこの形式 | ❌ Name-basedに変換 | ❌ Name-basedに変換 |
-| **Rename自動更新** | ✅ 自動更新 | ❌ 保持 | ❌ 保持 |
-| **Validator検証** | ✅ ファイル存在確認 | ⚠️ 範囲チェックのみ | ⚠️ 範囲チェックのみ |
-| **ファイル不要** | ❌ 必要 | ✅ 不要（0-31範囲内） | ✅ 不要 |
-
-### 推奨事項
-
-**新規作成時**: Name-based形式を使用してください。`cornix decompile`は自動的にName-based形式で生成します。
-
-**既存設定**: すべての形式が完全にサポートされており、移行は不要です。既存のレガシー形式はそのまま動作します。
-
-### Decompilerの動作
-
-`cornix decompile`は、常に**Name-based形式**でYAMLファイルを生成します。これは可読性を最大化するための設計です。
-
-```yaml
-# layout.vil（QMK形式）
-M5, TD(2), COMBO(1)
-
-# ↓ decompile後（YAML）
-mapping:
-  Q: Macro('End of Line')      # Name-based形式
-  W: TapDance('Escape')        # Name-based形式
-  E: Combo('Bracket')          # Name-based形式
-```
-
-**注意**: Index-basedやLegacy形式で記述していた場合でも、decompile後はName-based形式に変換されます。これは意図的な設計です（より読みやすい形式への統一）。
-
-### FileRenamerの動作（選択的更新）
-
-`cornix rename`でファイルをリネームすると、**Name-based参照のみ**が自動更新されます。
-
-```yaml
-# リネーム前
-config/macros/03_macro.yml: name: "Old Name"
-
-# レイヤーファイル内
-mapping:
-  Q: Macro('Old Name')    # ✅ 自動更新される
-  W: Macro(3)             # ❌ 変更されない（Index-based）
-  E: M3                   # ❌ 変更されない（Legacy）
-
-# リネーム後（cornix rename実行）
-config/macros/03_end_of_line.yml: name: "End of Line"
-
-# レイヤーファイル内
-mapping:
-  Q: Macro('End of Line') # ✅ 自動更新された
-  W: Macro(3)             # ❌ そのまま（意図的）
-  E: M3                   # ❌ そのまま（意図的）
-```
-
-**設計理由**: ユーザーの選択を尊重し、予測可能性を保つため。Name-based形式を選んだユーザーは自動更新を期待し、Index-based/Legacy形式を使うユーザーは安定性を重視していると考えられます。
-
-### Round-trip整合性
-
-すべての形式で、layout.vilへのコンパイルとround-trip整合性が保証されています。
-
-```bash
-# どの形式を使用しても同じlayout.vilが生成される
-cornix compile  # → layout.vil（QMK形式）
-
-# round-trip check
-mv config config.backup
-cornix decompile  # Name-based形式で生成
-cornix compile
-ruby bin/diff_layouts  # ✓ FILES ARE IDENTICAL
-```
-
-## 修飾キー表現（VS Code風）
-
-Cornixは、VS CodeやIDEのキーバインディングのような読みやすい修飾キー表現をサポートしています。`Cmd + Q`のように記述すると、自動的にQMK形式（`LGUI(KC_Q)`）にコンパイルされます。
-
-### 基本的な使い方
-
-```yaml
-# config/layers/0_base.yaml
-mapping:
-  Q: Cmd + Q              # → LGUI(KC_Q)
-  W: Shift + W            # → LSFT(KC_W)
-  E: Ctrl + C             # → LCTL(KC_C)
-  R: Alt + Tab            # → LALT(KC_TAB)
-```
-
-### QMKショートカット自動検出
-
-複数の修飾キーを組み合わせると、QMKのショートカット関数が自動的に使用されます：
-
-```yaml
-mapping:
-  # 2修飾キー
-  Q: Shift + Cmd + Q          # → LSG(KC_Q)
-  W: Ctrl + Shift + W         # → LCS(KC_W)
-  E: Ctrl + Alt + E           # → LCA(KC_E)
-
-  # 3修飾キー
-  R: Ctrl + Shift + Alt + R   # → MEH(KC_R)
-  T: Ctrl + Shift + Cmd + T   # → LCSG(KC_T)
-
-  # 4修飾キー（HYPR）
-  Y: Ctrl + Shift + Alt + Cmd + Y  # → HYPR(KC_Y)
-```
-
-### 順序無関係
-
-修飾キーの順序は関係ありません。どちらも同じQMKコードにコンパイルされます：
-
-```yaml
-Q: Shift + Cmd + Q    # → LSG(KC_Q)
-W: Cmd + Shift + W    # → LSG(KC_W)  # 順序が違っても同じ
-```
-
-### サポートする修飾キー
-
-#### 左側修飾キー（デフォルト）
-
-| 記述 | QMK関数 | 説明 |
-|-----|---------|------|
-| `Shift` | `LSFT` | 左Shift |
-| `Ctrl`, `Control` | `LCTL` | 左Ctrl |
-| `Alt`, `Option` | `LALT` | 左Alt/Option |
-| `Cmd`, `Command`, `Win`, `Gui` | `LGUI` | 左Cmd/Win |
-
-#### 右側修飾キー（明示的）
-
-| 記述 | QMK関数 | 説明 |
-|-----|---------|------|
-| `RShift` | `RSFT` | 右Shift |
-| `RCtrl`, `RControl` | `RCTL` | 右Ctrl |
-| `RAlt`, `ROption` | `RALT` | 右Alt/Option |
-| `RCmd`, `RCommand`, `RWin`, `RGui` | `RGUI` | 右Cmd/Win |
-
-### QMKショートカット一覧
-
-Cornixは以下のQMKショートカットを自動検出します：
-
-#### 2修飾キー
-
-| 組み合わせ | QMK | 組み合わせ | QMK |
-|----------|-----|----------|-----|
-| Ctrl + Shift | LCS | RCtrl + RShift | RCS |
-| Ctrl + Alt | LCA | RCtrl + RAlt | RCA |
-| Ctrl + Cmd | LCG | RCtrl + RCmd | RCG |
-| Shift + Alt | LSA | RShift + RAlt | RSA |
-| Shift + Cmd | LSG | RShift + RCmd | RSG |
-| Alt + Cmd | LAG | RAlt + RCmd | RAG |
-
-#### 3修飾キー
-
-| 組み合わせ | QMK | 説明 |
-|----------|-----|------|
-| Ctrl + Shift + Alt | MEH | MEHキー |
-| Ctrl + Shift + Cmd | LCSG | 左3修飾 |
-| Ctrl + Alt + Cmd | LCAG | 左3修飾 |
-| Shift + Alt + Cmd | LSAG | 左3修飾 |
-
-#### 4修飾キー
-
-| 組み合わせ | QMK | 説明 |
-|----------|-----|------|
-| Ctrl + Shift + Alt + Cmd | HYPR | HYPRキー |
-
-### スペースの柔軟性
-
-スペースの有無は自由です：
-
-```yaml
-Q: Cmd + Q      # 推奨（読みやすい）
-W: Cmd+W        # これも可能
-E: Cmd  +  E    # これも可能
-```
-
-### キーエイリアスとの併用
-
-キーにはエイリアスも使用できます：
-
-```yaml
-mapping:
-  Q: Cmd + Space      # → LGUI(KC_SPACE)
-  W: Shift + Tab      # → LSFT(KC_TAB)
-  E: Ctrl + Enter     # → LCTL(KC_ENTER)
-  R: Alt + KC_ESCAPE  # → LALT(KC_ESCAPE)
-```
-
-### 使用例
-
-#### アプリケーション操作
-
-```yaml
-mapping:
-  Q: Cmd + Q          # アプリ終了
-  W: Cmd + W          # ウィンドウを閉じる
-  N: Cmd + N          # 新規ウィンドウ
-  T: Cmd + T          # 新規タブ
-```
-
-#### エディタショートカット
-
-```yaml
-mapping:
-  C: Cmd + C          # コピー
-  V: Cmd + V          # ペースト
-  X: Cmd + X          # カット
-  Z: Cmd + Z          # アンドゥ
-  S: Cmd + S          # 保存
-```
-
-#### 高度な組み合わせ
-
-```yaml
-mapping:
-  F: Ctrl + Shift + F     # → LCS(KC_F) - プロジェクト検索
-  R: Ctrl + Shift + R     # → LCS(KC_R) - リファクタリング
-  P: Ctrl + Shift + P     # → LCS(KC_P) - コマンドパレット
-```
-
-### エスケープハッチ
-
-QMK関数構文を直接記述することも可能です：
-
-```yaml
-mapping:
-  Q: LGUI(KC_Q)           # QMK構文で直接記述
-  W: Cmd + W              # 修飾キー表現（推奨）
-```
-
-### Decompile時の動作
-
-**⚠️ 重要 - 不可逆変換**: `cornix decompile`コマンドは、修飾キー表現を自動的に元に戻しません。QMK形式のまま保持されます。
-
-```yaml
-# compile前（元のYAML）
-mapping:
-  Q: Cmd + Q
-
-# layout.vil（コンパイル後）
-# → LGUI(KC_Q)
-
-# decompile後（YAML）
-mapping:
-  Q: LGUI(Q)    # 修飾キー表現には戻らない
-```
-
-**理由**: layout.vilファイルにはQMK形式のみが含まれており、元の記述方法（修飾キー表現 vs QMK構文）の情報は失われます。また、QMK関数は様々な方法で記述できるため（`LGUI(KC_Q)`、`Cmd + Q`、`LGUI_T(KC_Q)`など）、元の記述方法を正確に復元することは困難です。
-
-**影響**:
-- **初回decompile**: layout.vilから生成されたYAMLは常にQMK形式（例: `LGUI(Q)`）
-- **編集後のround-trip**: 修飾キー表現（`Cmd + Q`）で記述 → compile → decompile → QMK形式（`LGUI(Q)`）に変換される
-- **手動維持**: 修飾キー表現を使い続けたい場合は、YAMLファイルを手動で編集する必要があります
-
-**ベストプラクティス**:
-1. **バージョン管理を使用**: `git`等でYAMLファイルをバージョン管理し、decompile後に`git diff`で確認
-2. **Round-trip後は手動修正**: 必要に応じてQMK形式を修飾キー表現に戻す
-3. **混在も可能**: 同じレイヤー内でQMK形式と修飾キー表現を混在させることができます
-
-**Round-trip整合性**:
-修飾キー表現は元に戻りませんが、QMK形式としてのround-trip整合性は完全に保証されています：
-
-```bash
-# 1. 修飾キー表現を使用したYAML作成
-echo "Q: Cmd + Q" > config/layers/0_base.yaml
-
-# 2. Compile
-cornix compile  # → layout.vilに LGUI(KC_Q)
-
-# 3. Decompile
-mv config config.backup
-cornix decompile  # → config/layers/*.yamlに LGUI(Q)
-
-# 4. Recompile
-cornix compile
-
-# 5. 検証
-ruby bin/diff_layouts  # ✓ FILES ARE IDENTICAL（QMK形式として完全一致）
-```
-
-### 制限事項
-
-1. **プラス記号をキーとして使用**: `Shift + +`は構文解析できません。代わりに`LSFT(KC_PLUS)`を使用してください。
-
-2. **関数をキーとして使用**: `Cmd + LT(1, Space)`は構文解析できません。代わりに`LGUI(LT(1, Space))`を使用してください。
-
-3. **修飾キーをキーとして使用**: 可能ですが、明示的に記述してください：
-   ```yaml
-   Q: Shift + Shift    # → LSFT(KC_LSHIFT)（スティッキーShift）
-   ```
+そのため `Cmd + Q` と書いた設定を compile → decompile すると `Command + Q` になります（値は同じです）。
 
 ## キーコードエイリアス
 
-キーコードエイリアスは`lib/cornix/keycode_aliases.yaml`に固定ファイルとして配置されています。このファイルは、QMK公式ドキュメント([https://docs.qmk.fm/keycodes](https://docs.qmk.fm/keycodes))に基づいた包括的なキーコード定義を提供します。
+キーコードの名前は 2 つの表で決まります。どちらもツールが持つファイルで、`config/` には生成しません。
 
-**重要**: このファイルはシステムが提供する参照ファイルであり、`config/`ディレクトリには生成されません。コンパイル時に自動的に参照されます。
-
-### 対応しているキーコード
-
-`lib/cornix/keycode_aliases.yaml`には以下の内容が網羅されています：
-
-- **Basic Keycodes**: 文字、数字、記号、ファンクションキー、ナビゲーションキー、修飾キー
-- **Layer Switching**: `MO()`, `DF()`, `TG()`, `TO()`, `TT()`, `OSL()`, `LT()`
-- **Modifiers**: Mod-Tap (`MT`, `LCTL_T`, etc.), One Shot Modifiers (`OSM`), 修飾キー組み合わせ (`C()`, `S()`, `A()`, `G()`)
-- **Media Keys**: 音量調整、再生/停止、メディアコントロール
-- **Mouse Keys**: マウス移動、ボタン、ホイール操作
-- **Backlight/RGB**: バックライトとRGB制御
-- **Quantum Keys**: リセット、デバッグ、EEPROM操作
-
-### エイリアスの例
+- **`data/keycodes.yaml`**: Cornix（Vial プロトコル 6）の名前付きキーコードと 16bit 値。layout.vil に書く名前（Vial GUI が保存する名前）と、受け付ける別の QMK 名
+- **`data/aliases.yaml`**: 人が読む別名。`QMK 名: [正規名, 別名...]` の形で、先頭が decompile で書く名前です。別名と QMK 名は全体で一意です
 
 ```yaml
-aliases:
-  # 基本キー
-  A: KC_A
-  Space: KC_SPACE
-  Enter: KC_ENTER
-  Escape: KC_ESCAPE
-
-  # 修飾キー
-  LShift: KC_LSHIFT
-  LCmd: KC_LGUI
-  LCtrl: KC_LCTRL
-
-  # 記号（そのまま使用可能）
-  "-": KC_MINUS
-  "=": KC_EQUAL
-  "[": KC_LBRACKET
-  "]": KC_RBRACKET
-
-  # メディアキー
-  VolumeUp: KC_VOLU
-  VolumeDown: KC_VOLD
-  Mute: KC_MUTE
-
-  # 特殊キー
-  Transparent: KC_TRNS
-  Trans: KC_TRNS
-  ___: KC_TRNS
-  NoKey: KC_NO
+# data/aliases.yaml（抜粋）
+special:
+  KC_NO: [NoKey, None, Nop]
+  KC_TRNS: [Trans, Transparent, ___]
+basic:
+  KC_A: [A]
+  KC_ESCAPE: [Escape, Esc]
+  KC_ENTER: [Enter, Return, Ent]
+  KC_LGUI: [LGui, LCmd, LWin]
+  KC_VOLU: [VolumeUp, VolUp]
+  KC_BTN1: [MouseButton1, MouseBtn1]
+quantum:
+  QK_BOOT: [Reset, Boot]
+modified:
+  "LSFT(KC_1)": ["!", Exclaim]
+  "LSFT(KC_SCOLON)": [":", Colon]
 ```
 
-### レイヤーファイルでの使用例
-
-**階層構造形式**（v2.0以降）：
-
-```yaml
-# config/layers/0_base.yaml
-name: Base Layer
-description: Default base layer
-mapping:
-  left_hand:
-    row0:
-      tab: Tab
-      Q: Q
-      W: W
-      E: E
-      R: R
-      T: T
-    row1:
-      caps: Escape                    # Caps LockをEscapeに変更
-      A: LCTL_T(A)                    # 長押しでCtrl、タップでA
-      S: S
-      D: D
-      F: F
-      G: G
-    row2:
-      lshift: LShift
-      Z: Z
-      X: X
-      C: C
-      V: V
-      B: B
-    row3:
-      lctrl: LCtrl
-      command: LCmd
-      option: LAlt
-    thumb_keys:
-      left: LGUI_T(KC_LANG2)          # 左親指・左: 長押しでGUI、タップでLANG2
-      middle: LT(1, Space)            # 左親指・中央: 長押しでレイヤー1、タップでSpace
-      right: LT(2, Escape)            # 左親指・右: 長押しでレイヤー2、タップでEscape
-  right_hand:
-    row0:
-      Y: Y
-      U: U
-      I: I
-      O: O
-      P: P
-      backspace: Backspace
-    row1:
-      H: H
-      J: J
-      K: K
-      L: L
-      colon: Colon
-      enter: Enter
-    row2:
-      N: N
-      M: M
-      comma: Comma
-      dot: Dot
-      up: Up
-      rshift: RShift
-    row3:
-      left: Left
-      down: Down
-      right: Right
-    thumb_keys:
-      left: LT(2, Enter)              # 右親指・左: 長押しでレイヤー2、タップでEnter
-      middle: MO(1)                   # 右親指・中央: 押している間レイヤー1
-      right: LT(3, KC_LANG1)          # 右親指・右: 長押しでレイヤー3、タップでLANG1
-  encoders:
-    left:
-      push: KC_MUTE
-      ccw: KC_VOLD
-      cw: KC_VOLU
-    right:
-      push: KC_MPLY
-      ccw: KC_MPRV
-      cw: KC_MNXT
-
-# config/layers/1_symbol.yaml（オーバーライドレイヤー）
-name: Symbol Layer
-description: Symbols and numbers
-overrides:
-  left_hand:
-    row0:
-      Q: "1"                          # 数字行
-      W: "2"
-      E: "3"
-    row1:
-      A: "!"                          # シンボル
-      S: "@"
-      D: "#"
-  right_hand:
-    row0:
-      Y: LSFT(9)                      # LSFT(9) = (
-      U: LSFT(0)                      # LSFT(0) = )
-  encoders:
-    left:
-      push: Trans                     # 透過（ベースレイヤーの設定を使用）
-```
-
-**重要な変更点**:
-- シンボル名が簡略化されました（`l_thumb_left` → `left`, `l_rotary_push` → `push`）
-- 階層パスで一意性を保証（`left_hand.thumb_keys.left`, `encoders.left.push`）
-- `encoders`セクションは`mapping`内に配置されます
-
-**注意**: `decompile`で生成されるファイルは自動的にエイリアス形式を使用しますが、手動で`KC_A`や`Transparent`などを記述しても動作します（compile時に同等に扱われます）。
+- 設定ファイルにはエイリアス・QMK 名（`KC_TAB`, `KC_LSHIFT`）・Vial 名のどれでも書けます
+- `MO(n)` / `LT(n, kc)` / `LSFT(kc)` / `TD(n)` / `M0` など引数付きのキーコードは表に持たず、組み立てて値にします
+- 表で表せない値は `0xHHHH` で書けます（decompile も解釈できない値はこの形で書きます）
 
 ## Position Map（物理位置マッピング）
 
-`position_map.yaml`は、キーボードの物理位置とシンボル名のマッピングを定義します。このファイルにより、レイヤーファイルで`Q`や`A`などの直感的な名前でキーを参照できます。
+`position_map.yaml` は、キーの物理位置とシンボル名の対応です。レイヤーファイルでは `left_hand.row0.Q` のようにシンボルでキーを指定します。
 
-### ファイルの配置と生成
-
-**システムテンプレート**: `lib/cornix/position_map.yaml`
-- システムが提供するデフォルトテンプレート（Cornixの標準レイアウト）
-- ユーザーは直接編集しません
-
-**ユーザー設定**: `config/position_map.yaml`
-- `cornix decompile`実行時に`lib/cornix/position_map.yaml`から自動生成
-- **ユーザーがカスタマイズ可能**（シンボル名を自由に変更できます）
-- `cornix compile`実行時に読み込まれます
-
-**動作フロー**:
-```
-1. cornix decompile
-   → lib/cornix/position_map.yaml（テンプレート）を読み込み
-   → config/position_map.yaml を生成
-
-2. ユーザーがシンボル名をカスタマイズ（任意）
-   → config/position_map.yaml を編集
-
-3. cornix compile
-   → config/position_map.yaml（ユーザー版）を読み込み
-   → layout.vil を生成
-```
-
-**重要な設計原則**:
-- `lib/cornix/position_map.yaml`: **再構築不要**のテンプレート（layout.vilの実データではない）
-- `config/position_map.yaml`: **ユーザー専用**のカスタマイズ可能なファイル
-
-### ファイル形式
-
-物理位置とシンボル名のマッピングを定義します。
+- **テンプレート**: `lib/cornix/position_map.yaml`（ツールが持つ既定値）
+- **ユーザー設定**: `config/position_map.yaml`（decompile がテンプレートから作る。シンボル名を自由に変えられる。compile はこちらを読む）
 
 ```yaml
 left_hand:
-  row0: [tab, Q, W, E, R, T]          # 6要素
-  row1: [caps, A, S, D, F, G]         # 6要素
-  row2: [lshift, Z, X, C, V, B]       # 6要素
-  row3: [lctrl, command, option]      # 3要素（標準グリッドキーのみ）
-  thumb_keys: [left, middle, right]   # row3の直後（簡略化されたシンボル名）
-
+  row0: [tab, Q, W, E, R, T]           # 6 キー
+  row1: [caps, A, S, D, F, G]          # 6 キー
+  row2: [lshift, Z, X, C, V, B]        # 6 キー
+  row3: [lctrl, command, option]       # 3 キー
+  thumb_keys: [left, middle, right]    # 親指 3 キー
 right_hand:
-  row0: [Y, U, I, O, P, backspace]    # 6要素
-  row1: [H, J, K, L, colon, enter]    # 6要素
-  row2: [N, M, comma, dot, up, rshift]# 6要素
-  row3: [left, down, right]           # 3要素（標準グリッドキーのみ）
-  thumb_keys: [left, middle, right]   # row3の直後（簡略化されたシンボル名）
-
+  row0: [Y, U, I, O, P, backspace]
+  row1: [H, J, K, L, colon, enter]
+  row2: [N, M, comma, dot, up, rshift]
+  row3: [left, down, right]
+  thumb_keys: [left, middle, right]
 encoders:
   left:
-    push: push    # 簡略化されたシンボル名（階層パスで一意性を保証）
+    push: push
     ccw: ccw
     cw: cw
   right:
@@ -1419,912 +639,197 @@ encoders:
     cw: cw
 ```
 
-### キーの配列順序と構造
-
-**標準グリッドキー**:
-- **left_hand**: 左手側のキーは**物理的に左から右**へ `col0`, `col1`, `col2`, ... と並びます
-- **right_hand**: 右手側のキーも**物理的に左から右**へ `col0`, `col1`, `col2`, ... と並びます
-  - 例：`row0` は `Y` (左端) → `U` → `I` → `O` → `P` → `backspace` (右端)
-
-**行の構成**:
-- `row0`, `row1`, `row2`: 各6要素（標準グリッドキー）
-- `row3`: 各3要素（標準グリッドキーのみ）
-
-**親指キー**:
-- `left_hand`/`right_hand`内の`thumb_keys`として定義（左右各3キー）
-- 物理的には`row3`の後半（cols 3-5）に配置されますが、論理的には各ハンド内の独立したセクションとして扱います
-- row3の直後に配置されることで、物理的な配置と構造が一致します
-- シンボル名は簡略化されています（`left`, `middle`, `right`）
-- レイヤーファイルでは階層パスで参照します：
-  - 左親指キー: `left_hand.thumb_keys.left`, `left_hand.thumb_keys.middle`, `left_hand.thumb_keys.right`
-  - 右親指キー: `right_hand.thumb_keys.left`, `right_hand.thumb_keys.middle`, `right_hand.thumb_keys.right`
-
-**エンコーダー**:
-- ロータリーエンコーダーのプッシュボタンと回転は `encoders` セクションで別途定義されます
-- キーとは明確に異なる位置にあるため、独立したセクションとして維持されます
-- シンボル名は簡略化されています（`push`, `ccw`, `cw`）
-- レイヤーファイルでは階層パスで参照します：
-  - 左エンコーダー: `encoders.left.push`, `encoders.left.ccw`, `encoders.left.cw`
-  - 右エンコーダー: `encoders.right.push`, `encoders.right.ccw`, `encoders.right.cw`
-
-**階層パスによる一意性保証**:
-- v2.0以降、シンボル名は階層パス全体で一意性が保証されます
-- 例：`left_hand.thumb_keys.left` と `right_hand.thumb_keys.left` は異なるキーとして認識されます
-- これにより、シンボル名の冗長なプレフィックス（`l_`, `r_`等）が不要になりました
-
-このマッピングにより、レイヤーファイルで直感的な階層構造でキーを参照できます。
-
-## マクロで使用可能なアクション
+- 左手・右手とも、キーは**物理的に左から右**の順に並べます（右手 row0 は `Y`（左端）→ … → `backspace`（右端））
+- シンボルは同じ手・同じグループの中で一意であればよく、グループが違えば同じ名前を使えます（右手の `row3` と `thumb_keys` の `left` / `right` など）。シンボルに使える文字は英数字・`_`・`-` です
+- 親指キーは物理的には row3 の後半にありますが、`thumb_keys` として独立に書きます
+- エンコーダのプッシュはキーマトリクス上のキー、回転（`ccw` / `cw`）は layout.vil の `encoder_layout` に書かれます
 
 ```yaml
-# キーをタップ
+# シンボル名を変える例（config/position_map.yaml）
+right_hand:
+  row0: [y, u, i, o, p, bs]
+```
+
+## マクロで使えるアクション
+
+```yaml
+- action: tap            # 順にタップ
+  keys: [A, B, C]
 - action: tap
-  key: A              # 単一キー
-
-- action: tap
-  keys: [A, B, C]     # 複数キーを順番にタップ
-
-# キーを押し下げたまま
-- action: down
-  key: LShift
-
-- action: down
-  keys: [LCmd, LShift]  # 複数キー同時押し下げ
-
-# キーを離す
-- action: up
-  key: LShift
-
-# テキストを入力
-- action: text
+  keys: A                # 1 キーなら文字列でもよい
+- action: down           # 押し下げる（複数なら同時に）
+  keys: [LCmd, LShift]
+- action: up             # 離す
+  keys: LShift
+- action: text           # 文字列を入力（ASCII のみ）
   content: "function ()"
-
-# 遅延
-- action: delay
-  duration: 100  # ms
+- action: delay          # 待つ（ミリ秒）
+  duration: 100
 ```
 
-## ライブラリ機能（コミュニティマクロ）
-
-`library/`ディレクトリにコミュニティが作成したマクロやタップダンスを配置できます。
-
-```yaml
-# config/metadata.yaml
-library:
-  enabled: true
-
-  macros:
-    - name: vscode_shortcuts
-      enabled: true
-    - name: emacs_keybinds
-      enabled: false
-```
-
-⚠️ **セキュリティ注意**: ライブラリマクロを使用する際は、必ず内容を確認してから有効化してください。
+`keys` にはキーコード（エイリアス・QMK 名・修飾キー表現）を書きます。`beep` は対応していません。
 
 ## 開発
 
-### bin/アーキテクチャ
+### 構成
 
-Cornixのコマンドラインインターフェースは、メンテナンス性を重視したクリーンな構造になっています。
-
-#### ディレクトリ構造
+内部は層に分かれていて、設定ファイル・layout.vil・HID のバイト列はすべて外側の表現として扱い、内側では型のある値（ドメインモデル）だけを扱います。
 
 ```
-bin/
-├── cornix                    # メインCLIディスパッチャー（~62行）
-├── subcommands/              # サブコマンド実装
-│   ├── compile.rb           # 自動検証付きコンパイル
-│   ├── decompile.rb         # ロック保護付きデコンパイル
-│   ├── validate.rb          # 検証専用
-│   ├── cleanup.rb           # 安全なクリーンアップ
-│   ├── rename.rb            # RenameCommandラッパー
-│   ├── device.rb            # キーボードへの直接読み書き（info/read/backup/diff/apply）
-│   └── mcp.rb               # MCP サーバー（stdio）
-├── diff_layouts              # Round-tripチェックツール
-└── rename_file               # ファイルリネームCLI（上級者向け）
+Interface       CLI（bin/cornix → Interface::Cli::Main）・MCP サーバー
+Application     ユースケース（Compile / Decompile / Validate / Cleanup / RenameFiles / Device*）と Environment
+Mapping         キーコードの表記と値の変換（KeycodeNotation / VialNotation / KeycodeCodec）、Profile ⇄ DeviceImage（ProfileMapper）
+Planning        DeviceImage どうしの差分と書き込み計画
+Domain          Profile と値オブジェクト（Keycode, Layer, Macro, TapDance, Combo, PositionMap ...）
+Image           DeviceImage（layout.vil / 実機の状態を 16bit 値のまま持つ）
+Storage         config/*.yaml（ConfigRepository）・layout.vil（VilFile）・バックアップ
+Device          HID ブリッジとの通信、実機の読み出し・書き込み
 ```
 
-#### Delegation Pattern（委譲パターン）
-
-`bin/cornix`はシンプルなディスパッチャーとして機能し、実際の処理は各サブコマンドに委譲します。
-
-```ruby
-# bin/cornix の抜粋
-case command
-when 'compile'
-  load File.expand_path('subcommands/compile.rb', __dir__)
-when 'decompile'
-  load File.expand_path('subcommands/decompile.rb', __dir__)
-when 'validate'
-  load File.expand_path('subcommands/validate.rb', __dir__)
-# ...
-end
+```
+compile    config/ → Profile → DeviceImage → layout.vil
+decompile  layout.vil → DeviceImage → Profile → config/
+device     layout.vil → DeviceImage（目標）と 実機 → DeviceImage（現在）の差分を書き込み、読み直して検証
 ```
 
-**利点**:
-- **コードの重複排除**: 100%の重複を削減、全コマンドが`cornix`ディスパッチャーを経由
-- **一貫性**: 全サブコマンドで共通の初期化処理
-- **メンテナンス性**: 各サブコマンドは独立したファイルで管理
-
-#### 自動検証機能
-
-`cornix compile`は自動的に検証を実行します。これはユーザーが明示的に`validate`を呼び出す必要がないようにするためです。
-
-```ruby
-# bin/subcommands/compile.rb の抜粋
-# 1. 検証を実行
-validator = Cornix::Validator.new(config_dir)
-unless validator.validate
-  puts validator.errors
-  exit 1
-end
-
-# 2. コンパイルを実行
-compiler = Cornix::Compiler.new(config_dir)
-compiler.compile
-```
-
-#### CLI共通ヘルパー（CliHelpers）
-
-全サブコマンドで共有されるユーティリティ関数を提供します。
-
-```ruby
-# lib/cornix/cli_helpers.rb
-module Cornix
-  module CliHelpers
-    # config/ディレクトリの既存ファイル保護
-    def self.check_config_lock(config_dir)
-      # ...
-    end
-
-    # config/ディレクトリの存在確認
-    def self.ensure_config_exists(config_dir)
-      # ...
-    end
-
-    # 生成ファイルの安全な削除
-    def self.cleanup(config_dir, layout_path)
-      # ...
-    end
-  end
-end
-```
-
-#### Data Flow（データフロー）
-
-```
-ユーザー入力
-    ↓
-cornix [command] [args]
-    ↓
-bin/cornix（ディスパッチャー）
-    ↓
-    ├─ compile.rb → Validator → Compiler → layout.vil
-    ├─ decompile.rb → CliHelpers.check_config_lock → Decompiler → config/
-    ├─ validate.rb → Validator → エラー/成功
-    ├─ cleanup.rb → CliHelpers.cleanup → ファイル削除
-    └─ rename.rb → RenameCommand → FileRenamer → config/
-```
+方針・依存の向き・コード規約は [docs/architecture.md](docs/architecture.md)、主なクラスの公開メソッドは [docs/tasks.md](docs/tasks.md) にあります。
 
 ### ディレクトリ構造
 
 ```
 cornix-layout/
-├── README.md                   # 日本語README
-├── README.en.md                # 英語README
 ├── bin/
-│   ├── compile                 # コンパイラ
-│   ├── decompile               # デコンパイラ
-│   └── verify                  # 検証スクリプト
+│   ├── cornix                # CLI（Interface::Cli::Main）
+│   ├── diff_layouts          # 2 つの layout.vil を 16bit 値で比べる
+│   └── rename_file           # リネームを直接実行する（JSON で結果を表示）
+├── data/
+│   ├── keycodes.yaml         # 名前付きキーコードの表（Vial プロトコル 6）
+│   ├── aliases.yaml          # キーコードの別名（QMK 名: [正規名, 別名...]）
+│   ├── qmk_settings.yaml     # QMK Settings の QSID・名前・幅
+│   └── dangerous_keycodes.yaml # 実機に書き込まないキーコード
 ├── lib/
+│   ├── cornix.rb             # すべてのファイルを層の順に読み込む
 │   └── cornix/
-│       ├── compiler.rb
-│       ├── decompiler.rb
-│       ├── keycode_resolver.rb
-│       ├── keycode_aliases.yaml # システム提供のキーコードエイリアス
-│       ├── position_map.yaml    # デフォルトの物理位置マップテンプレート
-│       ├── position_map.rb
-│       └── device/              # キーボード直接操作（プロトコル、キーコード表、差分・反映、MCP サーバー）
-├── ext/
-│   └── cornix_hid/main.swift   # raw HID ブリッジ（許可リスト付き、tmp/cornix-hid にビルド）
-├── .mcp.json                   # Claude Code 用の MCP サーバー登録
-├── config/                     # 設定ファイル
-└── layout.vil                  # 生成されるファイル
+│       ├── domain/ image/ mapping/ planning/ storage/ device/ application/ interface/
+│       ├── errors.rb         # Cornix::Error 系の例外
+│       └── position_map.yaml # position_map のテンプレート
+├── ext/cornix_hid/main.swift # raw HID ブリッジ（許可リスト付き、tmp/cornix-hid にビルド）
+├── spec/                     # RSpec（lib と同じ層の構成。spec/README.md）
+├── docs/                     # architecture.md・tasks.md
+├── .mcp.json                 # Claude Code 用の MCP サーバー登録
+├── config/                   # 設定ファイル（生成物）
+└── layout.vil                # compile の出力
 ```
 
 ### テスト
 
-プロジェクトには包括的なRSpecテストスイートが含まれています。
-
 ```bash
-# 全テストを実行
-bundle exec rspec
-
-# 特定のテストファイルを実行
-bundle exec rspec spec/compiler_spec.rb
-bundle exec rspec spec/decompiler_spec.rb
-bundle exec rspec spec/keycode_resolver_spec.rb
-bundle exec rspec spec/position_map_spec.rb
-bundle exec rspec spec/validator_spec.rb
-bundle exec rspec spec/integration_spec.rb
-
-# 詳細な出力で実行
-bundle exec rspec --format documentation
+LANG=ja_JP.UTF-8 bundle exec rspec                       # すべて
+LANG=ja_JP.UTF-8 bundle exec rspec spec/mapping          # 層ごと
+LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb
 ```
 
-#### テストスイート詳細
+- spec は lib と同じ層の構成（`spec/domain`, `spec/mapping`, ... `spec/interface`）です
+- `spec/end_to_end_spec.rb` は `spec/fixtures/test_config` と作者のキーマップ（`spec/fixtures/authors_config`）を compile し、保存してある layout.vil と 16bit 値で一致すること、decompile → compile で元に戻ることを確かめます
+- `spec/architecture_spec.rb` は層の依存の向きを検査します
+- 実機の代わりに RMK 0.8 の応答を模した `FakeRmkDevice` を使うので、キーボードなしで実行できます
 
-**総テストケース数**: 479テスト（全成功）
-**総行数**: 5,400行以上
-**実行時間**: 約1.8秒
+詳細は [spec/README.md](spec/README.md) を参照してください。GitHub Actions でも push / pull request ごとに RSpec を実行します。
 
-<details>
-<summary><b>テストファイル別内訳</b></summary>
+### Round-trip チェック
 
-| テストファイル | テスト数 | 内容 |
-|--------------|---------|------|
-| `keycode_parser_spec.rb` | 106 | KeycodeParser機能（参照形式パース、関数パース、修飾キー表現パース、unparse） |
-| `modifier_expression_compiler_spec.rb` | 52 | ModifierExpressionCompiler機能（QMKショートカット自動検出、修飾キーエイリアス） |
-| `compiler_spec.rb` | 48 | Compiler機能（キーコード変換、レイヤー/マクロ/タップダンス/コンボのコンパイル） |
-| `reference_resolver_spec.rb` | 44 | ReferenceResolver機能（名前⇔インデックス解決、キャッシング、検証） |
-| `file_renamer_spec.rb` | 57 | FileRenamer機能（リネーム、YAML更新、バックアップ/ロールバック、レイヤー参照更新） |
-| `decompiler_spec.rb` | 37 | Decompiler機能（QMK→エイリアス変換、YAML生成、レガシー→name-basedアップグレード） |
-| `validator_spec.rb` | 73 | Validator機能（Phase 1全検証項目、修飾キー表現検証） |
-| `keycode_resolver_spec.rb` | 21 | KeycodeResolver機能（エイリアス⇔QMK双方向変換） |
-| `position_map_spec.rb` | 17 | PositionMap機能（物理位置マッピング） |
-| `integration_spec.rb` | 17 | 統合テスト（フルラウンドトリップ、参照システム統合、修飾キー表現統合） |
+手元の layout.vil で decompile → compile が元に戻るかを確かめる手順です。
 
-</details>
-
-<details>
-<summary><b>テストカバレッジ詳細</b></summary>
-
-**Flexible Reference System**（参照システム）:
-- Name-based参照のパース・解決
-- Index-based参照のパース・解決
-- Legacy参照の後方互換性
-- Decompilerによる自動アップグレード（Legacy → Name-based）
-- FileRenamerによる選択的更新（Name-basedのみ自動更新）
-- Validatorによる差別的検証（Name-based: 存在確認、Index-based: 範囲のみ）
-- ラウンドトリップ整合性（全形式で完全一致）
-
-**Modifier Expression System**（修飾キー表現）:
-- 修飾キー表現のパース（`Cmd + Q`等）
-- QMKショートカット自動検出（LCS, LSG, MEH, HYPR等）
-- 順序無関係マッチング（`Cmd + Shift` = `Shift + Cmd`）
-- 修飾キーエイリアス解決（Command, Win, Option等）
-- ネスト関数フォールバック
-- Validatorによる検証（修飾キー名、キー名）
-- ラウンドトリップ整合性（QMK形式として完全一致）
-
-**Compiler**:
-- キーコード解決（エイリアス → QMK形式）
-- 関数引数処理（レイヤー番号保持、修飾キー引数変換）
-- レイヤー構造コンパイル
-- マクロ/タップダンス/コンボのコンパイル
-- 参照システム統合
-- 修飾キー表現統合
-
-**Decompiler**:
-- QMK → エイリアス変換（逆解決）
-- YAML生成（読みやすいフォーマット）
-- レガシー形式の自動アップグレード
-- Position Mapテンプレート生成
-- ラウンドトリップ整合性
-
-**Validator**:
-- Phase 1全検証項目（8項目）
-- 参照形式検証（Name-based、Index-based、Legacy）
-- 修飾キー表現検証
-- エラーメッセージの明瞭性
-
-**FileRenamer**:
-- ファイルリネーム（インデックスプレフィックス保持）
-- YAML内容更新（name、descriptionフィールド）
-- バックアップ/ロールバック（トランザクション型）
-- レイヤー参照自動更新（Name-basedのみ）
-- コンパイル検証
-
-**Integration**:
-- Compile → Decompile → Compile フルラウンドトリップ
-- 全参照形式での整合性
-- 修飾キー表現のQMK形式保持
-- データ損失なし
-
-</details>
-
-**Round-trip Check** (手動検証):
 ```bash
-# 1. 既存configをバックアップ
-mv config config.backup
-
-# 2. オリジナルからdecompile
-cornix decompile  # tmp/layout.vil を使用
-
-# 3. 生成された設定からcompile
-cornix compile
-
-# 4. 比較
-ruby bin/diff_layouts
+mv config config.backup          # 既存の設定を退避
+cp ~/Downloads/layout.vil tmp/layout.vil
+cornix decompile                 # tmp/layout.vil → config/
+cornix compile                   # config/ → layout.vil
+ruby bin/diff_layouts            # tmp/layout.vil と layout.vil を比べる
 # 期待結果: === ✓ FILES ARE IDENTICAL ===
 ```
 
-## トラブルシューティング
+`bin/diff_layouts [FILE1 FILE2]` は 2 つの layout.vil を読み込み、キー・エンコーダ・マクロ・タップダンス・コンボ・設定を 16bit 値で比べます。同じ値の別表記（`KC_PGDN` と `KC_PGDOWN` など）は同じとみなします。違えば場所を表示して終了コード 1 です。
 
-よくある問題と解決方法をまとめました。
+## トラブルシューティング
 
 <details>
 <summary><b>よくある問題</b></summary>
 
-### 1. Decompileがブロックされる
+### 1. decompile がブロックされる
 
-**症状**:
 ```
 ⚠️  Error: config/ directory already contains configuration files.
 ```
 
-**原因**: 既存の`config/`ディレクトリが存在するため、ロック保護機能が作動しています。
+`config/` に設定があるためです。`mv config config.backup` で退避するか `cornix cleanup` で消してから、もう一度 decompile します。cleanup が `Protected: config/ directory has an active lock file` で止まる場合は `cornix cleanup -f` を使います。
 
-**解決方法**:
-```bash
-# オプション1: cleanupコマンドを使用
-cornix cleanup
+### 2. キーコードを解釈できない
 
-# オプション2: 手動でバックアップ
-mv config config.backup
-
-# 再度デコンパイル
-cornix decompile
+```
+Error: layers/0_base.yaml: mapping.left_hand.row0.Q: キーコード「Spce」を解釈できません: 「Spce」は不明なキーコードです
 ```
 
----
+タイプミスです（`Spce` → `Space`）。使える名前は `data/aliases.yaml` と `data/keycodes.yaml` にあります。
 
-### 2. コンパイルエラー: Invalid keycode
+### 3. position_map にないキー
 
-**症状**:
 ```
-Error: Layer 0_base.yaml, symbol 'Q': Invalid keycode 'Spce'
-```
-
-**原因**: キーコードのタイプミス（`Spce` → 正しくは `Space`）
-
-**解決方法**:
-```bash
-# 1. エラーメッセージから該当ファイルと行を特定
-vim config/layers/0_base.yaml
-
-# 2. タイプミスを修正
-# Spce → Space
-
-# 3. 検証
-cornix validate
-
-# 4. 再コンパイル
-cornix compile
+Error: layers/0_base.yaml: mapping.left_hand.row1.capz: position_map の left_hand.row1 にないキーです（使えるキー: caps, A, S, D, F, G）
 ```
 
-**よくあるタイプミス**:
-- `Spce` → `Space`
-- `Entr` → `Enter`
-- `Backspce` → `Backspace`
-- `Trans` → `Transparent`（どちらも正しいが`Trans`が推奨）
+`config/position_map.yaml` のそのグループにあるシンボルを使うか、`position_map.yaml` を変えます。
 
----
+### 4. 番号や名前の重複
 
-### 3. 未定義のポジションシンボル
-
-**症状**:
 ```
-Error: Layer 0_base.yaml: Unknown position symbol 'UnknownKey'
+Error: layers/2_layer.yaml: index: レイヤーの番号が重複しています: 2
+Error: macros/01_macro.yaml: name: マクロの名前が重複しています: Bracket Pair
 ```
 
-**原因**: `position_map.yaml`に定義されていないシンボルを参照しています。
+どちらかのファイルの `index` / `name` を変えます。
 
-**解決方法**:
-```bash
-# 1. position_map.yamlを確認
-cat config/position_map.yaml
+### 5. 存在しないマクロ・タップダンスの参照
 
-# 2. レイヤーファイルで使用しているシンボルを確認
-grep "UnknownKey" config/layers/*.yaml
-
-# 3. オプションA: position_map.yamlにシンボルを追加
-vim config/position_map.yaml
-
-# 3. オプションB: レイヤーファイルのシンボルを修正
-vim config/layers/0_base.yaml
+```
+Error: layers/0_base.yaml: mapping.left_hand.row0.Q: キーコード「Macro('Unknown')」を解釈できません: マクロ「Unknown」が見つかりません
 ```
 
----
+`config/macros/*.yaml` の `name` を確認し、参照を直します（`grep '^name:' config/macros/*.yaml`）。
 
-### 4. レイヤー番号の重複
+### 6. 左右の修飾キーの混在
 
-**症状**:
 ```
-Error: Duplicate layer index 1: 1_symbol.yaml, 1_number.yaml
-```
-
-**原因**: 同じレイヤーインデックス（`1_`）を持つファイルが複数存在します。
-
-**解決方法**:
-```bash
-# どちらかのファイルのレイヤー番号を変更
-mv config/layers/1_number.yaml config/layers/2_number.yaml
+キーコード「Shift + RCmd + A」を解釈できません: 左右の修飾キーは混在できません（例: Shift と RCmd）
 ```
 
----
+QMK の修飾キー付きキーコードは左右どちらか一方しか表せません。どちらかにそろえます。
 
-### 5. マクロ名の重複
+### 7. Round-trip チェックが失敗する
 
-**症状**:
+`ruby bin/diff_layouts` の出力で、どのレイヤー・行・項目が違うかを確認します。元の layout.vil と生成した layout.vil を添えて issue を作成してください。
+
+### 8. Claude Code CLI（`claude` コマンド）が見つからない
+
 ```
-Error: Duplicate macro name 'Bracket Pair' in files: 00_bracket.yml, 01_bracket_copy.yml
-```
-
-**原因**: 同じ`name`フィールドを持つマクロファイルが複数存在します。
-
-**解決方法**:
-```bash
-# どちらかのファイルの名前を変更
-vim config/macros/01_bracket_copy.yml
-# name: "Bracket Pair" → "Bracket Pair Alt"
+  ❌ Error: Claude CLI not found
 ```
 
----
+`cornix rename` には Claude Code CLI が必要です。https://claude.ai/download からインストールし、`claude --version` で確認します。
 
-### 6. 存在しないマクロ/タップダンスを参照
+### 9. YAML の構文エラー・型の誤り
 
-**症状**:
-```
-Error: Layer 0_base.yaml, symbol 'Q': Macro 'Unknown Macro' not found
-```
-
-**原因**: Name-based参照で存在しない名前を指定しています。
-
-**解決方法**:
-```bash
-# 1. 存在するマクロ名を確認
-ls config/macros/
-cat config/macros/*.yml | grep "^name:"
-
-# 2. レイヤーファイルの参照を修正
-vim config/layers/0_base.yaml
-# Macro('Unknown Macro') → Macro('Existing Macro')
-```
-
----
-
-### 7. Round-trip checkが失敗する
-
-**症状**:
-```
-=== ✗ FILES DIFFER ===
-Layer 0: ...
-```
-
-**原因**: Compile/Decompileプロセスでデータの不整合が発生しています。
-
-**解決方法**:
-```bash
-# 1. どのセクションで差分が発生しているか確認
-ruby bin/diff_layouts
-
-# 2. バグレポート用に詳細情報を収集
-cp tmp/layout.vil tmp/layout.original.vil
-cp layout.vil tmp/layout.recompiled.vil
-
-# 3. GitHubでissue報告
-# https://github.com/anthropics/claude-code/issues
-```
-
----
-
-### 8. 修飾キー表現がDecompile後に消える
-
-**症状**: `Cmd + Q`で記述したが、decompile後は`LGUI(Q)`になっている。
-
-**原因**: 仕様です。Decompilerは修飾キー表現を自動的に元に戻しません。
-
-**説明**:
-- layout.vilにはQMK形式のみが保存されます
-- 元の記述方法（修飾キー表現 vs QMK構文）の情報は失われます
-- 詳細は「修飾キー表現 > Decompile時の動作」セクションを参照
-
-**対処方法**:
-- バージョン管理（git）を使用して手動で修飾キー表現を維持
-- QMK形式を受け入れて使用（機能的には同等）
-
----
-
-### 9. Claude Code CLI (`claude`コマンド) が見つからない
-
-**症状**:
-```
-Error: claude command not found. Please install Claude Code CLI.
-```
-
-**原因**: `cornix rename`コマンドに必要なClaude Code CLIがインストールされていません。
-
-**解決方法**:
-```bash
-# Claude Code CLIをインストール
-# https://claude.ai/download
-
-# インストール確認
-claude --version
-```
-
----
-
-### 10. YAML構文エラー
-
-**症状**:
-```
-Error: config/layers/0_base.yaml: Invalid YAML syntax - mapping values are not allowed here
-```
-
-**原因**: YAMLの構文エラー（インデント不正、不正な文字等）
-
-**解決方法**:
-```bash
-# 1. エラーメッセージから該当ファイルを確認
-vim config/layers/0_base.yaml
-
-# 2. よくある原因
-# - インデントがスペースとタブ混在
-# - キーの後のコロン忘れ
-# - 文字列に特殊文字が含まれている（クォートが必要）
-
-# 3. YAMLバリデーターで確認（オプション）
-ruby -ryaml -e "YAML.load_file('config/layers/0_base.yaml')"
-```
+エラーメッセージのファイルを確認します。よくある原因はインデントの誤り、タブの混在、引用符が必要な文字列（`"!"`, `"["`, `"1"` など）です。引用符のない `1` が整数として読まれた場合などは、書き直し方をメッセージに表示します。
 
 </details>
 
-### 設定ファイルの検証
-
-コンパイル前に設定ファイルの妥当性を検証することを強く推奨します：
-
-```bash
-# 設定ファイルを検証
-cornix validate
-
-# 検証に成功した場合
-✓ All validations passed
-
-# 検証に失敗した場合
-✗ Validation failed:
-  Error: Layer 0_base.yaml, symbol 'LT1': Invalid keycode 'InvalidKeycode'
-  Error: Layer 1_symbols.yaml: Unknown position symbol 'UnknownSymbol'
-```
-
-**検証内容**（Phase 1実装済み）:
-
-1. **YAML構文の正当性**
-   - 全YAMLファイルの構文エラーを検出
-   - パースエラーのある場合、分かりやすいエラーメッセージを表示
-
-2. **メタデータの妥当性**
-   - `metadata.yaml`の存在チェック
-   - 必須フィールド（`keyboard`, `version`, `uid`, `vial_protocol`, `via_protocol`）の検証
-   - `vendor_product_id`の形式チェック（`0xXXXX`）
-   - `matrix`設定の型・範囲チェック
-
-3. **Position Map の妥当性**
-   - `position_map.yaml`内のシンボルが一意であることを検証
-   - 同じシンボルが複数の物理位置に割り当てられている場合はエラー
-   - 左手・右手間での重複も検出
-
-4. **キーコードの妥当性**
-   - レイヤー内の全キーコードが有効なQMKキーコードまたはエイリアスか検証
-   - 関数形式のキーコード（`MO(1)`, `LSFT(A)`, `LT(2, Space)`等）の引数も検証
-   - タイプミスの早期発見
-
-5. **Position Map参照の整合性**
-   - レイヤーで使用されるシンボル（`LT1`, `RT1`等）が`position_map.yaml`に定義されているか検証
-   - 未定義のポジションシンボル参照を検出
-
-6. **レイヤーインデックスの妥当性**
-   - レイヤーファイル名が数字で始まること（例: `0_base.yaml`）
-   - レイヤーインデックスが0-9の範囲内
-   - 重複するレイヤーインデックスがないこと
-
-7. **マクロ/タップダンス/コンボ名の一意性**
-   - 各ファイルに`name`フィールドが存在
-   - 名前がファイル間で一意
-
-8. **レイヤー内の参照妥当性**
-   - `MACRO(name)`, `TD(name)`参照が実在する名前を指していること
-
-**推奨ワークフロー**:
-
-```bash
-# 設定を編集
-vim config/layers/0_base.yaml
-
-# 検証＆コンパイル（自動検証）
-cornix compile
-```
-
-### コンパイルエラー
-
-よくあるエラー：
-
-- **YAML構文エラー**: インデント不正、不正な文字
-- **無効なキーコード**: タイプミス（`Spce` → 正しくは `Space`）
-- **未定義のポジションシンボル**: `position_map.yaml`に存在しないシンボルを参照
-- **レイヤー番号の重複**: 同じ番号のレイヤーファイルが複数存在
-- **マクロ名の重複**: 同じ名前のマクロファイルが複数存在
-- **存在しない参照**: `MACRO(unknown_macro)`など、存在しないマクロを参照
-
-詳細は「トラブルシューティング」セクションを参照してください。
-
-## Tips & Best Practices
-
-Cornixを効果的に使うためのヒントとベストプラクティスをまとめました。
-
-### Configuration Management（設定管理）
-
-**1. Name-based参照を推奨**
-
-```yaml
-# ✅ 推奨: Name-based形式
-Q: Macro('End of Line')
-W: TapDance('Escape or Layer')
-
-# ❌ 非推奨: Index-based/Legacy形式（可読性が低い）
-Q: Macro(5)
-W: TD(2)
-```
-
-**理由**:
-- 設定ファイルが自己文書化され、可読性が高い
-- `cornix rename`でファイル名変更時に自動更新される
-- チーム開発で分かりやすい
-
-**2. 修飾キー表現を活用**
-
-```yaml
-# ✅ 推奨: 修飾キー表現（読みやすい）
-Q: Cmd + Q
-W: Ctrl + Shift + F
-
-# ❌ 非推奨: QMK構文（機能的には同等だが読みにくい）
-Q: LGUI(KC_Q)
-W: LCS(KC_F)
-```
-
-**注意**: Decompile後は自動的にQMK形式に戻ります。バージョン管理で維持してください。
-
-**3. バージョン管理を使用**
-
-```bash
-# Gitで設定ファイルを管理
-git init
-git add config/
-git commit -m "Initial keyboard configuration"
-
-# 変更後に差分確認
-vim config/layers/0_base.yaml
-git diff config/
-
-# コミット
-git commit -am "Update base layer: add Cmd+Q shortcut"
-```
-
-**理由**:
-- 設定の履歴が追跡できる
-- 誤った変更を簡単にロールバックできる
-- Decompile後の修飾キー表現を手動で復元しやすい
-
-**4. 定期的な検証**
-
-```bash
-# 編集前
-cornix validate
-
-# 編集
-vim config/layers/0_base.yaml
-
-# 編集後（自動検証付き）
-cornix compile
-```
-
-### File Naming（ファイル命名）
-
-**1. 説明的なファイル名を使用**
-
-```bash
-# ✅ 良い例
-config/layers/0_base.yaml
-config/layers/1_symbol.yaml
-config/layers/2_number.yaml
-config/macros/00_bracket_pair.yml
-config/macros/01_end_of_line.yml
-
-# ❌ 悪い例（汎用的すぎる）
-config/layers/0_layer.yaml
-config/layers/1_layer.yaml
-config/macros/00_macro.yml
-config/macros/01_macro.yml
-```
-
-**理由**:
-- ファイル名だけで内容が推測できる
-- `cornix rename`で自動リネーム可能
-
-**2. インデックスプレフィックスを保持**
-
-```bash
-# リネーム時にインデックスを保持
-mv config/macros/03_macro.yml config/macros/03_end_of_line.yml
-# ✅ 正しい: 03_ を保持
-
-mv config/macros/03_macro.yml config/macros/05_end_of_line.yml
-# ❌ 間違い: インデックスを変更すると参照が壊れる
-```
-
-**理由**:
-- インデックスはlayout.vilでの順序を決定する
-- 変更するとレイヤーからの参照が不整合になる
-
-### Claude Code Integration
-
-**1. 編集前後の検証**
-
-```bash
-# Claude Codeで編集する前
-cornix validate
-
-# Claude Codeセッション
-claude
-
-# セッション内でファイル編集
-# ...
-
-# 編集後
-cornix compile  # 自動検証付き
-```
-
-**2. Skillsを活用**
-
-```bash
-# インテリジェントリネーム
-claude
-> /rename
-
-# カスタムスキルがあれば活用
-> /compile
-> /validate
-```
-
-**3. 段階的な変更**
-
-```yaml
-# ❌ 悪い例: 一度に大量の変更
-Q: Cmd + Q
-W: Cmd + W
-E: Cmd + E
-# ... 50行の変更
-
-# ✅ 良い例: 小さな変更を繰り返す
-Q: Cmd + Q
-# コンパイル & テスト
-
-W: Cmd + W
-# コンパイル & テスト
-```
-
-**理由**: エラーが発生した際に原因を特定しやすい
-
-### Common Mistakes to Avoid（よくある間違い）
-
-<details>
-<summary><b>1. レイヤー番号を数値で指定してしまう</b></summary>
-
-```yaml
-# ❌ 間違い
-Q: MO(KC_3)    # レイヤー3への切り替え
-
-# ✅ 正しい
-Q: MO(3)       # 数値をそのまま指定
-```
-
-**理由**: レイヤー番号は数値のまま保持される（`KC_3`はキーコードの「3」キー）
-
-</details>
-
-<details>
-<summary><b>2. 修飾キーの引数を変換しない</b></summary>
-
-```yaml
-# ❌ 間違い
-Q: LSFT(1)     # これは「Shift+1」ではなくエラー
-
-# ✅ 正しい（自動変換される）
-Q: LSFT(1)     # コンパイル時に自動的にLSFT(KC_1)に変換
-
-# または明示的に
-Q: LSFT(KC_1)
-```
-
-**注**: Compilerは自動的に修飾キー関数の数値引数を`KC_*`形式に変換します。
-
-</details>
-
-<details>
-<summary><b>3. すべての参照形式が自動更新されると期待</b></summary>
-
-```yaml
-# リネーム前
-config/macros/03_macro.yml: name: "Old Name"
-
-# レイヤー内
-Q: Macro('Old Name')  # ✅ 自動更新される
-W: Macro(3)           # ❌ 更新されない
-E: M3                 # ❌ 更新されない
-
-# リネーム後（cornix rename実行）
-Q: Macro('New Name')  # ✅ 自動更新された
-W: Macro(3)           # ❌ そのまま（意図的）
-E: M3                 # ❌ そのまま（意図的）
-```
-
-**理由**: Name-based参照のみが自動更新されます。Index-based/Legacy形式はユーザーの選択を尊重して保持されます。
-
-</details>
-
-<details>
-<summary><b>4. Decompile後に修飾キー表現が戻ると期待</b></summary>
-
-```yaml
-# Compile前
-Q: Cmd + Q
-
-# layout.vil（コンパイル後）
-# LGUI(KC_Q)
-
-# Decompile後
-Q: LGUI(Q)    # ❌ 修飾キー表現には戻らない
-```
-
-**理由**: layout.vilにはQMK形式のみが保存され、元の記述方法の情報は失われます。
-
-**対処**: バージョン管理（git）で手動維持、またはQMK形式を受け入れる。
-
-</details>
-
-<details>
-<summary><b>5. インデックスプレフィックスを変更してしまう</b></summary>
-
-```bash
-# ❌ 間違い
-mv config/macros/03_macro.yml config/macros/05_macro.yml
-# インデックスが03→05に変更され、レイヤーからの参照が壊れる
-
-# ✅ 正しい
-mv config/macros/03_macro.yml config/macros/03_end_of_line.yml
-# インデックス03を保持、ファイル名のみ変更
-```
-
-**理由**: インデックスはlayout.vilでの順序を決定し、レイヤーから参照されます。
-
-</details>
-
-### パフォーマンスと効率
-
-**1. ReferenceResolverのキャッシング**
-
-ReferenceResolverは初回参照時にYAMLファイルをキャッシュします（約7KB、100ms）。2回目以降は即座に解決されます。
-
-**2. Validatorの活用**
-
-コンパイル前に`cornix validate`を実行することで、エラーを早期発見できます。ただし、`cornix compile`は自動的に検証を実行するため、通常は不要です。
-
-**3. バッチリネーム**
-
-大量のファイルをリネームする場合は、`cornix rename`のバッチモードを使用すると効率的です（トランザクション型処理）。
+## Tips
+
+- **名前参照を使う**: `Macro('End of Line')` は `M5` より読みやすく、`cornix rename` で自動的に書き換わります
+- **修飾キー表現を使う**: `Cmd + Q`、`Ctrl + Shift + F` は `LGUI(KC_Q)`、`C_S(KC_F)` より読みやすく、decompile も修飾キー表現で書きます
+- **git で管理する**: `config/` を git で管理すると、変更の確認や取り消しが簡単です
+- **番号のプレフィックスを保つ**: ファイル名を変えるときは `03_` などのプレフィックスを残します（レイヤーはファイル名の番号と `index` が一致している必要があります）
+- **小さく変えて確かめる**: 変更のたびに `cornix compile`（自動検証つき）を実行すると、問題の場所がすぐ分かります
 
 ## コントリビューション
 
@@ -2332,8 +837,8 @@ ReferenceResolverは初回参照時にYAMLファイルをキャッシュしま�
 
 1. このリポジトリをフォーク
 2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. コミット (`git commit -m 'Add amazing feature'`)
-4. プッシュ (`git push origin feature/amazing-feature`)
+3. `LANG=ja_JP.UTF-8 bundle exec rspec` がすべて通ることを確認
+4. コミットしてプッシュ
 5. プルリクエストを作成
 
 ## ライセンス
@@ -2348,303 +853,117 @@ MIT License
 
 ---
 
-Made with ❤️ for the Cornix keyboard community
-
----
-
 ## Appendix
 
-### Complete Keycode List
+### 主なキーコード
 
-Cornixは337個のQMK公式キーコードエイリアスをサポートしています。完全なリストは`lib/cornix/keycode_aliases.yaml`を参照してください。
+完全な一覧は `data/aliases.yaml`（別名）と `data/keycodes.yaml`（QMK / Vial 名）を参照してください。
 
 <details>
-<summary><b>主要なキーコードカテゴリー</b></summary>
+<summary><b>主なキーコードのカテゴリ</b></summary>
 
-**Basic Keycodes（基本キー）**:
-- 文字: `A`-`Z`
-- 数字: `0`-`9`
-- ファンクションキー: `F1`-`F24`
-- ナビゲーション: `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `PageUp`, `PageDown`
+**基本キー**:
+- 文字 `A`〜`Z`、数字 `"0"`〜`"9"`、ファンクションキー `F1`〜`F24`
+- 移動: `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `PageUp`, `PageDown`
 - 編集: `Enter`, `Escape`, `Backspace`, `Tab`, `Space`, `Delete`
-- 修飾キー: `LShift`, `RShift`, `LCtrl`, `RCtrl`, `LAlt`, `RAlt`, `LCmd` (LGUI), `RCmd` (RGUI)
+- 修飾キー: `LShift`, `RShift`, `LCtrl`, `RCtrl`, `LAlt`, `RAlt`, `LGui`（`LCmd`）, `RGui`（`RCmd`）
+- 記号: `"-"`, `"="`, `"["`, `"]"`, `"\\"`, `";"`, `"'"`, `` "`" ``, `","`, `"."`, `"/"`
+- Shift 付きの記号: `"!"`, `"@"`, `"#"`, `"("`, `")"`, `":"` など
 
-**記号キー**:
-```yaml
-"-": KC_MINUS
-"=": KC_EQUAL
-"[": KC_LBRACKET
-"]": KC_RBRACKET
-"\\": KC_BSLASH
-";": KC_SCOLON
-"'": KC_QUOTE
-"`": KC_GRAVE
-",": KC_COMMA
-".": KC_DOT
-"/": KC_SLASH
-```
+**レイヤー操作**:
+- `MO(n)`（押している間）、`TG(n)`（トグル）、`TO(n)`（切り替え）、`TT(n)`（タップでトグル）、`DF(n)`（デフォルト）、`OSL(n)`（1 回だけ）
+- `LT(n, key)` / `LTn(key)`: 長押しでレイヤー、タップでキー
+- 引数は数値です（`MO(KC_3)` はエラー）
 
-**Layer Switching（レイヤー切り替え）**:
-- `MO(layer)`: Momentary（押している間）
-- `TG(layer)`: Toggle（トグル）
-- `TO(layer)`: To（切り替え）
-- `TT(layer)`: Tap Toggle（タップでトグル、長押しでMO）
-- `DF(layer)`: Default（デフォルトレイヤー変更）
-- `OSL(layer)`: One Shot Layer（1回だけ）
-- `LT(layer, key)`: Layer Tap（長押しでレイヤー、タップでキー）
+**修飾キー**:
+- Mod-Tap: `LCTL_T(key)`, `LSFT_T(key)`, `LALT_T(key)`, `LGUI_T(key)`, `MEH_T(key)` など、`MT(MOD_LCTL|MOD_LSFT, key)`
+- One Shot: `OSM(MOD_LSFT)`
+- 修飾キー付き: `LSFT(key)`, `C(key)`, `S(key)`, `A(key)`, `G(key)` と組み合わせ（`C_S`, `SGUI`, `MEH`, `HYPR` など）
+- `LM(n, MOD_LCTL)`
 
-**Modifiers（修飾キー）**:
-- Mod-Tap: `LCTL_T(key)`, `LSFT_T(key)`, `LALT_T(key)`, `LGUI_T(key)`
-- One Shot Modifiers: `OSM(mod)`
-- 修飾キー組み合わせ: `C(key)`, `S(key)`, `A(key)`, `G(key)`
-- QMKショートカット: `LCS`, `LSG`, `MEH`, `HYPR`（詳細は「QMK Modifier Shortcuts」参照）
+**メディア・マウス**:
+- `VolumeUp`, `VolumeDown`, `Mute`, `MediaPlayPause` など
+- `MouseUp`, `MouseDown`, `MouseLeft`, `MouseRight`, `MouseButton1`〜, `MouseWheelUp` など
 
-**Media Keys（メディアキー）**:
-- `VolumeUp`, `VolumeDown`, `Mute`
-- `MediaPlayPause`, `MediaNextTrack`, `MediaPrevTrack`, `MediaStop`
-- `MediaFastForward`, `MediaRewind`, `MediaEject`
-
-**Mouse Keys（マウスキー）**:
-- 移動: `MouseUp`, `MouseDown`, `MouseLeft`, `MouseRight`
-- ボタン: `MouseBtn1`-`MouseBtn8`
-- ホイール: `MouseWheelUp`, `MouseWheelDown`, `MouseWheelLeft`, `MouseWheelRight`
-- 加速: `MouseAccel0`-`MouseAccel2`
-
-**Special Keys（特殊キー）**:
-- `Transparent` / `Trans` / `___`: 透過（下のレイヤーを通す）
-- `NoKey`: 無効化
-- `Reset`: キーボードリセット
-- `Debug`: デバッグモード
-
-**Backlight/RGB**:
-- バックライト: `BL_ON`, `BL_OFF`, `BL_TOGG`, `BL_INC`, `BL_DEC`
-- RGB: `RGB_TOG`, `RGB_MOD`, `RGB_HUI`, `RGB_SAI`, `RGB_VAI`
+**特殊キー**:
+- `Trans`（`Transparent`, `___`）: 下のレイヤーを使う
+- `NoKey`: 無効
+- `Reset`（`QK_BOOT`）: 設定ファイルには書けますが、`cornix device` では書き込みません
 
 </details>
 
-### QMK Modifier Shortcuts
+### 修飾キーの関数と修飾キー表現
 
-Cornixは20+のQMK修飾キーショートカットを自動検出します。
+| 関数 | 修飾キー表現 | layout.vil の表記 |
+|---|---|---|
+| `LCTL` / `C` | `Ctrl + key` | `LCTL(...)` |
+| `LSFT` / `S` | `Shift + key` | `LSFT(...)` |
+| `LALT` / `A` | `Alt + key` | `LALT(...)` |
+| `LGUI` / `G` | `Cmd + key` | `LGUI(...)` |
+| `LCS` / `C_S` | `Ctrl + Shift + key` | `C_S(...)` |
+| `LCA` | `Ctrl + Alt + key` | `LCA(...)` |
+| `LCG` | `Ctrl + Cmd + key` | `LCG(...)` |
+| `LSA` | `Shift + Alt + key` | `LSA(...)` |
+| `LSG` / `SGUI` | `Shift + Cmd + key` | `SGUI(...)` |
+| `LAG` | `Alt + Cmd + key` | `LAG(...)` |
+| `MEH` | `Ctrl + Shift + Alt + key` | `MEH(...)` |
+| `LCSG` | `Ctrl + Shift + Cmd + key` | 16bit 値（`0x0Bxx`） |
+| `LCAG` | `Ctrl + Alt + Cmd + key` | `LCAG(...)` |
+| `LSAG` | `Shift + Alt + Cmd + key` | 16bit 値（`0x0Exx`） |
+| `HYPR` | `Ctrl + Shift + Alt + Cmd + key` | `HYPR(...)` |
 
-<details>
-<summary><b>全ショートカット一覧</b></summary>
+右側（`RCTL`, `RSFT`, `RALT`, `RGUI`, `RCS`, `RCA`, `RCG`, `RSA`, `RSG`, `RAG`, `RCSG`, `RCAG`, `RSAG`）も同じように書けます。Vial に名前のない組み合わせは layout.vil に 16bit 値で書かれます。
 
-#### 左側修飾キー（L prefix）
+### サンプル設定
 
-**2修飾キー組み合わせ**:
-| QMK | 組み合わせ | 説明 |
-|-----|----------|------|
-| `LCS` | Ctrl + Shift | Left Ctrl + Shift |
-| `LCA` | Ctrl + Alt | Left Ctrl + Alt |
-| `LCG` | Ctrl + Cmd | Left Ctrl + GUI |
-| `LSA` | Shift + Alt | Left Shift + Alt |
-| `LSG` | Shift + Cmd | Left Shift + GUI |
-| `LAG` | Alt + Cmd | Left Alt + GUI |
-
-**3修飾キー組み合わせ**:
-| QMK | 組み合わせ | 説明 |
-|-----|----------|------|
-| `MEH` | Ctrl + Shift + Alt | MEHキー |
-| `LCSG` | Ctrl + Shift + Cmd | Left Ctrl + Shift + GUI |
-| `LCAG` | Ctrl + Alt + Cmd | Left Ctrl + Alt + GUI |
-| `LSAG` | Shift + Alt + Cmd | Left Shift + Alt + GUI |
-
-#### 右側修飾キー（R prefix）
-
-**2修飾キー組み合わせ**:
-| QMK | 組み合わせ | 説明 |
-|-----|----------|------|
-| `RCS` | RCtrl + RShift | Right Ctrl + Shift |
-| `RCA` | RCtrl + RAlt | Right Ctrl + Alt |
-| `RCG` | RCtrl + RCmd | Right Ctrl + GUI |
-| `RSA` | RShift + RAlt | Right Shift + Alt |
-| `RSG` | RShift + RCmd | Right Shift + GUI |
-| `RAG` | RAlt + RCmd | Right Alt + GUI |
-
-**3修飾キー組み合わせ**:
-| QMK | 組み合わせ | 説明 |
-|-----|----------|------|
-| `RCSG` | RCtrl + RShift + RCmd | Right Ctrl + Shift + GUI |
-| `RCAG` | RCtrl + RAlt + RCmd | Right Ctrl + Alt + GUI |
-| `RSAG` | RShift + RAlt + RCmd | Right Shift + Alt + GUI |
-
-#### 特殊組み合わせ
-
-**4修飾キー**:
-| QMK | 組み合わせ | 説明 |
-|-----|----------|------|
-| `HYPR` | Ctrl + Shift + Alt + Cmd | HYPRキー（4修飾キー全て） |
-
-**使用例**:
-```yaml
-# Cornixで記述
-Q: Ctrl + Shift + Alt + Cmd + Q
-
-# 自動的に変換
-# → HYPR(KC_Q)
-```
-
-</details>
-
-### Position Map Template
-
-`lib/cornix/position_map.yaml`のデフォルトテンプレート構造です。
+ブランチを切り替えると、サンプルの設定を使えます。
 
 <details>
-<summary><b>テンプレート構造</b></summary>
-
-```yaml
-left_hand:
-  row0: [tab, Q, W, E, R, T]
-  row1: [lctrl, A, S, D, F, G]
-  row2: [lshift, Z, X, C, V, B]
-  row3: [caps, fn, command, option, space, esc]
-
-right_hand:
-  row0: [Y, U, I, O, P, backspace]
-  row1: [H, J, K, L, colon, enter]
-  row2: [N, M, comma, dot, up, rshift]
-  row3: [enter, raise, lang, left, down, right]
-
-encoders:
-  left:
-    push: l_rotary_push
-    ccw: l_rotary_ccw
-    cw: l_rotary_cw
-  right:
-    push: r_rotary_push
-    ccw: r_rotary_ccw
-    cw: r_rotary_cw
-```
-
-**構造**:
-- `left_hand` / `right_hand`: 各行（row0-row3）に6キーずつ配置
-- `encoders`: ロータリーエンコーダーの設定（push, ccw, cw）
-
-**配列順序**:
-- 左手・右手とも**物理的に左から右**へ配列
-- 右手の`row0`は`Y`（左端）→ `U` → `I` → `O` → `P` → `backspace`（右端）
-
-**カスタマイズ**:
-`config/position_map.yaml`を編集してシンボル名を自由に変更できます。
-
-```yaml
-# カスタム例
-left_hand:
-  row0: [tab, q, w, e, r, t]  # 小文字に変更
-  # ...
-
-right_hand:
-  row0: [y, u, i, o, p, bs]   # 'backspace' → 'bs' に短縮
-  # ...
-```
-
-</details>
-
-### Sample Configuration
-
-Cornixでは、ブランチを切り替えることで異なるサンプル設定を利用できます。
-
-<details>
-<summary><b>利用可能なサンプル設定</b></summary>
+<summary><b>利用できるサンプル設定</b></summary>
 
 #### 1. 公式の初期キーマップ（推奨）
 
-Cornix公式の初期キーマップをベースに編集したい場合：
-
 ```bash
-# cornix-default-keymapブランチをチェックアウト
 git checkout cornix-default-keymap
-
-# config/ディレクトリを確認
 ls config/
-
-# 設定を編集
-vim config/layers/0_base.yaml
-
-# コンパイル
 cornix compile
 ```
 
-**特徴**:
-- Cornixの標準的なレイアウト
-- 初心者に推奨
-- ドキュメントと整合性のある設定
+Cornix の標準的なレイアウトです。初めての方におすすめです。
 
 #### 2. 作者のキーマップ
 
-作者（プロジェクトメンテナー）のキーマップを参考にしたい場合：
-
 ```bash
-# authors-keymapブランチをチェックアウト
 git checkout authors-keymap
-
-# config/ディレクトリを確認
 ls config/
-
-# 設定を閲覧・編集
-vim config/layers/0_base.yaml
-
-# コンパイル
 cornix compile
 ```
 
-**特徴**:
-- 実際の使用例
-- 高度な機能の活用例
-- カスタマイズのヒント
+実際に使っているキーマップで、名前参照・修飾キー表現・コンボなどの使用例があります。
 
-#### 3. 自分のlayout.vilから生成
-
-自分のVial設定をベースにする場合：
+#### 3. 自分の layout.vil から作る
 
 ```bash
-# mainブランチに戻る
 git checkout main
-
-# 自分のlayout.vilをデコンパイル
 cornix decompile ~/Downloads/my_layout.vil
-
-# 生成されたconfig/を編集
-vim config/layers/0_base.yaml
-
-# コンパイル
+vim config/layers/0_layer.yaml
 cornix compile
 ```
 
 #### ブランチの切り替え方
 
-**既存のconfig/がある場合**:
-
 ```bash
-# 現在の設定をバックアップ
-mv config config.my_backup
-
-# ブランチを切り替え
+mv config config.my_backup             # 今の設定を退避
 git checkout cornix-default-keymap
-
-# サンプル設定を確認
-ls config/
-```
-
-**元のブランチに戻る**:
-
-```bash
-# mainブランチに戻る
+# ...
 git checkout main
-
-# バックアップを復元
-mv config.my_backup config
+mv config.my_backup config             # 元に戻す
 ```
 
 </details>
 
-#### コミュニティ貢献
+サンプル設定の提供も歓迎します（新しいブランチで共有し、プルリクエストを作成してください）。
 
-サンプル設定の提供を歓迎します：
-- 新しいブランチで独自のサンプル設定を共有
-- プルリクエストで貢献
-- `examples/`ディレクトリにドキュメント追加
+---
 
-詳細は「コントリビューション」セクションを参照してください。
-
+Made with ❤️ for the Cornix keyboard community

@@ -1,0 +1,18 @@
+---
+index: 6
+name: Macro 6
+description: ''
+sequence:
+- action: down
+  keys:
+  - LShift
+- action: tap
+  keys:
+  - '9'
+  - '0'
+- action: up
+  keys:
+  - LShift
+- action: tap
+  keys:
+  - Left

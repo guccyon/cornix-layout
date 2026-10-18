@@ -1,0 +1,16 @@
+---
+name: Code block
+description: "``` ペアを挿入し改行を挿入してカーソルを内側に配置"
+enabled: true
+index: 9
+sequence:
+- action: text
+  content: "``````"
+- action: tap
+  keys:
+  - KC_LEFT
+  - KC_LEFT
+  - KC_LEFT
+  - KC_ENTER
+  - KC_ENTER
+  - KC_UP

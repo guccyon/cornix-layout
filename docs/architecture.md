@@ -43,12 +43,16 @@ Device          HidBridge / Protocol / Session / Reader / Writer
 ## データの流れ
 
 ```
-compile    config/ ─ConfigRepository→ Profile ─ProfileMapper→ DeviceImage ─VilFile→ layout.vil
+compile    config/ ─ConfigRepository→ Profile ─ProfileMapper→ DeviceImage ─VilFile→ tmp/build/layout.vil
 decompile  layout.vil ─VilFile→ DeviceImage ─ProfileMapper→ Profile ─ConfigRepository→ config/
 validate   config/ ─ConfigRepository（構造検証）→ Profile#diagnostics（意味検証）
 device     layout.vil ─VilFile→ DeviceImage（目標）
            実機 ─Device::Reader→ DeviceImage（現在） → ImageDiff → Plan(token) → Device::Writer → 読み直して検証
 ```
+
+CLI 直下の `pull` / `status` / `apply` / `restore` は新しいユースケースを持たず、Interface 層で既存のユースケースを組み合わせる
+（`pull` = DeviceRead → tmp/layout.vil → Decompile、`status` = Compile → DeviceDiff、`apply` = Compile → DeviceApply、
+`restore` = DeviceRestore）。compile の出力 `tmp/build/layout.vil`（`Environment#layout_path`）を一時領域として使い回す。
 
 ## 検証
 

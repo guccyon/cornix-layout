@@ -12,8 +12,10 @@ module Cornix
     # 既定は Device::Session.open（HID ブリッジを開く）。テストでは FakeRmkDevice を使う opener を渡す。
     # claude は rename の提案を作る Claude CLI（#available? と #run(prompt) → [成功, 出力]）。テストでは差し替える。
     #
-    # 場所の既定値: config_dir = root/config、layout_path = root/layout.vil、tmp_dir = root/tmp、
-    # decompile_input = root/tmp/layout.vil、backup_dir = root/tmp/device_backups。
+    # 場所の既定値: config_dir = root/config、tmp_dir = root/tmp、
+    # layout_path = root/tmp/build/layout.vil（compile の出力。status / apply / device diff などの既定の入力）、
+    # decompile_input = root/tmp/layout.vil（decompile の既定の入力。pull がデバイスから読んだ状態もここに書く）、
+    # backup_dir = root/tmp/device_backups。
     # position_map のテンプレートは root によらず lib/cornix/position_map.yaml
     class Environment
       POSITION_MAP_TEMPLATE = File.join(Cornix::ROOT, 'lib', 'cornix', 'position_map.yaml')
@@ -24,8 +26,8 @@ module Cornix
                      claude: nil, position_map_template: POSITION_MAP_TEMPLATE)
         @root = root.to_s
         @config_dir = (config_dir || File.join(@root, 'config')).to_s
-        @layout_path = (layout_path || File.join(@root, 'layout.vil')).to_s
         @tmp_dir = File.join(@root, 'tmp')
+        @layout_path = (layout_path || File.join(@tmp_dir, 'build', 'layout.vil')).to_s
         @decompile_input = File.join(@tmp_dir, 'layout.vil')
         @backup_dir = (backup_dir || File.join(@tmp_dir, 'device_backups')).to_s
         @position_map_template = position_map_template.to_s

@@ -1,7 +1,8 @@
 # キーボード直接操作と MCP サーバー
 
 接続中の Cornix に Vial プロトコル（raw HID）で直接読み書きする機能。Vial Web / GUI を使わずに
-`layout.vil` を差分だけ反映できる。CLI（`cornix device`）と MCP サーバー（`cornix mcp`）の 2 つの入口がある。
+`layout.vil` を差分だけ反映できる。CLI（`cornix device`、およびそのショートカットの `cornix pull` / `status` / `apply` / `restore`）と MCP サーバー（`cornix mcp`）の入口がある。
+`status` / `apply` は compile してから、その出力 `tmp/build/layout.vil` を対象にする。
 
 ## 構成
 

@@ -141,13 +141,24 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
       expect(cleanup.call.status).to eq(:nothing)
     end
 
-    it 'ロックがなければ config/ と layout.vil を消す' do
+    it 'ロックがなければ config/ と compile の出力（tmp/build/layout.vil）を消す' do
       install_config
-      install_file('layout.vil', 'layout.vil')
+      install_file('layout.vil', 'tmp/build/layout.vil')
       result = cleanup.call
-      expect([result.status, result.deleted]).to eq([:cleaned, %w[config/ layout.vil]])
+      expect([result.status, result.deleted]).to eq([:cleaned, %w[config/ tmp/build/layout.vil]])
       expect(File).not_to exist(env.config_dir)
       expect(File).not_to exist(env.layout_path)
+    end
+
+    it 'compile の出力が root の外なら、消したものは絶対パスで示す' do
+      outside = Dir.mktmpdir
+      path = File.join(outside, 'out.vil')
+      File.write(path, '{}')
+      e = Cornix::Application::Environment.new(root: "#{@root}/", layout_path: path)
+      expect(described_class.new(e).call.deleted).to eq([path])
+      expect(File).not_to exist(path)
+    ensure
+      FileUtils.rm_rf(outside)
     end
 
     it 'ロックがあれば force でなければ消さず、force なら confirm が真のときだけ消す' do

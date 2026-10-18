@@ -11,6 +11,7 @@ module Cornix
       class Command
         SUCCESS = 0
         FAILURE = 1
+        HAS_CHANGES = 2 # status で差分がある
 
         class << self
           attr_reader :command_name, :summary, :arguments

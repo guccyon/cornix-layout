@@ -8,7 +8,7 @@ module Cornix
       NAMES = {
         device_info: :DeviceInfo, device_read: :DeviceRead, device_backup: :DeviceBackup,
         device_diff: :DeviceDiff, device_apply: :DeviceApply, device_restore: :DeviceRestore,
-        list_backups: :ListBackups,
+        list_backups: :ListBackups, pull: :Pull,
         compile: :Compile, decompile: :Decompile, validate: :Validate, cleanup: :Cleanup,
         rename_files: :RenameFiles, suggest_renames: :SuggestRenames
       }.freeze

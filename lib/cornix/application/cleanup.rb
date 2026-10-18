@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'pathname'
 require_relative 'use_case'
 
 module Cornix
   module Application
-    # 生成物（config/ と layout.vil）を消す（旧 CliHelpers.cleanup）→ CleanupResult。
+    # 生成物（config/ と compile の出力 tmp/build/layout.vil）を消す（旧 CliHelpers.cleanup）→ CleanupResult。
     #
     # config/.decompile.lock があるときは force でなければ消さない。force なら confirm.call(lock の内容) が
     # 真のときだけ消す（CLI の y/N）。場所は Environment の root から決まる（旧実装はカレントディレクトリだった）
@@ -28,9 +29,17 @@ module Cornix
         end
         if has_layout
           FileUtils.rm_f(env.layout_path)
-          deleted << 'layout.vil'
+          deleted << display_path(env.layout_path)
         end
         CleanupResult.new(status: :cleaned, lock: lock, deleted: deleted)
+      end
+
+      private
+
+      # root の中なら root からの相対パス、外なら絶対パス
+      def display_path(path)
+        relative = Pathname(path).expand_path.relative_path_from(Pathname(env.root).expand_path).to_s
+        relative.start_with?('..') ? File.expand_path(path) : relative
       end
     end
   end

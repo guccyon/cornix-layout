@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../command'
+require_relative '../decompile_report'
 
 module Cornix
   module Interface
@@ -9,6 +10,8 @@ module Cornix
         # cornix decompile [FILE]: layout.vil を config/ の YAML にする（旧 bin/subcommands/decompile.rb）。
         # FILE の既定は tmp/layout.vil。config/ にすでに設定があれば何もしない
         class Decompile < Command
+          include DecompileReport
+
           command 'decompile', 'layout.vil を config/ の YAML にする（FILE の既定は tmp/layout.vil）', args: '[FILE]'
 
           CONFIG_EXISTS = <<~TEXT
@@ -27,29 +30,7 @@ module Cornix
 
           def run(args)
             (file,), = parse!(args, max_args: 1)
-            result = use_case(:decompile).call(input: file)
-            case result.status
-            when :input_missing
-              out.line("Error: #{result.input} not found")
-              FAILURE
-            when :config_exists
-              out.line(CONFIG_EXISTS)
-              FAILURE
-            else
-              report(result)
-            end
-          end
-
-          private
-
-          def report(result)
-            out.line("Decompiling: #{result.input}")
-            out.line("Output to: #{result.output_dir}")
-            out.line
-            out.line("✓ Wrote #{result.files.size} files")
-            out.line("\n✓ Decompilation completed: #{result.output_dir}")
-            out.line("✓ Lock file created: #{result.lock}")
-            SUCCESS
+            report_decompile(use_case(:decompile).call(input: file), config_exists: CONFIG_EXISTS)
           end
         end
       end

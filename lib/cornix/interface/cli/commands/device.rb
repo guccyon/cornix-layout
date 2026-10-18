@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../command'
+require_relative '../device_report'
 
 module Cornix
   module Interface
@@ -8,6 +9,8 @@ module Cornix
       module Commands
         # cornix device <action>: 接続中のキーボードを読む・差分を見る・書き込む（旧 bin/subcommands/device.rb）
         class Device < Command
+          include DeviceReport
+
           command 'device', '接続中のキーボードを読む・差分を見る・書き込む（info, read, backup, diff, apply, restore）',
                   args: '<action> [...]'
 
@@ -16,12 +19,10 @@ module Cornix
               cornix device info              接続中のキーボードの情報を表示
               cornix device read [-o FILE]    キーボードの状態を layout.vil 形式で出力
               cornix device backup            キーボードの状態を tmp/device_backups/ に保存
-              cornix device diff [FILE]       layout.vil とキーボードの差分を表示（書き込みなし）
-              cornix device apply [FILE]      差分を確認してキーボードへ書き込む（--yes で確認を省略）
-              cornix device restore [FILE]    最後のバックアップ（直前の apply の前の状態）に戻す（--yes で確認を省略）
+              cornix device diff [FILE]       .vil とキーボードの差分を表示（書き込みなし。FILE の既定は compile の出力）
+              cornix device apply [FILE]      差分を確認してキーボードへ書き込む（FILE の既定は compile の出力。--yes で確認を省略）
+              cornix device restore [BACKUP]  最後のバックアップ（直前の apply の前の状態）に戻す（--yes で確認を省略）
           USAGE
-
-          CONFIRM = "\nこの差分をキーボードに書き込みますか？ [y/N] "
 
           def self.help = "#{summary}\n\n#{USAGE}"
 
@@ -66,45 +67,12 @@ module Cornix
             SUCCESS
           end
 
-          # 1 回の接続の中で、差分を表示 → y/N（--yes なら尋ねない）→ 書き込み（旧実装と同じく接続は 1 回）
           def apply(action, args)
-            (file,), opts = parse!(args, max_args: 1) { |p, o| p.on('--yes', '確認を省略する') { o[:yes] = true } }
-            label = action == 'restore' ? '復元元' : '反映元'
-            confirm = lambda do |plan|
-              out.line("#{label}: #{plan.source}")
-              print_diff(plan)
-              plan.empty? || opts[:yes] || confirm?(CONFIRM)
-            end
-            outcome = if action == 'restore'
-                        use_case(:device_restore).call(file, confirm: confirm)
-                      else
-                        use_case(:device_apply).call(vil_path: file, confirm: confirm)
-                      end
-            return report_apply(outcome) if outcome.written?
+            (file,), opts = parse!(args, max_args: 1) { |p, o| yes_option(p, o) }
+            return run_restore(file, yes: opts[:yes]) if action == 'restore'
 
-            out.line('中止しました') if outcome.cancelled?
-            SUCCESS
-          end
-
-          def print_diff(plan)
-            if plan.empty?
-              out.line('✓ キーボードとの差分はありません')
-            else
-              out.line("差分 #{plan.changes.size} 件:")
-              out.items(plan.changes)
-            end
-            out.items(plan.warnings, prefix: '  ⚠️  ')
-          end
-
-          def report_apply(outcome)
-            out.line("✓ #{outcome.applied} 件を書き込みました（反映前のバックアップ: #{outcome.backup}）")
-            if outcome.success?
-              out.line('✓ 読み戻して検証し、すべて一致しました')
-              SUCCESS
-            else
-              out.line("⚠️  読み戻し後も #{outcome.remaining.size} 件が一致しません:")
-              out.items(outcome.remaining)
-              FAILURE
+            run_apply(restore: false, yes: opts[:yes]) do |confirm|
+              use_case(:device_apply).call(vil_path: file, confirm: confirm)
             end
           end
         end

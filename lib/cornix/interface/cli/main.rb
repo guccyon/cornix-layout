@@ -9,6 +9,10 @@ require_relative 'commands/validate'
 require_relative 'commands/rename'
 require_relative 'commands/cleanup'
 require_relative 'commands/device'
+require_relative 'commands/pull'
+require_relative 'commands/status'
+require_relative 'commands/apply'
+require_relative 'commands/restore'
 require_relative 'commands/mcp'
 require_relative '../use_cases'
 
@@ -25,8 +29,8 @@ module Cornix
       class Main
         # コマンドを足すときは Commands::Xxx < Command を作り、ここに並べる（並び順が help の順）
         COMMANDS = [
-          Commands::Compile, Commands::Decompile, Commands::Validate, Commands::Rename, Commands::Cleanup,
-          Commands::Device, Commands::Mcp
+          Commands::Compile, Commands::Decompile, Commands::Validate, Commands::Pull, Commands::Status,
+          Commands::Apply, Commands::Restore, Commands::Rename, Commands::Cleanup, Commands::Device, Commands::Mcp
         ].to_h { |c| [c.command_name, c] }.freeze
 
         DEFAULT_ENV = -> { Application::Environment.new }
@@ -42,7 +46,7 @@ module Cornix
           @input = input
         end
 
-        # → 終了コード（0 = 成功、1 = エラー）
+        # → 終了コード（0 = 成功、1 = エラー、2 = status で差分あり）
         def run(argv)
           args = argv.dup
           name = args.shift
@@ -82,6 +86,8 @@ module Cornix
             コマンド:
             #{lines.join("\n")}
               #{'help'.ljust(width)}  使い方を表示する（cornix help <コマンド> で詳しく）
+
+            終了コード: 0 = 成功、1 = エラー、2 = 差分あり（status）
           TEXT
         end
       end

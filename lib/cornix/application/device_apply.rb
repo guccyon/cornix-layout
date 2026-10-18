@@ -4,7 +4,7 @@ require_relative 'use_case'
 
 module Cornix
   module Application
-    # .vil（省略時は layout.vil）をキーボードへ書き込む → ApplyOutcome（旧 Device::Keyboard#apply）。
+    # .vil（省略時は compile の出力 env.layout_path）をキーボードへ書き込む → ApplyOutcome（旧 Device::Keyboard#apply）。
     #
     # 1 回の open_device の中で「読む → 計画 → 確認 → token の確認 → バックアップ → 書く → 読み直して検証」を行う。
     # - confirm（省略可）: 計画のあと同じ接続の中で PlanResult を渡して呼ぶ（差分がなくても呼ぶので表示に使える）。
@@ -14,7 +14,7 @@ module Cornix
     # - 書き込む前に現在の状態を BackupStore に保存する（失敗時のメッセージにもそのパスが入る）
     class DeviceApply < UseCase
       def call(vil_path: nil, expected_token: nil, confirm: nil)
-        source = vil_path || env.layout_path
+        source = vil_path || compiled_vil
         target = env.vil_file.read(source)
         env.open_device do |session|
           current, plan = plan_for(session, target)

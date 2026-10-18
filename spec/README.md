@@ -1,6 +1,7 @@
 # RSpec テスト
 
 ```bash
+bundle install                                              # テスト用の gem（RSpec）を入れる
 LANG=ja_JP.UTF-8 bundle exec rspec                          # すべて
 LANG=ja_JP.UTF-8 bundle exec rspec spec/domain              # 層ごと
 LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompile の一致

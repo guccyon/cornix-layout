@@ -49,7 +49,7 @@ Vial で読み書きしたいときは、`layout.vil` との相互変換もで�
 
 ## 必要なもの
 
-- **Ruby 3.2 以上**（`Data.define` を使うため。CI は 4.0 系）と **Bundler**
+- **Ruby 3.2 以上**（`Data.define` を使うため。CI は 4.0 系）。標準ライブラリだけで動くので、gem のインストール（`bundle install`）は要りません
 - **Xcode Command Line Tools**（キーボードとの通信に使います。`swiftc` がなければ `xcode-select --install`）
   - 通信には小さな Swift のプログラム（`ext/cornix_hid/main.swift`）を使います。初めて使うときに自動でビルドされ、`tmp/cornix-hid` に置かれます
 - **Claude Code CLI**（`claude` コマンド。`cornix rename` を使うときだけ）
@@ -61,7 +61,6 @@ Vial で読み書きしたいときは、`layout.vil` との相互変換もで�
 ```bash
 git clone https://github.com/guccyon/cornix-layout.git   # 自分のフォークを clone してもよい
 cd cornix-layout
-bundle install
 ```
 
 このまま `cornix init` すると、設定は Git の管理外になります（`.gitignore` で外しています）。設定を Git で管理するなら、フォークするか、設定を別のリポジトリに置きます（[利用の形](#利用の形)）。
@@ -515,7 +514,6 @@ cornix validate          # 「設定: profiles/default（.cornix.yml）」と表
 ```bash
 # GitHub でこのリポジトリをフォークしてから
 git clone <自分のフォーク> cornix-layout && cd cornix-layout
-bundle install
 cornix init --profile <自分の名前>
 # .gitignore から /.cornix.yml と /profiles/ の行を消してから
 git add .gitignore profiles .cornix.yml && git commit -m "設定を追加"
@@ -635,6 +633,7 @@ decompile → compile で 16bit 値が元と一致するので、Vial で作っ�
 ## 開発者向け
 
 ```bash
+bundle install                              # テスト用の gem（RSpec）を入れる
 LANG=ja_JP.UTF-8 bundle exec rspec          # すべてのテスト（キーボード不要）
 ```
 

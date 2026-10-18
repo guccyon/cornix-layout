@@ -1,0 +1,31 @@
+# Figma のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Figma:ツール:移動ツール')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Figma:
+  ツール:
+    移動ツール: V
+    フレームツール: F
+    四角形: R
+    楕円: O
+    線分: L
+    ペン: P
+    テキスト: T
+    ハンドツール: H
+    コメント: C
+  編集:
+    オブジェクトをグループ化: Command + G
+    グループ解除: Shift + Command + G
+    コンポーネントを作成: Option + Command + K
+    複製: Command + D
+    前面へ: Command + ]
+    背面へ: Command + [
+    最前面へ: Option + Command + ]
+    最背面へ: Option + Command + [
+  表示:
+    ズームイン: Shift + Command + =
+    ズームアウト: Command + -
+    ズームをリセット: Command + 0
+    全体表示: Command + 1
+    選択範囲にズーム: Command + 2
+    グリッド表示切替: Ctrl + G
+    定規切り替え: Shift + R

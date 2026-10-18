@@ -180,7 +180,7 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
 
     it '定義にない名前・番号の引数は UnknownKeycode' do
       expect { notation.parse("Shortcut('nope')", references: shortcut_refs) }
-        .to raise_error(Cornix::UnknownKeycode, /ショートカット「nope」は shortcuts.yaml に定義されていません/)
+        .to raise_error(Cornix::UnknownKeycode, /ショートカット「nope」は shortcuts.yaml にも同梱のショートカット（data\/shortcuts\/）にも定義されていません/)
       expect { notation.parse("Shortcut('前のタブへ')") }.to raise_error(Cornix::UnknownKeycode, /定義されていません/)
       expect { notation.parse('Shortcut(1)', references: shortcut_refs) }
         .to raise_error(Cornix::UnknownKeycode, /Shortcut\(...\) の引数は '名前' です/)
@@ -192,6 +192,15 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       expect(notation.format(k::MacroCall.new(index: 2), references: shortcut_refs)).to eq("Shortcut('Copy')")
       expect(notation.format(codec.decode(0x0006), references: shortcut_refs)).to eq('C')
       expect(notation.format(prev_tab)).to eq('Shift + Command + [')
+    end
+
+    it '利用者の定義を先に引き、なければ同梱の定義を引く。format は利用者の定義だけを使う' do
+      refs = Cornix::Mapping::References.new(shortcuts: { 'App:X' => codec.decode(0x0006) },
+                                             preset_shortcuts: { 'App:X' => codec.decode(0x0007), 'App:Y' => prev_tab })
+      expect(notation.parse("Shortcut('App:X')", references: refs)).to eq(codec.decode(0x0006))
+      expect(notation.parse("Shortcut('App:Y')", references: refs)).to eq(prev_tab)
+      expect(notation.format(prev_tab, references: refs)).to eq('Shift + Command + [')
+      expect(notation.format(codec.decode(0x0006), references: refs)).to eq("Shortcut('App:X')")
     end
 
     it 'NoKey / Trans は定義があっても Shortcut(\'名前\') で書かない' do

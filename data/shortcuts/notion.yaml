@@ -1,0 +1,28 @@
+# Notion のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Notion:基本操作:新規ファイル')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Notion:
+  基本操作:
+    新規ファイル: Command + N
+    検索: Command + P
+    サイドバー切り替え: Command + \
+    戻る: Command + [
+    進む: Command + ]
+    ダークモード切り替え: Shift + Command + L
+  書式設定:
+    テキストブロック: "/"
+    大見出し: Option + Command + 1
+    小見出し: Option + Command + 2
+    見出し3: Option + Command + 3
+    タスクリスト: Option + Command + 4
+    箇条書き: Option + Command + 5
+    番号付きリスト: Option + Command + 6
+    リスト切り替え: Option + Command + 7
+    コードブロック: Option + Command + 8
+  テキスト:
+    太字: Command + B
+    斜体: Command + I
+    下線: Command + U
+    取り消し線: Shift + Command + S
+    コード: Command + E
+    リンク: Command + K

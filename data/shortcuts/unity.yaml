@@ -1,0 +1,48 @@
+# Unity のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Unity:シーン:パン')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Unity:
+  シーン:
+    パン: MouseButton3
+    ズーム: Option + MouseButton2
+    オービット: Option + MouseButton1
+    オブジェクトにフォーカス: F
+    選択範囲をフレーム: Shift + F
+  変形:
+    ハンドツール: Q
+    移動: W
+    回転: E
+    拡大縮小: R
+    長方形ツール: T
+    変形ツール: "Y"
+    ピボット切り替え: Z
+    ローカル/ワールド切り替え: X
+  ヒエラルキー:
+    空のオブジェクトを作成: Ctrl + Shift + N
+    複製: Ctrl + D
+    削除: Delete
+    名前を変更: F2
+    親子関係解除: Shift + P
+    アクティブオブジェクト切り替え: Option + Shift + A
+  一般:
+    シーンを再生: Ctrl + P
+    シーンを一時停止: Ctrl + Shift + P
+    フレームを進める: Ctrl + Option + P
+    ビルド: Ctrl + B
+    ビルド設定: Ctrl + Shift + B
+    環境設定: Ctrl + ,
+    コンソールをクリア: Ctrl + Shift + C
+  パネル:
+    シーンビューを表示: Ctrl + 1
+    ゲームビューを表示: Ctrl + 2
+    インスペクタを表示: Ctrl + 3
+    ヒエラルキーを表示: Ctrl + 4
+    プロジェクトを表示: Ctrl + 5
+    コンソールを表示: Ctrl + Shift + C
+  編集:
+    元に戻す: Ctrl + Z
+    やり直し: Ctrl + Y
+    保存: Ctrl + S
+    すべて保存: Ctrl + Shift + S
+    検索: Ctrl + F
+    アセットを検索: Ctrl + T

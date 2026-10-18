@@ -1,0 +1,33 @@
+# DaVinci Resolve のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('DaVinci Resolve:再生:再生/一時停止')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+DaVinci Resolve:
+  再生:
+    再生/一時停止: Space
+    逆再生: J
+    停止: K
+    再生: L
+    次のフレーム: Right
+    前のフレーム: Left
+    先頭へ: Home
+    末尾へ: End
+  編集:
+    ブレードツール: Command + B
+    イン点を設定: I
+    アウト点を設定: O
+    リップル削除: Shift + Backspace
+    クリップ切り替え: D
+    マーカーを追加: M
+  パネル:
+    メディアプールを表示: "@"
+    カットページ: "#"
+    編集ページ: "$"
+    Fusionページ: "%"
+    カラーページ: "^"
+    Fairlightページ: "&"
+    デリバーページ: "*"
+  カラー:
+    プライマリーホイール: Option + 1
+    トーンカーブ: Option + 2
+    ノードを追加: Option + S
+    グレードを比較: Option + D

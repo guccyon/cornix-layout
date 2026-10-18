@@ -1,0 +1,41 @@
+# Xcode のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Xcode:一般:ビルド')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Xcode:
+  一般:
+    ビルド: Command + B
+    実行: Command + R
+    停止: Command + .
+    テストを実行: Command + U
+    クリーンビルド: Shift + Command + K
+    プロフィール: Command + I
+  ナビゲーション:
+    クイックオープン: Shift + Command + O
+    定義に移動: Ctrl + Command + J
+    戻る: Ctrl + Command + Left
+    進む: Ctrl + Command + Right
+    ファイルリスト: Command + 1
+    シンボルリスト: Command + 2
+    検索ナビゲータ: Command + 3
+    問題ナビゲータ: Command + 5
+  編集:
+    行コメント切り替え: Command + /
+    行を上に移動: Option + Command + [
+    行を下に移動: Option + Command + ]
+    コード補完: Ctrl + Space
+    階層を下げる: Command + ]
+    階層を上げる: Command + [
+    インデントを整える: Ctrl + I
+  アクション:
+    ブレークポイント切り替え: Command + \
+    ステップオーバー: F6
+    ステップイン: F7
+    ステップアウト: F8
+    続行: Ctrl + Command + Y
+    デバッグエリア切り替え: Shift + Command + Y
+  ウィンドウ:
+    ナビゲータ切り替え: Command + 0
+    インスペクタ切り替え: Option + Command + 0
+    ライブラリ: Shift + Command + L
+    アシスタントエディタ: Ctrl + Option + Command + Enter
+    キャンバス切り替え: Option + Command + Enter

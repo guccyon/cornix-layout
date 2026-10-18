@@ -1,0 +1,60 @@
+# Windows のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Windows:システム:全画面キャプチャ')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Windows:
+  システム:
+    全画面キャプチャ: Command + PrintScreen
+    範囲選択キャプチャ: Shift + Command + S
+    検索: Command + S
+    スタートメニュー: LGui
+    ウィンドウを切り替え: Option + Tab
+    ウィンドウを閉じる: Option + F4
+    タスクマネージャー: Ctrl + Shift + Escape
+    画面ロック: Command + L
+    デスクトップを表示: Command + D
+    エクスプローラーを開く: Command + E
+    環境設定: Command + I
+    クリップボード: Command + V
+    仮想デスクトップ一覧: Command + Tab
+    新規仮想デスクトップ: Ctrl + Command + D
+    仮想デスクトップを閉じる: Ctrl + Command + F4
+  テキスト:
+    コピー: Ctrl + C
+    ペースト: Ctrl + V
+    カット: Ctrl + X
+    元に戻す: Ctrl + Z
+    やり直し: Ctrl + Y
+    全選択: Ctrl + A
+    検索: Ctrl + F
+    検索と置換: Ctrl + H
+    保存: Ctrl + S
+    行頭: Home
+    行末: End
+    文書の先頭: Ctrl + Home
+    文書の末尾: Ctrl + End
+    単語左: Ctrl + Left
+    単語右: Ctrl + Right
+  ファイル:
+    新規フォルダ: Ctrl + Shift + N
+    削除: Delete
+    完全に削除: Shift + Delete
+    名前を変更: F2
+    プロパティ: Option + Enter
+    アドレスバー: Ctrl + L
+    新規ウィンドウ: Ctrl + N
+    プレビューパネル: Option + P
+    戻る: Option + Left
+    進む: Option + Right
+  ブラウザ:
+    新規タブ: Ctrl + T
+    タブを閉じる: Ctrl + W
+    閉じたタブを開く: Ctrl + Shift + T
+    次のタブへ: Ctrl + Tab
+    前のタブへ: Ctrl + Shift + Tab
+    再描画: Ctrl + R
+    ハードリフレッシュ: Ctrl + Shift + R
+    アドレスバー: Ctrl + L
+    ブックマーク: Ctrl + D
+    履歴: Ctrl + H
+    開発者ツール: F12
+    新規プライベートウィンドウ: Ctrl + Shift + N

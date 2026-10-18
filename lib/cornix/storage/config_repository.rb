@@ -13,6 +13,7 @@ module Cornix
     #
     #   repo = ConfigRepository.new('config', notation: Mapping::KeycodeNotation.new,
     #                               settings_catalog: Mapping::QmkSettingCatalog.default)
+    #                               # shortcut_catalog: 同梱のショートカット（既定は Mapping::ShortcutCatalog.default）
     #   profile = repo.load            # 問題があれば InvalidConfig（すべての問題を「ファイル: キーの位置: 内容」で並べる）
     #   repo.save(profile)             # => 書いたファイルの相対パスの一覧
     #   repo.locate(diagnostic)        # Profile#diagnostics のパスをファイル上の位置にした Diagnostic
@@ -23,13 +24,17 @@ module Cornix
     class ConfigRepository
       attr_reader :dir
 
-      def initialize(dir, notation:, settings_catalog:)
+      def initialize(dir, notation:, settings_catalog:, shortcut_catalog: Mapping::ShortcutCatalog.default)
         @dir = dir.to_s
         @notation = notation
         @settings_catalog = settings_catalog
+        @shortcut_catalog = shortcut_catalog
       end
 
-      def load = ConfigLoader.new(@dir, notation: @notation, settings_catalog: @settings_catalog).load
+      def load
+        ConfigLoader.new(@dir, notation: @notation, settings_catalog: @settings_catalog,
+                               shortcut_catalog: @shortcut_catalog).load
+      end
 
       def save(profile)
         Domain::Checks.instance!(profile, Domain::Profile, '保存するプロファイル')

@@ -1,0 +1,22 @@
+# Slack のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Slack:ナビゲーション:クイックスイッチャー')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Slack:
+  ナビゲーション:
+    クイックスイッチャー: Command + K
+    次の未読チャンネル: Option + Shift + Down
+    前の未読チャンネル: Option + Shift + Up
+    スレッドに移動: Shift + Command + T
+    DMリスト: Shift + Command + K
+    検索: Command + G
+  書式設定:
+    メッセージを編集: Up
+    絵文字でリアクション: Shift + Command + \
+    太字: Command + B
+    斜体: Command + I
+    取り消し線: Shift + Command + X
+    コードブロック: Shift + Command + C
+  一般:
+    ハドル切り替え: Shift + Command + H
+    ミュート切り替え: M
+    ビデオ切り替え: V

@@ -1,0 +1,38 @@
+# Microsoft Excel のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Microsoft Excel:基本操作:元に戻す')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Microsoft Excel:
+  基本操作:
+    元に戻す: Command + Z
+    やり直し: Command + Y
+    保存: Command + S
+    名前を付けて保存: F12
+    印刷: Command + P
+    Excelを終了: Command + Q
+  編集:
+    カット: Command + X
+    コピー: Command + C
+    ペースト: Command + V
+    全選択: Command + A
+    検索と置換: Ctrl + F
+    セル内改行: Option + Enter
+    セル参照を固定（$）: F4
+  書式設定:
+    太字: Command + B
+    斜体: Command + I
+    下線: Command + U
+    3桁カンマ区切り: Shift + Command + 1
+    日付表示形式: Ctrl + Shift + 3
+    パーセント表示: Ctrl + Shift + 5
+  セル・行・列:
+    行を非表示: Command + 9
+    列を非表示: Command + 0
+    列全体を選択: Ctrl + Space
+    行全体を選択: Shift + Space
+    テーブルを作成: Command + T
+    ハイパーリンク挿入: Command + K
+    フラッシュフィル: Ctrl + E
+  グラフ・その他:
+    グラフを作成: F11
+    数式バーを展開: Ctrl + Shift + U
+    SUM関数を挿入: Shift + Command + T

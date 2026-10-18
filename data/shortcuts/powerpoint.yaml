@@ -1,0 +1,39 @@
+# Microsoft PowerPoint のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Microsoft PowerPoint:基本操作:元に戻す')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Microsoft PowerPoint:
+  基本操作:
+    元に戻す: Command + Z
+    やり直し: Command + Y
+    保存: Command + S
+    名前を付けて保存: F12
+    ファイルを閉じる: Command + W
+    アプリを終了: Command + Q
+  編集:
+    カット: Command + X
+    コピー: Command + C
+    ペースト: Command + V
+    検索: Command + F
+    スライドを追加: Shift + Command + N
+    ハイパーリンク挿入: Command + K
+  書式設定:
+    太字: Command + B
+    斜体: Command + I
+    下線: Command + U
+    フォントサイズを大きく: Shift + Command + .
+    フォントサイズを小さく: Shift + Command + ,
+    大文字/小文字を変更: Shift + F3
+    フォントダイアログ: Command + T
+  表示:
+    標準表示: Command + 1
+    スライド一覧表示: Command + 2
+    ガイド表示切替: Ctrl + Option + Command + G
+    グリッド表示切替: Shift + Command + 6
+  スライドショー:
+    スライドショー開始: Shift + Command + Enter
+    最初から開始: Shift + Command + Enter
+    スライドショー終了: Escape
+    次のスライド: Right
+    前のスライド: Left
+    ブラックアウト: B
+    ホワイトアウト: W

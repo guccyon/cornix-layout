@@ -413,7 +413,7 @@ RSpec.describe Cornix::Storage::ConfigRepository do
           "shortcuts.yaml: shortcuts.C: shortcuts.yaml の値には Shortcut(...) は書けません: LT1(Shortcut('Good'))",
           match(/\Ashortcuts.yaml: shortcuts.B: キーコード「NoSuchKey」を解釈できません/),
           match(/\Ashortcuts.yaml: shortcuts: .*ショートカットの名前/),
-          match(%r{\Alayers/0_layer_0.yaml: mapping.left_hand.row0.tab: .*ショートカット「nope」は shortcuts.yaml に定義されていません})
+          match(%r{\Alayers/0_layer_0.yaml: mapping.left_hand.row0.tab: .*ショートカット「nope」は shortcuts.yaml にも同梱のショートカット（data/shortcuts/）にも定義されていません})
         )
       end
       with_config_copy do |dir|
@@ -468,6 +468,68 @@ RSpec.describe Cornix::Storage::ConfigRepository do
         written = repository(dir).save(profile.with(shortcuts: shortcuts))
         expect(written).to include('shortcuts.yaml')
         expect(File.read(File.join(dir, 'shortcuts.yaml'))).to eq("---\nshortcuts:\n  Prev: Shift + Command + [\n")
+      end
+    end
+  end
+
+  describe '同梱のショートカット（data/shortcuts/）' do
+    def tab(profile) = profile.position_map.position('left_hand', 'row0', 'tab')
+    def q(profile) = profile.position_map.position('left_hand', 'row0', 'Q')
+
+    def use(dir, tab_text, q_text = 'Q')
+      path = File.join(dir, 'layers/0_layer_0.yaml')
+      File.write(path, File.read(path).sub('tab: Tab', "tab: #{tab_text}").sub('Q: Q', "Q: #{q_text}"))
+    end
+
+    it "Shortcut('アプリ:カテゴリ:ラベル') で同梱の定義を引ける（Profile#shortcuts には入らない）" do
+      with_config_copy do |dir|
+        use(dir, "Shortcut('Spotify:再生:次のクリップ')")
+        profile = repository(dir).load
+        expect(profile.layer(0).key(tab(profile))).to eq(notation.parse('Command + Right'))
+        expect(profile.shortcuts).to be_empty
+      end
+    end
+
+    it 'shortcuts.yaml に同じ名前があれば利用者の定義が勝つ' do
+      with_config_copy do |dir|
+        write_file(dir, 'shortcuts.yaml', "shortcuts:\n  'Spotify:再生:次のクリップ': Ctrl + Right\n")
+        use(dir, "Shortcut('Spotify:再生:次のクリップ')", "Shortcut('Spotify:再生:前のクリップ')")
+        profile = repository(dir).load
+        expect(profile.layer(0).key(tab(profile))).to eq(notation.parse('Ctrl + Right'))
+        expect(profile.layer(0).key(q(profile))).to eq(notation.parse('Command + Left'))
+      end
+    end
+
+    it 'shortcuts.yaml の値からは参照できない（Shortcut(...) は書けない）' do
+      with_config_copy do |dir|
+        write_file(dir, 'shortcuts.yaml', "shortcuts:\n  次へ: Shortcut('Spotify:再生:次のクリップ')\n")
+        expect(load_problems(dir)).to include(match(/shortcuts.yaml の値には Shortcut\(...\) は書けません/))
+      end
+    end
+
+    it 'save は同梱の定義と同じ値を Shortcut(...) で書かない（利用者の定義だけを使う）' do
+      with_config_copy do |dir|
+        use(dir, "Shortcut('Spotify:再生:次のクリップ')")
+        profile = repository(dir).load
+        Dir.mktmpdir do |out|
+          repository(out).save(profile)
+          layer = File.read(File.join(out, 'layers/0_layer.yaml'))
+          expect(layer).to include("tab: Command + Right\n")
+          expect(layer).not_to include('Shortcut(')
+          expect(repository(out).load).to eq(profile)
+        end
+      end
+    end
+
+    it 'shortcut_catalog を差し替えられる（既定は Mapping::ShortcutCatalog.default）' do
+      with_config_copy do |dir|
+        use(dir, "Shortcut('X:Y')")
+        catalog = Cornix::Mapping::ShortcutCatalog.new('X:Y' => 'Tab')
+        repo = Cornix::Storage::ConfigRepository.new(dir, notation: notation, settings_catalog: settings_catalog,
+                                                          shortcut_catalog: catalog)
+        profile = repo.load
+        expect(profile.layer(0).key(tab(profile))).to eq(notation.parse('Tab'))
+        expect(load_problems(dir)).to include(match(/ショートカット「X:Y」は shortcuts.yaml にも同梱のショートカット/))
       end
     end
   end

@@ -1,0 +1,21 @@
+# Spotify のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Spotify:再生:再生/一時停止')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Spotify:
+  再生:
+    再生/一時停止: Space
+    次のクリップ: Command + Right
+    前のクリップ: Command + Left
+    音量を上げる: Command + Up
+    音量を下げる: Command + Down
+    シャッフル切り替え: Command + S
+    リピート切り替え: Command + R
+  ナビゲーション:
+    検索: Command + L
+    フィルター: Command + F
+    ホーム: Shift + Command + H
+    戻る: Option + Command + Left
+    進む: Option + Command + Right
+  アクション:
+    お気に入りに追加: Shift + Command + S
+    新規プレイリスト: Command + N

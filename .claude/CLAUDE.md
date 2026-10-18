@@ -68,7 +68,7 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
   （compile の出力は `tmp/build/layout.vil`、pull は `tmp/layout.vil` に読み出してから decompile）
 - `cornix init` と共通のオプション `--config` / `--profile` / `--root`: 設定ディレクトリの作成と場所の指定
 - `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
-- 名前参照（`Macro('名前')`）、名前付きショートカット（`Shortcut('名前')`、`config/shortcuts.yaml`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
+- 名前参照（`Macro('名前')`）、名前付きショートカット（`Shortcut('名前')`、`config/shortcuts.yaml` と同梱の `data/shortcuts/`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
 - decompile → compile で 16bit 値が元と一致する
 
 ## Architecture
@@ -76,7 +76,7 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
 ```
 Interface       CLI（bin/cornix → Interface::Cli::Main）・MCP サーバー（Interface::Mcp::Server）
 Application     ユースケース（Compile / Decompile / Validate / Cleanup / RenameFiles / SuggestRenames / Device*）と Environment（DI）
-Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / MacroCodec / ProfileMapper / QmkSettingCatalog
+Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / MacroCodec / ProfileMapper / QmkSettingCatalog / ShortcutCatalog
 Planning        ImageDiff / Change / Plan
 Domain          Profile 集約と値オブジェクト（Keycode, ModifierSet, LayerRef, Layer, Macro, TapDance, Combo, PositionMap, ...）。I/O なし
 Image           DeviceImage（16bit 値とバイト列のまま）。I/O なし
@@ -109,6 +109,7 @@ data/
   aliases.yaml      別名（QMK 名: [正規名, 別名...]。先頭が decompile で書く名前）
   qmk_settings.yaml QSID・名前・グループ・幅
   dangerous_keycodes.yaml  実機に書き込まないキーコード
+  shortcuts/*.yaml  同梱のショートカット（cornixhub の一覧。Shortcut('アプリ:カテゴリ:ラベル') で参照）
 lib/cornix.rb       全ファイルを層の順に require
 lib/cornix/
   domain/ image/ mapping/ planning/ storage/ device/ application/ interface/

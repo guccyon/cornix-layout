@@ -42,6 +42,22 @@ nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの
   Profile に残らない。書き出すときは値の一致だけで決める
 - マクロの `sequence` の中では使えない（マクロの名前参照と同じ）
 
+### 同梱のショートカット（`data/shortcuts/`）
+
+cornixhub（https://cornixhub.com/shortcuts）で共有されているショートカットを同梱し、shortcuts.yaml に書かなくても使えるようにしたもの。
+
+- `data/shortcuts/<アプリ>.yaml` は「アプリ → カテゴリ → ラベル: キーコードの表記」の入れ子。`Mapping::ShortcutCatalog` が
+  キーを `:` でつないだ名前（`Spotify:再生:次のクリップ`）にして読む。キーに `:` は使えない（cornixhub のラベルには `:` がない。
+  `/` と `・` はあるので区切りには使わない）。カテゴリを省くと Windows の「検索」（Win + S と Ctrl + F）などが衝突するので 3 段にした
+- 表記は正規形で書く（`spec/mapping/shortcut_catalog_spec.rb` が検査する）。同梱データの誤りは `ConfigError`
+- `ConfigLoader` は shortcuts.yaml を読んだあと、References の `preset_shortcuts` に同梱の定義を渡す。
+  `References#shortcut` は利用者の定義を先に引くので、shortcuts.yaml に同じ名前を書けば上書きできる
+- `Profile#shortcuts` は利用者の定義だけ。`Formatter`（`References#shortcut_name`）も利用者の定義だけを使う
+  （同梱の定義も使うと、decompile で Command + B が `Shortcut('Xcode:一般:ビルド')` のように書かれてしまう）
+- 1 つのキーコードで表せないもの（連続して押す・押したまま操作する 6 件）は入れていない
+- データは cornixhub のページの JS から取り出したもの（2026-10-19）。英語版はなく、ラベルは日本語。アプリ名はサイトの英語表記
+  （note は「メモ」と訳されているので note のまま）、訳のないカテゴリ window は「ウィンドウ」にした
+
 ## rename での書き換え
 
 `Storage::ConfigEditor#replace_references(function, old_name, new_name)` が config/ のすべての YAML の
@@ -51,6 +67,7 @@ nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの
 ## テスト
 
 - `spec/mapping/keycode_notation_spec.rb`（参照・Shortcut の解析・書き出し）
-- `spec/domain/shortcut_library_spec.rb`, `spec/storage/config_repository_spec.rb`（shortcuts.yaml の読み書き）
+- `spec/domain/shortcut_library_spec.rb`, `spec/storage/config_repository_spec.rb`（shortcuts.yaml の読み書き・同梱のショートカット）
+- `spec/mapping/shortcut_catalog_spec.rb`（data/shortcuts/ の読み込みと検査）
 - `spec/domain/profile_diagnostics_spec.rb`（参照先の存在）
 - `spec/storage/config_editor_spec.rb`, `spec/application/rename_spec.rb`（書き換え）

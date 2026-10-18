@@ -1,0 +1,52 @@
+# macOS のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('macOS:システム:全画面キャプチャ')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+macOS:
+  システム:
+    全画面キャプチャ: Shift + Command + 3
+    範囲選択キャプチャ: Shift + Command + 4
+    スポットライト: Command + Space
+    ウィンドウを切り替え: Command + Tab
+    ウィンドウを閉じる: Command + W
+    終了: Command + Q
+    強制終了: Option + Command + Escape
+    画面ロック: Ctrl + Command + Q
+    Finderで表示: Option + Command + Space
+  テキスト:
+    コピー: Command + C
+    ペースト: Command + V
+    カット: Command + X
+    元に戻す: Command + Z
+    やり直し: Shift + Command + Z
+    全選択: Command + A
+    検索: Command + F
+    検索と置換: Option + Command + F
+    保存: Command + S
+    行頭: Command + Left
+    行末: Command + Right
+    文書の先頭: Command + Up
+    文書の末尾: Command + Down
+    単語左: Option + Left
+    単語右: Option + Right
+  ファイル:
+    新規ウィンドウ: Command + N
+    新規フォルダ: Shift + Command + N
+    ゴミ箱に入れる: Command + Backspace
+    ゴミ箱を空にする: Shift + Command + Backspace
+    情報を表示: Command + I
+    クイックルック: Space
+    パスをコピー: Option + Command + C
+    隠しファイル切り替え: Shift + Command + .
+    フォルダへ移動: Shift + Command + G
+    ダウンロードフォルダ: Option + Command + L
+  ブラウザ:
+    新規タブ: Command + T
+    タブを閉じる: Command + W
+    閉じたタブを開く: Shift + Command + T
+    次のタブへ: Option + Command + Right
+    前のタブへ: Option + Command + Left
+    再描画: Command + R
+    アドレスバー: Command + L
+    ブックマーク: Command + D
+    履歴: Command + Y
+    開発者ツール: Option + Command + I

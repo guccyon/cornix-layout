@@ -104,9 +104,10 @@ module Cornix
           reference_class(function).new(index: index)
         end
 
-        # Shortcut('名前') は shortcuts.yaml の定義の Keycode そのもの
+        # Shortcut('名前') は shortcuts.yaml（なければ同梱の data/shortcuts/）の定義の Keycode そのもの
         def shortcut(name, refs)
-          refs.shortcut(name.strip) or fail!("ショートカット「#{name}」は shortcuts.yaml に定義されていません")
+          refs.shortcut(name.strip) or
+            fail!("ショートカット「#{name}」は shortcuts.yaml にも同梱のショートカット（data/shortcuts/）にも定義されていません")
         end
 
         def reference_class(function) = function == 'Macro' ? K::MacroCall : K::TapDanceCall

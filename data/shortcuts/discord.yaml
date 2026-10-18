@@ -1,0 +1,22 @@
+# Discord のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Discord:ナビゲーション:クイックスイッチャー')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Discord:
+  ナビゲーション:
+    クイックスイッチャー: Command + K
+    サーバー検索: Shift + Command + P
+    次のチャンネル: Option + Down
+    前のチャンネル: Option + Up
+    次の未読チャンネル: Option + Shift + Down
+    DMリストを開く: Shift + Command + U
+  書式設定:
+    メッセージを編集: Up
+    絵文字ピッカー: Command + E
+    GIF選択: Command + G
+    返信: R
+    リアクションを追加: "+"
+    ピン留めを表示: Command + P
+  一般:
+    ミュート切り替え: Shift + Command + M
+    スピーカーミュート切り替え: Shift + Command + D
+    切断: Shift + Command + E

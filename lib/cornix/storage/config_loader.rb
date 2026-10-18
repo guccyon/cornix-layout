@@ -9,14 +9,16 @@ module Cornix
     # 設定ディレクトリを読んで Domain::Profile を作る（ConfigRepository#load の中身）。
     #
     # 読む順: metadata → position_map → macros → tap_dance → shortcuts（ここで Macro('名前') / TapDance('名前') /
-    # Shortcut('名前') の対応表 Mapping::References を作る）→ settings → layers → combos。
+    # Shortcut('名前') の対応表 Mapping::References を作る。Shortcut('名前') は shortcuts.yaml になければ同梱の
+    # ショートカット（Mapping::ShortcutCatalog）を引く）→ settings → layers → combos。
     # キーコードの文字列は KeycodeNotation#parse で 1 回だけ解析する。
     # 問題はすべて集めて最後に 1 つの InvalidConfig にする（「ファイル: キーの位置: 内容」）
     class ConfigLoader
-      def initialize(dir, notation:, settings_catalog:)
+      def initialize(dir, notation:, settings_catalog:, shortcut_catalog: Mapping::ShortcutCatalog.default)
         @dir = dir
         @notation = notation
         @settings_catalog = settings_catalog
+        @shortcut_catalog = shortcut_catalog
         @problems = Problems.new
       end
 
@@ -95,9 +97,11 @@ module Cornix
         end
       end
 
-      def build_references(macro_files, tap_dance_files, shortcuts = Domain::ShortcutLibrary::EMPTY)
+      # shortcuts を渡したときだけ同梱のショートカットも引けるようにする（shortcuts.yaml の値には Shortcut(...) を書けないため）
+      def build_references(macro_files, tap_dance_files, shortcuts = nil)
         Mapping::References.new(macros: names(macro_files), tap_dances: names(tap_dance_files),
-                                shortcuts: shortcuts.entries)
+                                shortcuts: shortcuts ? shortcuts.entries : {},
+                                preset_shortcuts: shortcuts ? @shortcut_catalog.library(@notation).entries : {})
       end
 
       # 名前 => 番号（名前が重複していれば先のもの。重複は Profile#diagnostics が報告する）

@@ -1,0 +1,40 @@
+# Photoshop のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Photoshop:ツール:移動ツール')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Photoshop:
+  ツール:
+    移動ツール: V
+    選択ツール: M
+    なげなわツール: L
+    切り抜きツール: C
+    ブラシツール: B
+    消しゴムツール: E
+    バケツツール: G
+    スポイトツール: I
+    テキストツール: T
+    ペンツール: P
+    ハンドツール: H
+    ズームツール: Z
+  編集:
+    自由変形: Command + T
+    選択範囲を反転: Shift + Command + I
+    選択解除: Command + D
+    塗りつぶし: Shift + F5
+    コンテンツに応じた塗りつぶし: Shift + Backspace
+    レベル補正: Command + L
+    トーンカーブ: Command + M
+    色相・彩度: Command + U
+  レイヤー:
+    レイヤーを追加: Shift + Command + N
+    レイヤーを複製: Command + J
+    レイヤーを結合: Command + E
+    表示レイヤーを結合: Shift + Command + E
+    レイヤーをグループ化: Command + G
+    クリッピングマスク: Option + Command + G
+  表示:
+    ズームイン: Shift + Command + =
+    ズームアウト: Command + -
+    ズームをリセット: Command + 1
+    画面に合わせる: Command + 0
+    グリッド表示切替: Command + '
+    ガイド表示切替: Command + ;

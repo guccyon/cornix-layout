@@ -1,0 +1,40 @@
+# Fusion 360 のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
+# Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Fusion 360:ナビゲーション:パン')）。
+# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+Fusion 360:
+  ナビゲーション:
+    パン: Shift + MouseButton3
+    ズーム: MouseWheelUp
+    オービット: Shift + MouseButton3
+    ホームビュー: Home
+    画面に合わせる: F6
+    正面図: Kp1
+    上面図: Kp7
+    右側面図: Kp3
+  スケッチ:
+    直線: L
+    長方形: R
+    円: C
+    円弧: A
+    オフセット: O
+    トリム: T
+    寸法: D
+    制約を表示: Ctrl + Shift + C
+  モデリング:
+    押し出し: E
+    回転体: Ctrl + Shift + R
+    フィレット: F
+    面取り: Ctrl + Shift + F
+    シェル: Ctrl + Shift + S
+    コンポーネントを移動: M
+    結合: Ctrl + J
+    3Dミラー: Ctrl + M
+  一般:
+    元に戻す: Ctrl + Z
+    やり直し: Ctrl + Y
+    削除: Delete
+    コピー: Ctrl + C
+    ペースト: Ctrl + V
+    保存: Ctrl + S
+    検索: S
+    距離を測定: I

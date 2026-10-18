@@ -102,6 +102,27 @@ RSpec.describe 'デバイスのユースケース' do
       expect(outcome.to_h).to include('written' => true, 'applied' => 1, 'remaining' => [], 'success' => true)
     end
 
+    it 'confirm は同じ接続の中で PlanResult を受け取り、真なら書き込む' do
+      seen = []
+      outcome = described_class.new(env).call(confirm: ->(plan) { seen << plan; true })
+      expect(seen.map(&:class)).to eq([Cornix::Application::PlanResult])
+      expect(seen.first.changes).to eq(['レイヤー1 (0,1): KC_NO → KC_BSPACE'])
+      expect(outcome).to be_written
+      expect(outcome).not_to be_cancelled
+      expect(opens.size).to eq(1)
+    end
+
+    it 'confirm が偽なら書き込まず、バックアップも取らずに cancelled を返す' do
+      outcome = described_class.new(env).call(confirm: ->(_plan) { false })
+      expect(outcome).to be_cancelled
+      expect(outcome).not_to be_written
+      expect(outcome.changes).to eq(['レイヤー1 (0,1): KC_NO → KC_BSPACE'])
+      expect(outcome.to_h).to include('cancelled' => true, 'written' => false)
+      expect(device.writes).to be_empty
+      expect(backups).to be_empty
+      expect(opens.size).to eq(1)
+    end
+
     it 'token が違えば何も書かない' do
       expect { described_class.new(env).call(expected_token: 'stale') }.to raise_error(Cornix::PlanError, /変わって/)
       expect(device.writes).to be_empty
@@ -148,6 +169,14 @@ RSpec.describe 'デバイスのユースケース' do
       expect(outcome.source).to eq(latest)
       expect(env.vil_file.read(outcome.backup).layers[1][1][1]).to eq(0x06)
       expect(backups.size).to eq(2)
+    end
+
+    it 'confirm を DeviceApply と同じく 1 回の接続の中で呼ぶ' do
+      path = env.backup_store.save(env.vil_file.read(write_vil { |v| v['layout'][1][1][1] = 'KC_C' }))
+      outcome = described_class.new(env).call(confirm: ->(plan) { plan.source == path && false })
+      expect(outcome).to be_cancelled
+      expect(device.writes).to be_empty
+      expect(opens.size).to eq(1)
     end
 
     it 'ファイル名でも指定できる' do

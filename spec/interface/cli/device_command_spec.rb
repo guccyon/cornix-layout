@@ -66,6 +66,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
     it 'apply --yes は確認せずに書き込み、読み戻して検証する' do
       expect(cornix('apply', vil, '--yes')).to eq(0)
       expect(device.keymap[1][0][1]).to eq(0x2A)
+      expect(opens.size).to eq(1) # 旧実装と同じく接続は 1 回
       backup = env.backup_store.latest
       expect(out.string).to eq(<<~TEXT)
         反映元: #{vil}
@@ -81,6 +82,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
       expect(cornix('apply', vil)).to eq(0)
       expect(out.string).to include("\nこの差分をキーボードに書き込みますか？ [y/N] ✓ 1 件を書き込みました")
       expect(device.keymap[1][0][1]).to eq(0x2A)
+      expect(opens.size).to eq(1)
     end
 
     it 'apply は y 以外なら中止する' do
@@ -88,12 +90,15 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
       expect(cornix('apply', vil)).to eq(0)
       expect(out.string).to end_with("中止しました\n")
       expect(device.writes).to be_empty
+      expect(env.backup_store.list).to be_empty
+      expect(opens.size).to eq(1)
     end
 
     it 'apply は差分がなければ尋ねずに終わる' do
       path = write_vil(File.join(@root, 'same.vil')) { nil }
       expect(cornix('apply', path)).to eq(0)
       expect(out.string).to eq("反映元: #{path}\n✓ キーボードとの差分はありません\n")
+      expect(input.string).to be_empty # 尋ねない
     end
 
     it '読み戻して一致しなければ exit 1' do
@@ -122,7 +127,9 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
       cornix('apply', vil, '--yes')
       latest = env.backup_store.latest
       out.truncate(0) && out.rewind
+      opens.clear
       expect(cornix('restore', '--yes')).to eq(0)
+      expect(opens.size).to eq(1)
       expect(device.keymap[1][1][1]).to eq(0)
       expect(out.string).to start_with("復元元: #{latest}\n差分 1 件:\n  - レイヤー1 (1,1): KC_C → KC_NO\n")
     end

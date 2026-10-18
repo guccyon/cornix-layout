@@ -18,3 +18,6 @@
 - 日本語配列の別名は QMK 名と読み違えないようにした: macOS のかな / 英数は `MacKana` / `MacEisu`（KC_LANG1 / KC_LANG2）、
   JIS の ¥ キーは `JisYen`（`"¥"` は LALT(KC_Y)、`KC_KANA` は 0x88 で別の値）
 - dangerous_keycodes.yaml から DB_TOGG（0x7C02）を外した（デバッグ出力の切り替えで危険ではない）
+- 2026-10-19 に Cornix を接続した Vial（vial.rocks）で確認: QK_REPEAT_KEY / QK_ALT_REPEAT_KEY（repeat_key）、QK_LAYER_LOCK（layer_lock）、
+  USER08 以降（customKeycodes は 8 個）は非表示。data/unsupported_keycodes.yaml で validate などが警告する（#17）。
+  Caps Word、PDF(n)、FN_MO13/23、Dynamic Macro は表示される。vial.rocks は vial-gui 0.7.5 で LAG / LAG_T / GUI Toggle を知らない（#18）

@@ -393,6 +393,7 @@ encoders:
 | 生の値 | `0x7E00` | 表で表せない値（`pull` も解釈できない値はこの形で書きます） |
 
 `QK_BOOT`（`Reset`）などの boot 系キーコードは設定ファイルには書けますが、キーボードには書き込みません。
+`QK_REPEAT_KEY` / `QK_ALT_REPEAT_KEY` / `QK_LAYER_LOCK` / `USER08`〜`USER63` は Cornix が対応していないとみられるキーで（Vial でも表示されません）、書き込みはしますが `validate` / `compile` / `status` / `apply` で警告します（[data/unsupported_keycodes.yaml](data/unsupported_keycodes.yaml)）。
 
 ### 修飾キー表現
 

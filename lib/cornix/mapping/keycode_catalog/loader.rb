@@ -22,6 +22,7 @@ module Cornix
           keycodes = read('keycodes.yaml')
           aliases = read('aliases.yaml')
           dangerous = read('dangerous_keycodes.yaml')
+          unsupported = read('unsupported_keycodes.yaml')
 
           @qmk_names = {}
           @names_by_code = {}
@@ -39,7 +40,7 @@ module Cornix
             (aliases[section] || {}).each { |key, names| add_aliases(section, key, names) }
           end
 
-          build(dangerous)
+          build(dangerous, unsupported)
         end
 
         private
@@ -121,15 +122,20 @@ module Cornix
           (bits << 8) | base
         end
 
-        def build(dangerous)
-          ranges = Array(dangerous['ranges']).map { |r| [(r.fetch('from')..r.fetch('to')), r['reason']] }
+        def build(dangerous, unsupported)
           KeycodeCatalog.new(
             qmk_names: @qmk_names, names_by_code: @names_by_code, vial_names: @vial_names, aliases: @aliases,
             aliases_by_code: @aliases_by_code.transform_values(&:freeze).to_h,
             preferred: @aliases_by_code.transform_values(&:first).to_h,
             basic: @basic.to_set, quantum: @quantum.to_set,
-            dangerous_ranges: ranges.map { |range, reason| [range, reason || '書き込み禁止のキー'] }
+            dangerous_ranges: ranges(dangerous, '書き込み禁止のキー'),
+            unsupported_ranges: ranges(unsupported, 'Cornix では使えないキー')
           )
+        end
+
+        # { ranges: [{ from:, to:, reason: }] } → [[Range, 理由]]
+        def ranges(table, default_reason)
+          Array(table['ranges']).map { |r| [(r.fetch('from')..r.fetch('to')), r['reason'] || default_reason] }
         end
       end
     end

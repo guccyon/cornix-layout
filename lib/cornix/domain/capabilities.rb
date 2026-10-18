@@ -11,14 +11,20 @@ module Cornix
     #   tap_dances   タップダンスの枠の数（TD(0)〜）
     #   combos       コンボの枠の数
     #   combo_keys   コンボ 1 件のトリガーの最大数
-    class Capabilities < Data.define(:layers, :macros, :tap_dances, :combos, :combo_keys)
-      def initialize(layers:, macros:, tap_dances:, combos:, combo_keys:)
+    #   unsupported_keycodes  対応していないとみられるキーコードの値 => 警告の文（Profile#diagnostics が warning にする）。
+    #                         表は Mapping::KeycodeCatalog#unsupported_keycodes が作る。既定は空
+    class Capabilities < Data.define(:layers, :macros, :tap_dances, :combos, :combo_keys, :unsupported_keycodes)
+      def initialize(layers:, macros:, tap_dances:, combos:, combo_keys:, unsupported_keycodes: {})
         super(
           layers: Checks.integer!(layers, 1..32, 'レイヤーの数'),
           macros: Checks.integer!(macros, 0..256, 'マクロの数'),
           tap_dances: Checks.integer!(tap_dances, 0..256, 'タップダンスの数'),
           combos: Checks.integer!(combos, 0..256, 'コンボの数'),
-          combo_keys: Checks.integer!(combo_keys, 1..8, 'コンボのトリガーの数')
+          combo_keys: Checks.integer!(combo_keys, 1..8, 'コンボのトリガーの数'),
+          unsupported_keycodes: Checks.hash!(unsupported_keycodes, '対応していないキーコードの表') do |code, message|
+            Checks.integer!(code, 0..0xFFFF, '対応していないキーコードの値')
+            Checks.name!(message, '対応していないキーコードの説明')
+          end
         )
       end
     end

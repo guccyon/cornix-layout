@@ -110,6 +110,7 @@ data/
   aliases.yaml      別名（QMK 名: [正規名, 別名...]。先頭が decompile で書く名前）
   qmk_settings.yaml QSID・名前・グループ・幅
   dangerous_keycodes.yaml  実機に書き込まないキーコード
+  unsupported_keycodes.yaml  Cornix が対応していないとみられるキーコード（validate などで警告。書き込みは止めない）
   shortcuts/*.yaml  同梱のショートカット（cornixhub の一覧。Shortcut('アプリ:カテゴリ:ラベル') で参照）
 lib/cornix.rb       全ファイルを層の順に require
 lib/cornix/

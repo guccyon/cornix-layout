@@ -39,6 +39,16 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
       expect(report.profile).to be_a(Cornix::Domain::Profile)
     end
 
+    it 'Cornix が対応していないとみられるキーは warnings にする（errors にはしない）' do
+      install_config
+      File.write(config_file('layers/0_layer_0.yaml'),
+                 read_config('layers/0_layer_0.yaml').sub(/tab: .*/, 'tab: QK_REPEAT_KEY'))
+      report = validate.call
+      expect(report).to be_valid
+      expect(report.warnings).to eq(['layers/0_layer_0.yaml: mapping.left_hand.row0.tab: QK_REPEAT_KEY: ' \
+                                     'Cornix は Repeat Key に対応していません（書き込みますが、押しても動かない可能性があります）'])
+    end
+
     it 'config/ がなければ ConfigNotFound' do
       expect { validate.call }.to raise_error(Cornix::Application::ConfigNotFound) { |e| expect(e.dir).to eq(env.config_dir) }
     end

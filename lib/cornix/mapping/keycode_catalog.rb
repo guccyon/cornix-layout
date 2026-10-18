@@ -8,7 +8,8 @@ module Cornix
     #   KeycodeCatalog.default                     同梱の表（プロセスで 1 回だけ読む）
     #   KeycodeCatalog.load(custom_keycodes: [..]) キーボード定義の customKeycodes（BT0 など）を USER00.. の別名として足す
     class KeycodeCatalog
-      FIELDS = %i[qmk_names names_by_code vial_names aliases aliases_by_code preferred basic quantum dangerous_ranges].freeze
+      FIELDS = %i[qmk_names names_by_code vial_names aliases aliases_by_code preferred basic quantum dangerous_ranges
+                 unsupported_ranges].freeze
 
       # 通常は Loader が作る。引数はすべて読み込み済みの Hash / Set
       def initialize(**tables)
@@ -49,6 +50,13 @@ module Cornix
 
       # 書き込みを拒否する理由（拒否しない値なら nil）
       def dangerous_reason(code) = @dangerous_ranges.find { |range, _| range.cover?(code) }&.last
+
+      # Cornix が対応していないとみられる値 => 「名前: 理由」（data/unsupported_keycodes.yaml。Domain::Capabilities#unsupported_keycodes に渡す）
+      def unsupported_keycodes
+        @unsupported_ranges.flat_map do |range, reason|
+          range.map { |code| [code, "#{name(code) || format('0x%04X', code)}: #{reason}"] }
+        end.to_h
+      end
 
       def names = @qmk_names.keys + @aliases.keys
 

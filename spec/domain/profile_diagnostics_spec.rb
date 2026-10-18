@@ -147,6 +147,30 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
     end
   end
 
+  describe '対応していないキー' do
+    let(:unsupported) { caps.with(unsupported_keycodes: { 0x7C79 => 'QK_REPEAT_KEY: 非対応です' }) }
+    let(:repeat) { k::Quantum.new(code: 0x7C79) }
+
+    it 'Capabilities#unsupported_keycodes にある特殊キーは warning（どこに書いても）' do
+      layer = build_layer(keys: { tab => repeat }, encoders: { left: encoder_binding(cw: repeat), right: encoder_binding })
+      macro = build_macro(steps: [d::MacroStep::Tap.new(keys: [repeat])])
+      td = build_tap_dance(on_hold: repeat)
+      combo = build_combo(output_key: repeat)
+      profile = build_profile(layers: [layer], macros: [macro], tap_dances: [td], combos: [combo])
+      diags = diagnostics_of(profile, unsupported)
+      expect(summary(diags)).to eq([[:warning, 'layers[0].left_hand.row0.tab'], [:warning, 'layers[0].encoders.left.cw'],
+                                    [:warning, 'macros[0].steps[0].keys[0]'], [:warning, 'tap_dances[0].on_hold'],
+                                    [:warning, 'combos[0].output_key']])
+      expect(diags.first.message).to eq('QK_REPEAT_KEY: 非対応です（書き込みますが、押しても動かない可能性があります）')
+    end
+
+    it '表にない特殊キーや、表が空なら何も言わない' do
+      layer = build_layer(keys: { tab => k::Quantum.new(code: 0x7C7B) })
+      expect(diagnostics_of(build_profile(layers: [layer]), unsupported)).to eq([])
+      expect(diagnostics_of(build_profile(layers: [build_layer(keys: { tab => repeat })]))).to eq([])
+    end
+  end
+
   it 'Capabilities を差し替えられる' do
     small = d::Capabilities.new(layers: 2, macros: 1, tap_dances: 1, combos: 1, combo_keys: 2)
     profile = build_profile(layers: [build_layer(index: 0)], macros: [build_macro(index: 1)],

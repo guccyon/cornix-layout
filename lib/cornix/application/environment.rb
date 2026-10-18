@@ -50,6 +50,10 @@ module Cornix
       def catalog = @catalog ||= Mapping::KeycodeCatalog.default
       def settings_catalog = @settings_catalog ||= Mapping::QmkSettingCatalog.default
       def shortcut_catalog = @shortcut_catalog ||= Mapping::ShortcutCatalog.default
+      # Cornix の上限と、対応していないとみられるキー（Profile#diagnostics に渡す）
+      def capabilities
+        @capabilities ||= Domain::Capabilities::CORNIX.with(unsupported_keycodes: catalog.unsupported_keycodes)
+      end
       def codec = @codec ||= Mapping::KeycodeCodec.new(catalog)
       def notation = @notation ||= Mapping::KeycodeNotation.new(catalog: catalog, codec: codec)
       def vial = @vial ||= Mapping::VialNotation.new(catalog: catalog, codec: codec)

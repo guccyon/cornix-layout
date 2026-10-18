@@ -1,0 +1,13 @@
+# Cornix が対応していないとみられるキーコードの範囲。
+# Vial の名前はあるが、Cornix を接続した Vial（vial.rocks）のキー選択欄には表示されない値。
+# 書き込みは止めず、validate / compile / status / apply で warning を出す。
+# 対象は名前付きの特殊キー（keycodes.yaml の quantum。Domain::Keycode::Quantum）の値だけ。基本キーなどを書いても警告しない。
+# vial-gui は requires_feature（キーボードが報告する対応機能）と customKeycodes の個数でキーを隠す
+# （vial-gui の src/main/python/keycodes/keycodes.py の recreate_keyboard_keycodes）。2026-10-19 に実機で確認。
+ranges:
+  # requires_feature: repeat_key
+  - { from: 0x7C79, to: 0x7C7A, reason: 'Cornix は Repeat Key に対応していません' }
+  # requires_feature: layer_lock
+  - { from: 0x7C7B, to: 0x7C7B, reason: 'Cornix は Layer Lock に対応していません' }
+  # Cornix の customKeycodes は 8 個（Vial の表示名: BT0, BT1, BT2, Next BT, Prev BT, Clear BT, Switch Output, Clear Peer）
+  - { from: 0x7E08, to: 0x7E3F, reason: 'Cornix のユーザーキーは USER00〜USER07 の 8 個だけです' }

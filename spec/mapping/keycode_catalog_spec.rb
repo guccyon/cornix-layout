@@ -38,6 +38,15 @@ RSpec.describe Cornix::Mapping::KeycodeCatalog do
     expect(catalog.dangerous?(0x7E00)).to be false
   end
 
+  it 'Cornix が対応していないとみられる値（data/unsupported_keycodes.yaml）を引ける' do
+    table = catalog.unsupported_keycodes
+    expect(table.keys).to eq([0x7C79, 0x7C7A, 0x7C7B, *0x7E08..0x7E3F])
+    expect(table[0x7C79]).to eq('QK_REPEAT_KEY: Cornix は Repeat Key に対応していません')
+    expect(table[0x7C7B]).to eq('QK_LAYER_LOCK: Cornix は Layer Lock に対応していません')
+    expect(table[0x7E3F]).to eq('USER63: Cornix のユーザーキーは USER00〜USER07 の 8 個だけです')
+    expect(table).not_to include(0x7E07, 0x7C77)
+  end
+
   it 'customKeycodes を USER00 からの名前として足せる' do
     custom = described_class.load(custom_keycodes: [{ 'name' => 'BT0' }, { 'name' => 'BT1' }])
     expect(custom.lookup('BT1')).to eq(0x7E01)
@@ -46,7 +55,7 @@ RSpec.describe Cornix::Mapping::KeycodeCatalog do
   describe '表の不整合' do
     def load_with(aliases)
       Dir.mktmpdir do |dir|
-        %w[keycodes.yaml dangerous_keycodes.yaml].each { |f| FileUtils.cp(File.join(Cornix::DATA_DIR, f), dir) }
+        %w[keycodes.yaml dangerous_keycodes.yaml unsupported_keycodes.yaml].each { |f| FileUtils.cp(File.join(Cornix::DATA_DIR, f), dir) }
         File.write(File.join(dir, 'aliases.yaml'), aliases)
         Cornix::Mapping::KeycodeCatalog::Loader.new(data_dir: dir).load
       end

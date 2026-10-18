@@ -12,10 +12,12 @@
    - 値オブジェクトの生成時の `Cornix::InvalidValue`（`Domain::Checks`）
    - 問題は止まらずに `Storage::Problems` に集め、最後に `Storage::InvalidConfig(problems)` を 1 回送出する。
      表示は `ファイル: キーの位置: 内容`（`Storage::Problem#to_s`）
-2. **意味検証**（`Profile#diagnostics(Capabilities::CORNIX)` → `Domain::ProfileDiagnostics`）
+2. **意味検証**（`Profile#diagnostics(env.capabilities)` → `Domain::ProfileDiagnostics`。`Application::Environment#capabilities` は
+   `Capabilities::CORNIX` に `KeycodeCatalog#unsupported_keycodes` を足したもの）
    - 件数の上限（レイヤー 10、マクロ・タップダンス・コンボ 32、コンボのトリガー 4）
    - 番号・名前の重複、参照先（M(n) / TD(n)）の存在、レイヤー番号の範囲
-   - 警告: 番号の抜けたレイヤー、定義されていないレイヤーを指す MO(n) など
+   - 警告: 番号の抜けたレイヤー、定義されていないレイヤーを指す MO(n) など、
+     Cornix が対応していないとみられる特殊キー（data/unsupported_keycodes.yaml。QK_REPEAT_KEY、USER08 以降など）
    - `Domain::Diagnostic(severity, path, message)` の path（`layers[0].left_hand.row0.tab` の形）は
      `Storage::DiagnosticLocator` がファイル上の位置に直す
 

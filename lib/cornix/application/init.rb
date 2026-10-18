@@ -10,12 +10,15 @@ module Cornix
     # 新しい設定ディレクトリを作る（cornix init）→ InitResult。env.workspace の場所に作る。
     #
     # - 設定ディレクトリにすでにファイルがあれば ConfigError（上書きしない）
-    # - .cornix.yml がなく、作る場所が既定（このリポジトリの config/）でなければ、次から見つかるように
-    #   .cornix.yml（profiles/NAME なら「profile: NAME」、それ以外は「config: 相対パス」）を作る。あれば変えない
+    # - .cornix.yml がなく、作る場所がこのリポジトリの config/ でなければ、次から見つかるように
+    #   .cornix.yml（profiles/NAME なら「profile: NAME」、それ以外は「config: 相対パス」）を作る。あれば変えない。
+    #   中身のある <root>/config があれば、次からはそれが使われなくなることを notes で知らせる
     # - このリポジトリの外に作るときは .gitignore に tmp/ と .decompile.lock を足す（設定だけのリポジトリのため）
     # - from に .vil を渡せばそれを、pull が真ならデバイスを読んで、decompile と同じ内容の設定を書く。
     #   デバイスにつながらなければ空のディレクトリだけを作り、あとから書く方法を notes で案内する
     class Init < UseCase
+      # cornix init で --profile も --config もないときに作るプロファイル
+      DEFAULT_PROFILE = 'default'
       GITIGNORE = '.gitignore'
       TOOL_CONFIG = File.join(Cornix::ROOT, Workspace::DEFAULT_CONFIG)
       IGNORE_LINES = ['tmp/', '.decompile.lock'].freeze
@@ -85,6 +88,12 @@ module Cornix
 
       def notes(ws, settings_created, imported_from)
         list = []
+        if settings_created && legacy_config?(ws)
+          list << "#{Workspace::DEFAULT_CONFIG}/ があります。#{Workspace::SETTINGS_FILE} を作ったので、次からは " \
+                  "#{relative(ws, ws.config_dir)}/ が使われます（#{Workspace::DEFAULT_CONFIG}/ を使うには " \
+                  "--config #{File.join(ws.root, Workspace::DEFAULT_CONFIG)} を付けるか、" \
+                  "#{Workspace::SETTINGS_FILE} を消してください）"
+        end
         if !settings_created && File.exist?(settings_path(ws)) && !resolves_here?(ws)
           list << "#{Workspace::SETTINGS_FILE} はすでにあるので変えていません。この設定を使うには " \
                   "#{option_for(ws)} を付けるか、#{Workspace::SETTINGS_FILE} を書き換えてください"
@@ -95,6 +104,12 @@ module Cornix
                   "cornix decompile FILE#{option} で書き出してください"
         end
         list
+      end
+
+      # <root>/config に中身があり、それとは別の場所に作った（.cornix.yml を作ると config/ が使われなくなる）
+      def legacy_config?(ws)
+        legacy = File.join(ws.root, Workspace::DEFAULT_CONFIG)
+        ws.config_dir != legacy && File.directory?(legacy) && !Dir.empty?(legacy)
       end
 
       # 何も指定せずに実行したとき（.cornix.yml や既定の置き場所で）この設定ディレクトリが使われるか

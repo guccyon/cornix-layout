@@ -29,6 +29,7 @@ Some of the command output, including many error messages, is currently in Japan
 - [Writing keys](#writing-keys)
 - [YAML pitfalls](#yaml-pitfalls)
 - [Validating the settings](#validating-the-settings)
+- [Naming (rename)](#naming-rename)
 - [Backups and restoring](#backups-and-restoring)
 - [Where the settings live and how to use the repository](#where-the-settings-live-and-how-to-use-the-repository)
 - [Using it as an MCP server](#using-it-as-an-mcp-server)
@@ -36,6 +37,7 @@ Some of the command output, including many error messages, is currently in Japan
 - [Troubleshooting](#troubleshooting)
 - [Using Vial (compile / decompile)](#using-vial-compile--decompile)
 - [For developers](#for-developers)
+- [Notes](#notes)
 
 ## Supported environment
 
@@ -63,6 +65,8 @@ cd cornix-layout
 bundle install
 ```
 
+If you run `cornix init` as is, the settings are not tracked by Git (`.gitignore` excludes them). To keep them in Git, fork the repository or keep the settings in a separate repository (see [Ways to use it](#ways-to-use-it)).
+
 To use it as a `cornix` command, put a symlink to `bin/cornix` in a directory on your PATH (you can also run `ruby bin/cornix <command>`).
 
 ```bash
@@ -72,7 +76,7 @@ cornix help             # list of commands (cornix help <command> for details)
 
 ### 2. Create the settings (`init`)
 
-Connect the Cornix to your Mac over Bluetooth (or USB), then run:
+Connect the Cornix to your Mac over Bluetooth (or USB), check the connection with `cornix device info`, then run:
 
 ```bash
 cornix init
@@ -98,7 +102,7 @@ You can check the files for mistakes without the keyboard with `cornix validate`
 cornix status
 ```
 
-It compares the settings with the keyboard's current state and lists the changes that would be written (it writes nothing). It exits with 0 when there are no differences and 2 when there are.
+It compares the settings with the keyboard's current state and lists the changes that would be written (it does not write to the keyboard). It exits with 0 when there are no differences and 2 when there are.
 
 ### 5. Write (`apply`)
 
@@ -107,13 +111,12 @@ cornix apply           # show the differences, ask [y/N], then write
 cornix apply --yes     # skip the question
 ```
 
-Before writing, the keyboard's state is backed up; only what changed is written, and finally the keyboard is read back to check that it matches.
-If the settings have mistakes, it stops without touching the keyboard.
+How it backs up and verifies is described in [Safety mechanisms](#safety-mechanisms).
 
 ### 6. Undoing (`restore`)
 
 ```bash
-cornix restore         # go back to the state before the last apply (shows the differences and asks before writing)
+cornix restore         # go back to the state before the last apply
 ```
 
 See [Backups and restoring](#backups-and-restoring) for details.
@@ -135,7 +138,17 @@ cornix <command> [options]
 | `rename` | Not used | Gives the settings files meaningful names, confirming Claude's suggestions one by one |
 | `mcp` | Depends on the tool | Starts as an MCP server (see [Using it as an MCP server](#using-it-as-an-mcp-server)) |
 
-`compile` / `decompile` / `cleanup` for Vial, and `cornix device` for reading and writing with explicit files, are described in [Using Vial](#using-vial-compile--decompile).
+`cornix device` reads and writes with explicit files.
+
+| Subcommand | Description |
+|---|---|
+| `device info` | Information about the connected keyboard |
+| `device read [-o FILE]` | Prints the keyboard's state in layout.vil format |
+| `device backup` | Saves the keyboard's state to `<tmp>/device_backups/` |
+| `device diff [FILE]` / `device apply [FILE] [--yes]` | Shows the differences between the given .vil and the keyboard / writes it (default: the compile output) |
+| `device restore [BACKUP] [--yes]` | Same as `restore` |
+
+`compile` / `decompile` / `cleanup` for Vial are described in [Using Vial](#using-vial-compile--decompile).
 
 Common options (accepted by every command, before or after the command name):
 
@@ -164,6 +177,9 @@ To rebuild the settings from the keyboard, move the current settings aside first
 mv profiles/default profiles/default.backup
 cornix pull
 ```
+
+The keyboard holds no names, so in the settings read again the names and descriptions of layers and macros, notes, `Shortcut('name')` references and file names go back to their defaults. Bring back what you need from the directory you moved aside.
+If you only want to see how the settings differ from the keyboard, `cornix status` is enough.
 
 ## Writing the settings files
 
@@ -242,24 +258,22 @@ Notes stay only in the settings files and are never written to the keyboard. `ke
 ### Macros
 
 ```yaml
-# profiles/default/macros/00_bracket_pair.yaml
-name: Bracket Pair
-description: "Type [] and move the cursor back inside"
-index: 0
+# profiles/default/macros/01_curly_bracket_pair.yaml
+name: Curly Bracket Pair
+description: "Type {} and move the cursor back inside"
+index: 1
 sequence:
-  - action: tap            # tap in order (a single key can be keys: A)
-    keys: ["[", "]"]
   - action: down           # press (several keys at once)
     keys: LShift
+  - action: tap            # tap in order (a single key can be written as keys: Left)
+    keys: ["[", "]"]
   - action: up             # release
     keys: LShift
-  - action: text           # type a string (ASCII only)
-    content: "()"
-  - action: delay          # wait (milliseconds)
-    duration: 100
   - action: tap
     keys: Left
 ```
+
+There are also `action: text`, which types a string (`content:`, ASCII only), and `action: delay`, which waits (`duration:` in milliseconds).
 
 ### Tap dances
 
@@ -297,7 +311,7 @@ vial:
   combo_timing_window: 50
 ```
 
-The available names and value widths are in [data/qmk_settings.yaml](data/qmk_settings.yaml).
+The available names and value widths are in [data/qmk_settings.yaml](data/qmk_settings.yaml). Settings you leave out keep their current values on the keyboard.
 
 ### Referring to macros and tap dances
 
@@ -332,7 +346,7 @@ mapping:
       W: Shortcut('Next Tab')
 ```
 
-- `Shortcut('name')` becomes exactly the keycode it defines. It also works inside function arguments (`LT1(Shortcut('name'))`)
+- `Shortcut('name')` becomes exactly the keycode it defines. It also works inside function arguments (`LT1(Shortcut('name'))`) when the definition is a key allowed there (a basic key for `LT1`)
 - A name that is not defined is a validation error. `Shortcut(...)` cannot be used in the values of `shortcuts.yaml` or inside macros
 - `pull` does not create `shortcuts.yaml`; you write it yourself
 
@@ -397,13 +411,14 @@ YAML decides the type of unquoted values automatically, so **always quote** the 
 
 | What you want | Correct form | Without quotes |
 |---|---|---|
-| The digit key `1` | `"1"` | becomes the integer 1 |
-| Symbol keys such as `!` `[` `]` `-` | `"!"` `"["` | parsed as YAML syntax and fails |
-| `yes` `no` `on` `off` | quote them | become booleans |
+| The digit key `1` | `"1"` | read **without an error** as the keycode value 0x0001 (= `Trans`) |
+| A lone `!` | `"!"` | read **without an error** as empty (unassigned) |
+| Symbol keys such as `[` `]` `-` | `"["` | a YAML syntax error |
+| `yes` `no` `on` `off` | quote them | become booleans (validate reports them with how to rewrite them) |
 
 When the symbol is in the middle of a string, as in `Command + Shift + [`, quotes are not needed.
 Inside a one-line mapping such as `{ push: ..., ccw: ... }`, however, quote values that contain `[`, `]`, `,` and the like.
-`cornix validate` reports such mistakes together with how to rewrite them.
+Mistakes with digits and `!` are not caught by validate, so check the differences with `cornix status` before writing.
 
 ## Validating the settings
 
@@ -419,12 +434,12 @@ cornix validate
 
 (The messages say the keycode "Spce" is unknown, and `capz` is not a key in `left_hand.row1` of the position map.)
 
-- Problems are collected all at once and shown as "file: location: message" (exit code 1). `status` / `apply` run the same checks first
+- Problems are collected without stopping and shown as "file: location: message" (exit code 1). Fixing mistakes in the shape of groups or files can reveal more. `status` / `apply` run the same checks first
 - The file format (YAML syntax, fields, keycodes, key names, number ranges) is checked first; once that passes, the whole setup (limits, duplicate numbers and names, reference targets, layer numbers) is checked
 - Limits: 10 layers, 32 macros, 32 tap dances, 32 combos, 4 trigger keys per combo
 - If there are only warnings (`⚠  Warning: …`), it continues
 
-### Naming (`rename`)
+## Naming (`rename`)
 
 ```bash
 cornix rename
@@ -432,19 +447,21 @@ cornix rename
 
 Claude reads the macros, tap dances, combos and layers that still have default names (`Macro N`, `TapDance N`, `Combo N`, `Layer N`) and suggests names, descriptions and file names.
 For each one you choose `Y` (accept) / `n` (skip) / `e` (edit); it then takes a backup (such as `profiles/default.backup_<timestamp>/`), applies them all at once,
-and updates references such as `Macro('old name')`. It checks that the settings' values did not change, and rolls back if they did.
+and updates references by name such as `Macro('old name')` (references by number such as `Macro(3)` / `TD(2)` and the numbers in file names are not changed). It checks that the settings' values did not change, and rolls back if they did.
+
+Without `claude`, you can name them by hand with `ruby bin/rename_file --config-dir profiles/default ...` (see `ruby bin/rename_file --help`).
 
 ## Backups and restoring
 
-Before writing, `apply` and `restore` save the keyboard's state as a timestamped .vil in `<tmp>/device_backups/`.
+Before writing, `apply` and `restore` save the keyboard's state as a timestamped .vil (such as `20261019-010203.vil`) in `<tmp>/device_backups/`.
 `<tmp>` is the working directory of each settings directory: `tmp/profiles/default/` for `profiles/default/` (`tmp/` is not tracked by Git).
 
 ```bash
-cornix restore                                                       # go back to the last backup (the state before the last apply)
-cornix restore tmp/profiles/default/device_backups/<timestamp>.vil   # go back to the given backup
+cornix restore                       # go back to the newest backup (usually the state before the last apply)
+cornix restore 20261019-010203       # go back to the given backup (a file name or a path)
 ```
 
-- It shows the differences from the last backup taken and writes after confirmation
+- It shows the differences from the target and writes after confirmation. A backup taken with `cornix device backup` also counts as the newest backup
 - `restore` also backs up the current state before writing, so running `restore` again right away returns to the state before the restore
 - `restore` only changes the keyboard. Use Git to restore the settings files
 
@@ -549,6 +566,7 @@ cd ../cornix-default-keymap && cornix validate
 ```
 
 Point `--root` at the directory that contains `.cornix.yml` (this repository, if you keep your settings here).
+If you keep the settings in a separate repository, run `claude mcp add cornix-device -- ruby /path/to/cornix-layout/bin/cornix mcp --root "$PWD"` in that directory to register it with Claude Code.
 
 | Tool | Writes | Description |
 |---|---|---|
@@ -558,7 +576,7 @@ Point `--root` at the directory that contains `.cornix.yml` (this repository, if
 | `apply_layout` | Only with `dry_run: false` | Writes a .vil (default: the output of `cornix compile`). A dry run by default, returning the differences and a `confirm_token`; writes only with `dry_run: false` and the `confirm_token` |
 | `restore_backup` | Only with `dry_run: false` | Goes back to a backup, with the same two steps as `apply_layout` |
 
-`apply_layout` reads a .vil, so run `cornix compile` before writing your settings (see [Using Vial](#using-vial-compile--decompile)).
+`apply_layout` writes the `<tmp>/build/layout.vil` last written by `cornix status` / `apply` (or `compile`). After changing the YAML, run `cornix status` first.
 If the keyboard or the file changes after the review, the token no longer matches and the write is refused. Even when you let an AI assistant write, always ask it to show you the dry run result first.
 
 ## Safety mechanisms
@@ -610,13 +628,8 @@ cornix compile                              # validate, then write <tmp>/build/l
 | Command | Description |
 |---|---|
 | `compile [-o FILE]` | Validates the settings and writes a .vil (default `<tmp>/build/layout.vil`). `status` / `apply` do this internally |
-| `decompile [FILE]` | Turns a layout.vil into YAML in the current settings directory (default `<tmp>/layout.vil`). Stops if there are settings already |
+| `decompile [FILE]` | Turns a layout.vil into YAML in the current settings directory (default `<tmp>/layout.vil`). Stops if there are settings already (same as [When `pull` stops](#when-pull-stops)) |
 | `cleanup [-f]` | Deletes the settings directory and the compile output. With the `.decompile.lock` that init / decompile create, it needs `-f` (and a confirmation) |
-| `device info` | Information about the connected keyboard |
-| `device read [-o FILE]` | Prints the keyboard's state in layout.vil format |
-| `device backup` | Saves the keyboard's state to `<tmp>/device_backups/` |
-| `device diff [FILE]` / `device apply [FILE] [--yes]` | Shows the differences between the given .vil and the keyboard / writes it (default: the compile output) |
-| `device restore [BACKUP] [--yes]` | Same as `restore` |
 
 decompile → compile reproduces the original 16-bit values, so you can bring over a setup made in Vial as it is.
 

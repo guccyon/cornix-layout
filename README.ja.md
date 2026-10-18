@@ -28,6 +28,7 @@ Vial で読み書きしたいときは、`layout.vil` との相互変換もで�
 - [キーの書き方](#キーの書き方)
 - [YAML の注意](#yaml-の注意)
 - [設定ファイルの検証](#設定ファイルの検証)
+- [名前を付ける（rename）](#名前を付けるrename)
 - [バックアップと元に戻す](#バックアップと元に戻す)
 - [設定の置き場所と利用の形](#設定の置き場所と利用の形)
 - [MCP サーバーとして使う](#mcp-サーバーとして使う)
@@ -35,6 +36,7 @@ Vial で読み書きしたいときは、`layout.vil` との相互変換もで�
 - [トラブルシューティング](#トラブルシューティング)
 - [Vial を使う場合（compile / decompile）](#vial-を使う場合compile--decompile)
 - [開発者向け](#開発者向け)
+- [注意](#注意)
 
 ## 対応しているもの
 
@@ -62,6 +64,8 @@ cd cornix-layout
 bundle install
 ```
 
+このまま `cornix init` すると、設定は Git の管理外になります（`.gitignore` で外しています）。設定を Git で管理するなら、フォークするか、設定を別のリポジトリに置きます（[利用の形](#利用の形)）。
+
 `cornix` コマンドとして使いたいときは、`bin/cornix` への symlink を PATH の通ったディレクトリに置きます（`ruby bin/cornix <コマンド>` でも実行できます）。
 
 ```bash
@@ -71,7 +75,7 @@ cornix help             # コマンドの一覧（cornix help <コマンド> で
 
 ### 2. 設定を作る（`init`）
 
-Cornix を Mac と Bluetooth（または USB）でつないでから実行します。
+Cornix を Mac と Bluetooth（または USB）でつなぎ、`cornix device info` で接続を確かめてから実行します。
 
 ```bash
 cornix init
@@ -97,7 +101,7 @@ cornix init
 cornix status
 ```
 
-キーボードの今の状態と比べて、書き込まれる変更を表示します（書き込みはしません）。差分がなければ終了コード 0、差分があれば 2 で終わります。
+キーボードの今の状態と比べて、書き込まれる変更を表示します（キーボードには書き込みません）。差分がなければ終了コード 0、差分があれば 2 で終わります。
 
 ### 5. 書き込む（`apply`）
 
@@ -106,13 +110,12 @@ cornix apply           # 差分を表示し、[y/N] で確認してから書き�
 cornix apply --yes     # 確認を省略する
 ```
 
-書き込みの前にキーボードの状態をバックアップし、変わったところだけを書き込んで、最後に読み直して一致を確かめます。
-設定に誤りがあると、キーボードに触れずに止まります。
+書き込む前のバックアップや確かめ方は [安全のための仕組み](#安全のための仕組み) にあります。
 
 ### 6. 元に戻す（`restore`）
 
 ```bash
-cornix restore         # 直前の apply の前の状態に戻す（差分を表示し、確認してから書き込む）
+cornix restore         # 直前の apply の前の状態に戻す
 ```
 
 詳しくは [バックアップと元に戻す](#バックアップと元に戻す)。
@@ -134,7 +137,17 @@ cornix <コマンド> [オプション]
 | `rename` | 使わない | Claude の提案を確認しながら、設定ファイルに意味のある名前を付ける |
 | `mcp` | ツールによる | MCP サーバーとして起動する（[MCP サーバーとして使う](#mcp-サーバーとして使う)） |
 
-Vial 用の `compile` / `decompile` / `cleanup` と、ファイルを指定して読み書きする `cornix device` は [Vial を使う場合](#vial-を使う場合compile--decompile) にあります。
+`cornix device` では、ファイルを指定して読み書きできます。
+
+| サブコマンド | 内容 |
+|---|---|
+| `device info` | 接続中のキーボードの情報 |
+| `device read [-o FILE]` | キーボードの状態を layout.vil 形式で出力する |
+| `device backup` | キーボードの状態を `<tmp>/device_backups/` に保存する |
+| `device diff [FILE]` / `device apply [FILE] [--yes]` | 指定した .vil とキーボードの差分を表示する / 書き込む（既定は compile の出力） |
+| `device restore [BACKUP] [--yes]` | `restore` と同じ |
+
+Vial 用の `compile` / `decompile` / `cleanup` は [Vial を使う場合](#vial-を使う場合compile--decompile) にあります。
 
 共通のオプション（どのコマンドにも、コマンド名の前にも後にも付けられます）:
 
@@ -163,6 +176,9 @@ Vial 用の `compile` / `decompile` / `cleanup` と、ファイルを指定し�
 mv profiles/default profiles/default.backup
 cornix pull
 ```
+
+キーボードには名前がないので、読み直した設定のレイヤーやマクロの名前・説明・注記・`Shortcut('名前')` の参照・ファイル名は既定に戻ります。必要なものは退避したディレクトリから戻してください。
+キーボードとの違いを見たいだけなら `cornix status` で足ります。
 
 ## 設定ファイルの書き方
 
@@ -241,24 +257,22 @@ mapping:
 ### マクロ
 
 ```yaml
-# profiles/default/macros/00_bracket_pair.yaml
-name: Bracket Pair
-description: "[] を入力してカーソルを中に戻す"
-index: 0
+# profiles/default/macros/01_curly_bracket_pair.yaml
+name: Curly Bracket Pair
+description: "{} を入力してカーソルを中に戻す"
+index: 1
 sequence:
-  - action: tap            # 順にタップ（1 キーなら keys: A でもよい）
-    keys: ["[", "]"]
   - action: down           # 押し下げる（複数なら同時に）
     keys: LShift
+  - action: tap            # 順にタップ（1 キーなら keys: Left のように書いてもよい）
+    keys: ["[", "]"]
   - action: up             # 離す
     keys: LShift
-  - action: text           # 文字列を入力（ASCII のみ）
-    content: "()"
-  - action: delay          # 待つ（ミリ秒）
-    duration: 100
   - action: tap
     keys: Left
 ```
+
+ほかに、文字列を入力する `action: text`（`content:` に ASCII の文字列）と、待つ `action: delay`（`duration:` にミリ秒）があります。
 
 ### タップダンス
 
@@ -296,7 +310,7 @@ vial:
   combo_timing_window: 50
 ```
 
-使える名前と値の幅は [data/qmk_settings.yaml](data/qmk_settings.yaml) にあります。
+使える名前と値の幅は [data/qmk_settings.yaml](data/qmk_settings.yaml) にあります。書かなかった項目は、キーボードの今の値のまま変わりません。
 
 ### マクロ・タップダンスの参照
 
@@ -331,7 +345,7 @@ mapping:
       W: Shortcut('次のタブへ')
 ```
 
-- `Shortcut('名前')` は定義したキーコードそのものになります。関数の引数の中（`LT1(Shortcut('名前'))`）でも使えます
+- `Shortcut('名前')` は定義したキーコードそのものになります。関数の引数の中（`LT1(Shortcut('名前'))`）でも、その場所に書けるキー（`LT1` なら基本キー）を定義したときは使えます
 - 定義にない名前は検証エラーです。`shortcuts.yaml` の値とマクロの中では `Shortcut(...)` は使えません
 - `shortcuts.yaml` は `pull` では作られないので、自分で作ります
 
@@ -396,13 +410,14 @@ YAML は引用符のない値の型を自動で決めるので、次のものは
 
 | 書きたいもの | 正しい書き方 | 引用符がないと |
 |---|---|---|
-| 数字のキー `1` | `"1"` | 整数の 1 になる |
-| 記号のキー `!` `[` `]` `-` など | `"!"` `"["` | YAML の文法として解釈されてエラーになる |
-| `yes` `no` `on` `off` | 引用符で囲む | 真偽値になる |
+| 数字のキー `1` | `"1"` | キーコードの値 0x0001（= `Trans`）として、**エラーなしで**読まれる |
+| 記号 1 文字の `!` | `"!"` | 空（割り当てなし）として、**エラーなしで**読まれる |
+| 記号のキー `[` `]` `-` など | `"["` | YAML の文法エラーになる |
+| `yes` `no` `on` `off` | 引用符で囲む | 真偽値になる（validate が書き直し方とあわせて教えてくれます） |
 
 `Command + Shift + [` のように、記号が文字列の途中にあるときは引用符なしでも書けます。
 ただし `{ push: ..., ccw: ... }` のような 1 行のマッピングの中では、`[` `]` `,` などを含む値は引用符で囲みます。
-このような誤りは `cornix validate` が書き直し方とあわせて教えてくれます。
+数字と `!` の誤りは validate では見つからないので、書き込む前に `cornix status` の差分で確かめてください。
 
 ## 設定ファイルの検証
 
@@ -416,12 +431,12 @@ cornix validate
   Error: layers/1_symbol.yaml: mapping.left_hand.row1.capz: position_map の left_hand.row1 にないキーです（使えるキー: caps, A, S, D, F, G）
 ```
 
-- 問題は止まらずにすべて集め、「ファイル: 位置: 内容」で表示します（終了コード 1）。`status` / `apply` も同じ検査を先に行います
+- 問題は止まらずに集め、「ファイル: 位置: 内容」で表示します（終了コード 1）。グループやファイルの形の誤りを直すと、さらに見つかることがあります。`status` / `apply` も同じ検査を先に行います
 - 先にファイルの書き方（YAML の文法、項目、キーコード、キーの名前、番号の範囲）を、それが通ってから設定全体（件数の上限、番号・名前の重複、参照先、レイヤー番号）を検査します
 - 件数の上限: レイヤー 10、マクロ 32、タップダンス 32、コンボ 32、コンボのトリガー 4 キー
 - 警告（`⚠  Warning: …`）だけなら続行します
 
-### 名前を付ける（`rename`）
+## 名前を付ける（`rename`）
 
 ```bash
 cornix rename
@@ -429,19 +444,21 @@ cornix rename
 
 既定の名前（`Macro N`・`TapDance N`・`Combo N`・`Layer N`）のマクロ・タップダンス・コンボ・レイヤーを Claude が読んで、名前・説明・ファイル名を提案します。
 1 件ずつ `Y`（承認）/ `n`（スキップ）/ `e`（編集）で選ぶと、バックアップ（`profiles/default.backup_<日時>/` など）を取ってからまとめて変え、
-`Macro('旧名')` などの参照も書き換えます。変更の前後で設定の値が変わっていないことを確かめ、違えば元に戻します。
+`Macro('旧名')` などの名前の参照も書き換えます（番号の参照 `Macro(3)` / `TD(2)` とファイル名の番号は変えません）。変更の前後で設定の値が変わっていないことを確かめ、違えば元に戻します。
+
+`claude` がないときは、`ruby bin/rename_file --config-dir profiles/default ...` で手で名前を付けられます（使い方は `ruby bin/rename_file --help`）。
 
 ## バックアップと元に戻す
 
-`apply` と `restore` は、書き込む前にキーボードの状態を `<tmp>/device_backups/` に日時付きの .vil で保存します。
+`apply` と `restore` は、書き込む前にキーボードの状態を `<tmp>/device_backups/` に日時付きの .vil（`20261019-010203.vil` など）で保存します。
 `<tmp>` は設定ごとの作業用ディレクトリで、`profiles/default/` なら `tmp/profiles/default/` です（`tmp/` は Git の管理外です）。
 
 ```bash
-cornix restore                                                  # 最後のバックアップ（直前の apply の前の状態）に戻す
-cornix restore tmp/profiles/default/device_backups/<日時>.vil   # 指定したバックアップに戻す
+cornix restore                       # いちばん新しいバックアップ（ふつうは直前の apply の前の状態）に戻す
+cornix restore 20261019-010203       # 指定したバックアップに戻す（ファイル名だけでもパスでもよい）
 ```
 
-- 最後に取ったバックアップとの差分を表示し、確認してから書き込みます
+- 戻す先との差分を表示し、確認してから書き込みます。`cornix device backup` で取ったものも「いちばん新しいバックアップ」になります
 - `restore` も書き込み前に今の状態をバックアップするので、続けてもう一度 `restore` すると復元前の状態に戻ります
 - `restore` はキーボードだけを戻します。設定ファイルは Git で戻してください
 
@@ -546,6 +563,7 @@ cd ../cornix-default-keymap && cornix validate
 ```
 
 `--root` には `.cornix.yml` のあるディレクトリ（このリポジトリで設定を管理しているならこのリポジトリ）を指定します。
+設定を別のリポジトリに置いているときは、そのディレクトリで `claude mcp add cornix-device -- ruby /path/to/cornix-layout/bin/cornix mcp --root "$PWD"` を実行すると、Claude Code に登録できます。
 
 | ツール | 書き込み | 内容 |
 |---|---|---|
@@ -555,7 +573,7 @@ cd ../cornix-default-keymap && cornix validate
 | `apply_layout` | `dry_run: false` のときだけ | .vil（既定は `cornix compile` の出力）を書き込む。既定は dry run で差分と `confirm_token` を返し、`dry_run: false` と `confirm_token` を付けたときだけ書き込む |
 | `restore_backup` | `dry_run: false` のときだけ | バックアップに戻す。`apply_layout` と同じ二段階 |
 
-`apply_layout` は .vil を読むので、設定を書き込むときは先に `cornix compile` を実行します（[Vial を使う場合](#vial-を使う場合compile--decompile)）。
+`apply_layout` が書くのは、最後に `cornix status` / `apply`（か `compile`）が書いた `<tmp>/build/layout.vil` です。YAML を変えたら、先に `cornix status` を実行してください。
 確認したあとにキーボードやファイルが変わるとトークンが一致せず、書き込みは拒否されます。AI アシスタントに任せるときも、書き込む前に dry run の結果を見せてもらってください。
 
 ## 安全のための仕組み
@@ -605,13 +623,8 @@ cornix compile                              # 検証してから <tmp>/build/lay
 | コマンド | 内容 |
 |---|---|
 | `compile [-o FILE]` | 設定を検証して .vil を書く（既定は `<tmp>/build/layout.vil`）。`status` / `apply` も内部でこれを行う |
-| `decompile [FILE]` | layout.vil を今の設定ディレクトリの YAML にする（既定は `<tmp>/layout.vil`）。設定がすでにあれば止まる |
+| `decompile [FILE]` | layout.vil を今の設定ディレクトリの YAML にする（既定は `<tmp>/layout.vil`）。設定がすでにあれば止まる（[`pull` が止まるとき](#pull-が止まるとき)と同じ） |
 | `cleanup [-f]` | 設定ディレクトリと compile の出力を消す。init / decompile が作る `.decompile.lock` があると `-f`（と確認）が必要 |
-| `device info` | 接続中のキーボードの情報 |
-| `device read [-o FILE]` | キーボードの状態を layout.vil 形式で出力する |
-| `device backup` | キーボードの状態を `<tmp>/device_backups/` に保存する |
-| `device diff [FILE]` / `device apply [FILE] [--yes]` | 指定した .vil とキーボードの差分を表示する / 書き込む（既定は compile の出力） |
-| `device restore [BACKUP] [--yes]` | `restore` と同じ |
 
 decompile → compile で 16bit 値が元と一致するので、Vial で作った設定をそのまま移せます。
 

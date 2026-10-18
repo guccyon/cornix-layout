@@ -4,6 +4,7 @@
 # 引数付きのキーコード（LSFT(kc), LT(n, kc), MO(n), TD(n), M0 など）はここに書かず、
 # Cornix::Mapping::KeycodeCodec の定数で組み立てる。
 # shifted は入力専用の名前（KC_EXLM など）。.vil には LSFT(KC_1) の形で書く。
+# shifted の qmk は QMK の長い名前（KC_LEFT_PAREN など。旧コードのマクロ text 展開が書き出していた）。
 # 元データ: vial-gui の keycodes.py / keycodes_v6.py から抽出した表（実機 560 キーで一致を確認済み）
 special:
   - { code: 0x0000, name: KC_NO }
@@ -194,27 +195,27 @@ basic:
   - { code: 0x00E6, name: KC_RALT, qmk: [KC_ALGR, KC_ROPT] }
   - { code: 0x00E7, name: KC_RGUI, qmk: [KC_RCMD, KC_RWIN] }
 shifted:
-  - { code: 0x021E, name: KC_EXLM }
+  - { code: 0x021E, name: KC_EXLM, qmk: [KC_EXCLAIM] }
   - { code: 0x021F, name: KC_AT }
   - { code: 0x0220, name: KC_HASH }
-  - { code: 0x0221, name: KC_DLR }
-  - { code: 0x0222, name: KC_PERC }
-  - { code: 0x0223, name: KC_CIRC }
-  - { code: 0x0224, name: KC_AMPR }
-  - { code: 0x0225, name: KC_ASTR }
-  - { code: 0x0226, name: KC_LPRN }
-  - { code: 0x0227, name: KC_RPRN }
-  - { code: 0x022D, name: KC_UNDS }
+  - { code: 0x0221, name: KC_DLR, qmk: [KC_DOLLAR] }
+  - { code: 0x0222, name: KC_PERC, qmk: [KC_PERCENT] }
+  - { code: 0x0223, name: KC_CIRC, qmk: [KC_CIRCUMFLEX] }
+  - { code: 0x0224, name: KC_AMPR, qmk: [KC_AMPERSAND] }
+  - { code: 0x0225, name: KC_ASTR, qmk: [KC_ASTERISK] }
+  - { code: 0x0226, name: KC_LPRN, qmk: [KC_LEFT_PAREN] }
+  - { code: 0x0227, name: KC_RPRN, qmk: [KC_RIGHT_PAREN] }
+  - { code: 0x022D, name: KC_UNDS, qmk: [KC_UNDERSCORE] }
   - { code: 0x022E, name: KC_PLUS }
-  - { code: 0x022F, name: KC_LCBR }
-  - { code: 0x0230, name: KC_RCBR }
+  - { code: 0x022F, name: KC_LCBR, qmk: [KC_LEFT_CURLY_BRACE] }
+  - { code: 0x0230, name: KC_RCBR, qmk: [KC_RIGHT_CURLY_BRACE] }
   - { code: 0x0231, name: KC_PIPE }
-  - { code: 0x0233, name: KC_COLN }
-  - { code: 0x0234, name: KC_DQUO }
-  - { code: 0x0235, name: KC_TILD }
-  - { code: 0x0236, name: KC_LT }
-  - { code: 0x0237, name: KC_GT }
-  - { code: 0x0238, name: KC_QUES }
+  - { code: 0x0233, name: KC_COLN, qmk: [KC_COLON] }
+  - { code: 0x0234, name: KC_DQUO, qmk: [KC_DOUBLE_QUOTE] }
+  - { code: 0x0235, name: KC_TILD, qmk: [KC_TILDE] }
+  - { code: 0x0236, name: KC_LT, qmk: [KC_LEFT_ANGLE_BRACKET, KC_LABK] }
+  - { code: 0x0237, name: KC_GT, qmk: [KC_RIGHT_ANGLE_BRACKET, KC_RABK] }
+  - { code: 0x0238, name: KC_QUES, qmk: [KC_QUESTION] }
 quantum:
   - { code: 0x7000, name: MAGIC_SWAP_CONTROL_CAPSLOCK, qmk: [CL_SWAP] }
   - { code: 0x7001, name: MAGIC_UNSWAP_CONTROL_CAPSLOCK, qmk: [CL_NORM] }

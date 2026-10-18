@@ -46,7 +46,7 @@ module Cornix
           @input = input
         end
 
-        # → 終了コード（0 = 成功、1 = エラー）
+        # → 終了コード（0 = 成功、1 = エラー、2 = status で差分あり）
         def run(argv)
           args = argv.dup
           name = args.shift
@@ -86,6 +86,8 @@ module Cornix
             コマンド:
             #{lines.join("\n")}
               #{'help'.ljust(width)}  使い方を表示する（cornix help <コマンド> で詳しく）
+
+            終了コード: 0 = 成功、1 = エラー、2 = 差分あり（status）
           TEXT
         end
       end

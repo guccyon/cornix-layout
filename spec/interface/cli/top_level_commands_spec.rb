@@ -40,12 +40,21 @@ RSpec.describe 'cornix pull / status / apply / restore' do
   end
 
   describe 'status' do
-    it 'compile してから、その出力とキーボードの差分を表示する（書き込みなし）' do
-      expect(cornix('status')).to eq(0)
+    it 'compile してから、その出力とキーボードの差分を表示する（書き込みなし。差分があれば exit 2）' do
+      expect(cornix('status')).to eq(2)
       expect(compiled).to eq([env.layout_path])
       expect(out.string).to start_with('🔍 Validating configuration...')
       expect(out.string).to end_with("✓ Compiled: #{env.layout_path}\n\n差分 1 件:\n  - レイヤー1 (0,1): KC_NO → KC_BSPACE\n")
       expect(device.writes).to be_empty
+    end
+
+    context '差分がなければ' do
+      let(:edit) { ->(_v) {} }
+
+      it 'exit 0' do
+        expect(cornix('status')).to eq(0)
+        expect(out.string).to end_with("✓ キーボードとの差分はありません\n")
+      end
     end
 
     it '検証に失敗したらキーボードを開かずに exit 1' do
@@ -115,10 +124,16 @@ RSpec.describe 'cornix pull / status / apply / restore' do
       expect(device.writes).to be_empty
     end
 
-    it 'config/ にすでに設定があれば decompile と同じく止まる' do
+    it 'config/ にすでに設定があれば、キーボードを開かず tmp/layout.vil も書き換えずに止まる' do
       cornix('pull')
+      File.write(env.decompile_input, 'mine')
+      opens.clear
       expect(cornix('pull')).to eq(1)
-      expect(out.string).to include('config/ directory already contains configuration files')
+      expect(out.string).to include('config/ directory already contains configuration files',
+                                    'pull has been blocked', "cornix pull\n")
+      expect(out.string).not_to include('decompile')
+      expect(opens).to be_empty
+      expect(File.read(env.decompile_input)).to eq('mine')
     end
   end
 end

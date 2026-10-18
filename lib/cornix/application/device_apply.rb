@@ -14,7 +14,7 @@ module Cornix
     # - 書き込む前に現在の状態を BackupStore に保存する（失敗時のメッセージにもそのパスが入る）
     class DeviceApply < UseCase
       def call(vil_path: nil, expected_token: nil, confirm: nil)
-        source = vil_path || env.layout_path
+        source = vil_path || compiled_vil
         target = env.vil_file.read(source)
         env.open_device do |session|
           current, plan = plan_for(session, target)

@@ -63,6 +63,13 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
       expect(out.string).to include('差分 1 件:')
     end
 
+    it 'diff / apply は FILE を省略して compile の出力がなければ、compile を案内して exit 1' do
+      expect(cornix('diff')).to eq(1)
+      expect(err.string).to include(env.layout_path, '先に cornix compile')
+      expect(cornix('apply', '--yes')).to eq(1)
+      expect(opens).to be_empty
+    end
+
     it 'apply --yes は確認せずに書き込み、読み戻して検証する' do
       expect(cornix('apply', vil, '--yes')).to eq(0)
       expect(device.keymap[1][0][1]).to eq(0x2A)

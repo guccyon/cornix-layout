@@ -150,6 +150,17 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
       expect(File).not_to exist(env.layout_path)
     end
 
+    it 'compile の出力が root の外なら、消したものは絶対パスで示す' do
+      outside = Dir.mktmpdir
+      path = File.join(outside, 'out.vil')
+      File.write(path, '{}')
+      e = Cornix::Application::Environment.new(root: "#{@root}/", layout_path: path)
+      expect(described_class.new(e).call.deleted).to eq([path])
+      expect(File).not_to exist(path)
+    ensure
+      FileUtils.rm_rf(outside)
+    end
+
     it 'ロックがあれば force でなければ消さず、force なら confirm が真のときだけ消す' do
       Cornix::Application::Decompile.new(env).call(input: File.join(fixtures, 'layout.vil'))
       result = cleanup.call

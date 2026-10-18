@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'pathname'
 require_relative 'use_case'
 
 module Cornix
@@ -28,9 +29,17 @@ module Cornix
         end
         if has_layout
           FileUtils.rm_f(env.layout_path)
-          deleted << env.layout_path.delete_prefix("#{env.root}/")
+          deleted << display_path(env.layout_path)
         end
         CleanupResult.new(status: :cleaned, lock: lock, deleted: deleted)
+      end
+
+      private
+
+      # root の中なら root からの相対パス、外なら絶対パス
+      def display_path(path)
+        relative = Pathname(path).expand_path.relative_path_from(Pathname(env.root).expand_path).to_s
+        relative.start_with?('..') ? File.expand_path(path) : relative
       end
     end
   end

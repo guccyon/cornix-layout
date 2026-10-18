@@ -21,7 +21,7 @@ module Cornix
               cornix device backup            キーボードの状態を tmp/device_backups/ に保存
               cornix device diff [FILE]       .vil とキーボードの差分を表示（書き込みなし。FILE の既定は compile の出力）
               cornix device apply [FILE]      差分を確認してキーボードへ書き込む（FILE の既定は compile の出力。--yes で確認を省略）
-              cornix device restore [FILE]    最後のバックアップ（直前の apply の前の状態）に戻す（--yes で確認を省略）
+              cornix device restore [BACKUP]  最後のバックアップ（直前の apply の前の状態）に戻す（--yes で確認を省略）
           USAGE
 
           def self.help = "#{summary}\n\n#{USAGE}"

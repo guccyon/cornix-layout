@@ -8,7 +8,7 @@ module Cornix
     # token は DeviceApply の expected_token に渡す確認トークン
     class DeviceDiff < UseCase
       def call(vil_path: nil)
-        source = vil_path || env.layout_path
+        source = vil_path || compiled_vil
         target = env.vil_file.read(source)
         plan = env.open_device { |session| plan_for(session, target).last }
         plan_result(source, plan)

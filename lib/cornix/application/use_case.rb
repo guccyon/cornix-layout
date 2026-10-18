@@ -31,6 +31,14 @@ module Cornix
         [current, planner(session).plan(current: current, target: target)]
       end
 
+      # 省略時の目標（compile の出力）。まだ compile していなければ案内つきの ConfigError
+      def compiled_vil
+        path = env.layout_path
+        return path if File.file?(path)
+
+        raise ConfigError.new('がありません。先に cornix compile（または cornix status / apply）を実行してください', path: path)
+      end
+
       def plan_result(source, plan)
         PlanResult.new(source: source, plan: plan, changes: describe(plan.changes), warnings: plan.warnings)
       end

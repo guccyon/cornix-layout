@@ -33,6 +33,15 @@ RSpec.describe 'cornix compile / decompile / validate / cleanup / rename' do
       expect(image(env.layout_path)).to eq(image(File.join(fixtures, 'authors_baseline.vil')))
     end
 
+    it '-o はカレントからの相対パスも受け付け、ない親ディレクトリは作り、絶対パスで表示する' do
+      install_config('authors_config')
+      Dir.chdir(@root) { expect(cornix('compile', '-o', 'out/new/my.vil')).to eq(0) }
+      path = File.join(File.realpath(@root), 'out', 'new', 'my.vil')
+      expect(out.string).to end_with("✓ Compilation completed: #{path}\n")
+      expect(image(path)).to eq(image(File.join(fixtures, 'authors_baseline.vil')))
+      expect(File).not_to exist(env.layout_path)
+    end
+
     it '検証に失敗したら書かずに exit 1' do
       install_config
       File.write(config_file('metadata.yaml'), "- 1\n")

@@ -316,7 +316,7 @@ cornix compile              # writes tmp/build/layout.vil
 cornix compile -o my.vil    # choose the output file
 ```
 
-compile validates first; if there are problems it exits without writing a .vil (exit code 1). Use `cornix validate` to only validate. Load the generated `tmp/build/layout.vil` in Vial, or write it directly with `cornix apply` (next section). `cornix device diff` / `device apply` also use this output when no file is given.
+compile validates first; if there are problems it exits without writing a .vil (exit code 1). Use `cornix validate` to only validate. Load the generated `tmp/build/layout.vil` in Vial, or write it directly with `cornix apply` (next section). `cornix device diff` / `device apply` also use this output when no file is given (if you haven't compiled yet, they exit and tell you to compile first). A relative `-o` path is resolved from the current directory.
 
 Errors such as a wrong command or an unreadable file are printed to standard error as `エラー: …` (Japanese for "Error:") and the command exits with code 1.
 
@@ -333,7 +333,8 @@ cornix apply                    # compile, show differences and write after conf
 cornix restore [BACKUP]         # restore a backup (default: the state before the last apply. = device restore)
 ```
 
-- Like decompile, `pull` stops without overwriting if `config/` already contains a configuration (the keyboard state is still saved to tmp/layout.vil)
+- Like decompile, `pull` stops without overwriting if `config/` already contains a configuration (in that case it does not read the keyboard and leaves `tmp/layout.vil` untouched). Otherwise it overwrites `tmp/layout.vil` with the keyboard state
+- `status` exits with code 2 when there are differences (0 when there are none, 1 on errors)
 
 Use `cornix device` to read and write specific files.
 
@@ -343,7 +344,7 @@ cornix device read -o now.vil   # save the keyboard's current state in layout.vi
 cornix device backup            # save a timestamped copy under tmp/device_backups/
 cornix device diff [FILE]       # show differences between a .vil and the keyboard (no writes. FILE defaults to the compile output)
 cornix device apply [FILE]      # show differences and write after confirmation (--yes skips it)
-cornix device restore [FILE]    # restore the last backup (the state before the last apply)
+cornix device restore [BACKUP]  # restore the last backup (the state before the last apply)
 ```
 
 `apply` automatically takes a backup before writing, writes only the changed keys, encoders, tap dances, combos, macros, and settings, then reads them back to verify.

@@ -314,7 +314,7 @@ cornix compile              # tmp/build/layout.vil に書く
 cornix compile -o my.vil    # 出力先を指定する
 ```
 
-compile は先に検証を行い、問題があれば .vil を書かずに終了します（終了コード 1）。検証だけを行うときは `cornix validate` を使います。生成した `tmp/build/layout.vil` は Vial で読み込むか、`cornix apply` で直接反映します（次の節）。`cornix device diff` / `device apply` もファイルを省略するとこの出力を使います。
+compile は先に検証を行い、問題があれば .vil を書かずに終了します（終了コード 1）。検証だけを行うときは `cornix validate` を使います。生成した `tmp/build/layout.vil` は Vial で読み込むか、`cornix apply` で直接反映します（次の節）。`cornix device diff` / `device apply` もファイルを省略するとこの出力を使います（まだ compile していなければ、先に compile するよう案内して終了します）。`-o` の相対パスはカレントディレクトリからです。
 
 コマンドの誤りや読めないファイルなどのエラーは、標準エラー出力に `エラー: …` の形で表示し、終了コード 1 で終わります。
 
@@ -331,7 +331,8 @@ cornix apply                    # compile して、差分を表示し、確認�
 cornix restore [BACKUP]         # バックアップ（既定は直前の apply の前の状態）に戻す（= device restore）
 ```
 
-- `pull` は decompile と同じく、`config/` にすでに設定があると上書きせずに止まります（キーボードの状態は tmp/layout.vil に保存されます）
+- `pull` は decompile と同じく、`config/` にすでに設定があると上書きせずに止まります（このときはキーボードを読まず、`tmp/layout.vil` も書き換えません）。設定がなければ `tmp/layout.vil` をキーボードの状態で上書きします
+- `status` は差分があると終了コード 2 で終わります（差分がなければ 0、エラーは 1）
 
 ファイルを指定して読み書きするときは `cornix device` を使います。
 
@@ -341,7 +342,7 @@ cornix device read -o now.vil   # キーボードの現在の状態を layout.vi
 cornix device backup            # tmp/device_backups/ に日時付きで保存
 cornix device diff [FILE]       # .vil とキーボードの差分を表示（書き込みなし。FILE の既定は compile の出力）
 cornix device apply [FILE]      # 差分を表示し、確認後に書き込む（--yes で確認を省略）
-cornix device restore [FILE]    # 最後のバックアップ（直前の apply の前の状態）に戻す
+cornix device restore [BACKUP]  # 最後のバックアップ（直前の apply の前の状態）に戻す
 ```
 
 `apply` は書き込みの前に自動でバックアップを取り、変更のあったキー・エンコーダ・タップダンス・コンボ・マクロ・設定だけを書き込み、読み戻して一致を確認します。

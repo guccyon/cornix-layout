@@ -12,10 +12,11 @@ module Cornix
         class Compile < Command
           include ConfigMessages
 
-          command 'compile', 'config/ の YAML を検証して .vil を書く（既定は tmp/build/layout.vil）', args: '[-o FILE]'
+          command 'compile', 'config/ の YAML を検証して .vil を書く（既定は tmp/build/layout.vil。-o はカレントからの相対パスも可）',
+                  args: '[-o FILE]'
 
           def run(args)
-            _, opts = parse!(args) { |p, o| p.on('-o FILE', '出力先') { |f| o[:output] = f } }
+            _, opts = parse!(args) { |p, o| p.on('-o FILE', '出力先') { |f| o[:output] = File.expand_path(f) } }
             result = compile_config(output: opts[:output]) or return FAILURE
 
             out.line("\n✓ Compilation completed: #{result.path}")

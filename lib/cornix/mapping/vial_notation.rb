@@ -9,6 +9,7 @@ module Cornix
     # 基準は Vial Web（vial.rocks）の中身の vial-gui 0.7.5。Vial GUI は名前を知らない値を読むと黙って KC_NO にするため、
     # それより後に足された名前（LAG(kc) / LAG_T(kc)）と、Cornix の枠（Domain::Capabilities::CORNIX）を超える
     # レイヤー・マクロ（MO(10) / LT10(kc) / M32 など。Vial GUI は枠の数だけ名前を作る）は 16 進で書く。
+    # 名前付きのキー（MAGIC_TOGGLE_GUI、USER16〜 など）は data/keycodes.yaml の vial: false で決まる。
     # parse は Vial GUI の AnyKeycode と同じく、名前・QMK 名・MOD_ 定数・数値と、
     # LSFT(KC_A) / LT(1, KC_A) / MT(MOD_LCTL, KC_A) / OSM(MOD_LCTL|MOD_LSFT) / MO(3) / TD(3) / M7 / KC_A|0x200 などの式を受け付ける。
     class VialNotation
@@ -26,7 +27,7 @@ module Cornix
                       .merge(0x0F => 'ALL_T', 0x1D => 'RCAG_T').freeze
 
       # .vil に名前で書くレイヤー・マクロの範囲（Vial GUI が Cornix に接続したときに名前を作る範囲）。
-      # LT は 0〜15 までしか表せない
+      # このツールは Cornix 専用なので枠は Capabilities::CORNIX に固定する。LT は 0〜15 までしか表せない
       NAMED_LAYERS = (0...Domain::Capabilities::CORNIX.layers)
       NAMED_LAYER_TAPS = (0...[Domain::Capabilities::CORNIX.layers, 16].min)
       NAMED_MACROS = (0...Domain::Capabilities::CORNIX.macros)

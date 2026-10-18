@@ -69,9 +69,10 @@ module Cornix
       def decompile_lock = Storage::DecompileLock.new(config_dir)
       def claude = @claude ||= ClaudeCli.new
 
-      # Planning::Change を人が読む文字列にする（キーコードは .vil と同じ Vial の表記）
+      # Planning::Change を人が読む文字列にする（キーコードは .vil と同じ Vial の表記。
+      # .vil で 16 進になる値（LAG(kc)・M32〜 など Vial Web が読めない名前）は設定ファイルの表記にする）
       def describer
-        @describer ||= Device::ChangeDescriber.new(catalog: catalog, formatter: vial.method(:format_code))
+        @describer ||= Device::ChangeDescriber.new(catalog: catalog, formatter: method(:describe_keycode))
       end
 
       # デバイスを開いて { |session| } を呼び、ブロックの戻り値を返す
@@ -81,6 +82,16 @@ module Cornix
         result = nil
         @device_opener.call { |session, *| result = block.call(session) }
         result
+      end
+
+      private
+
+      def describe_keycode(code)
+        text = vial.format_code(code)
+        return text unless text.start_with?('0x')
+
+        named = notation.format(codec.decode(code))
+        named.start_with?('0x') ? text : named
       end
     end
   end

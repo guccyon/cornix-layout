@@ -64,7 +64,8 @@ RSpec.describe Cornix::Mapping::VialNotation do
         next if (0x7780..0x77FF).cover?(code)
 
         expected = OLD_CODES[code][0]
-        next if !expected.start_with?('0x') && !VIAL_GUI_CODES.key?(code)
+        hexed = !VIAL_GUI_CODES.key?(code) # vial-gui 0.7.5 が名前を持たないので 16 進にした値
+        next if hexed && !expected.start_with?('0x')
 
         actual = vial.format_code(code)
         "0x#{format('%04X', code)}: 旧 #{expected} / 新 #{actual}" unless actual == expected

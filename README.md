@@ -50,7 +50,7 @@ Some of the command output, including many error messages, is currently in Japan
 
 ## Requirements
 
-- **Ruby 3.2 or later** (the code uses `Data.define`; CI uses 4.0). Nothing else needs to be installed with Bundler
+- **Ruby 3.2 or later** (the code uses `Data.define`; CI uses 4.0). The tool uses only the standard library, so there are no gems to install (no `bundle install`)
 - **Xcode Command Line Tools** (for talking to the keyboard; install with `xcode-select --install` if `swiftc` is missing)
   - The tool talks to the keyboard through a small Swift program (`ext/cornix_hid/main.swift`). It is built automatically on first use and placed in `tmp/cornix-hid`
 - **Claude Code CLI** (the `claude` command; only for `cornix rename`)
@@ -636,10 +636,8 @@ decompile → compile reproduces the original 16-bit values, so you can bring ov
 
 ## For developers
 
-Only the tests need gems (RSpec). Install them with Bundler first; using the commands does not need this.
-
 ```bash
-bundle install
+bundle install                              # gems for the tests (RSpec)
 LANG=ja_JP.UTF-8 bundle exec rspec          # all tests (no keyboard needed)
 ```
 

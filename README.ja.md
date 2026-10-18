@@ -49,7 +49,7 @@ Vial で読み書きしたいときは、`layout.vil` との相互変換もで�
 
 ## 必要なもの
 
-- **Ruby 3.2 以上**（`Data.define` を使うため。CI は 4.0 系）。Bundler で gem を入れる必要はありません
+- **Ruby 3.2 以上**（`Data.define` を使うため。CI は 4.0 系）。標準ライブラリだけで動くので、gem のインストール（`bundle install`）は要りません
 - **Xcode Command Line Tools**（キーボードとの通信に使います。`swiftc` がなければ `xcode-select --install`）
   - 通信には小さな Swift のプログラム（`ext/cornix_hid/main.swift`）を使います。初めて使うときに自動でビルドされ、`tmp/cornix-hid` に置かれます
 - **Claude Code CLI**（`claude` コマンド。`cornix rename` を使うときだけ）
@@ -631,10 +631,8 @@ decompile → compile で 16bit 値が元と一致するので、Vial で作っ�
 
 ## 開発者向け
 
-gem（RSpec）が要るのはテストだけです。先に Bundler で入れます。コマンドを使うだけなら不要です。
-
 ```bash
-bundle install
+bundle install                              # テスト用の gem（RSpec）を入れる
 LANG=ja_JP.UTF-8 bundle exec rspec          # すべてのテスト（キーボード不要）
 ```
 

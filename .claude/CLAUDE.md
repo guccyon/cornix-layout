@@ -124,6 +124,7 @@ config/             利用者の設定（生成物。main ブランチにはな�
 ## Testing
 
 ```bash
+bundle install                                             # テスト用の gem（RSpec）を入れる
 LANG=ja_JP.UTF-8 bundle exec rspec                         # すべて（キーボード不要）
 LANG=ja_JP.UTF-8 bundle exec rspec spec/mapping            # 層ごと
 LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb # compile / decompile の一致

@@ -5,19 +5,19 @@
 
 ## Quick Links
 
+人にも役立つ設計の文書は `docs/` に置く（一覧: [docs/README.md](../docs/README.md)）。`.claude/` には Claude 向けの開発ルールと作業の知見だけを置く。
+
+- **背景**: [docs/background.md](../docs/background.md)（Cornix と Vial、解決したい問題、用語、layout.vil の構造）
 - **設計**: [docs/architecture.md](../docs/architecture.md)（方針・層と依存の向き・データの流れ・コード規約）
+- **ドメインモデル**: [docs/domain-model.md](../docs/domain-model.md)（Profile と値オブジェクト、Keycode、座標系、意味検証、ProfileMapper の対応、設定ファイル）
 - **契約**: [docs/tasks.md](../docs/tasks.md)（主なクラスの公開メソッド、リファクタの経緯）
-- **座標系**: [architecture/coordinate_system.md](architecture/coordinate_system.md)（論理位置と layout.vil の物理位置）
-- **背景**: [context/project_background.md](context/project_background.md)
-- **Features**:
-  - [Reference System](features/reference_system.md) - Macro / TapDance / Shortcut の参照
-  - [Modifier Expressions](features/modifier_expressions.md) - VS Code 風修飾キー表現
-  - [Rename](features/rename.md) - `cornix rename` と `bin/rename_file`
-  - [Validation](features/validation.md) - 構造検証と意味検証
-  - [Device / MCP](features/device_mcp.md) - キーボード直接操作と MCP サーバー
+- **機能**:
+  - [キーコードの表記](../docs/notation.md) - 修飾キー表現、Macro / TapDance の参照、Shortcut('名前')
+  - [検証](../docs/validation.md) - 構造検証と意味検証
+  - [rename](../docs/rename.md) - `cornix rename` と `bin/rename_file`
+  - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp`、RMK 0.8 の挙動と安全設計
 - **Memories**: [memories/](memories/)
   - [domain_architecture_refactor](memories/domain_architecture_refactor.md) - 作り直しの知見・意図的に変えた振る舞い
-  - [vial_device_protocol](memories/vial_device_protocol.md) - RMK 0.8 / Vial プロトコル
   - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
   - [vial_qmk_settings_restore_issue](memories/vial_qmk_settings_restore_issue.md) - permissive_hold が復元されない件
   - [key_notes](memories/key_notes.md) - 割り当ての注記（`{ key:, note: }`）の持ち方と引き継ぎ
@@ -118,7 +118,7 @@ lib/cornix/
   errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
 ext/cornix_hid/     raw HID ブリッジ（Swift、tmp/cornix-hid にビルド）
 spec/               lib と同じ層の構成 + end_to_end_spec.rb / architecture_spec.rb / fixtures/
-docs/               architecture.md, tasks.md
+docs/               設計文書（README.md が一覧。architecture / domain-model / notation / validation / rename / device / tasks / background）
 config/             利用者の設定（生成物。main ブランチにはない）
 ```
 

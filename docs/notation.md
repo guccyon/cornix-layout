@@ -1,6 +1,48 @@
-# マクロ・タップダンスの参照
+# キーコードの表記
 
-キーの割り当てからマクロ・タップダンスを指す書き方。利用者向けの説明は [README.ja.md](../../README.ja.md) の「マクロ・タップダンスの参照」。
+設定ファイル（`config/*.yaml`）に書くキーコードの文字列と、その解析・書き出しの仕組み。
+文字列 ⇄ `Domain::Keycode` の変換は `Mapping::KeycodeNotation` だけが行う（.vil の表記は `Mapping::VialNotation`）。
+値の型は [domain-model.md](domain-model.md) の「Keycode」を参照。利用者向けの説明は [README.ja.md](../README.ja.md)。
+
+## 修飾キー表現（VS Code 風）
+
+`Cmd + Q` のような表記を修飾キー付きのキーコードにする。利用者向けの説明は [README.ja.md](../README.ja.md) の「修飾キー表現」。
+
+### 実装の場所
+
+- 解析: `Mapping::KeycodeNotation::Parser`（`lib/cornix/mapping/keycode_notation/parser.rb`）
+  - 解釈の順: 文字列全体が別名・QMK 名 → ワンショット名（`OS_LSFT` など。`Modifiers::ONE_SHOT_BITS`）→ 参照 → `M3` → `0xHHHH` → 修飾キー式（`修飾名 +` で始まる）→ 関数形式
+  - 別名を先に見るので、`+`（`LSFT(KC_EQUAL)`）や `LCtrl` のような別名は修飾キー式より優先される
+- 修飾名・修飾関数・MOD_ 定数の表: `Mapping::KeycodeNotation::Modifiers`（`keycode_notation/modifiers.rb`）
+  - `EXPRESSION`（`Cmd` / `Command` / `Option` / `RCtrl` ...）、`FUNCTIONS`（`LCTL`, `C_S`, `SGUI`, `MEH`, `HYPR` ... → ビット）、
+    `FUNCTION_ALIASES`（`LCS` → `C_S`, `LSG` → `SGUI` など）、`MOD_TAP_BITS`、`ONE_SHOT_BITS`、`CONSTANTS`
+- 値: `Domain::ModifierSet`（左右のどちらか一方 + ctrl / shift / alt / gui の 5bit）と `Domain::Keycode::Modified(mods, base)`
+- 16bit 値: `Mapping::KeycodeCodec`（`mods.bits << 8 | base`）
+- 書き出し: `Mapping::KeycodeNotation::Formatter`
+
+### 規則
+
+- 修飾キー式は ModifierSet で組み立てる（文字列で `LCS(...)` などを作らない）。そのため
+  - 修飾キーの順序は値に影響しない
+  - 左右の混在（`Shift + RCmd + A`）は `UnknownKeycode`（「左右の修飾キーは混在できません」）。QMK の 5bit では表せない
+  - 修飾できるのは基本キーだけ（`Cmd + LT(1, Space)` はエラー）
+- .vil には `VialNotation` が Vial の名前で書く（`C_S`, `SGUI`, `LCA`, `LSA`, `MEH`, `LCG`, `LAG`, `LCAG`, `HYPR`, `RCG` ...）。
+  Vial に名前のない組み合わせ（`LCSG`, `LSAG`, 右側の多く）は `0x0B17` のような 16bit 値で書く。
+  旧実装は `LCS(...)` / `LCSG(...)` など Vial が読めない名前を書き、右 Ctrl+Shift+Alt を MEH にしていた（直した）
+- decompile（`Formatter`）の正規形: 別名があれば別名（`LSFT(KC_1)` → `!`）、なければ修飾キー式。
+  順序は `Ctrl, Option, Shift, Command`、右側は `RCtrl, ROption, RShift, RCommand`（`EXPRESSION_ORDER` / `EXPRESSION_FORMAT`）
+- ModTap は `正規名_T(キー)`（`LGUI_T(Lang2)`）、正規名がなければ `MT(MOD_..., キー)`
+- 不変条件 `parse(format(k)) == k` は全 16bit 値で spec が検査する（`spec/mapping/keycode_notation_spec.rb`）
+
+### テスト
+
+- `spec/mapping/keycode_notation_spec.rb`: 表記ごとの値、エラーメッセージ、往復
+- `spec/mapping/keycode_notation_config_spec.rb`: test_config / authors_config の全キーコードが旧コードと同じ値
+  （`spec/fixtures/expected/config_keycodes.yaml`）
+
+## マクロ・タップダンスの参照
+
+キーの割り当てからマクロ・タップダンスを指す書き方。利用者向けの説明は [README.ja.md](../README.ja.md) の「マクロ・タップダンスの参照」。
 
 | 書き方 | マクロ | タップダンス | 値 |
 |---|---|---|---|
@@ -12,7 +54,7 @@
 - `Combo(...)` は .vil のキーに割り当てられないので `UnknownKeycode`（旧実装は受け付けていたが値にできなかった）
 - マクロの `sequence` の中では名前参照を使わない（旧実装と同じ）
 
-## 流れ
+### 流れ
 
 1. `Storage::ConfigLoader` が macros/ と tap_dance/ を先に読み、`name` → `index` の `Mapping::References` を作る
 2. `KeycodeNotation#parse(text, references:)` が `Macro('名前')` を番号にする。見つからなければ
@@ -23,7 +65,7 @@
 
 ## 名前付きショートカット（`Shortcut('名前')`）
 
-nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの説明は [README.ja.md](../../README.ja.md) の「名前付きショートカット」。
+nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの説明は [README.ja.md](../README.ja.md) の「名前付きショートカット」。
 
 - 定義は `config/shortcuts.yaml`（任意）の `shortcuts: { 名前: キーコードの表記 }`。`Domain::ShortcutLibrary`（名前 → Keycode）として
   `Profile#shortcuts` が持つ。デバイス（layout.vil）にはないので、`ProfileMapper#to_profile` は previous のものを引き継ぐ
@@ -38,8 +80,8 @@ nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの
   同じキーコードなら元の書き方のまま書く（整数の値は 16 進の書き方が読み込みで失われるので正規形にする）。YAML のコメントは残らない
 - この書き戻し（`ConfigRepository#save` と `ProfileMapper#to_profile` の previous）は、今は利用者の操作からは使われない
   （decompile は previous を渡さない）。設定を書き戻す機能（pull など）を作るときのための仕組み
-- nape_pro-layout との違い: cornix には割り当ての注記（Assignment）がないので、どの位置が `Shortcut(...)` で書かれていたかは
-  Profile に残らない。書き出すときは値の一致だけで決める
+- nape_pro-layout との違い: cornix の Domain はキーコードを `Assignment` で包まない（注記は別の `notes` に持つ）ので、
+  どの位置が `Shortcut(...)` で書かれていたかは Profile に残らない。書き出すときは値の一致だけで決める
 - マクロの `sequence` の中では使えない（マクロの名前参照と同じ）
 
 ### 同梱のショートカット（`data/shortcuts/`）
@@ -60,11 +102,17 @@ cornixhub（https://cornixhub.com/shortcuts）で共有されているショー�
 - データは cornixhub のページの JS から取り出したもの（2026-10-19）。英語版はなく、ラベルは日本語。アプリ名はサイトの英語表記
   （note は「メモ」と訳されているので note のまま）、訳のないカテゴリ window は「ウィンドウ」にした
 
+## 割り当ての注記（`{ key:, note: }`）
+
+レイヤーのキー・エンコーダの操作、タップダンスの動作、コンボの `output_key` には `{ key: <表記>, note: <注記> }` の形でも書ける。
+注記は設定ファイルにだけあり、compile の結果は変わらない。持ち方は [domain-model.md](domain-model.md) の「注記」を参照。
+
 ## rename での書き換え
 
 `Storage::ConfigEditor#replace_references(function, old_name, new_name)` が config/ のすべての YAML の
 `Macro('旧名')` / `Macro("旧名")` をテキストで置き換える（関数の引数やコンボの出力の中にあっても書き換わる。ほかの書き方は保つ）。
-番号・QMK 形式の参照は名前に依存しないので触らない。置き換え後に compile 結果が変わらないことを `Application::RenameFiles` が確かめる。
+番号・QMK 形式の参照は名前に依存しないので触らない。置き換え後に compile 結果が変わらないことを `Application::RenameFiles` が確かめる
+（詳細は [rename.md](rename.md)）。
 
 ## テスト
 

@@ -1,6 +1,6 @@
 # 検証
 
-`cornix validate` と `cornix compile`（先に検証する）が使う。利用者向けの説明は [README.ja.md](../../README.ja.md) の「設定ファイルの検証」。
+`cornix validate` と `cornix compile`（先に検証する）が使う。利用者向けの説明は [README.ja.md](../README.ja.md) の「設定ファイルの検証」。
 
 ## 2 段階
 

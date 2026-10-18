@@ -67,7 +67,7 @@ vial.parse_code(text) #=> Integer / vial.format_code(Integer) #=> String
 `lib/cornix/domain/` の集約と値オブジェクト。
 
 ```ruby
-Domain::KeyPosition(hand: :left|:right, row:, col:)        # 論理位置（.claude/architecture/coordinate_system.md の論理座標）
+Domain::KeyPosition(hand: :left|:right, row:, col:)        # 論理位置（docs/domain-model.md の「座標系」の論理位置）
 Domain::PositionMap.from_h(hash)                           # position_map.yaml の Hash。形式は現行のまま
   #position(hand_key, group_key, symbol) #=> KeyPosition | nil   # ('left_hand', 'row0', 'tab')
   #symbol(position) #=> [group_key, symbol] | nil

@@ -1,6 +1,6 @@
 # 名前付きショートカット（Shortcut('名前')）の設計判断
 
-- nape_pro-layout の `Shortcut('名前')` を移植した。仕様の詳細は [features/reference_system.md](../features/reference_system.md)
+- nape_pro-layout の `Shortcut('名前')` を移植した。仕様の詳細は [docs/notation.md](../../docs/notation.md)
 - nape は `Assignment(keycode, label, shortcut)` で「どの位置が Shortcut で書かれたか」を持つが、cornix の Layer は
   位置 → Keycode だけなので持たない。Layer に注記の層を足すと影響が大きく、compile 結果には関係しないため見送った。
   その代わり書き出し（`Formatter`）は「値が定義のちょうど 1 つと一致するか」だけで `Shortcut('名前')` にする

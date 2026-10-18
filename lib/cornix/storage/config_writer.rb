@@ -11,6 +11,8 @@ module Cornix
     # - マクロ・タップダンスへの参照は名前で書く（Macro('名前') / TapDance('名前')。旧は M2 / TD(4)）
     # - settings/qmk_settings.yaml は名前の形で書く（旧は QSID の番号）
     # - キーコードは KeycodeNotation#format の正規形（別名があれば別名）
+    # shortcuts.yaml はショートカットがあるときだけ書く。ショートカットの定義のちょうど 1 つと同じ値は Shortcut('名前') で書き、
+    # shortcuts.yaml の値は既存のファイルと同じキーコードならその書き方のまま残す
     # 既存のファイルは上書きする。書かなかったファイルは消さない（旧 YamlWriter と同じ）
     class ConfigWriter
       def initialize(dir, notation:, settings_catalog:)
@@ -43,7 +45,25 @@ module Cornix
         items(out, :macros, profile.macros) { |macro| Schema::MacroFile.write(macro, macro_keycodes) }
         items(out, :tap_dances, profile.tap_dances) { |td| Schema::TapDanceFile.write(td, keycodes) }
         items(out, :combos, profile.combos) { |combo| Schema::ComboFile.write(combo, keycodes) }
+        shortcuts(out, profile)
         out
+      end
+
+      def shortcuts(out, profile)
+        return if profile.shortcuts.empty?
+
+        # 定義の値に Shortcut('名前') は書けないので、ショートカットを除いた対応表で書く
+        keycodes = Schema::KeycodeField.new(@notation, Mapping::References.new(**profile.references.merge(shortcuts: {})))
+        out[ConfigFiles.single_path(ConfigFiles::SHORTCUTS)] =
+          dump(Schema::ShortcutsFile.write(profile.shortcuts, keycodes, existing(ConfigFiles::SHORTCUTS)))
+      end
+
+      # 既存の 1 つだけのファイルの内容。なければ・読めなければ nil
+      def existing(base)
+        rel = ConfigFiles.single_file(@dir, base) or return nil
+        YamlFile.read(File.join(@dir, rel))
+      rescue YamlFile::Unreadable
+        nil
       end
 
       def items(out, kind, list)

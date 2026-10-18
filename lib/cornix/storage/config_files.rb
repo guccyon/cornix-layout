@@ -7,6 +7,7 @@ module Cornix
     #   metadata.yaml               キーボードの情報（必須）
     #   position_map.yaml           キーの名前と位置の対応（必須）
     #   settings/qmk_settings.yaml  QMK の設定（任意）
+    #   shortcuts.yaml              名前付きショートカット（任意。利用者が作る）
     #   layers/{番号}_{名前}.yaml   レイヤー
     #   macros/{番号 2 桁}_{名前}.yaml、tap_dance/...、combos/...
     #
@@ -15,6 +16,7 @@ module Cornix
       METADATA = 'metadata'
       POSITION_MAP = 'position_map'
       SETTINGS = 'settings/qmk_settings'
+      SHORTCUTS = 'shortcuts'
       LAYERS = 'layers'
       MACROS = 'macros'
       TAP_DANCE = 'tap_dance'

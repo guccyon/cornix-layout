@@ -357,4 +357,98 @@ RSpec.describe Cornix::Storage::ConfigRepository do
       expect { repository('x').save({}) }.to raise_error(Cornix::InvalidValue)
     end
   end
+
+  describe '名前付きショートカット（shortcuts.yaml）' do
+    def tab(profile) = profile.position_map.position('left_hand', 'row0', 'tab')
+    def q(profile) = profile.position_map.position('left_hand', 'row0', 'Q')
+
+    def with_shortcuts(dir)
+      write_file(dir, 'shortcuts.yaml', <<~YAML)
+        shortcuts:
+          前のタブへ: Command + Shift + [
+          コピー: Macro('Macro 3')
+      YAML
+      path = File.join(dir, 'layers/0_layer_0.yaml')
+      File.write(path, File.read(path).sub('tab: Tab', "tab: Shortcut('前のタブへ')").sub('Q: Q', "Q: Shortcut('コピー')"))
+    end
+
+    it "Shortcut('名前') を定義のキーコードにし、Profile#shortcuts に定義を持つ（compile の結果は直接書いたときと同じ）" do
+      with_config_copy do |dir|
+        with_shortcuts(dir)
+        profile = repository(dir).load
+        expect(profile.layer(0).key(tab(profile))).to eq(notation.parse('Shift + Command + ['))
+        expect(profile.layer(0).key(q(profile))).to eq(k::MacroCall.new(index: 3))
+        expect(profile.shortcuts.names).to eq(%w[前のタブへ コピー])
+      end
+    end
+
+    it 'タップダンス・コンボ・エンコーダでも使える' do
+      with_config_copy do |dir|
+        with_shortcuts(dir)
+        write_file(dir, 'tap_dance/09_ref.yaml', "name: Ref\nindex: 9\nactions:\n  on_tap: Shortcut('前のタブへ')\n")
+        write_file(dir, 'combos/09_ref.yaml', "name: Ref\nindex: 9\ntrigger_keys: [A, B]\noutput_key: Shortcut('コピー')\n")
+        profile = repository(dir).load
+        expect(profile.tap_dance(9).on_tap).to eq(notation.parse('Shift + Command + ['))
+        expect(profile.combo(9).output_key).to eq(k::MacroCall.new(index: 3))
+      end
+    end
+
+    it 'shortcuts.yaml がなければ空。shortcuts: が空でも空' do
+      expect(repository(StorageHelpers::TEST_CONFIG).load.shortcuts).to be_empty
+      with_config_copy do |dir|
+        write_file(dir, 'shortcuts.yaml', "shortcuts:\n")
+        expect(repository(dir).load.shortcuts).to be_empty
+      end
+    end
+
+    it '定義にない名前の参照・定義の値の Shortcut(...)・解釈できない値・形の誤りは問題になる' do
+      with_config_copy do |dir|
+        write_file(dir, 'shortcuts.yaml', "shortcuts:\n  A: Shortcut('B')\n  B: NoSuchKey\n  1: Tab\n")
+        path = File.join(dir, 'layers/0_layer_0.yaml')
+        File.write(path, File.read(path).sub('tab: Tab', "tab: Shortcut('nope')"))
+        expect(load_problems(dir)).to contain_exactly(
+          "shortcuts.yaml: shortcuts.A: shortcuts.yaml の値には Shortcut(...) は書けません: Shortcut('B')",
+          match(/\Ashortcuts.yaml: shortcuts.B: キーコード「NoSuchKey」を解釈できません/),
+          match(/\Ashortcuts.yaml: shortcuts: .*ショートカットの名前/),
+          match(%r{\Alayers/0_layer_0.yaml: mapping.left_hand.row0.tab: .*ショートカット「nope」は shortcuts.yaml に定義されていません})
+        )
+      end
+      with_config_copy do |dir|
+        write_file(dir, 'shortcuts.yaml', "shortcut:\n  A: Tab\n")
+        expect(load_problems(dir)).to contain_exactly('shortcuts.yaml: shortcut: 未知のキーです（使えるキー: shortcuts）',
+                                                      'shortcuts.yaml: shortcuts がありません')
+      end
+    end
+
+    it 'save は定義のちょうど 1 つと同じ値を Shortcut(\'名前\') で書き、shortcuts.yaml は既存の書き方を残す' do
+      with_config_copy do |dir|
+        with_shortcuts(dir)
+        profile = repository(dir).load
+        Dir.mktmpdir do |out|
+          FileUtils.cp(File.join(dir, 'shortcuts.yaml'), out)
+          repository(out).save(profile)
+          expect(File.read(File.join(out, 'layers/0_layer.yaml')))
+            .to include("tab: Shortcut('前のタブへ')\n", "Q: Shortcut('コピー')\n")
+          expect(File.read(File.join(out, 'shortcuts.yaml'))).to eq(<<~YAML)
+            ---
+            shortcuts:
+              前のタブへ: Command + Shift + [
+              コピー: Macro('Macro 3')
+          YAML
+          expect(repository(out).load).to eq(profile)
+        end
+      end
+    end
+
+    it 'save は新しい定義の値を正規形で書き、ショートカットがなければ shortcuts.yaml を書かない' do
+      profile = repository(StorageHelpers::TEST_CONFIG).load
+      Dir.mktmpdir do |dir|
+        expect(repository(dir).save(profile)).not_to include('shortcuts.yaml')
+        shortcuts = Cornix::Domain::ShortcutLibrary.new(entries: { 'Prev' => notation.parse('Cmd + Shift + [') })
+        written = repository(dir).save(profile.with(shortcuts: shortcuts))
+        expect(written).to include('shortcuts.yaml')
+        expect(File.read(File.join(dir, 'shortcuts.yaml'))).to eq("---\nshortcuts:\n  Prev: Shift + Command + [\n")
+      end
+    end
+  end
 end

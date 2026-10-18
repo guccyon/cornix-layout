@@ -21,6 +21,22 @@
 4. decompile: `Profile#references`（名前 → 番号）から References を作り、`Formatter` が `Macro('名前')` / `TapDance('名前')` を書く。
    名前のない番号は `M2` / `TD(4)`。`'` を含む名前は `"..."` で囲む
 
+## 名前付きショートカット（`Shortcut('名前')`）
+
+nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの説明は README の「名前付きショートカット」。
+
+- 定義は `config/shortcuts.yaml`（任意）の `shortcuts: { 名前: キーコードの表記 }`。`Domain::ShortcutLibrary`（名前 → Keycode）として
+  `Profile#shortcuts` が持つ。デバイス（layout.vil）にはないので、`ProfileMapper#to_profile` は previous のものを引き継ぐ
+- `ConfigLoader` は macros / tap_dance の名前で References を作って shortcuts.yaml を読み（値に Macro('名前') は書ける。
+  `Shortcut(...)` は問題にする）、ショートカットを加えた References でレイヤー・タップダンス・コンボを読む
+- `Parser` は `Shortcut('名前')` を定義の Keycode そのものにする（MacroCall のような参照の値は作らない）。
+  なければ「ショートカット「名前」は shortcuts.yaml に定義されていません」。番号の引数は不可
+- `Formatter` は値が定義の **ちょうど 1 つ** と一致すれば `Shortcut('名前')` で書く（複数一致・references にショートカットがなければふつうの正規形）。
+  `ConfigWriter` は shortcuts.yaml の値を、既存のファイルと同じキーコードなら元の書き方のまま書く
+- nape_pro-layout との違い: cornix には割り当ての注記（Assignment）がないので、どの位置が `Shortcut(...)` で書かれていたかは
+  Profile に残らない。書き出すときは値の一致だけで決める
+- マクロの `sequence` の中では使えない（マクロの名前参照と同じ）
+
 ## rename での書き換え
 
 `Storage::ConfigEditor#replace_references(function, old_name, new_name)` が config/ のすべての YAML の
@@ -29,6 +45,7 @@
 
 ## テスト
 
-- `spec/mapping/keycode_notation_spec.rb`（参照の解析・書き出し）
+- `spec/mapping/keycode_notation_spec.rb`（参照・Shortcut の解析・書き出し）
+- `spec/domain/shortcut_library_spec.rb`, `spec/storage/config_repository_spec.rb`（shortcuts.yaml の読み書き）
 - `spec/domain/profile_diagnostics_spec.rb`（参照先の存在）
 - `spec/storage/config_editor_spec.rb`, `spec/application/rename_spec.rb`（書き換え）

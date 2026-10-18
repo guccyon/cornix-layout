@@ -8,15 +8,18 @@ require_relative 'layer'
 require_relative 'macro'
 require_relative 'tap_dance'
 require_relative 'combo'
+require_relative 'shortcut_library'
 require_relative 'capabilities'
 
 module Cornix
   module Domain
     # 集約ルート。設定ファイル一式（= layout.vil 1 つ）が表すキーボードの状態。
     # layers / macros / tap_dances / combos は渡された順のまま持つ（番号は各要素の index）。
+    # shortcuts は名前付きショートカット（Shortcut('名前') の参照先。設定ファイルにだけあり、デバイスには書かない）。
     # 番号や名前の重複、上限、参照先の存在は #diagnostics で検査する
-    class Profile < Data.define(:metadata, :settings, :position_map, :layers, :macros, :tap_dances, :combos)
-      def initialize(metadata:, settings:, position_map:, layers:, macros: [], tap_dances: [], combos: [])
+    class Profile < Data.define(:metadata, :settings, :position_map, :layers, :macros, :tap_dances, :combos, :shortcuts)
+      def initialize(metadata:, settings:, position_map:, layers:, macros: [], tap_dances: [], combos: [],
+                     shortcuts: ShortcutLibrary::EMPTY)
         super(
           metadata: Checks.instance!(metadata, Metadata, 'メタデータ'),
           settings: Checks.instance!(settings, QmkSettings, 'QMK の設定'),
@@ -24,7 +27,8 @@ module Cornix
           layers: list!(layers, Layer, 'レイヤー'),
           macros: list!(macros, Macro, 'マクロ'),
           tap_dances: list!(tap_dances, TapDance, 'タップダンス'),
-          combos: list!(combos, Combo, 'コンボ')
+          combos: list!(combos, Combo, 'コンボ'),
+          shortcuts: Checks.instance!(shortcuts, ShortcutLibrary, 'ショートカット')
         )
       end
 
@@ -40,9 +44,9 @@ module Cornix
       # タップダンスの名前 => 番号（名前が重複していれば先のもの）
       def tap_dance_names = names_of(tap_dances)
 
-      # 名前参照（Macro('名前') / TapDance('名前')）の対応表。
+      # 名前参照（Macro('名前') / TapDance('名前') / Shortcut('名前')）の対応表。
       # Mapping の References.new(**profile.references) にそのまま渡せる形
-      def references = { macros: macro_names, tap_dances: tap_dance_names }
+      def references = { macros: macro_names, tap_dances: tap_dance_names, shortcuts: shortcuts.entries }
 
       # 意味検証の結果（Diagnostic の一覧）
       def diagnostics(capabilities = Capabilities::CORNIX) = ProfileDiagnostics.new(self, capabilities).call

@@ -10,7 +10,7 @@ module Cornix
       #
       # 解釈の順序
       #   1. 文字列全体が別名・QMK 名（"+", "(", "LCtrl" のように記号や修飾名と同じ別名を先に拾う）
-      #   2. 参照 Macro(...) / TapDance(...) / Combo(...)
+      #   2. 参照 Macro(...) / TapDance(...) / Shortcut('名前') / Combo(...)
       #   3. 旧形式のマクロ M3
       #   4. 生の値 0xHHHH
       #   5. 修飾キー式（"修飾名 +" で始まる）
@@ -27,7 +27,7 @@ module Cornix
           'OSL' => :one_shot, 'TT' => :tap_toggle, 'PDF' => :persistent_default
         }.freeze
 
-        REFERENCE = /\A(Macro|TapDance|Combo)\s*\((.*)\)\z/m
+        REFERENCE = /\A(Macro|TapDance|Shortcut|Combo)\s*\((.*)\)\z/m
         LEGACY_MACRO = /\AM(\d+)\z/
         HEX = /\A0[xX](\h{1,4})\z/
         FUNCTION = /\A([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\z/m
@@ -84,6 +84,8 @@ module Cornix
           if (m = QUOTED.match(arg))
             name = m[1] == "'" ? m[2].gsub("\\'", "'") : m[2]
             reference_by_name(function, name, refs)
+          elsif function == 'Shortcut'
+            fail!("Shortcut(...) の引数は '名前' です: #{arg}")
           elsif INTEGER.match?(arg)
             reference_class(function).new(index: arg.to_i)
           else
@@ -92,12 +94,19 @@ module Cornix
         end
 
         def reference_by_name(function, name, refs)
+          return shortcut(name, refs) if function == 'Shortcut'
+
           if function == 'Macro'
             index = refs.macro_index(name) or fail!("マクロ「#{name}」が見つかりません")
           else
             index = refs.tap_dance_index(name) or fail!("タップダンス「#{name}」が見つかりません")
           end
           reference_class(function).new(index: index)
+        end
+
+        # Shortcut('名前') は shortcuts.yaml の定義の Keycode そのもの
+        def shortcut(name, refs)
+          refs.shortcut(name.strip) or fail!("ショートカット「#{name}」は shortcuts.yaml に定義されていません")
         end
 
         def reference_class(function) = function == 'Macro' ? K::MacroCall : K::TapDanceCall

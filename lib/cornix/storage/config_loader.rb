@@ -8,8 +8,8 @@ module Cornix
   module Storage
     # 設定ディレクトリを読んで Domain::Profile を作る（ConfigRepository#load の中身）。
     #
-    # 読む順: metadata → position_map → macros → tap_dance（ここで Macro('名前') / TapDance('名前') の
-    # 対応表 Mapping::References を作る）→ settings → layers → combos。
+    # 読む順: metadata → position_map → macros → tap_dance → shortcuts（ここで Macro('名前') / TapDance('名前') /
+    # Shortcut('名前') の対応表 Mapping::References を作る）→ settings → layers → combos。
     # キーコードの文字列は KeycodeNotation#parse で 1 回だけ解析する。
     # 問題はすべて集めて最後に 1 つの InvalidConfig にする（「ファイル: キーの位置: 内容」）
     class ConfigLoader
@@ -27,7 +27,8 @@ module Cornix
         position_map = load_single(ConfigFiles::POSITION_MAP) { |data, ctx| Schema::PositionMapFile.read(data, ctx) }
         macro_files = read_files(:macros)
         tap_dance_files = read_files(:tap_dances)
-        keycodes = Schema::KeycodeField.new(@notation, build_references(macro_files, tap_dance_files))
+        shortcuts = load_shortcuts(Schema::KeycodeField.new(@notation, build_references(macro_files, tap_dance_files)))
+        keycodes = Schema::KeycodeField.new(@notation, build_references(macro_files, tap_dance_files, shortcuts))
         macros = load_macros(macro_files)
         tap_dances = load_items(tap_dance_files, keycodes) { |d, c, k| Schema::TapDanceFile.read(d, c, k) }
         settings = load_settings
@@ -36,7 +37,7 @@ module Cornix
         @problems.raise_if_any!
 
         build_profile(metadata: metadata, settings: settings, position_map: position_map, layers: layers,
-                      macros: macros, tap_dances: tap_dances, combos: combos)
+                      macros: macros, tap_dances: tap_dances, combos: combos, shortcuts: shortcuts)
       end
 
       private
@@ -71,6 +72,13 @@ module Cornix
         found.first
       end
 
+      # shortcuts.yaml の値は Macro('名前') / TapDance('名前') を使えるが、Shortcut('名前') は使えない
+      def load_shortcuts(keycodes)
+        load_single(ConfigFiles::SHORTCUTS, missing: Domain::ShortcutLibrary::EMPTY) do |data, ctx|
+          Schema::ShortcutsFile.read(data, ctx, keycodes)
+        end || Domain::ShortcutLibrary::EMPTY
+      end
+
       def load_settings
         load_single(ConfigFiles::SETTINGS, missing: Domain::QmkSettings::EMPTY) do |data, ctx|
           Schema::SettingsFile.read(data, ctx, @settings_catalog)
@@ -87,8 +95,9 @@ module Cornix
         end
       end
 
-      def build_references(macro_files, tap_dance_files)
-        Mapping::References.new(macros: names(macro_files), tap_dances: names(tap_dance_files))
+      def build_references(macro_files, tap_dance_files, shortcuts = Domain::ShortcutLibrary::EMPTY)
+        Mapping::References.new(macros: names(macro_files), tap_dances: names(tap_dance_files),
+                                shortcuts: shortcuts.entries)
       end
 
       # 名前 => 番号（名前が重複していれば先のもの。重複は Profile#diagnostics が報告する）

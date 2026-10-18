@@ -156,6 +156,45 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
     end
   end
 
+  describe 'Shortcut(\'名前\')' do
+    let(:prev_tab) { codec.decode(0x0A2F) } # Shift + Command + [
+    let(:shortcut_refs) do
+      Cornix::Mapping::References.new(
+        macros: { 'Copy Selected' => 2 },
+        shortcuts: { '前のタブへ' => prev_tab, "It's" => codec.decode(0x0814), 'Copy' => k::MacroCall.new(index: 2),
+                     'A1' => codec.decode(0x0006), 'A2' => codec.decode(0x0006) }
+      )
+    end
+
+    it '定義の Keycode そのものに解決する（引用符は \' と " のどちらでもよい）' do
+      expect(notation.parse("Shortcut('前のタブへ')", references: shortcut_refs)).to eq(prev_tab)
+      expect(notation.parse('Shortcut( "前のタブへ" )', references: shortcut_refs)).to eq(prev_tab)
+      expect(notation.parse(%(Shortcut("It's")), references: shortcut_refs)).to eq(codec.decode(0x0814))
+      expect(notation.parse("Shortcut('Copy')", references: shortcut_refs)).to eq(k::MacroCall.new(index: 2))
+    end
+
+    it '関数の引数や修飾キー式の中でも使える' do
+      expect(code("LT1(Shortcut('A1'))", references: shortcut_refs)).to eq(0x4106)
+      expect(code("Shift + Shortcut('前のタブへ')", references: shortcut_refs)).to eq(0x0A2F)
+    end
+
+    it '定義にない名前・番号の引数は UnknownKeycode' do
+      expect { notation.parse("Shortcut('nope')", references: shortcut_refs) }
+        .to raise_error(Cornix::UnknownKeycode, /ショートカット「nope」は shortcuts.yaml に定義されていません/)
+      expect { notation.parse("Shortcut('前のタブへ')") }.to raise_error(Cornix::UnknownKeycode, /定義されていません/)
+      expect { notation.parse('Shortcut(1)', references: shortcut_refs) }
+        .to raise_error(Cornix::UnknownKeycode, /Shortcut\(...\) の引数は '名前' です/)
+    end
+
+    it 'format は定義のちょうど 1 つと同じ値を Shortcut(\'名前\') で書く（複数一致・なしならふつうの書き方）' do
+      expect(notation.format(prev_tab, references: shortcut_refs)).to eq("Shortcut('前のタブへ')")
+      expect(notation.format(codec.decode(0x0814), references: shortcut_refs)).to eq(%(Shortcut("It's")))
+      expect(notation.format(k::MacroCall.new(index: 2), references: shortcut_refs)).to eq("Shortcut('Copy')")
+      expect(notation.format(codec.decode(0x0006), references: shortcut_refs)).to eq('C')
+      expect(notation.format(prev_tab)).to eq('Shift + Command + [')
+    end
+  end
+
   describe '不変条件 parse(format(k)) == k' do
     let(:named_refs) do
       Cornix::Mapping::References.new(

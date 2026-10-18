@@ -77,6 +77,13 @@ RSpec.describe Cornix::Mapping::ProfileMapper do
       expect(profile.metadata.extra_keys).to eq('layout_options' => 3)
     end
 
+    it 'previous の名前付きショートカットを引き継ぐ（デバイスにはないため）' do
+      shortcuts = Cornix::Domain::ShortcutLibrary.new(entries: { 'Copy' => basic(0x06) })
+      previous = source.with(shortcuts: shortcuts)
+      expect(mapper.to_profile(image, position_map: position_map, previous: previous).shortcuts).to eq(shortcuts)
+      expect(mapper.to_profile(image, position_map: position_map).shortcuts).to be_empty
+    end
+
     it 'previous が Profile でなければ InvalidValue' do
       expect { mapper.to_profile(image, position_map: position_map, previous: {}) }.to raise_error(Cornix::InvalidValue)
     end

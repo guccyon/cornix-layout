@@ -40,7 +40,15 @@ RSpec.describe Cornix::Domain::Profile do
     it '名前 => 番号 の Hash を返す（Mapping に依存しない形）' do
       expect(profile.macro_names).to eq('Bracket Pair' => 0, 'Copy' => 2)
       expect(profile.tap_dance_names).to eq('Tab Escape' => 4)
-      expect(profile.references).to eq(macros: { 'Bracket Pair' => 0, 'Copy' => 2 }, tap_dances: { 'Tab Escape' => 4 })
+      expect(profile.references).to eq(macros: { 'Bracket Pair' => 0, 'Copy' => 2 }, tap_dances: { 'Tab Escape' => 4 },
+                                       shortcuts: {})
+    end
+
+    it 'ショートカットは 名前 => Keycode' do
+      shortcuts = d::ShortcutLibrary.new(entries: { 'Copy' => basic(0x06) })
+      p = build_profile(shortcuts: shortcuts)
+      expect(p.references[:shortcuts]).to eq('Copy' => basic(0x06))
+      expect(Cornix::Mapping::References.new(**p.references).shortcut('Copy')).to eq(basic(0x06))
     end
 
     it 'Mapping::References にそのまま渡せる' do

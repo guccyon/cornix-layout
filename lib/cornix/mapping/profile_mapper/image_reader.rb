@@ -32,7 +32,8 @@ module Cornix
             layers: layers,
             macros: macros,
             tap_dances: tap_dances,
-            combos: combos
+            combos: combos,
+            shortcuts: inheritance.shortcuts
           )
         end
 

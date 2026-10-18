@@ -26,8 +26,9 @@ codec.decode(Integer) #=> Domain::Keycode（例外を出さない。最後は Ra
 codec.encode(Domain::Keycode) #=> Integer（表せなければ UnknownKeycode）
 catalog.lookup(name) / code_for_name / code_for_alias / vial_name(code) / preferred_alias(code) / aliases_for(code)
 catalog.basic?(code) / quantum?(code) / dangerous?(code) / dangerous_reason(code)
-refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名前' => index })
+refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名前' => index }, shortcuts: { '名前' => keycode })
 refs.macro_index(name) / tap_dance_index(name) / macro_name(index) / tap_dance_name(index)   # Mapping::References::NONE
+refs.shortcut(name) #=> Keycode / shortcut_name(keycode) #=> 定義のちょうど 1 つと一致すればその名前
 Mapping::QmkSettingCatalog.default.fetch(qsid) / find(group, name) / all  #=> Definition(qsid, name, group, width, type)
 ```
 
@@ -84,7 +85,7 @@ Domain::QmkSettings(values: { qsid(Integer) => Integer })
 Domain::Metadata(...)                                      # config/metadata.yaml の内容（未使用の項目も保持）
 Domain::Capabilities(layers:, macros:, tap_dances:, combos:, ...)  # Cornix の上限。定数 CORNIX
 Domain::Diagnostic(severity: :error|:warning, path: String, message: String)
-Domain::Profile(metadata:, settings:, position_map:, layers:, macros:, tap_dances:, combos:)
+Domain::Profile(metadata:, settings:, position_map:, layers:, macros:, tap_dances:, combos:, shortcuts: ShortcutLibrary::EMPTY)
   #diagnostics(capabilities = Capabilities::CORNIX) #=> [Diagnostic]
   #references #=> Mapping に依存しない形で名前 → 番号を返す（macro_names / tap_dance_names の Hash）
 ```
@@ -127,7 +128,7 @@ repo.load    #=> Domain::Profile（問題はすべて集めて Storage::InvalidC
 repo.save(profile) #=> [書いたファイル]   # decompile。ファイル名の規則は旧 YamlWriter と同じ
 ```
 
-- 読む順は metadata → position_map → macros → tap_dance（ここで References を作る）→ settings → layers → combos。
+- 読む順は metadata → position_map → macros → tap_dance → shortcuts（ここで References を作る）→ settings → layers → combos。
 - ファイル形式は現行のまま（`.yaml` / `.yml` の両方）。YAML は safe_load、キーの重複はエラー。
 
 ### p2-vil（`refactor/p2-vil`）: `Storage::VilFile`、`Storage::BackupStore`

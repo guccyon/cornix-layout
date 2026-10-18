@@ -13,6 +13,7 @@ module Cornix
     #   ワンショット    OSM(MOD_LSFT|MOD_LGUI)
     #   修飾キー式      Cmd + Shift + A, Command + Plus, Ctrl + "-"   （修飾名は Modifiers::EXPRESSION）
     #   参照            Macro('名前'), Macro(3), M3, TapDance('名前'), TapDance(2), TD(2)
+    #   ショートカット  Shortcut('名前')                                   （shortcuts.yaml の定義の Keycode）
     #   生の値          0x7C00
     #
     # format の正規形（decompile が書く表記）は Formatter を参照。

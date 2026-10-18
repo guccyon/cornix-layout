@@ -8,6 +8,7 @@
 # Cornix::Mapping::KeycodeCodec の定数で組み立てる。
 # shifted は入力専用の名前（KC_EXLM など）。.vil には LSFT(KC_1) の形で書く。
 # shifted の qmk は QMK の長い名前（KC_LEFT_PAREN など。旧コードのマクロ text 展開が書き出していた）。
+# Cornix が対応していないとみられる値（QK_REPEAT_KEY、USER08 以降など）は data/unsupported_keycodes.yaml で警告する。
 # 元データ: vial-gui の keycodes.py / keycodes_v6.py から抽出した表（実機 560 キーで一致を確認済み）。
 # qmk の名前と vial: false の値は QMK の data/constants/keycodes/*.hjson（最新）と vial-qmk の quantum/keycodes.h で補った。
 special:

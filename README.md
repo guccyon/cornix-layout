@@ -394,6 +394,7 @@ Names are case-sensitive.
 | Raw value | `0x7E00` | A value the tables cannot express (`pull` also writes values it cannot interpret this way) |
 
 Boot keycodes such as `QK_BOOT` (`Reset`) can be written in the settings files, but are never written to the keyboard.
+`QK_REPEAT_KEY` / `QK_ALT_REPEAT_KEY` / `QK_LAYER_LOCK` / `USER08`–`USER63` seem unsupported by Cornix (Vial does not show them either); they are written, but validation warns about them ([data/unsupported_keycodes.yaml](data/unsupported_keycodes.yaml)).
 
 ### Modifier expressions
 

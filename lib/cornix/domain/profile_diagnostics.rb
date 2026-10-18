@@ -7,6 +7,7 @@ require_relative 'keycode/layer_tap'
 require_relative 'keycode/layer_mod'
 require_relative 'keycode/macro_call'
 require_relative 'keycode/tap_dance_call'
+require_relative 'keycode/quantum'
 require_relative 'encoder_binding'
 
 module Cornix
@@ -19,7 +20,8 @@ module Cornix
     #   キーコード    すべての割り当て（レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、
     #                 コンボのトリガーと出力）について
     #                 M(n) / TD(n) の参照先がない（error）、レイヤー番号がレイヤー数を超える（error）、
-    #                 レイヤー数の内だが定義されていないレイヤーを指す（warning）
+    #                 レイヤー数の内だが定義されていないレイヤーを指す（warning）、
+    #                 Capabilities#unsupported_keycodes にある特殊キー（warning。書き込みは止めない）
     class ProfileDiagnostics
       LAYER_REF_TYPES = [Keycode::LayerAction, Keycode::LayerTap, Keycode::LayerMod].freeze
 
@@ -110,7 +112,14 @@ module Cornix
           error(path, "タップダンス TD(#{keycode.index}) が定義されていません") unless tap_dance_indexes.include?(keycode.index)
         when *LAYER_REF_TYPES
           check_layer_ref(path, keycode.layer.index)
+        when Keycode::Quantum
+          check_supported(path, keycode.code)
         end
+      end
+
+      def check_supported(path, code)
+        message = caps.unsupported_keycodes[code]
+        warning(path, "#{message}（書き込みますが、押しても動かない可能性があります）") if message
       end
 
       def check_layer_ref(path, index)

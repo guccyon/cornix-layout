@@ -53,13 +53,13 @@ decompile → compile で 16bit 値が元と一致するので、Vial で作っ�
 |---|---|
 | キーボード | Cornix |
 | ファームウェア | RMK 0.8 系（Vial プロトコル 6） |
-| OS | キーボードへの直接反映は macOS のみ。`compile` / `decompile` / `validate` などは Ruby が動けばどこでも |
+| OS | キーボードとの通信（`pull` / `status` / `apply` / `restore` / `device` / `mcp`）は macOS のみ。`compile` / `decompile` / `validate` などは Ruby が動けばどこでも |
 | 接続 | Bluetooth または USB |
 
 ## 必要なもの
 
 - **Ruby 3.2 以上**（`Data.define` を使うため。CI は 4.0 系）と **Bundler**
-- **Xcode Command Line Tools**（キーボードへの直接反映に使います。`swiftc` がなければ `xcode-select --install`）
+- **Xcode Command Line Tools**（キーボードとの通信に使います。`swiftc` がなければ `xcode-select --install`）
   - キーボードとの通信には、小さな Swift のプログラム（`ext/cornix_hid/main.swift`）を使います。初めて使うときに自動でビルドされ、`tmp/cornix-hid` に置かれます
 - **Claude Code CLI**（`claude` コマンド。`cornix rename` を使うときだけ）
 
@@ -79,7 +79,7 @@ bundle install
 `cornix` コマンドとして使いたいときは、`bin/cornix` への symlink を PATH の通ったディレクトリに置きます（`ruby bin/cornix <コマンド>` でも実行できます）。
 
 ```bash
-ln -s "$PWD/bin/cornix" ~/.local/bin/cornix
+mkdir -p ~/.local/bin && ln -s "$PWD/bin/cornix" ~/.local/bin/cornix   # ~/.local/bin が PATH にない場合は PATH に足す
 cornix help             # コマンドの一覧
 cornix help init        # コマンドごとの使い方
 ```
@@ -98,7 +98,7 @@ cornix init --no-pull                      # 空の設定ディレクトリだ�
 
 次のものが作られます。
 
-- `profiles/default/` … 設定（設定ファイルの一式）。キーボードにつながっていれば、今の設定が YAML で書き出されます
+- `profiles/default/` … 設定ファイル一式。キーボードにつながっていれば、今の設定が YAML で書き出されます
 - `.cornix.yml` … 使う設定の指定（`profile: default`）。以降のコマンドはこれを見て `profiles/default/` を使います
 
 ほかに次の点に気をつけてください。
@@ -116,6 +116,7 @@ cornix init --no-pull                      # 空の設定ディレクトリだ�
 ### 3. 設定を編集する
 
 `profiles/default/` の YAML をエディタで編集します。書き方は [設定ファイルの書き方](#設定ファイルの書き方) を見てください。
+少しずつ変えて、そのたびに `validate` や `status` で確かめると、問題の場所がすぐわかります。
 
 書き方に誤りがないかは、キーボードなしで確かめられます。
 
@@ -213,7 +214,7 @@ cornix <コマンド> [オプション]
 
 （設定ディレクトリが `profiles/` の下にあっても、この表示は `config/` のままです。）
 
-キーボードの状態で設定を作り直したいときは、今の設定を退避するか、`cornix cleanup` で消してから実行します。
+キーボードの状態で設定を作り直したいときは、今の設定を退避するか、`cornix cleanup -f` で消してから実行します（init や decompile で作った設定には `.decompile.lock` があるので、`-f` なしの cleanup は止まります）。
 
 ```bash
 mv profiles/default profiles/default.backup     # 退避する
@@ -280,11 +281,17 @@ mapping:
     row1:
       caps: Trans                  # 下のレイヤーのキーを使う
       A: Macro('Bracket Pair')     # マクロを名前で参照
+    row2:                          # 割り当てのないグループも書く（中身は空でよい）
+    row3:
     thumb_keys:
       middle: TapDance('Tab Escape')
   right_hand:
     row0:
       Y: Cmd + Space               # 修飾キー表現
+    row1:
+    row2:
+    row3:
+    thumb_keys:
   encoders:
     left:
       ccw: VolumeDown
@@ -292,7 +299,8 @@ mapping:
 ```
 
 - `mapping` の下は `position_map.yaml` と同じ階層（`left_hand` / `right_hand` の `row0`〜`row3`・`thumb_keys`、`encoders` の `left` / `right`）です
-- 書かなかったキーは割り当てなし（layout.vil では `-1`）になります。下のレイヤーを使うには `Trans` を書きます
+- 各手の `row0`〜`row3`・`thumb_keys` はすべて書きます（中身は空でかまいません）
+- グループの中で書かなかったキーは割り当てなし（layout.vil では `-1`）になります。下のレイヤーを使うには `Trans` を書きます
 - 書かなかったエンコーダの操作は `NoKey` になります
 
 ### 注記（`note`）
@@ -301,6 +309,7 @@ mapping:
 `key` と `note` のマッピングで注記を付けられます。
 
 ```yaml
+# レイヤーファイルの抜粋
 mapping:
   left_hand:
     row0:
@@ -440,7 +449,7 @@ shortcuts:
 ```
 
 ```yaml
-# profiles/default/layers/0_base.yaml
+# profiles/default/layers/0_base.yaml（抜粋）
 mapping:
   left_hand:
     row0:
@@ -654,6 +663,7 @@ YAML は引用符のない値の型を自動で決めるので、次のものは
 | `yes` `no` `on` `off` | 引用符で囲む | 真偽値になる |
 
 `Command + Shift + [` のように、記号が文字列の途中にあるときは引用符なしでも書けます（YAML の文法上、行頭の `[` `{` `!` などだけが問題になります）。
+ただし `{ push: ..., ccw: ... }` のような 1 行のマッピングの中では、`[` `]` `,` などを含む値は引用符で囲みます。
 
 ほかにも、インデントの誤りやタブの混在がよくある原因です。
 このような誤りは `cornix validate`（や `compile`）が「ファイル: 位置: 内容」の形で、書き直し方とあわせて教えてくれます。
@@ -672,10 +682,9 @@ cornix validate
 ✗ Validation failed:
   Error: layers/1_symbol.yaml: mapping.left_hand.row0.tab: キーコード「Spce」を解釈できません: 「Spce」は不明なキーコードです
   Error: layers/1_symbol.yaml: mapping.left_hand.row1.capz: position_map の left_hand.row1 にないキーです（使えるキー: caps, A, S, D, F, G）
-  Error: macros/01_macro.yaml: name: マクロの名前が重複しています: Bracket Pair
 ```
 
-問題は 1 件ずつ止まらずにすべて集め、「ファイル: キーの位置: 内容」で表示します。`cornix compile`（と `status` / `apply`）も同じ検証を先に行います。警告（`⚠  Warning: …`）だけなら compile は続行します。
+問題は 1 件ずつ止まらずにすべて集め、「ファイル: キーの位置: 内容」で表示します（下の 1 段目の問題が残っていると、2 段目の検査はそれを直したあとで行います）。`cornix compile`（と `status` / `apply`）も同じ検証を先に行います。警告（`⚠  Warning: …`）だけなら compile は続行します。
 
 検証は 2 段階です。
 
@@ -780,7 +789,7 @@ ruby bin/rename_file --config-dir profiles/default --batch tmp/profiles/default/
 ]
 ```
 
-`--config-dir` の既定は `config` です。結果は JSON で表示し、失敗したときは終了コード 1 です。Claude CLI が見つからない、または出力から JSON を取り出せないときは、`cornix rename` もこの形式の計画ファイルを手で書くよう案内します。
+`bin/rename_file` は `.cornix.yml` を読まないので、`profiles/` の設定では `--config-dir` を必ず付けてください（既定はカレントディレクトリの `config`）。結果は JSON で表示し、失敗したときは終了コード 1 です。Claude CLI が見つからない、または出力から JSON を取り出せないときは、`cornix rename` もこの形式の計画ファイルを手で書くよう案内します。
 
 ## Vial の layout.vil と変換する
 
@@ -811,7 +820,7 @@ cornix cleanup      # 設定ディレクトリと <tmp>/build/layout.vil を消�
 cornix cleanup -f   # ロックファイルがあっても、確認（y/N）してから消す
 ```
 
-消すのは今使っている設定ディレクトリ（`profiles/default/` など）と compile の出力です。どのディレクトリで実行しても、[設定の置き場所](#設定の置き場所と利用の形)の決まり方に従って同じ場所を対象にします。
+消すのは、ほかのコマンドと同じ[決まり方](#設定ディレクトリの決まり方)で選ばれる設定ディレクトリ（`profiles/default/` など）と compile の出力です。
 
 ### マクロ変更時の承認操作（アンロック）について
 
@@ -841,12 +850,12 @@ cornix restore --yes                                # 確認を省略する
 1. `--config DIR`
 2. 環境変数 `CORNIX_CONFIG`
 3. `--profile NAME`（`profiles/NAME/`）
-4. カレントディレクトリから親へたどって最初に見つかる `.cornix.yml`
+4. カレントディレクトリから親へたどって最初に見つかる `.cornix.yml`（`--root DIR` を付けたときは `DIR/.cornix.yml` だけを見ます）
    - `profile: NAME` … `.cornix.yml` と同じ場所の `profiles/NAME/`
    - `config: PATH` … `.cornix.yml` からの相対パス
 5. どれもなければ、このリポジトリの `config/`（以前の置き場所。後方互換のため残しています）
 
-`config/` 以外の設定を使うときは、設定を使うコマンドの最初の行に「設定: profiles/default（.cornix.yml）」のように、どの設定をどう決めたかを表示します。
+`config/` 以外の設定を使うときは、`compile` / `decompile` / `validate` / `pull` / `status` / `apply` / `restore` / `rename` / `cleanup` の最初の行に「設定: profiles/default（.cornix.yml）」のように、どの設定をどう決めたかを表示します。
 
 `<tmp>`（作業用ディレクトリ）は設定ごとに分かれます。`profiles/NAME/` なら `tmp/profiles/NAME/`、`config/` なら `tmp/` です。
 `profiles/` の外の設定ディレクトリ（`--config` で指定したものなど）では、同じ名前のディレクトリと混ざらないよう、名前にパスのハッシュが付きます。
@@ -902,6 +911,7 @@ cornix validate          # 「設定: profiles/default（.cornix.yml）」と表
 git clone <自分のフォーク> cornix-layout && cd cornix-layout
 bundle install
 cornix init --profile <自分の名前>
+# 名前に使えるのは英数字と . _ -（先頭は英数字）
 # .gitignore から /.cornix.yml と /profiles/ の行を消してから
 git add .gitignore profiles .cornix.yml && git commit -m "設定を追加"
 git push
@@ -931,6 +941,8 @@ cornix status                  # このディレクトリ（かその下）で�
 | `authors-keymap` | `profiles/authors/` | 作者が実際に使っているキーマップ。名前参照・修飾キー表現・コンボなどの使用例があります |
 
 ブランチの `.cornix.yml` が手元の `.cornix.yml` とぶつからないよう、別のディレクトリ（worktree）で開くのがおすすめです。
+フォークを clone した場合は、このブランチがないことがあるので、先に本家から取ってきます
+（`git remote add upstream https://github.com/guccyon/cornix-layout.git && git fetch upstream` のあと、`upstream/cornix-default-keymap` を指定します）。
 
 ```bash
 git worktree add ../cornix-default-keymap cornix-default-keymap
@@ -1152,13 +1164,14 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb
 手元の layout.vil で decompile → compile が元に戻るかを確かめる手順です。
 
 ```bash
+rm -rf /tmp/cornix-roundtrip                                      # 前回の確認用の設定が残っていれば消す
 cornix init /tmp/cornix-roundtrip --from ~/Downloads/layout.vil   # 確認用の別の場所に設定を作る
 cornix compile --root /tmp/cornix-roundtrip                       # → /tmp/cornix-roundtrip/tmp/profiles/default/build/layout.vil
 ruby bin/diff_layouts ~/Downloads/layout.vil /tmp/cornix-roundtrip/tmp/profiles/default/build/layout.vil
 # 期待結果: === ✓ FILES ARE IDENTICAL ===
 ```
 
-`bin/diff_layouts [FILE1 FILE2]`（省略すると `tmp/layout.vil` と `tmp/build/layout.vil`）は 2 つの layout.vil を読み込み、キー・エンコーダ・マクロ・タップダンス・コンボ・設定を 16bit 値で比べます。同じ値の別表記（`KC_PGDN` と `KC_PGDOWN` など）は同じとみなします。違えば場所を表示して終了コード 1 です。
+`bin/diff_layouts [FILE1 FILE2]`（省略するとカレントディレクトリの `tmp/layout.vil` と `tmp/build/layout.vil`。旧 `config/` の場合のパスなので、`profiles/` では 2 つのファイルを指定します）は 2 つの layout.vil を読み込み、キー・エンコーダ・マクロ・タップダンス・コンボ・設定を 16bit 値で比べます。同じ値の別表記（`KC_PGDN` と `KC_PGDOWN` など）は同じとみなします。違えば場所を表示して終了コード 1 です。
 
 ### コントリビューション
 

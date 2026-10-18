@@ -1,7 +1,7 @@
 # rename（設定ファイルの名前付け）
 
 既定の名前（`Macro N` / `TapDance N` / `Combo N` / `Layer N`）の設定ファイルに、Claude の提案から名前とファイル名を付ける。
-利用者向けの説明は README の「設定ファイルに名前を付ける」。
+利用者向けの説明は [README.ja.md](../../README.ja.md) の「設定ファイルに名前を付ける」。
 
 ## 入口
 

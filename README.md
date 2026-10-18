@@ -13,7 +13,7 @@ as human-readable YAML files, converts them to and from Vial's `layout.vil`, and
 
 Because the settings are plain files, you can keep them in Git to track their history or switch between setups.
 It also runs as an MCP server, so AI assistants such as Claude can read and change the keyboard's settings.
-Most command output and error messages are currently in Japanese.
+Some of the command output, including many error messages, is currently in Japanese.
 
 The YAML supports:
 
@@ -54,13 +54,13 @@ decompile → compile reproduces the original 16-bit values, so you can bring ov
 |---|---|
 | Keyboard | Cornix |
 | Firmware | RMK 0.8 series (Vial protocol 6) |
-| OS | Writing to the keyboard: macOS only. `compile` / `decompile` / `validate` and the like: anywhere Ruby runs |
+| OS | Talking to the keyboard (`pull` / `status` / `apply` / `restore` / `device` / `mcp`): macOS only. `compile` / `decompile` / `validate` and the like: anywhere Ruby runs |
 | Connection | Bluetooth or USB |
 
 ## Requirements
 
 - **Ruby 3.2 or later** (the code uses `Data.define`; CI uses 4.0) and **Bundler**
-- **Xcode Command Line Tools** (for writing to the keyboard; install with `xcode-select --install` if `swiftc` is missing)
+- **Xcode Command Line Tools** (for talking to the keyboard; install with `xcode-select --install` if `swiftc` is missing)
   - The tool talks to the keyboard through a small Swift program (`ext/cornix_hid/main.swift`). It is built automatically on first use and placed in `tmp/cornix-hid`
 - **Claude Code CLI** (the `claude` command; only for `cornix rename`)
 
@@ -80,7 +80,7 @@ If you want to keep your settings on GitHub and use them on several machines, fo
 To use it as a `cornix` command, put a symlink to `bin/cornix` in a directory on your PATH (you can also run `ruby bin/cornix <command>`).
 
 ```bash
-ln -s "$PWD/bin/cornix" ~/.local/bin/cornix
+mkdir -p ~/.local/bin && ln -s "$PWD/bin/cornix" ~/.local/bin/cornix   # add ~/.local/bin to PATH if it is not there
 cornix help             # list of commands
 cornix help init        # usage of a command
 ```
@@ -99,7 +99,7 @@ cornix init --no-pull                      # create only an empty settings direc
 
 This creates:
 
-- `profiles/default/` … the settings (the set of settings files). If the keyboard is connected, its current settings are written out as YAML
+- `profiles/default/` … your settings files. If the keyboard is connected, its current settings are written out as YAML
 - `.cornix.yml` … which settings to use (`profile: default`). Later commands read this and use `profiles/default/`
 
 Also note:
@@ -117,6 +117,7 @@ Layers and macros start with names like `Layer 0` and `Macro 0`. `cornix rename`
 ### 3. Edit the settings
 
 Edit the YAML in `profiles/default/` with your editor. See [Writing the settings files](#writing-the-settings-files) for the format.
+Changing a little at a time and checking with `validate` or `status` each time makes problems easy to locate.
 
 You can check the files for mistakes without the keyboard:
 
@@ -214,7 +215,7 @@ In that case `pull` does not read the keyboard and does not change `<tmp>/layout
 
 (The message says `config/` even when the settings directory is under `profiles/`.)
 
-To rebuild the settings from the keyboard, move the current settings aside or delete them with `cornix cleanup`, then run it again.
+To rebuild the settings from the keyboard, move the current settings aside or delete them with `cornix cleanup -f`, then run it again (settings created by init or decompile have a `.decompile.lock`, so cleanup without `-f` stops).
 
 ```bash
 mv profiles/default profiles/default.backup     # move them aside
@@ -281,11 +282,17 @@ mapping:
     row1:
       caps: Trans                  # use the key from the layer below
       A: Macro('Bracket Pair')     # refer to a macro by name
+    row2:                          # write groups without assignments too (empty is fine)
+    row3:
     thumb_keys:
       middle: TapDance('Tab Escape')
   right_hand:
     row0:
       Y: Cmd + Space               # modifier expression
+    row1:
+    row2:
+    row3:
+    thumb_keys:
   encoders:
     left:
       ccw: VolumeDown
@@ -293,7 +300,8 @@ mapping:
 ```
 
 - Under `mapping` the structure is the same as `position_map.yaml` (`row0`–`row3` and `thumb_keys` of `left_hand` / `right_hand`, and `left` / `right` of `encoders`)
-- Keys you don't write are unassigned (`-1` in layout.vil). To use the layer below, write `Trans`
+- Each hand must list all of `row0`–`row3` and `thumb_keys` (an empty value is fine)
+- Keys you leave out inside a group are unassigned (`-1` in layout.vil). To use the layer below, write `Trans`
 - Encoder actions you don't write become `NoKey`
 
 ### Notes (`note`)
@@ -302,6 +310,7 @@ Wherever a key is assigned (layer keys and encoder actions, tap dance actions, a
 you can attach a note with a mapping of `key` and `note`.
 
 ```yaml
+# excerpt of a layer file
 mapping:
   left_hand:
     row0:
@@ -441,7 +450,7 @@ shortcuts:
 ```
 
 ```yaml
-# profiles/default/layers/0_base.yaml
+# profiles/default/layers/0_base.yaml (excerpt)
 mapping:
   left_hand:
     row0:
@@ -655,6 +664,7 @@ YAML decides the type of unquoted values automatically, so **always quote** the 
 | `yes` `no` `on` `off` | quote them | become booleans |
 
 When the symbol is in the middle of a string, as in `Command + Shift + [`, quotes are not needed (in YAML syntax only `[`, `{`, `!` and the like at the start cause trouble).
+Inside a one-line mapping such as `{ push: ..., ccw: ... }`, however, quote values that contain `[`, `]`, `,` and the like.
 
 Wrong indentation and mixed-in tabs are other common causes.
 `cornix validate` (and `compile`) reports such mistakes as "file: location: message", together with how to rewrite them.
@@ -673,12 +683,11 @@ cornix validate
 ✗ Validation failed:
   Error: layers/1_symbol.yaml: mapping.left_hand.row0.tab: キーコード「Spce」を解釈できません: 「Spce」は不明なキーコードです
   Error: layers/1_symbol.yaml: mapping.left_hand.row1.capz: position_map の left_hand.row1 にないキーです（使えるキー: caps, A, S, D, F, G）
-  Error: macros/01_macro.yaml: name: マクロの名前が重複しています: Bracket Pair
 ```
 
-(The messages above say, in order: the keycode "Spce" cannot be interpreted because it is unknown; `capz` is not a key in `left_hand.row1` of the position map; and the macro name "Bracket Pair" is duplicated.)
+(The messages above say: the keycode "Spce" cannot be interpreted because it is unknown, and `capz` is not a key in `left_hand.row1` of the position map.)
 
-Problems are collected all at once instead of stopping at the first one, and shown as "file: key location: message". `cornix compile` (and `status` / `apply`) runs the same validation first. If there are only warnings (`⚠  Warning: …`), compile continues.
+Problems are collected all at once instead of stopping at the first one, and shown as "file: key location: message" (while problems of the first stage below remain, the second stage runs only after they are fixed). `cornix compile` (and `status` / `apply`) runs the same validation first. If there are only warnings (`⚠  Warning: …`), compile continues.
 
 Validation has two stages.
 
@@ -783,7 +792,7 @@ Format of the plan file:
 ]
 ```
 
-`--config-dir` defaults to `config`. The result is printed as JSON, and the exit code is 1 on failure. When the Claude CLI cannot be found, or no JSON can be extracted from its output, `cornix rename` also tells you to write a plan file in this format by hand.
+`bin/rename_file` does not read `.cornix.yml`, so always pass `--config-dir` for settings in `profiles/` (the default is `config` in the current directory). The result is printed as JSON, and the exit code is 1 on failure. When the Claude CLI cannot be found, or no JSON can be extracted from its output, `cornix rename` also tells you to write a plan file in this format by hand.
 
 ## Converting to and from Vial's layout.vil
 
@@ -814,7 +823,7 @@ cornix cleanup      # delete the settings directory and <tmp>/build/layout.vil (
 cornix cleanup -f   # delete even with a lock file, after asking (y/N)
 ```
 
-It deletes the settings directory in use (such as `profiles/default/`) and the compile output. Whatever directory you run it in, it targets the same place, following [how the settings directory is chosen](#where-the-settings-live-and-how-to-use-the-repository).
+It deletes the settings directory chosen by [the same rules](#how-the-settings-directory-is-chosen) as the other commands (such as `profiles/default/`) and the compile output.
 
 ### About the unlock step when changing macros
 
@@ -844,12 +853,12 @@ The settings directory a command uses is chosen in this order (first match wins)
 1. `--config DIR`
 2. The `CORNIX_CONFIG` environment variable
 3. `--profile NAME` (`profiles/NAME/`)
-4. The first `.cornix.yml` found walking up from the current directory
+4. The first `.cornix.yml` found walking up from the current directory (with `--root DIR`, only `DIR/.cornix.yml` is used)
    - `profile: NAME` … `profiles/NAME/` next to `.cornix.yml`
    - `config: PATH` … a path relative to `.cornix.yml`
 5. Otherwise, this repository's `config/` (the old location, kept for backward compatibility)
 
-When settings other than `config/` are in use, the first line of every command that uses them shows which settings were chosen and how, as in "設定: profiles/default（.cornix.yml）" ("Settings: profiles/default (.cornix.yml)").
+When settings other than `config/` are in use, the first line of `compile` / `decompile` / `validate` / `pull` / `status` / `apply` / `restore` / `rename` / `cleanup` shows which settings were chosen and how, as in "設定: profiles/default（.cornix.yml）" ("Settings: profiles/default (.cornix.yml)").
 
 `<tmp>` (the working directory) is separate for each settings directory: `tmp/profiles/NAME/` for `profiles/NAME/`, and `tmp/` for `config/`.
 For settings directories outside `profiles/` (such as one given with `--config`), a hash of the path is added to the name so that directories with the same name don't get mixed up.
@@ -905,6 +914,7 @@ To manage the settings in Git, delete the `/.cornix.yml` and `/profiles/` lines 
 git clone <your fork> cornix-layout && cd cornix-layout
 bundle install
 cornix init --profile <your name>
+# names may use letters, digits and . _ - (starting with a letter or digit)
 # after deleting the /.cornix.yml and /profiles/ lines from .gitignore
 git add .gitignore profiles .cornix.yml && git commit -m "Add my settings"
 git push
@@ -934,6 +944,8 @@ The following branches have sample settings. Each is main with settings (`profil
 | `authors-keymap` | `profiles/authors/` | The keymap the author actually uses, with examples of references by name, modifier expressions, combos and more |
 
 So that the branch's `.cornix.yml` does not clash with your own, opening it in a separate directory (a worktree) is recommended.
+If you cloned a fork, it may not have these branches; fetch them from upstream first
+(`git remote add upstream https://github.com/guccyon/cornix-layout.git && git fetch upstream`, then use `upstream/cornix-default-keymap`).
 
 ```bash
 git worktree add ../cornix-default-keymap cornix-default-keymap
@@ -1157,13 +1169,14 @@ See [spec/README.md](spec/README.md) for details. GitHub Actions also runs RSpec
 A procedure to check that decompile → compile gives back your own layout.vil.
 
 ```bash
+rm -rf /tmp/cornix-roundtrip                                      # remove the settings left from an earlier check, if any
 cornix init /tmp/cornix-roundtrip --from ~/Downloads/layout.vil   # create settings in a separate place for the check
 cornix compile --root /tmp/cornix-roundtrip                       # → /tmp/cornix-roundtrip/tmp/profiles/default/build/layout.vil
 ruby bin/diff_layouts ~/Downloads/layout.vil /tmp/cornix-roundtrip/tmp/profiles/default/build/layout.vil
 # expected: === ✓ FILES ARE IDENTICAL ===
 ```
 
-`bin/diff_layouts [FILE1 FILE2]` (`tmp/layout.vil` and `tmp/build/layout.vil` when omitted) reads two layout.vil files and compares keys, encoders, macros, tap dances, combos and settings by 16-bit value. Different notations of the same value (such as `KC_PGDN` and `KC_PGDOWN`) count as the same. If they differ, it shows where and exits with 1.
+`bin/diff_layouts [FILE1 FILE2]` (when omitted, `tmp/layout.vil` and `tmp/build/layout.vil` in the current directory; these are the paths for the old `config/`, so give both files when you use `profiles/`) reads two layout.vil files and compares keys, encoders, macros, tap dances, combos and settings by 16-bit value. Different notations of the same value (such as `KC_PGDN` and `KC_PGDOWN`) count as the same. If they differ, it shows where and exits with 1.
 
 ### Contributing
 

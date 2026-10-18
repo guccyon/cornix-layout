@@ -7,11 +7,13 @@ require 'spec_helper'
 RSpec.describe 'README の英語版と日本語版の同期' do
   def read(name) = File.read(File.join(Cornix::ROOT, name), encoding: 'UTF-8')
 
-  # コードブロックの外の見出しのレベル、コードブロックの言語、リポジトリ内のファイルへのリンク
+  # コードブロックの外の見出しのレベル、コードブロックの言語、リポジトリ内のファイルと外部へのリンク、節へのリンクの数
   def structure(text)
     headings = []
     fences = []
     links = []
+    urls = []
+    section_links = 0
     in_code = false
     text.each_line do |line|
       if (m = line.match(/\A```(\S*)/))
@@ -22,9 +24,13 @@ RSpec.describe 'README の英語版と日本語版の同期' do
       next if in_code
 
       headings << line[/\A#+/].size if line.match?(/\A#+ /)
-      links.concat(line.scan(/\]\(([^)#][^)]*)\)/).flatten.reject { |l| l.match?(%r{\A[a-z]+://}) })
+      targets = line.scan(/\]\(([^)#][^)]*)\)/).flatten
+      urls.concat(targets.grep(%r{\A[a-z]+://}))
+      links.concat(targets.grep_v(%r{\A[a-z]+://}))
+      section_links += line.scan(/\]\(#/).size
     end
-    { headings: headings, fences: fences, links: links.reject { |l| l.start_with?('README') } }
+    { headings: headings, fences: fences, links: links.reject { |l| l.start_with?('README') }, urls: urls,
+      section_links: section_links }
   end
 
   let(:en) { structure(read('README.md')) }
@@ -40,6 +46,14 @@ RSpec.describe 'README の英語版と日本語版の同期' do
 
   it 'リポジトリ内のファイルへのリンクが同じ' do
     expect(en[:links]).to eq(ja[:links])
+  end
+
+  it '外部へのリンクが同じ' do
+    expect(en[:urls]).to eq(ja[:urls])
+  end
+
+  it '節へのリンク（#...）の数が同じ' do
+    expect(en[:section_links]).to eq(ja[:section_links])
   end
 
   it 'リポジトリ内のファイルへのリンク先がある' do
@@ -68,7 +82,7 @@ RSpec.describe 'README の英語版と日本語版の同期' do
   end
 
   it 'それぞれの先頭に、もう一方へのリンクがある' do
-    expect(read('README.md').lines[2]).to include('[日本語](README.ja.md)')
-    expect(read('README.ja.md').lines[2]).to include('[English](README.md)')
+    expect(read('README.md').lines.first(5).join).to include('[日本語](README.ja.md)')
+    expect(read('README.ja.md').lines.first(5).join).to include('[English](README.md)')
   end
 end

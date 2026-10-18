@@ -134,3 +134,24 @@ Storage::VilFile.new(vial:).read(path) #=> Image::DeviceImage / #write(image, pa
 ```
 
 - 出力の JSON は旧 `VialWriter` と同じ形（キーの順、`JSON.pretty_generate`）。
+
+## フェーズ 3
+
+### p3-interface（`refactor/p3-interface`、完了）: デバイス操作のユースケースと CLI / MCP
+
+### p3-switch（`refactor/p3-switch`）: 残りのコマンドの移行と旧コードの削除
+
+```ruby
+env = Application::Environment.new(root: dir, claude: fake)     # repository / config_editor / decompile_lock / claude
+Application::Validate.new(env).call          #=> ValidationReport(errors:, warnings:, profile:)（config/ がなければ ConfigNotFound）
+Application::Compile.new(env).call(output: nil)   #=> CompileResult(report:, path:, image:)
+Application::Decompile.new(env).call(input: nil)  #=> DecompileResult(status: :decompiled | :input_missing | :config_exists, ...)
+Application::Cleanup.new(env).call(force: false, confirm: ->(lock) { ... })   #=> CleanupResult(status:, lock:, deleted:)
+Application::RenameFiles.new(env).check(plan) / #call(plans, verify: true)    #=> RenameOutcome
+Application::SuggestRenames.new(env).call / #load_plans / #cleanup            #=> RenameSuggestions
+```
+
+- `bin/cornix` は `Interface::Cli::Main`。`bin/subcommands/` と旧コード・旧 spec は削除した。
+- 旧コードを正解にしていた spec は、旧コードで求めた値を `spec/fixtures/expected/` に保存して比べる。
+  authors-keymap の config とその compile / decompile 結果は `spec/fixtures/authors_*` に複写してあり、
+  `spec/end_to_end_spec.rb` が CI でも compile / decompile の一致を確かめる。

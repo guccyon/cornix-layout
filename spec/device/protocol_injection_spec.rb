@@ -18,10 +18,6 @@ RSpec.describe Cornix::Device::Protocol, '注入する拒否キーコードと�
     expect { protocol.set_keycode(0, 0, 0, 0x04, dims: dims) }.to raise_error(ArgumentError)
     protocol.set_keycode(0, 0, 0, 0x7C00, dims: dims)
     expect(protocol.setting(22)).to eq(0)
-    expect { protocol.setting(7) }.to raise_error(Cornix::Device::DeviceError)
-  end
-
-  it '旧 Device::DeviceError は Cornix::DeviceError として捕まえられる' do
-    expect(Cornix::Device::DeviceError.ancestors).to include(Cornix::DeviceError)
+    expect { protocol.setting(7) }.to raise_error(Cornix::DeviceError)
   end
 end

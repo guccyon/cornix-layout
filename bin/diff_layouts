@@ -1,227 +1,194 @@
 #!/usr/bin/env ruby
-require 'json'
-require_relative '../lib/cornix/models/settings'
+# frozen_string_literal: true
 
-# Vial設定インデックス（整数キー） → human readableな設定名
-# 例: "22" => "keyboard.permissive_hold"
-SETTING_NAMES = Cornix::Models::Settings::VIAL_QMK_INDEX.each_with_object({}) do |(group, mappings), acc|
-  mappings.each { |name, index| acc[index.to_s] = "#{group}.#{name}" }
-end.freeze
+# 2 つの layout.vil を 16bit 値（Image::DeviceImage）で比べる。同じ値の別表記（KC_PGDN と KC_PGDOWN など）は同じとみなす。
+#
+#   ruby bin/diff_layouts                   # tmp/layout.vil と layout.vil
+#   ruby bin/diff_layouts file1.vil file2.vil
+#
+# 同じなら "=== ✓ FILES ARE IDENTICAL ===" で exit 0、違えば違う場所を表示して exit 1
+require_relative '../lib/cornix'
 
-def setting_label(key)
-  name = SETTING_NAMES[key.to_s]
-  name ? "#{name} (#{key})" : key.to_s
-end
-
-# コマンドライン引数から2つのファイルパスを取得
 if ARGV.size == 2
-  file1 = ARGV[0]
-  file2 = ARGV[1]
-elsif ARGV.size == 0
-  # 引数なしの場合はデフォルト（後方互換性）
+  file1, file2 = ARGV
+elsif ARGV.empty?
   file1 = 'tmp/layout.vil'
   file2 = 'layout.vil'
 else
-  puts "Usage: #{$0} [FILE1] [FILE2]"
-  puts "  Compare two layout.vil files"
-  puts ""
-  puts "Examples:"
-  puts "  #{$0}                           # Compare tmp/layout.vil and layout.vil (default)"
-  puts "  #{$0} file1.vil file2.vil       # Compare two specific files"
+  puts "Usage: #{$PROGRAM_NAME} [FILE1] [FILE2]"
+  puts '  Compare two layout.vil files'
+  puts ''
+  puts 'Examples:'
+  puts "  #{$PROGRAM_NAME}                           # Compare tmp/layout.vil and layout.vil (default)"
+  puts "  #{$PROGRAM_NAME} file1.vil file2.vil       # Compare two specific files"
   exit 1
 end
 
-# ファイル存在チェック
-unless File.exist?(file1)
-  puts "Error: File not found: #{file1}"
+[file1, file2].each do |file|
+  next if File.exist?(file)
+
+  puts "Error: File not found: #{file}"
   exit 1
 end
 
-unless File.exist?(file2)
-  puts "Error: File not found: #{file2}"
+env = Cornix::Application::Environment.new
+begin
+  orig = env.vil_file.read(file1)
+  comp = env.vil_file.read(file2)
+rescue Cornix::Error => e
+  puts "Error: #{e.message}"
   exit 1
 end
 
-# QMKキーコードのエイリアスを正規化する
-# 比較前に適用し、Vial上で同一のキーコードを等しいとみなす
-KEYCODE_ALIASES = {
-  'KC_PGDOWN' => 'KC_PGDN',
-}.freeze
-
-def normalize_keycode(kc)
-  return kc unless kc.is_a?(String)
-  # SGUI(X) -> LGUI(LSFT(X))
-  kc = kc.sub(/\ASGUI\((.+)\)\z/) { "LGUI(LSFT(#{$1}))" }
-  KEYCODE_ALIASES.fetch(kc, kc)
+vial = env.vial
+fmt = ->(code) { code.nil? ? -1 : vial.format_code(code) }
+mark = ->(same) { same ? '✓' : '✗ DIFFER' }
+setting_label = lambda do |qsid|
+  definition = env.settings_catalog.fetch(qsid)
+  "#{definition.group}.#{definition.name} (#{qsid})"
+rescue StandardError
+  qsid.to_s
 end
+keys = ->(image) { (image.meta.keys + Cornix::Storage::VilFile::SECTIONS).sort.join(', ') }
 
-def normalize_deep(obj)
-  case obj
-  when Hash then obj.transform_values { |v| normalize_deep(v) }
-  when Array then obj.map { |v| normalize_deep(v) }
-  when String then normalize_keycode(obj)
-  else obj
-  end
-end
-
-orig = JSON.parse(File.read(file1))
-comp = JSON.parse(File.read(file2))
-
-orig_n = normalize_deep(orig)
-comp_n = normalize_deep(comp)
-
-puts "=== Comparing layout.vil files ==="
+puts '=== Comparing layout.vil files ==='
 puts "  File 1: #{file1}"
 puts "  File 2: #{file2}"
 puts
-
-# Check top-level keys
-puts "Keys in original: #{orig.keys.sort.join(', ')}"
-puts "Keys in compiled: #{comp.keys.sort.join(', ')}"
+puts "Keys in original: #{keys.(orig)}"
+puts "Keys in compiled: #{keys.(comp)}"
+puts
+puts "Version: #{mark.(orig.meta['version'] == comp.meta['version'])}"
+puts "UID: #{mark.(orig.meta['uid'] == comp.meta['uid'])}"
+puts "Vial protocol: #{mark.(orig.meta['vial_protocol'] == comp.meta['vial_protocol'])}"
+puts "Via protocol: #{mark.(orig.meta['via_protocol'] == comp.meta['via_protocol'])}"
 puts
 
-# Compare metadata
-puts "Version: #{orig['version'] == comp['version'] ? '✓' : '✗ DIFFER'}"
-puts "UID: #{orig['uid'] == comp['uid'] ? '✓' : '✗ DIFFER'}"
-puts "Vial protocol: #{orig['vial_protocol'] == comp['vial_protocol'] ? '✓' : '✗ DIFFER'}"
-puts "Via protocol: #{orig['via_protocol'] == comp['via_protocol'] ? '✓' : '✗ DIFFER'}"
+layout_match = orig.layers == comp.layers
+puts 'Layout structure:'
+puts "  Original layers: #{orig.layers.size}"
+puts "  Compiled layers: #{comp.layers.size}"
+puts "  Match: #{mark.(layout_match)}"
 puts
 
-# Compare layouts
-puts "Layout structure:"
-puts "  Original layers: #{orig['layout'].size}"
-puts "  Compiled layers: #{comp['layout'].size}"
-layout_match = orig_n['layout'] == comp_n['layout']
-puts "  Match: #{layout_match ? '✓' : '✗ DIFFER'}"
+encoder_match = orig.encoders == comp.encoders
+puts 'Encoder layout:'
+puts "  Match: #{mark.(encoder_match)}"
 puts
 
-# Compare encoder layout (正規化後で比較)
-puts "Encoder layout:"
-encoder_match = orig_n['encoder_layout'] == comp_n['encoder_layout']
-puts "  Match: #{encoder_match ? '✓' : '✗ DIFFER'}"
+macro_match = orig.macros == comp.macros
+puts 'Macros:'
+puts "  Original non-empty: #{orig.macros.count { |m| !m.empty? }}"
+puts "  Compiled non-empty: #{comp.macros.count { |m| !m.empty? }}"
+puts "  Match: #{mark.(macro_match)}"
 puts
 
-# Compare macros
-orig_macros = orig['macro'].reject(&:empty?)
-comp_macros = comp['macro'].reject(&:empty?)
-puts "Macros:"
-puts "  Original non-empty: #{orig_macros.size}"
-puts "  Compiled non-empty: #{comp_macros.size}"
-macro_match = orig_n['macro'] == comp_n['macro']
-puts "  Match: #{macro_match ? '✓' : '✗ DIFFER'}"
+td_match = orig.tap_dances == comp.tap_dances
+puts 'Tap Dance:'
+puts "  Match: #{mark.(td_match)}"
 puts
 
-# Compare tap dance
-puts "Tap Dance:"
-td_match = orig_n['tap_dance'] == comp_n['tap_dance']
-puts "  Match: #{td_match ? '✓' : '✗ DIFFER'}"
+combo_match = orig.combos == comp.combos
+puts 'Combos:'
+puts "  Match: #{mark.(combo_match)}"
 puts
 
-# Compare combos
-puts "Combos:"
-combo_match = orig_n['combo'] == comp_n['combo']
-puts "  Match: #{combo_match ? '✓' : '✗ DIFFER'}"
+# キーの順も比べる（Hash#== は順を見ない）
+settings_match = orig.settings.to_a == comp.settings.to_a
+puts 'Settings:'
+puts "  Match: #{mark.(settings_match)}"
 puts
 
-# Compare settings（キー順序も含めて比較。Hash==は順序を無視するため配列化して比較）
-puts "Settings:"
-settings_match = orig['settings'].to_a == comp['settings'].to_a
-puts "  Match: #{settings_match ? '✓' : '✗ DIFFER'}"
-puts
-
-# Overall (正規化後で比較。settingsの順序差はorig_n==comp_nでは検知できないため併せて判定)
-if orig_n == comp_n && settings_match
-  puts "=== ✓ FILES ARE IDENTICAL ==="
+if orig == comp && settings_match
+  puts '=== ✓ FILES ARE IDENTICAL ==='
   exit 0
-else
-  puts "=== ✗ FILES DIFFER ==="
-  puts
-
-  # Find differences in layers
-  unless layout_match
-    puts "Layout differences:"
-    orig['layout'].each_with_index do |layer, idx|
-      next if orig_n['layout'][idx] == comp_n['layout'][idx]
-      puts "  Layer #{idx} differs"
-      layer.each_with_index do |row, row_idx|
-        next if orig_n['layout'][idx][row_idx] == comp_n['layout'][idx][row_idx]
-        puts "    Row #{row_idx}: #{row.inspect}"
-        puts "       vs: #{comp['layout'][idx][row_idx].inspect}"
-      end
-    end
-    puts
-  end
-
-  # Find differences in encoder layout
-  unless encoder_match
-    puts "Encoder layout differences:"
-    orig['encoder_layout'].each_with_index do |layer, li|
-      layer.each_with_index do |enc, ei|
-        enc.each_with_index do |key, ki|
-          next if normalize_keycode(key) == normalize_keycode(comp['encoder_layout'][li][ei][ki])
-          puts "  encoder[#{li}][#{ei}][#{ki}]:"
-          puts "    File 1: #{key.inspect}"
-          puts "    File 2: #{comp['encoder_layout'][li][ei][ki].inspect}"
-        end
-      end
-    end
-    puts
-  end
-
-  # Find differences in macros
-  unless macro_match
-    puts "Macro differences:"
-    orig['macro'].each_with_index do |macro, idx|
-      next if orig_n['macro'][idx] == comp_n['macro'][idx]
-      puts "  Macro #{idx}:"
-      puts "    File 1: #{macro.inspect}"
-      puts "    File 2: #{comp['macro'][idx].inspect}"
-    end
-    puts
-  end
-
-  # Find differences in tap dance
-  unless td_match
-    puts "Tap Dance differences:"
-    orig['tap_dance'].each_with_index do |td, idx|
-      next if orig_n['tap_dance'][idx] == comp_n['tap_dance'][idx]
-      puts "  TapDance #{idx}:"
-      puts "    File 1: #{td.inspect}"
-      puts "    File 2: #{comp['tap_dance'][idx].inspect}"
-    end
-    puts
-  end
-
-  # Find differences in combos
-  unless combo_match
-    puts "Combo differences:"
-    orig['combo'].each_with_index do |combo, idx|
-      next if orig_n['combo'][idx] == comp_n['combo'][idx]
-      puts "  Combo #{idx}:"
-      puts "    File 1: #{combo.inspect}"
-      puts "    File 2: #{comp['combo'][idx].inspect}"
-    end
-    puts
-  end
-
-  # Find differences in settings
-  unless settings_match
-    puts "Settings differences:"
-    orig_keys = orig['settings'].keys
-    comp_keys = comp['settings'].keys
-    if orig_keys != comp_keys
-      puts "  Key order/set differs:"
-      puts "    File 1 keys: #{orig_keys.map { |k| setting_label(k) }.inspect}"
-      puts "    File 2 keys: #{comp_keys.map { |k| setting_label(k) }.inspect}"
-    end
-    (orig_keys | comp_keys).each do |k|
-      ov = orig['settings'][k]
-      cv = comp['settings'][k]
-      next if ov == cv
-      puts "  Setting #{setting_label(k)}: #{ov.inspect} vs #{cv.inspect}"
-    end
-    puts
-  end
-
-  exit 1
 end
+
+puts '=== ✗ FILES DIFFER ==='
+puts
+
+unless layout_match
+  puts 'Layout differences:'
+  [orig.layers.size, comp.layers.size].max.times do |idx|
+    a = orig.layers[idx] || []
+    b = comp.layers[idx] || []
+    next if a == b
+
+    puts "  Layer #{idx} differs"
+    [a.size, b.size].max.times do |row|
+      next if a[row] == b[row]
+
+      puts "    Row #{row}: #{a[row]&.map(&fmt).inspect}"
+      puts "       vs: #{b[row]&.map(&fmt).inspect}"
+    end
+  end
+  puts
+end
+
+unless encoder_match
+  puts 'Encoder layout differences:'
+  orig.encoders.each_with_index do |layer, li|
+    layer.each_with_index do |enc, ei|
+      other = comp.encoders.dig(li, ei)
+      %i[ccw cw].each_with_index do |dir, ki|
+        next if other && enc.public_send(dir) == other.public_send(dir)
+
+        puts "  encoder[#{li}][#{ei}][#{ki}]:"
+        puts "    File 1: #{fmt.(enc.public_send(dir)).inspect}"
+        puts "    File 2: #{(other && fmt.(other.public_send(dir))).inspect}"
+      end
+    end
+  end
+  puts
+end
+
+describe_macro = lambda do |macro|
+  macro&.map { |a| a.keys.empty? ? [a.kind.to_s, a.value] : [a.kind.to_s, *a.keys.map(&fmt)] }
+end
+{
+  'Macro' => [orig.macros, comp.macros, macro_match, describe_macro],
+  'TapDance' => [orig.tap_dances, comp.tap_dances, td_match,
+                 ->(td) { td && [td.on_tap, td.on_hold, td.on_double_tap, td.on_tap_hold].map(&fmt) + [td.tapping_term] }],
+  'Combo' => [orig.combos, comp.combos, combo_match, ->(c) { c && [*c.keys, c.output].map(&fmt) }]
+}.each do |label, (list1, list2, match, describe)|
+  next if match
+
+  puts "#{label == 'TapDance' ? 'Tap Dance' : label} differences:"
+  [list1.size, list2.size].max.times do |idx|
+    next if list1[idx] == list2[idx]
+
+    puts "  #{label} #{idx}:"
+    puts "    File 1: #{describe.(list1[idx]).inspect}"
+    puts "    File 2: #{describe.(list2[idx]).inspect}"
+  end
+  puts
+end
+
+unless settings_match
+  puts 'Settings differences:'
+  orig_keys = orig.settings.keys
+  comp_keys = comp.settings.keys
+  if orig_keys != comp_keys
+    puts '  Key order/set differs:'
+    puts "    File 1 keys: #{orig_keys.map(&setting_label).inspect}"
+    puts "    File 2 keys: #{comp_keys.map(&setting_label).inspect}"
+  end
+  (orig_keys | comp_keys).each do |k|
+    next if orig.settings[k] == comp.settings[k]
+
+    puts "  Setting #{setting_label.(k)}: #{orig.settings[k].inspect} vs #{comp.settings[k].inspect}"
+  end
+  puts
+end
+
+unless orig.meta == comp.meta
+  puts 'Other differences:'
+  (orig.meta.keys | comp.meta.keys).each do |k|
+    next if orig.meta[k] == comp.meta[k]
+
+    puts "  #{k}: #{orig.meta[k].inspect} vs #{comp.meta[k].inspect}"
+  end
+  puts
+end
+
+exit 1

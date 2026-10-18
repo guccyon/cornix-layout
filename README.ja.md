@@ -650,5 +650,5 @@ ruby bin/diff_layouts ~/Downloads/layout.vil /tmp/cornix-roundtrip/tmp/profiles/
 
 - このツールは Cornix の公式の製品ではなく、開発元とは関係ありません。ファームウェアの更新で通信の仕様が変わる可能性があります
 - このツールの使用によって起きた問題について、作者は責任を負いません。大事な設定は `cornix device backup` などで残しておいてください
-- ライセンス: [MIT License](LICENSE)。自由に改変・再配布できます。無保証です
+- ライセンス: [MIT License](LICENSE)。著作権表示と許諾文を残せば、自由に改変・再配布できます。無保証です
 - 参考: [Vial Documentation](https://get.vial.today/)、[QMK Keycodes](https://docs.qmk.fm/keycodes_basic)

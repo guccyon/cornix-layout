@@ -64,6 +64,19 @@ RSpec.describe 'Storage::ConfigRepository の注記（{ key: ..., note: ... }）
     end
   end
 
+  it '3 通りの書き方（key と note、key だけのマッピング、キーだけ）を読む' do
+    with_config_copy do |dir|
+      edit(dir, 'layers/0_layer_0.yaml', "      tab: Tab\n", "      tab:\n        key: MouseButton1\n        note: 左クリック\n")
+      edit(dir, 'layers/0_layer_0.yaml', "      Q: Q\n", "      Q:\n        key: MouseButton1\n")
+      edit(dir, 'layers/0_layer_0.yaml', "      W: W\n", "      W: MouseButton1\n")
+      profile = repository(dir).load
+      layer = profile.layer(0)
+      positions = %w[tab Q W].map { |s| profile.position_map.position('left_hand', 'row0', s) }
+      expect(positions.map { |p| layer.key(p) }.uniq).to eq([k::Basic.new(code: 0xD1)])
+      expect(positions.map { |p| layer.note(p) }).to eq(['左クリック', nil, nil])
+    end
+  end
+
   it '空の注記は注記なしとして読む' do
     with_config_copy do |dir|
       edit(dir, 'layers/0_layer_0.yaml', "      tab: Tab\n", "      tab: { key: Tab, note: '' }\n")

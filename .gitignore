@@ -3,9 +3,6 @@ layout.vil
 !spec/fixtures/layout.vil
 tmp/
 .decompile.lock
-# cornix init で作る、この手元だけの設定（フォークで管理するなら外す）
-/.cornix.yml
-/profiles/
 .refactor/
 
 # Ruby

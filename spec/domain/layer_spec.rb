@@ -67,4 +67,28 @@ RSpec.describe Cornix::Domain::Layer do
       expect { build_layer(encoders: nil) }.to raise_error(Cornix::InvalidValue)
     end
   end
+
+  describe '注記' do
+    it '割り当てのある位置に注記を付けられる（なければ nil）' do
+      layer = build_layer(keys: { tab => basic(0x2B) }, notes: { tab => 'インデント' })
+      expect(layer.note(tab)).to eq('インデント')
+      expect(layer.keycode_at(tab)).to eq(basic(0x2B))
+      expect(layer.note(key_position(:right, 0, 0))).to be_nil
+      expect(build_layer.notes).to eq({})
+    end
+
+    it '割り当てのない位置・空の注記は InvalidValue' do
+      expect { build_layer(notes: { tab => 'x' }) }.to raise_error(Cornix::InvalidValue, /キーの注記を付けられない場所/)
+      expect { build_layer(keys: { tab => basic(0x2B) }, notes: { tab => ' ' }) }
+        .to raise_error(Cornix::InvalidValue, /キーの注記/)
+      expect { build_layer(keys: { tab => basic(0x2B) }, notes: { tab => 1 }) }.to raise_error(Cornix::InvalidValue)
+    end
+
+    it '注記はキーコードの比較に影響しないが、Layer の等価性には含む' do
+      plain = build_layer(keys: { tab => basic(0x2B) })
+      noted = build_layer(keys: { tab => basic(0x2B) }, notes: { tab => 'インデント' })
+      expect(noted.keys).to eq(plain.keys)
+      expect(noted).not_to eq(plain)
+    end
+  end
 end

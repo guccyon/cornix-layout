@@ -20,6 +20,7 @@
   - [vial_device_protocol](memories/vial_device_protocol.md) - RMK 0.8 / Vial プロトコル
   - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
   - [vial_qmk_settings_restore_issue](memories/vial_qmk_settings_restore_issue.md) - permissive_hold が復元されない件
+  - [key_notes](memories/key_notes.md) - 割り当ての注記（`{ key:, note: }`）の持ち方と引き継ぎ
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---

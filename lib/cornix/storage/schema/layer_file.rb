@@ -11,9 +11,11 @@ module Cornix
       #   mapping:
       #     left_hand:                         # right_hand も同じ形
       #       row0: { tab: Tab, Q: Q, ... }    # キーは position_map.yaml のシンボル。書かない・空の値はキーなし
-      #       row1: ... row2: ... row3: ...
+      #       row1:
+      #         caps: { key: LCtrl, note: 注記 }   # 注記付きの形（KeycodeField#read_assignment）
+      #       row2: ... row3: ...
       #       thumb_keys: { left: ..., middle: ..., right: ... }
-      #     encoders:                          # 省略した操作は KC_NO
+      #     encoders:                          # 省略した操作は KC_NO。値は注記付きの形も書ける
       #       left: { push: Mute, ccw: VolumeDown, cw: VolumeUp }
       #       right: { push: ..., ccw: ..., cw: ... }
       module LayerFile
@@ -31,28 +33,30 @@ module Cornix
           description = ctx.description(hash['description'])
           index = ctx.bounded(hash['index'], 'index', Domain::LayerRef::RANGE, 'レイヤー番号')
           mapping = ctx.mapping(hash['mapping'], 'mapping', required: HANDS, allowed: HANDS + ['encoders'])
-          keys = mapping && read_hands(mapping, ctx, keycodes, position_map)
+          assignments = mapping && read_hands(mapping, ctx, keycodes, position_map)
           encoders = mapping && read_encoders(mapping['encoders'], ctx, keycodes)
-          return nil if [name, index, keys, encoders].any?(&:nil?) || description == :invalid
+          return nil if [name, index, assignments, encoders].any?(&:nil?) || description == :invalid
 
           ctx.build('') do
-            Domain::Layer.new(index: index, name: name, description: description, keys: keys, encoders: encoders)
+            Domain::Layer.new(index: index, name: name, description: description, encoders: encoders,
+                              keys: assignments.transform_values(&:keycode), notes: KeycodeField.notes(assignments))
           end
         end
 
+        # 位置 => KeycodeField::Assignment。問題があれば nil
         def read_hands(mapping, ctx, keycodes, position_map)
-          keys = {}
+          assignments = {}
           results = HANDS.flat_map do |hand|
             groups = ctx.mapping(mapping[hand], "mapping.#{hand}", required: GROUPS, allowed: GROUPS)
             next [false] unless groups
 
-            GROUPS.map { |group| read_group(groups[group], ctx, keycodes, position_map, hand, group, keys) }
+            GROUPS.map { |group| read_group(groups[group], ctx, keycodes, position_map, hand, group, assignments) }
           end
-          results.all? ? keys : nil
+          results.all? ? assignments : nil
         end
 
-        # 1 つのグループ（left_hand.row0 など）を読み、keys に足す。問題があれば false
-        def read_group(raw, ctx, keycodes, position_map, hand, group, keys)
+        # 1 つのグループ（left_hand.row0 など）を読み、assignments に足す。問題があれば false
+        def read_group(raw, ctx, keycodes, position_map, hand, group, assignments)
           return true if raw.nil?
 
           loc = "mapping.#{hand}.#{group}"
@@ -65,8 +69,8 @@ module Cornix
             next unknown_symbol(ctx, "#{loc}.#{symbol}", position_map.symbols(hand, group), "#{hand}.#{group}") unless position
             next true if value.nil?
 
-            keycode = keycodes.read(value, ctx, "#{loc}.#{symbol}") or next false
-            keys[position] = keycode
+            assignment = keycodes.read_assignment(value, ctx, "#{loc}.#{symbol}") or next false
+            assignments[position] = assignment
             true
           end.all?
         end
@@ -88,10 +92,14 @@ module Cornix
           return empty_encoder if raw.nil?
 
           hash = ctx.mapping(raw, loc, allowed: ACTIONS) or return nil
-          actions = ACTIONS.to_h { |a| [a.to_sym, keycodes.read_optional(hash[a], ctx, "#{loc}.#{a}")] }
+          actions = ACTIONS.to_h do |a|
+            [a.to_sym, keycodes.read_assignment(hash[a], ctx, "#{loc}.#{a}", default: Domain::Keycode::NO_KEY)]
+          end
           return nil unless actions.values.all?
 
-          ctx.build(loc) { Domain::EncoderBinding.new(**actions) }
+          ctx.build(loc) do
+            Domain::EncoderBinding.new(**actions.transform_values(&:keycode), notes: KeycodeField.notes(actions))
+          end
         end
 
         def empty_encoder
@@ -113,8 +121,9 @@ module Cornix
         def write_hand(layer, hand, keycodes, position_map)
           GROUPS.to_h do |group|
             row = position_map.symbols(hand, group).each_with_object({}) do |symbol, h|
-              keycode = layer.key(position_map.position(hand, group, symbol))
-              h[symbol] = keycodes.write(keycode) if keycode
+              position = position_map.position(hand, group, symbol)
+              keycode = layer.key(position)
+              h[symbol] = keycodes.write_assignment(keycode, layer.note(position)) if keycode
             end
             [group, row]
           end
@@ -123,7 +132,7 @@ module Cornix
         def write_encoders(layer, keycodes)
           SIDES.to_h do |side|
             binding = layer.encoder(side.to_sym)
-            [side, ACTIONS.to_h { |a| [a, keycodes.write(binding.public_send(a))] }]
+            [side, binding.actions.to_h { |a, kc| [a.to_s, keycodes.write_assignment(kc, binding.note(a))] }]
           end
         end
       end

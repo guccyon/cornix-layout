@@ -57,6 +57,19 @@ RSpec.describe Cornix::Mapping::ProfileMapper do
       expect(mapper.to_profile(image, position_map: position_map, previous: source)).to eq(source)
     end
 
+    it '注記はイメージに出ず、previous があればキーコードが変わっていない場所の注記を引き継ぐ' do
+      tab = key_position(:left, 0, 0)
+      q = key_position(:left, 0, 1)
+      noted = source.with(layers: [build_layer(index: 0, keys: { tab => basic(0x2B), q => basic(0x14) },
+                                               notes: { tab => 'インデント', q => 'Q' })])
+      expect(mapper.to_image(noted)).to eq(mapper.to_image(noted.with(layers: [noted.layers[0].with(notes: {})])))
+
+      changed = mapper.to_image(noted.with(layers: [build_layer(index: 0, keys: { tab => basic(0x2B), q => basic(0x15) })]))
+      profile = mapper.to_profile(changed, position_map: position_map, previous: noted)
+      expect(profile.layer(0).notes).to eq(tab => 'インデント')
+      expect(mapper.to_profile(changed, position_map: position_map).layer(0).notes).to eq({})
+    end
+
     it 'extra_keys は image の値にし、previous の extra の順を保つ' do
       changed = image.with(meta: image.meta.merge('layout_options' => 3))
       profile = mapper.to_profile(changed, position_map: position_map, previous: source)

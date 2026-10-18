@@ -282,6 +282,31 @@ mapping:
 - Keys you don't write are unassigned (`-1` in layout.vil). Write `Trans` to use the key from the layer below
 - Encoder actions you don't write become `NoKey`
 
+#### Notes
+
+Wherever a key is assigned (layer keys and encoder actions, tap dance actions, and a combo's `output_key`)
+you can attach a note by writing a `key` / `note` mapping.
+
+```yaml
+mapping:
+  left_hand:
+    row0:
+      tab:                         # with a note
+        key: TapDance('Tab Escape')
+        note: Tab on tap, Escape on hold
+      Q: "!"                       # without a note (just the key)
+  encoders:
+    left:
+      push: { key: Mute, note: Mute }
+```
+
+- A `note` is a memo of what the assignment is for. It is never written to layout.vil or the keyboard; it only lives in the configuration files.
+  Adding or changing notes does not change the compiled result
+- `note` is optional, and an empty string means no note. Keys other than `key` and `note` are a validation error
+- `key` cannot be omitted (to leave an encoder or tap dance action as `NoKey`, leave out the whole value)
+- Tap dance `actions` and a combo's `output_key` take the same form (see [File Formats](#file-formats) for each file)
+- decompile writes no notes (layout.vil has none)
+
 Macro file (e.g. `config/macros/00_bracket_pair.yaml`):
 
 ```yaml

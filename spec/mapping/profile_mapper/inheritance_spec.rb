@@ -35,6 +35,34 @@ RSpec.describe Cornix::Mapping::ProfileMapper::Inheritance do
       expect(inheritance.description(:layer, 0)).to be_nil
     end
 
+    describe '注記' do
+      let(:tab) { key_position(:left, 0, 0) }
+      let(:q) { key_position(:left, 0, 1) }
+      let(:previous) do
+        layer = build_layer(index: 1, keys: { tab => basic(0x2B), q => basic(0x14) },
+                            notes: { tab => 'インデント', q => 'Q' },
+                            encoders: { left: encoder_binding(push: basic(0x7F), notes: { push: 'ミュート' }),
+                                        right: encoder_binding })
+        build_profile(layers: [layer], tap_dances: [build_tap_dance(index: 4, notes: { on_tap: 'A' })],
+                      combos: [build_combo(index: 0, notes: { output_key: '括弧' })])
+      end
+
+      it 'キーコードが同じ場所の注記だけを引き継ぐ' do
+        expect(inheritance.notes(:layer, 1, { tab => basic(0x2B), q => basic(0x15) })).to eq(tab => 'インデント')
+        expect(inheritance.encoder_notes(1, :left, { push: basic(0x7F), ccw: k::NO_KEY, cw: k::NO_KEY }))
+          .to eq(push: 'ミュート')
+        expect(inheritance.encoder_notes(1, :left, { push: basic(0x80), ccw: k::NO_KEY, cw: k::NO_KEY })).to eq({})
+        expect(inheritance.notes(:tap_dance, 4, { on_tap: basic(0x04) })).to eq(on_tap: 'A')
+        expect(inheritance.notes(:combo, 0, { output_key: basic(0x2F) })).to eq(output_key: '括弧')
+      end
+
+      it '同じ番号のものがなければ、または割り当てがなくなれば空' do
+        expect(inheritance.notes(:layer, 2, { tab => basic(0x2B) })).to eq({})
+        expect(inheritance.notes(:layer, 1, {})).to eq({})
+        expect(inheritance.notes(:combo, 1, { output_key: basic(0x2F) })).to eq({})
+      end
+    end
+
     it 'keyboard と extra を引き継ぐ' do
       expect(inheritance.keyboard).to eq('cornix')
       expect(inheritance.metadata_extra.keys).to eq(%w[extra_keys file_naming])
@@ -50,5 +78,6 @@ RSpec.describe Cornix::Mapping::ProfileMapper::Inheritance do
     it { expect(inheritance.name(:combo, 2)).to eq('Combo 2') }
     it { expect(inheritance.keyboard).to eq('Cornix') }
     it { expect(inheritance.metadata_extra).to eq({}) }
+    it { expect(inheritance.notes(:layer, 0, { key_position(:left, 0, 0) => basic(0x2B) })).to eq({}) }
   end
 end

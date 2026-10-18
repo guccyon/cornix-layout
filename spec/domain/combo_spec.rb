@@ -40,4 +40,11 @@ RSpec.describe Cornix::Domain::Combo do
   it '出力はキーコード' do
     expect { build_combo(output_key: nil) }.to raise_error(Cornix::InvalidValue, /出力/)
   end
+
+  it '出力に注記を持てる' do
+    expect(build_combo(notes: { output_key: '括弧' }).output_note).to eq('括弧')
+    expect(build_combo.output_note).to be_nil
+    expect(build_combo.keycode_at(:output_key)).to eq(basic(0x2F))
+    expect { build_combo(notes: { trigger_keys: 'x' }) }.to raise_error(Cornix::InvalidValue, /コンボの注記/)
+  end
 end

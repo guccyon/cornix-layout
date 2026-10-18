@@ -51,6 +51,19 @@ module Cornix
         value.each { |k, v| each&.call(k, v) }
         value.dup.freeze
       end
+
+      # 注記の Hash（場所 => 空でない文字列）を検査し、freeze した複製を返す。
+      # 注記は設定ファイルにだけある「何のための割り当てか」のメモで、デバイスには書かない。
+      # slots は注記を付けられる場所の一覧（include? に答えるもの）
+      def notes!(value, slots, what)
+        raise InvalidValue, "#{what}は Hash です: #{value.inspect}" unless value.is_a?(Hash)
+
+        value.to_h do |slot, text|
+          raise InvalidValue, "#{what}を付けられない場所です: #{slot.inspect}" unless slots.include?(slot)
+
+          [slot, name!(text, "#{what}（#{slot}）")]
+        end.freeze
+      end
     end
   end
 end

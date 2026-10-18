@@ -9,7 +9,7 @@ module Cornix
       #   description: ...          # 省略可
       #   enabled: true             # 省略可（読み飛ばす）
       #   index: 4                  # タップダンス番号（TD(4)）
-      #   actions:                  # 省略した動作は KC_NO
+      #   actions:                  # 省略した動作は KC_NO。注記付きの形（{ key: ..., note: ... }）も書ける
       #     on_tap: KC_TAB
       #     on_hold: KC_ESCAPE
       #     on_double_tap: KC_NO
@@ -34,7 +34,8 @@ module Cornix
           return nil if [name, index, actions, term].any?(&:nil?) || description == :invalid
 
           ctx.build('') do
-            Domain::TapDance.new(index: index, name: name, description: description, tapping_term: term, **actions)
+            Domain::TapDance.new(index: index, name: name, description: description, tapping_term: term,
+                                 **actions.transform_values(&:keycode), notes: KeycodeField.notes(actions))
           end
         end
 
@@ -48,12 +49,16 @@ module Cornix
 
           table = ctx.mapping(source, prefix, allowed: ACTIONS) or return nil
           actions = ACTIONS.to_h do |a|
-            [a.to_sym, keycodes.read_optional(table[a], ctx, Schema.join(prefix, a))]
+            no = Domain::Keycode::NO_KEY
+            [a.to_sym, keycodes.read_assignment(table[a], ctx, Schema.join(prefix, a), default: no)]
           end
           actions.values.all? ? actions : nil
         end
 
-        def empty_actions = ACTIONS.to_h { |a| [a.to_sym, Domain::Keycode::NO_KEY] }
+        def empty_actions
+          none = KeycodeField::Assignment.new(keycode: Domain::Keycode::NO_KEY, note: nil)
+          ACTIONS.to_h { |a| [a.to_sym, none] }
+        end
 
         def read_tapping_term(raw, ctx)
           return DEFAULT_TAPPING_TERM if raw.nil?
@@ -67,7 +72,7 @@ module Cornix
             'index' => tap_dance.index,
             'name' => tap_dance.name,
             'description' => tap_dance.description || '',
-            'actions' => tap_dance.actions.to_h { |a, kc| [a.to_s, keycodes.write(kc)] },
+            'actions' => tap_dance.actions.to_h { |a, kc| [a.to_s, keycodes.write_assignment(kc, tap_dance.note(a))] },
             'tapping_term' => tap_dance.tapping_term
           }
         end

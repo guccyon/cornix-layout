@@ -29,7 +29,13 @@ module Cornix
 
       # path を読んで Ruby の値を返す。空のファイルは nil
       def read(path)
-        text = File.read(path, mode: 'r:UTF-8')
+        parse(File.read(path, mode: 'r:UTF-8'))
+      rescue SystemCallError => e
+        raise Unreadable, "読めません: #{e.message}"
+      end
+
+      # YAML の文字列を Ruby の値にする（規則は read と同じ）
+      def parse(text)
         raise Unreadable, 'UTF-8 として読めません' unless text.valid_encoding?
 
         text = text.delete_prefix(BOM)

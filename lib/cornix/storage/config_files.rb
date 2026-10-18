@@ -44,6 +44,19 @@ module Cornix
 
       def directory(kind) = KINDS.fetch(kind).first
 
+      # 設定がすでにある（layers/ か macros/ に何かある）か。decompile が上書きを拒む条件（旧 check_config_lock と同じ）
+      def populated?(dir)
+        [LAYERS, MACROS].any? do |sub|
+          path = File.join(dir, sub)
+          File.directory?(path) && !Dir.empty?(path)
+        end
+      end
+
+      # 1 つだけのファイル（base は METADATA など）の相対パス。.yaml と .yml の両方を探し、なければ nil
+      def single_file(dir, base)
+        EXTENSIONS.map { |ext| "#{base}#{ext}" }.find { |rel| File.file?(File.join(dir, rel)) }
+      end
+
       # 旧 YamlWriter と同じファイル名（layers/0_base.yaml、macros/02_copy_selected.yaml）。
       # 既定の名前（"Layer 3" など）なら種類の名前、名前から英数字が残らなければ種類の名前
       def item_path(kind, index, name)

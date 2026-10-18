@@ -3,6 +3,11 @@
 require_relative 'usage_error'
 require_relative 'runtime'
 require_relative 'command'
+require_relative 'commands/compile'
+require_relative 'commands/decompile'
+require_relative 'commands/validate'
+require_relative 'commands/rename'
+require_relative 'commands/cleanup'
 require_relative 'commands/device'
 require_relative 'commands/mcp'
 require_relative '../use_cases'
@@ -18,9 +23,9 @@ module Cornix
       #   Main.new(env_factory: -> { Application::Environment.new(root: dir, device_opener: opener) },
       #            out: StringIO.new, err: StringIO.new, input: StringIO.new("y\n"))
       class Main
-        # コマンドを足すときは Commands::Xxx < Command を作り、ここに並べる（並び順が help の順）。
-        # compile / decompile / validate / rename / cleanup は別タスクで追加する
+        # コマンドを足すときは Commands::Xxx < Command を作り、ここに並べる（並び順が help の順）
         COMMANDS = [
+          Commands::Compile, Commands::Decompile, Commands::Validate, Commands::Rename, Commands::Cleanup,
           Commands::Device, Commands::Mcp
         ].to_h { |c| [c.command_name, c] }.freeze
 

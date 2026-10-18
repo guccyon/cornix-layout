@@ -8,8 +8,9 @@ module Cornix
       NAMES = {
         device_info: :DeviceInfo, device_read: :DeviceRead, device_backup: :DeviceBackup,
         device_diff: :DeviceDiff, device_apply: :DeviceApply, device_restore: :DeviceRestore,
-        list_backups: :ListBackups
-        # compile / decompile / validate / rename / cleanup は別タスクでここに足す
+        list_backups: :ListBackups,
+        compile: :Compile, decompile: :Decompile, validate: :Validate, cleanup: :Cleanup,
+        rename_files: :RenameFiles, suggest_renames: :SuggestRenames
       }.freeze
 
       module_function

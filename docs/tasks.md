@@ -26,6 +26,7 @@ codec.decode(Integer) #=> Domain::Keycode（例外を出さない。最後は Ra
 codec.encode(Domain::Keycode) #=> Integer（表せなければ UnknownKeycode）
 catalog.lookup(name) / code_for_name / code_for_alias / name(code) / vial_name(code) / preferred_alias(code) / aliases_for(code)
 catalog.basic?(code) / quantum?(code) / dangerous?(code) / dangerous_reason(code)
+catalog.unsupported_keycodes #=> { 値 => '名前: 理由' }（data/unsupported_keycodes.yaml。Domain::Capabilities#unsupported_keycodes に渡す）
 refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名前' => index }, shortcuts: { '名前' => keycode },
                                preset_shortcuts: { 'アプリ:カテゴリ:ラベル' => keycode })
 refs.macro_index(name) / tap_dance_index(name) / macro_name(index) / tap_dance_name(index)   # Mapping::References::NONE

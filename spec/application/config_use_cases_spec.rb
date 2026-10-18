@@ -46,7 +46,7 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
       report = validate.call
       expect(report).to be_valid
       expect(report.warnings).to eq(['layers/0_layer_0.yaml: mapping.left_hand.row0.tab: QK_REPEAT_KEY: ' \
-                                     'Cornix は Repeat Key（repeat_key）に対応していません（書き込みますが、押しても動かない可能性があります）'])
+                                     'Cornix は Repeat Key に対応していません（書き込みますが、押しても動かない可能性があります）'])
     end
 
     it 'config/ がなければ ConfigNotFound' do

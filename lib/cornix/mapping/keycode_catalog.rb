@@ -51,10 +51,7 @@ module Cornix
       # 書き込みを拒否する理由（拒否しない値なら nil）
       def dangerous_reason(code) = @dangerous_ranges.find { |range, _| range.cover?(code) }&.last
 
-      # Cornix が対応していないとみられる理由（data/unsupported_keycodes.yaml。対応していれば nil）
-      def unsupported_reason(code) = @unsupported_ranges.find { |range, _| range.cover?(code) }&.last
-
-      # Cornix が対応していないとみられる値 => 「名前: 理由」（Domain::Capabilities#unsupported_keycodes に渡す）
+      # Cornix が対応していないとみられる値 => 「名前: 理由」（data/unsupported_keycodes.yaml。Domain::Capabilities#unsupported_keycodes に渡す）
       def unsupported_keycodes
         @unsupported_ranges.flat_map do |range, reason|
           range.map { |code| [code, "#{name(code) || format('0x%04X', code)}: #{reason}"] }

@@ -39,15 +39,12 @@ RSpec.describe Cornix::Mapping::KeycodeCatalog do
   end
 
   it 'Cornix が対応していないとみられる値（data/unsupported_keycodes.yaml）を引ける' do
-    expect(catalog.unsupported_reason(0x7C79)).to include('Repeat Key')
-    expect(catalog.unsupported_reason(0x7C7B)).to include('Layer Lock')
-    expect(catalog.unsupported_reason(0x7E08)).to include('USER00〜USER07')
-    expect(catalog.unsupported_reason(0x7E07)).to be_nil
-    expect(catalog.unsupported_reason(0x7C77)).to be_nil
     table = catalog.unsupported_keycodes
     expect(table.keys).to eq([0x7C79, 0x7C7A, 0x7C7B, *0x7E08..0x7E3F])
-    expect(table[0x7C79]).to start_with('QK_REPEAT_KEY: ')
-    expect(table[0x7E3F]).to start_with('USER63: ')
+    expect(table[0x7C79]).to eq('QK_REPEAT_KEY: Cornix は Repeat Key に対応していません')
+    expect(table[0x7C7B]).to eq('QK_LAYER_LOCK: Cornix は Layer Lock に対応していません')
+    expect(table[0x7E3F]).to eq('USER63: Cornix のユーザーキーは USER00〜USER07 の 8 個だけです')
+    expect(table).not_to include(0x7E07, 0x7C77)
   end
 
   it 'customKeycodes を USER00 からの名前として足せる' do

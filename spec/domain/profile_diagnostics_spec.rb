@@ -152,10 +152,15 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
     let(:repeat) { k::Quantum.new(code: 0x7C79) }
 
     it 'Capabilities#unsupported_keycodes にある特殊キーは warning（どこに書いても）' do
-      layer = build_layer(keys: { tab => repeat })
+      layer = build_layer(keys: { tab => repeat }, encoders: { left: encoder_binding(cw: repeat), right: encoder_binding })
+      macro = build_macro(steps: [d::MacroStep::Tap.new(keys: [repeat])])
       td = build_tap_dance(on_hold: repeat)
-      diags = diagnostics_of(build_profile(layers: [layer], tap_dances: [td]), unsupported)
-      expect(summary(diags)).to eq([[:warning, 'layers[0].left_hand.row0.tab'], [:warning, 'tap_dances[0].on_hold']])
+      combo = build_combo(output_key: repeat)
+      profile = build_profile(layers: [layer], macros: [macro], tap_dances: [td], combos: [combo])
+      diags = diagnostics_of(profile, unsupported)
+      expect(summary(diags)).to eq([[:warning, 'layers[0].left_hand.row0.tab'], [:warning, 'layers[0].encoders.left.cw'],
+                                    [:warning, 'macros[0].steps[0].keys[0]'], [:warning, 'tap_dances[0].on_hold'],
+                                    [:warning, 'combos[0].output_key']])
       expect(diags.first.message).to eq('QK_REPEAT_KEY: 非対応です（書き込みますが、押しても動かない可能性があります）')
     end
 

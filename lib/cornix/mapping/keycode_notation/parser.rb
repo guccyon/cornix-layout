@@ -9,7 +9,8 @@ module Cornix
       # 設定ファイルのキーコード文字列 → Domain::Keycode（受け付ける表記は KeycodeNotation を参照）。
       #
       # 解釈の順序
-      #   1. 文字列全体が別名・QMK 名（"+", "(", "LCtrl" のように記号や修飾名と同じ別名を先に拾う）
+      #   1. 文字列全体が別名・QMK 名（"+", "(", "LCtrl" のように記号や修飾名と同じ別名を先に拾う）、
+      #      ワンショット修飾キーの名前（OS_LSFT）
       #   2. 参照 Macro(...) / TapDance(...) / Shortcut('名前') / Combo(...)
       #   3. 旧形式のマクロ M3
       #   4. 生の値 0xHHHH
@@ -67,6 +68,7 @@ module Cornix
           fail!('キーがありません') if text.empty?
 
           if (code = @catalog.lookup(text)) then @codec.decode(code)
+          elsif (bits = Modifiers::ONE_SHOT_BITS[text]) then K::OneShotMod.new(mods: mods(bits))
           elsif (m = REFERENCE.match(text)) then reference(m[1], m[2].strip, refs)
           elsif (m = LEGACY_MACRO.match(text)) then K::MacroCall.new(index: m[1].to_i)
           elsif (m = HEX.match(text)) then @codec.decode(m[1].to_i(16))
@@ -281,7 +283,7 @@ module Cornix
 
         # 大文字小文字だけが違う名前を探す
         def suggestion(text)
-          @names_by_downcase ||= @catalog.names.group_by(&:downcase)
+          @names_by_downcase ||= (@catalog.names + Modifiers::ONE_SHOT_BITS.keys).group_by(&:downcase)
           @names_by_downcase[text.downcase]&.first
         end
 

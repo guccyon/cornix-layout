@@ -11,10 +11,11 @@ RSpec.describe Cornix::Mapping::KeycodeCodec do
   let(:basic) { ->(code) { k::Basic.new(code: code) } }
   let(:layer) { ->(i) { Cornix::Domain::LayerRef.new(index: i) } }
 
-  # 旧 device/via_keycodes.yaml（vial-gui から抽出し実機で確認した表）を正解として使う
+  # 旧 device/via_keycodes.yaml（vial-gui から抽出し実機で確認した表）を正解として使う。
+  # M128〜M255（0x7780〜0x77FF）は vial-qmk ではマクロではなく QK_CONNECTION（OU_AUTO など）なので除く
   let(:vial_table) do
     YAML.load_file(File.expand_path('../fixtures/vial_keycodes_v6.yaml', __dir__))['codes']
-        .reject { |name, _| name.end_with?('(kc)') }
+        .reject { |name, code| name.end_with?('(kc)') || (0x7780..0x77FF).cover?(code) }
   end
 
   describe 'Vial の表のすべての値' do
@@ -50,6 +51,12 @@ RSpec.describe Cornix::Mapping::KeycodeCodec do
       expect(codec.decode(0x00E8)).to eq(k::Raw.new(code: 0x00E8))
       expect(codec.decode(0x1000)).to eq(k::Raw.new(code: 0x1000))
       expect(codec.decode(0xFFFF)).to eq(k::Raw.new(code: 0xFFFF))
+    end
+
+    it 'マクロは 0x7700〜0x777F（vial-qmk の QK_MACRO）。0x7780〜 は QK_CONNECTION' do
+      expect(codec.decode(0x777F)).to eq(k::MacroCall.new(index: 127))
+      expect(codec.decode(0x7780)).to eq(k::Quantum.new(code: 0x7780))
+      expect(codec.decode(0x77FF)).to eq(k::Raw.new(code: 0x77FF))
     end
 
     it '修飾キーの書き方の順序に依存しない' do

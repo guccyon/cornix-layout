@@ -25,6 +25,15 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       '!' => 0x021E, 'KC_EXLM' => 0x021E, '¥' => 0x041C, '+' => 0x022E, '(' => 0x0226, ',' => 0x0036,
       'LCtrl' => 0x00E0, 'RShift' => 0x00E5, 'USER00' => 0x7E00, 'BT0' => 0x7E00, 'QK_BOOT' => 0x7C00,
       'KC_LEFT_PAREN' => 0x0226, 'KC_RIGHT_PAREN' => 0x0227,
+      # QMK の新しい名前と、Vial GUI に名前のない値（vial-qmk の quantum/keycodes.h）
+      'XXXXXXX' => 0x0000, '_______' => 0x0001, 'KC_BACKSPACE' => 0x002A, 'KC_LEFT_CTRL' => 0x00E0,
+      'KC_SCRL' => 0x0047, 'KC_NUM' => 0x0053, 'MS_BTN1' => 0x00D1, 'MS_WHLU' => 0x00D9, 'UG_TOGG' => 0x7820,
+      'BL_UP' => 0x7804, 'QK_BOOTLOADER' => 0x7C00, 'QK_RBT' => 0x7C01, 'QK_GESC' => 0x7C16, 'GU_TOGG' => 0x700B,
+      'DB_TOGG' => 0x7C02, 'CL_TOGG' => 0x7002, 'BS_TOGG' => 0x7010, 'QK_LEAD' => 0x7C58, 'QK_LOCK' => 0x7C59, 'EC_SWAP' => 0x7020, 'DT_UP' => 0x7C71,
+      'OU_AUTO' => 0x7780, 'OU_BT' => 0x7786,
+      # 別名（data/aliases.yaml）
+      'Lang2' => 0x0091, 'MacEisu' => 0x0091, 'MacKana' => 0x0090, 'JisYen' => 0x0089, 'Win' => 0x00E3, 'Copy' => 0x007C, 'Keypad1' => 0x0059,
+      'Cmd' => 0x00E3, 'BrightnessUp' => 0x00BD, 'CapsWord' => 0x7C73, 'Repeat' => 0x7C79,
       # 修飾関数
       'LSFT(KC_1)' => 0x021E, 'LSFT(A)' => 0x0204, 'LSFT(1)' => 0x021E, 'SGUI(KC_4)' => 0x0A21,
       'LGUI(LSFT(KC_Q))' => 0x0A14, 'HYPR(Left)' => 0x0F50, 'MEH(A)' => 0x0704, 'LCS(A)' => 0x0304,
@@ -38,6 +47,8 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       'MO(3)' => 0x5223, 'TG(3)' => 0x5263, 'TO(0)' => 0x5200, 'TO(20)' => 0x5214, 'DF(1)' => 0x5241,
       'OSL(4)' => 0x5284, 'TT(2)' => 0x52C2, 'PDF(0)' => 0x52E0, 'LM(1, MOD_LSFT)' => 0x5022,
       'OSM(MOD_LSFT)' => 0x52A2, 'OSM(MOD_LCTL|MOD_LSFT)' => 0x52A3, 'OSM(MOD_MEH)' => 0x52A7,
+      'OS_LSFT' => 0x52A2, 'OS_LCS' => 0x52A3, 'OS_MEH' => 0x52A7, 'OS_HYPR' => 0x52AF, 'OS_RGUI' => 0x52B8,
+      'OS_RCSG' => 0x52BB,
       # 参照
       'M2' => 0x7702, 'M11' => 0x770B, 'TD(4)' => 0x5704, 'Macro(3)' => 0x7703, 'TapDance(2)' => 0x5702,
       "Macro('Copy Selected')" => 0x7702, 'Macro("Copy Selected")' => 0x7702, "TapDance('Tab Escape')" => 0x5704,
@@ -56,6 +67,17 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       it "#{text} → 0x#{format('%04X', expected)}" do
         expect(code(text)).to eq(expected)
       end
+    end
+
+    it 'cornixhub の Vial キー一覧の名前をすべて受け付ける' do
+      path = File.expand_path('../fixtures/cornixhub_vial_keys.txt', __dir__)
+      names = File.readlines(path, chomp: true).reject { |l| l.empty? || l.start_with?('#') }
+      unknown = names.reject do |name|
+        codec.encode(notation.parse(name))
+      rescue Cornix::UnknownKeycode
+        false
+      end
+      expect(unknown).to be_empty
     end
 
     it 'YAML に数値で書かれた値は 16bit の値そのもの' do
@@ -101,6 +123,7 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
         'Hoge + A' => /修飾キー名「Hoge」は使えません/,
         'Cmd +' => /キーがありません/,
         'enter' => /「enter」は不明なキーコードです（もしかして: Enter）/,
+        'os_lsft' => /（もしかして: OS_LSFT）/,
         'Foo' => /「Foo」は不明なキーコードです/,
         'LSFT(MO(1))' => /基本キーだけ/,
         'LGUI_T(LSFT(A))' => /基本キーだけ/,
@@ -115,7 +138,8 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
         'MO(A)' => /引数は数値/,
         'FOO(A)' => /関数 FOO\(...\) は使えません/,
         'M300' => /マクロ番号/,
-        'DB_TOGG' => /不明なキーコード/,
+        'M128' => /マクロ番号/,
+        'NO_SUCH_KEY' => /不明なキーコード/,
         '' => /キーコードが空です/
       }.each do |text, message|
         it "#{text.inspect} は UnknownKeycode" do
@@ -133,10 +157,11 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
   describe '#format' do
     {
       0x002B => 'Tab', 0x0029 => 'Escape', 0x0000 => 'NoKey', 0x0001 => 'Trans', 0x021E => '!',
-      0x0032 => 'KC_NONUS_HASH', 0x7C00 => 'Reset', 0x7C01 => 'QK_REBOOT', 0x7E00 => 'BT0',
+      0x0032 => 'NonUsHash', 0x0080 => 'KC__VOLUP', 0x0078 => 'KC_STOP', 0x7C00 => 'Reset', 0x7C01 => 'Reboot', 0x7E00 => 'BT0',
+      0x7C59 => 'KeyLock', 0x7780 => 'OutputAuto',
       0x0A28 => 'Shift + Command + Enter', 0x0F50 => 'Ctrl + Option + Shift + Command + Left',
       0x0A2E => 'Shift + Command + =', 0x1304 => 'RCtrl + RShift + A', 0x1F04 => 'RCtrl + ROption + RShift + RCommand + A',
-      0x2891 => 'LGUI_T(KC_LANG2)', 0x2F29 => 'HYPR_T(Escape)', 0x2304 => 'C_S_T(A)',
+      0x2891 => 'LGUI_T(Lang2)', 0x2F29 => 'HYPR_T(Escape)', 0x2304 => 'C_S_T(A)',
       0x3704 => 'MT(MOD_RCTL|MOD_RSFT|MOD_RALT, A)', 0x2136 => "LCTL_T(',')", 0x4134 => %(LT1("'")),
       0x412C => 'LT1(Space)', 0x5223 => 'MO(3)', 0x5200 => 'TO(0)', 0x52E0 => 'PDF(0)',
       0x5022 => 'LM(1, MOD_LSFT)', 0x52A7 => 'OSM(MOD_LCTL|MOD_LSFT|MOD_LALT)',
@@ -215,7 +240,7 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
   describe '不変条件 parse(format(k)) == k' do
     let(:named_refs) do
       Cornix::Mapping::References.new(
-        macros: (0..255).to_h { |i| ["マクロ #{i} 'x' \"y\"", i] },
+        macros: (0..127).to_h { |i| ["マクロ #{i} 'x' \"y\"", i] },
         tap_dances: (0..255).to_h { |i| ["TD #{i} (a, b) + c", i] }
       )
     end

@@ -22,6 +22,7 @@
   - [vial_qmk_settings_restore_issue](memories/vial_qmk_settings_restore_issue.md) - permissive_hold が復元されない件
   - [key_notes](memories/key_notes.md) - 割り当ての注記（`{ key:, note: }`）の持ち方と引き継ぎ
   - [named_shortcuts](memories/named_shortcuts.md) - Shortcut('名前') を nape_pro-layout から移植したときの判断
+  - [keycode_coverage](memories/keycode_coverage.md) - cornixhub / QMK / vial-qmk に基づくキーコードの網羅と出典
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---

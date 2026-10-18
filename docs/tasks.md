@@ -24,7 +24,7 @@
 codec = Mapping::KeycodeCodec.new(catalog = Mapping::KeycodeCatalog.default)
 codec.decode(Integer) #=> Domain::Keycode（例外を出さない。最後は Raw）
 codec.encode(Domain::Keycode) #=> Integer（表せなければ UnknownKeycode）
-catalog.lookup(name) / code_for_name / code_for_alias / vial_name(code) / preferred_alias(code) / aliases_for(code)
+catalog.lookup(name) / code_for_name / code_for_alias / name(code) / vial_name(code) / preferred_alias(code) / aliases_for(code)
 catalog.basic?(code) / quantum?(code) / dangerous?(code) / dangerous_reason(code)
 refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名前' => index }, shortcuts: { '名前' => keycode },
                                preset_shortcuts: { 'アプリ:カテゴリ:ラベル' => keycode })

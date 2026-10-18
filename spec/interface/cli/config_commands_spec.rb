@@ -13,7 +13,7 @@ RSpec.describe 'cornix compile / decompile / validate / cleanup / rename' do
   let(:input) { StringIO.new }
 
   def cornix(*argv)
-    Cornix::Interface::Cli::Main.new(env_factory: -> { env }, out: out, err: err, input: input).run(argv)
+    Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, out: out, err: err, input: input).run(argv)
   end
 
   describe 'compile' do
@@ -198,7 +198,7 @@ RSpec.describe 'cornix compile / decompile / validate / cleanup / rename' do
       plans_path = File.join(env.tmp_dir, 'rename_plans.json')
       answers = [-> { File.write(plans_path, JSON.generate(plans.first(1))) && "\n" }, -> { "y\n" }, -> { "y\n" }]
       input.define_singleton_method(:gets) { answers.shift&.call }
-      status = Cornix::Interface::Cli::Main.new(env_factory: -> { env }, out: out, err: err, input: input).run(['rename'])
+      status = Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, out: out, err: err, input: input).run(['rename'])
       expect(status).to eq(0)
       expect(out.string).to include('  ⚠️  Could not extract JSON from Claude output',
                                     "  Please manually create rename plan at: #{plans_path}",

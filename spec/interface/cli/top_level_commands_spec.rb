@@ -26,7 +26,7 @@ RSpec.describe 'cornix pull / status / apply / restore' do
 
   def cornix(*argv)
     out.truncate(0) && out.rewind
-    Cornix::Interface::Cli::Main.new(env_factory: -> { env }, use_cases: { compile: compile },
+    Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, use_cases: { compile: compile },
                                      out: out, err: err, input: input).run(argv)
   end
 
@@ -60,7 +60,7 @@ RSpec.describe 'cornix pull / status / apply / restore' do
     it '検証に失敗したらキーボードを開かずに exit 1' do
       failed = Cornix::Application::CompileResult.new(report: Cornix::Application::ValidationReport.new(errors: ['壊れている']))
       compile_failure = ->(_env) { ->(**) { failed } }
-      result = Cornix::Interface::Cli::Main.new(env_factory: -> { env }, use_cases: { compile: compile_failure },
+      result = Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, use_cases: { compile: compile_failure },
                                                 out: out, err: err, input: input).run(['status'])
       expect(result).to eq(1)
       expect(out.string).to include('❌ Validation failed.')
@@ -68,7 +68,7 @@ RSpec.describe 'cornix pull / status / apply / restore' do
     end
 
     it 'config/ がなければ decompile を案内して exit 1' do
-      result = Cornix::Interface::Cli::Main.new(env_factory: -> { env }, out: out, err: err, input: input).run(['status'])
+      result = Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, out: out, err: err, input: input).run(['status'])
       expect(result).to eq(1)
       expect(out.string).to include("Run 'cornix decompile' first")
       expect(opens).to be_empty

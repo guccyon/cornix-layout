@@ -59,6 +59,7 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
 - `cornix compile` / `decompile` / `validate` / `rename` / `cleanup`: 設定ファイルの変換・検証・名前付け
 - `cornix pull` / `status` / `apply` / `restore`: compile・decompile と `cornix device` を組み合わせたショートカット
   （compile の出力は `tmp/build/layout.vil`、pull は `tmp/layout.vil` に読み出してから decompile）
+- `cornix init` と共通のオプション `--config` / `--profile` / `--root`: 設定ディレクトリの作成と場所の指定
 - `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
 - 名前参照（`Macro('名前')`）、名前付きショートカット（`Shortcut('名前')`、`config/shortcuts.yaml`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
 - decompile → compile で 16bit 値が元と一致する
@@ -146,6 +147,11 @@ ruby bin/diff_layouts       # tmp/layout.vil と tmp/build/layout.vil を 16bit 
   座標変換は `Domain::PositionMap` だけが行う
 - **rename**: 名前参照はテキスト置換で書き換え、変更の前後の compile 結果（16bit 値）を比べて違えば元に戻す
 - **cleanup / Environment**: 場所は `Application::Environment#root`（既定はリポジトリのルート）から決まる。カレントディレクトリに依存しない
+- **設定ディレクトリの指定**: `Application::Workspace.resolve` が `--config` > `CORNIX_CONFIG` > `--profile NAME`（profiles/NAME）>
+  カレントから親へたどった `.cornix.yml` > `<リポジトリ>/config` の順で決める。CLI は `Environment.for(workspace)` で作る。
+  `<root>/config` 以外では tmp を `tmp/profiles/<名前>/`（profiles/ の外はパスのハッシュ付き。compile の出力はその下の
+  `build/layout.vil`）に分ける。`.cornix.yml` の読み書きは `Storage::SettingsFile`。
+  `cornix init` が設定ディレクトリと（必要なら）`.cornix.yml` を作り、デバイスか `--from` の .vil から設定を書く
 
 ## Troubleshooting
 

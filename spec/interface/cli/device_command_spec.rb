@@ -12,7 +12,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
   let(:input) { StringIO.new }
 
   def cornix(*argv)
-    Cornix::Interface::Cli::Main.new(env_factory: -> { env }, out: out, err: err, input: input).run(['device', *argv])
+    Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, out: out, err: err, input: input).run(['device', *argv])
   end
 
   it '引数がなければ使い方を表示して exit 0、知らない action は exit 1' do

@@ -14,7 +14,7 @@ RSpec.describe Cornix::Interface::Cli::Main do
   end
 
   it 'コマンドの表は名前 → Command のクラス' do
-    expect(described_class::COMMANDS.keys).to eq(%w[compile decompile validate pull status apply restore rename cleanup device mcp])
+    expect(described_class::COMMANDS.keys).to eq(%w[init compile decompile validate pull status apply restore rename cleanup device mcp])
     expect(described_class::COMMANDS.values).to all(be < Cornix::Interface::Cli::Command)
   end
 
@@ -41,25 +41,25 @@ RSpec.describe Cornix::Interface::Cli::Main do
     end
     stub = ->(_env) { Struct.new(:call).new(Cornix::Application::InfoResult.new(info: { greeting: 'こんにちは ' })) }
     status = run('hello', '--name', 'Cornix', commands: described_class::COMMANDS.merge('hello' => hello),
-                                              use_cases: { device_info: stub }, env_factory: -> { :env })
+                                              use_cases: { device_info: stub }, env_factory: ->(_ws) { :env })
     expect(status).to eq(0)
     expect(out.string).to eq("こんにちは Cornix\n")
   end
 
   it 'Cornix::Error は「エラー: …」で exit 1' do
     failing = ->(_env) { Struct.new(:call).new.tap { |o| def o.call = raise(Cornix::DeviceError, 'Cornix が見つかりません') } }
-    expect(run('device', 'info', use_cases: { device_info: failing }, env_factory: -> { :env })).to eq(1)
+    expect(run('device', 'info', use_cases: { device_info: failing }, env_factory: ->(_ws) { :env })).to eq(1)
     expect(err.string).to eq("エラー: Cornix が見つかりません\n")
   end
 
   it 'mcp は MCP サーバーを起動する' do
     server = double('server', run: nil)
-    expect(run('mcp', env_factory: -> { :env }, mcp_factory: ->(env) { env == :env && server })).to eq(0)
+    expect(run('mcp', env_factory: ->(_ws) { :env }, mcp_factory: ->(env) { env == :env && server })).to eq(0)
     expect(server).to have_received(:run)
   end
 
   it 'オプションの誤りは使い方の案内つきで exit 1' do
-    expect(run('device', 'info', '--bogus', env_factory: -> { :env })).to eq(1)
+    expect(run('device', 'info', '--bogus', env_factory: ->(_ws) { :env })).to eq(1)
     expect(err.string).to include('エラー: invalid option: --bogus').and include('cornix help')
   end
 end

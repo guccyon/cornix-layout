@@ -10,7 +10,7 @@ module Cornix
         device_diff: :DeviceDiff, device_apply: :DeviceApply, device_restore: :DeviceRestore,
         list_backups: :ListBackups, pull: :Pull,
         compile: :Compile, decompile: :Decompile, validate: :Validate, cleanup: :Cleanup,
-        rename_files: :RenameFiles, suggest_renames: :SuggestRenames
+        rename_files: :RenameFiles, suggest_renames: :SuggestRenames, init: :Init
       }.freeze
 
       module_function

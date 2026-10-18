@@ -26,9 +26,16 @@ module Cornix
 
       attr_reader :transport
 
-      def initialize(transport)
+      # dangerous_keycode: 書き込みを拒否するキーコードか（Integer → 真偽）。省略時は BOOT_KEYCODES
+      # setting_widths: 読み書きする設定 ID → 幅（バイト数）。省略時は SETTING_WIDTHS
+      # （新しいコードは Mapping::KeycodeCatalog#dangerous? と Mapping::QmkSettingCatalog の幅を渡す）
+      def initialize(transport, dangerous_keycode: nil, setting_widths: SETTING_WIDTHS)
         @transport = transport
+        @dangerous_keycode = dangerous_keycode || BOOT_KEYCODES.method(:cover?)
+        @setting_widths = setting_widths
       end
+
+      attr_reader :setting_widths
 
       # ---- 読み取り ----
 
@@ -141,7 +148,7 @@ module Cornix
       end
 
       def setting(id)
-        width = SETTING_WIDTHS.fetch(id) { raise DeviceError, "未対応の設定 ID: #{id}" }
+        width = setting_widths.fetch(id) { raise DeviceError, "未対応の設定 ID: #{id}" }
         r = vial(0x0A, id & 0xFF, id >> 8)
         raise DeviceError, "設定 #{id} の取得に失敗しました" unless r[0].zero?
 
@@ -183,8 +190,8 @@ module Cornix
       end
 
       def set_setting(id, value)
-        width = SETTING_WIDTHS.fetch(id) { raise ArgumentError, "未対応の設定 ID: #{id}" }
-        max = width == 1 ? 1 : 0xFFFF
+        width = setting_widths.fetch(id) { raise ArgumentError, "未対応の設定 ID: #{id}" }
+        max = width == 1 ? 1 : (1 << (8 * width)) - 1
         raise ArgumentError, "設定 #{id} の値が範囲外: #{value}" unless value.is_a?(Integer) && value.between?(0, max)
 
         vial(0x0B, id & 0xFF, id >> 8, *Array.new(width) { |i| (value >> (8 * i)) & 0xFF })
@@ -234,7 +241,7 @@ module Cornix
 
       def check_keycode!(code)
         check_u16!('keycode', code)
-        return unless BOOT_KEYCODES.cover?(code)
+        return unless @dangerous_keycode.call(code)
 
         raise ArgumentError, format('boot 系キーコード (0x%04x) は書き込めません', code)
       end

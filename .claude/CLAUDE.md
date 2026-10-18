@@ -30,12 +30,19 @@
 
 **重要な原則**:
 - 作業完了時には、得られた知見を `.claude/memories/` に記録すること
-- `README.md` と `README.en.md` は**常に一緒に更新**すること
+- `README.md`（英語）と `README.ja.md`（日本語）は**常に一緒に更新**すること（下の「README の同期」）
 - プロンプト及び計画、作業結果の報告は全て日本語で行うこと
 - タスクを実行してコミットする際には必ず RSpec が全て通る状態を確認すること（`LANG=ja_JP.UTF-8 bundle exec rspec`）
 - Pull Request の説明は下記「Pull Request の説明」のルールに従うこと
 - [docs/architecture.md](../docs/architecture.md) の方針・依存の向き・コード規約を守ること
 - 実機のキーボードへの書き込み（`cornix apply` / `restore`、`cornix device apply` / `restore`、MCP の書き込み）は利用者の同意なしに行わないこと
+
+### README の同期
+
+- `README.md`（英語）と `README.ja.md`（日本語）は同じ内容に保つ。**片方を変えたら、同じコミットでもう片方も変える**。英語で書くのは `README.md` だけ（ほかの文書は日本語）
+- 節の構成・コード例・リンクをそろえる。コード例の中のコメントや YAML の例の名前・説明は、それぞれの言語に訳す。キーの名前・コマンド・オプション・ツールが出すメッセージは訳さない
+- 同期は `spec/docs/readme_sync_spec.rb` が確かめる（見出しのレベルの並び、コードブロックの数と言語、リポジトリ内のファイルと外部へのリンク、節へのリンクの数と行き先）。内容の一致は自分で確かめる
+- 日本語の文書から README を指すときは `README.ja.md` へリンクする
 
 ### Pull Request の説明
 

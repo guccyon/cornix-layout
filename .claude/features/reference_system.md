@@ -1,6 +1,6 @@
 # マクロ・タップダンスの参照
 
-キーの割り当てからマクロ・タップダンスを指す書き方。利用者向けの説明は README の「マクロ・タップダンスの参照方法」。
+キーの割り当てからマクロ・タップダンスを指す書き方。利用者向けの説明は [README.ja.md](../../README.ja.md) の「マクロ・タップダンスの参照」。
 
 | 書き方 | マクロ | タップダンス | 値 |
 |---|---|---|---|
@@ -23,7 +23,7 @@
 
 ## 名前付きショートカット（`Shortcut('名前')`）
 
-nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの説明は README の「名前付きショートカット」。
+nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの説明は [README.ja.md](../../README.ja.md) の「名前付きショートカット」。
 
 - 定義は `config/shortcuts.yaml`（任意）の `shortcuts: { 名前: キーコードの表記 }`。`Domain::ShortcutLibrary`（名前 → Keycode）として
   `Profile#shortcuts` が持つ。デバイス（layout.vil）にはないので、`ProfileMapper#to_profile` は previous のものを引き継ぐ

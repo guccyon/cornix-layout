@@ -655,5 +655,5 @@ ruby bin/diff_layouts ~/Downloads/layout.vil /tmp/cornix-roundtrip/tmp/profiles/
 
 - This tool is not an official Cornix product and is not affiliated with its makers. A firmware update may change the protocol
 - The author accepts no responsibility for problems caused by using this tool. Keep a copy of important settings, for example with `cornix device backup`
-- License: MIT License
+- License: [MIT License](LICENSE). You may freely modify and redistribute it; it comes with no warranty
 - References: [Vial Documentation](https://get.vial.today/), [QMK Keycodes](https://docs.qmk.fm/keycodes_basic)

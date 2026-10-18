@@ -43,6 +43,14 @@ module Cornix
         value.each_with_index { |item, i| each&.call(item, i) }
         value.dup.freeze
       end
+
+      # Hash を検査し、freeze した複製を返す（each には key, value を渡す）
+      def hash!(value, what, &each)
+        raise InvalidValue, "#{what}は Hash です: #{value.inspect}" unless value.is_a?(Hash)
+
+        value.each { |k, v| each&.call(k, v) }
+        value.dup.freeze
+      end
     end
   end
 end

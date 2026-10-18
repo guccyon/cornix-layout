@@ -5,72 +5,22 @@
 
 ## Quick Links
 
-- **Architecture**: [Architecture Documentation](architecture/README.md)
-  - [Current Architecture](architecture/architecture.md) ⭐ Phase 2実装状況
-  - [Legacy Architecture](architecture/legacy_architecture.md)
-  - [Models](architecture/models.md)
-  - [Coordinate System](architecture/coordinate_system.md)
-  - [Data Flow](architecture/data_flow.md)
-
-- **Implementation**: [Implementation Guide](implementation/README.md)
-  - [Refactor Plan](implementation/refactor_plan.md)
-  - [Refactor Progress](implementation/refactor_progress.md) ⭐ 実装進捗詳細
-  - [Migration Guide](implementation/migration_guide.md)
-
+- **設計**: [docs/architecture.md](../docs/architecture.md)（方針・層と依存の向き・データの流れ・コード規約）
+- **契約**: [docs/tasks.md](../docs/tasks.md)（主なクラスの公開メソッド、リファクタの経緯）
+- **座標系**: [architecture/coordinate_system.md](architecture/coordinate_system.md)（論理位置と layout.vil の物理位置）
+- **背景**: [context/project_background.md](context/project_background.md)
 - **Features**:
-  - [Reference System](features/reference_system.md) - Macro/TapDance/Combo参照
-  - [Modifier Expressions](features/modifier_expressions.md) - VS Code風修飾キー表現
-  - [File Renamer](features/file_renamer.md) - ファイルリネーム機能
-  - [Validation](features/validation.md) - バリデーション機能
+  - [Reference System](features/reference_system.md) - Macro / TapDance の参照
+  - [Modifier Expressions](features/modifier_expressions.md) - VS Code 風修飾キー表現
+  - [Rename](features/rename.md) - `cornix rename` と `bin/rename_file`
+  - [Validation](features/validation.md) - 構造検証と意味検証
   - [Device / MCP](features/device_mcp.md) - キーボード直接操作と MCP サーバー
-
-- **Memories**: [Implementation Memories](memories/)
-  - [Model Validation](memories/model_validation.md) - Validatable実装知見
-
-## Recent Changes
-
-### v2.x - Validation Enhancement (2026-03-12) ✅ 完了
-
-**Phase 2.7（バリデーション強化）**: 7段階のバリデーション強化完了
-
-**実装済み**:
-- ✅ KeycodeConverter強化 (nil返却)
-- ✅ Macro Sequenceサブモデル化 (MacroStep/MacroAction)
-- ✅ TapDance/Comboキーコード検証
-- ✅ PositionMap構造検証強化
-- ✅ KeyMapping検証強化
-- ✅ エラーメッセージ改善
-- ✅ 統合テスト修正
-- ✅ 全862テスト合格
-- ✅ QMK Macro仕様準拠
-
-詳細: [Refactor Progress](implementation/refactor_progress.md)
-
-### v2.x - Model Layer Implementation (2026-03-11) ✅ 完了
-
-**Phase 2（モデル層実装）**: 100%完了
-
-**実装済み**:
-- ✅ Validatableモジュール (260行、2段階検証)
-- ✅ 19モデル実装 (~1,337行)
-- ✅ Validatable適用 (全19モデル)
-- ✅ Context Pollution Bug修正
-- ✅ ModelValidator リファクタリング
-- ✅ 全837テスト合格
-- ✅ Round-trip test成功
-
-詳細: [Refactor Progress](implementation/refactor_progress.md)
-
-### v2.0 - 階層化レイヤーYAML構造への移行 (2026-03-10)
-
-**Breaking Change**: レイヤーYAMLファイルとposition_mapの構造が階層化されました。
-
-**主な変更**:
-1. **シンボル名の簡略化**: `l_thumb_left` → `left`, `l_rotary_push` → `push`
-2. **階層パスによる一意性保証**: `left_hand.thumb_keys.left`, `encoders.left.push`
-3. **レイヤーファイルの階層構造**
-
-**Migration**: `cornix decompile`で自動的に新形式に変換されます。
+- **Memories**: [memories/](memories/)
+  - [domain_architecture_refactor](memories/domain_architecture_refactor.md) - 作り直しの知見・意図的に変えた振る舞い
+  - [vial_device_protocol](memories/vial_device_protocol.md) - RMK 0.8 / Vial プロトコル
+  - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
+  - [vial_qmk_settings_restore_issue](memories/vial_qmk_settings_restore_issue.md) - permissive_hold が復元されない件
+- **テスト**: [spec/README.md](../spec/README.md)
 
 ---
 
@@ -80,8 +30,10 @@
 - 作業完了時には、得られた知見を `.claude/memories/` に記録すること
 - `README.md` と `README.en.md` は**常に一緒に更新**すること
 - プロンプト及び計画、作業結果の報告は全て日本語で行うこと
-- タスクを実行してコミットする際には必ず RSpec が全て通る状態を確認すること
+- タスクを実行してコミットする際には必ず RSpec が全て通る状態を確認すること（`LANG=ja_JP.UTF-8 bundle exec rspec`）
 - Pull Request の説明は下記「Pull Request の説明」のルールに従うこと
+- [docs/architecture.md](../docs/architecture.md) の方針・依存の向き・コード規約を守ること
+- 実機のキーボードへの書き込み（`cornix device apply` / `restore`、MCP の書き込み）は利用者の同意なしに行わないこと
 
 ### Pull Request の説明
 
@@ -100,270 +52,106 @@ PR の説明は、読み手が背景から結論まで追えるよう丁寧に�
 
 ## Project Overview
 
-CornixキーボードのVial `layout.vil`ファイルとYAML設定ファイル間の双方向変換ツール。
+Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`config/`）の双方向変換ツール。
 
-**機能**:
-- Compile: YAML → layout.vil
-- Decompile: layout.vil → YAML
-- Validate: YAML設定の妥当性検証
-- Rename: ファイルリネーム機能
-- Device / MCP: 接続中のキーボードへの直接読み書き（`cornix device`, `cornix mcp`）
+- `cornix compile` / `decompile` / `validate` / `rename` / `cleanup`: 設定ファイルの変換・検証・名前付け
+- `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
+- 名前参照（`Macro('名前')`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
+- decompile → compile で 16bit 値が元と一致する
 
-**特徴**:
-- 3つの参照形式サポート（Name-based, Index-based, Legacy）
-- VS Code風修飾キー表現（`Cmd + Q`）
-- Round-trip互換性（完全なデータ整合性）
-
-## Architecture Overview
-
-現在の5層構造（Phase 2完了時点）:
+## Architecture
 
 ```
-Presentation Layer
-  └─ CLI (bin/cornix)
-       ↓
-Orchestration Layer (TBD)
-  └─ CompileOrchestrator, DecompileOrchestrator
-       ↓
-Application Layer
-  └─ Converter (TBD), Validator (Legacy)
-       ↓
-Domain Layer ✅ 実装済み
-  ├─ 19 Models (~1,077行)
-  └─ Validatable Concern (260行)
-       ↓
-Infrastructure Layer (TBD)
-  └─ Loader, Writer
+Interface       CLI（bin/cornix → Interface::Cli::Main）・MCP サーバー（Interface::Mcp::Server）
+Application     ユースケース（Compile / Decompile / Validate / Cleanup / RenameFiles / SuggestRenames / Device*）と Environment（DI）
+Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / MacroCodec / ProfileMapper / QmkSettingCatalog
+Planning        ImageDiff / Change / Plan
+Domain          Profile 集約と値オブジェクト（Keycode, ModifierSet, LayerRef, Layer, Macro, TapDance, Combo, PositionMap, ...）。I/O なし
+Image           DeviceImage（16bit 値とバイト列のまま）。I/O なし
+Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ BackupStore / ConfigEditor / DecompileLock
+Device          HidBridge / Protocol / Session / Reader / Planner / Writer
 ```
 
-詳細: [Current Architecture](architecture/architecture.md)
+```
+compile    config/ ─ConfigRepository→ Profile ─ProfileMapper→ DeviceImage ─VilFile→ layout.vil
+decompile  layout.vil ─VilFile→ DeviceImage ─ProfileMapper→ Profile ─ConfigRepository→ config/
+validate   ConfigRepository#load（構造検証）→ Profile#diagnostics（意味検証）
+device     layout.vil → DeviceImage（目標）、実機 ─Reader→ DeviceImage（現在）→ ImageDiff → Plan(token) → Writer → 読み直して検証
+```
 
-## Core Components
-
-1. **Compiler** (`lib/cornix/compiler.rb`) - YAML → layout.vil
-2. **Decompiler** (`lib/cornix/decompiler.rb`) - layout.vil → YAML
-3. **KeycodeParser** (`lib/cornix/keycode_parser.rb`) - 構文解析
-4. **ReferenceConverter** (`lib/cornix/converters/reference_converter.rb`) - 参照解決
-5. **KeycodeConverter** (`lib/cornix/converters/keycode_converter.rb`) - エイリアス解決
-6. **FileRenamer** (`lib/cornix/file_renamer.rb`) - ファイルリネーム
-7. **Validator** (`lib/cornix/validator.rb`) - 設定ファイル検証
-8. **Models** (`lib/cornix/models/`) - ドメインモデル（19ファイル、Phase 2実装）
-9. **Device** (`lib/cornix/device/`, `ext/cornix_hid/`) - 接続中のキーボードへの直接読み書きと MCP サーバー（[知見](memories/vial_device_protocol.md)）
+- 文字列 ⇄ Keycode は `KeycodeNotation`（設定ファイル）と `VialNotation`（.vil）、16bit 値 ⇄ Keycode は `KeycodeCodec`、
+  Profile ⇄ DeviceImage は `ProfileMapper` だけが行う。キーコード文字列は読み込み時に 1 回だけ解析する
+- 依存の向きは `spec/architecture_spec.rb` が検査する（Domain / Image は何にも依存しない）
+- ライブラリの中で `puts` / `gets` / `exit` しない。エラーは `Cornix::Error` 系（`lib/cornix/errors.rb`）で送出し、
+  CLI が標準エラー出力に `エラー: …` と表示して終了コード 1
 
 ## Directory Structure
 
 ```
-cornix/
-├── bin/
-│   ├── cornix              # Main CLI dispatcher
-│   └── subcommands/        # compile, decompile, validate, cleanup, rename
-├── lib/cornix/
-│   ├── compiler.rb, decompiler.rb
-│   ├── keycode_parser.rb
-│   ├── converters/         # ReferenceConverter, KeycodeConverter
-│   ├── models/             # 19 domain models ✅ Phase 2
-│   │   ├── concerns/       # Validatable
-│   │   ├── layer/          # Layer submodels
-│   │   ├── macro/, tap_dance/, combo/
-│   │   └── ...
-│   ├── file_renamer.rb, validator.rb
-│   ├── keycode_aliases.yaml
-│   └── position_map.yaml
-├── spec/                   # 700+ tests
-│   ├── models/             # ~234 tests (Phase 2) ✅
-│   └── ...
-├── .claude/
-│   ├── CLAUDE.md           # This file
-│   ├── architecture/       # Architecture docs
-│   ├── implementation/     # Implementation guide
-│   ├── features/           # Feature docs
-│   └── memories/           # Implementation knowledge
-└── config/                 # User configuration (generated)
-    ├── layers/, macros/, tap_dance/, combos/
-    ├── metadata.yaml, position_map.yaml
-    └── settings/qmk_settings.yaml
+bin/
+  cornix            CLI
+  diff_layouts      2 つの layout.vil を 16bit 値で比べる（round-trip check）
+  rename_file       RenameFiles の薄い入口（JSON で結果を表示）
+data/
+  keycodes.yaml     名前付きキーコードの表（Vial プロトコル 6）
+  aliases.yaml      別名（QMK 名: [正規名, 別名...]。先頭が decompile で書く名前）
+  qmk_settings.yaml QSID・名前・グループ・幅
+  dangerous_keycodes.yaml  実機に書き込まないキーコード
+lib/cornix.rb       全ファイルを層の順に require
+lib/cornix/
+  domain/ image/ mapping/ planning/ storage/ device/ application/ interface/
+  errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
+ext/cornix_hid/     raw HID ブリッジ（Swift、tmp/cornix-hid にビルド）
+spec/               lib と同じ層の構成 + end_to_end_spec.rb / architecture_spec.rb / fixtures/
+docs/               architecture.md, tasks.md
+config/             利用者の設定（生成物。main ブランチにはない）
 ```
 
-## Quick Reference
-
-### Common Commands
+## Testing
 
 ```bash
-# Compile
-cornix compile              # Auto-validates, then compiles
+LANG=ja_JP.UTF-8 bundle exec rspec                         # すべて（キーボード不要）
+LANG=ja_JP.UTF-8 bundle exec rspec spec/mapping            # 層ごと
+LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb # compile / decompile の一致
+```
 
-# Decompile
-cornix decompile            # Generates config/ from layout.vil
+- `spec/end_to_end_spec.rb`: `spec/fixtures/test_config` と `spec/fixtures/authors_config` を compile し、
+  保存した `layout.vil` / `authors_baseline.vil` と 16bit 値で一致すること、decompile → compile で戻ること
+- 旧実装の結果は `spec/fixtures/expected/` に保存してあり、それと比べる
+- 実機の代わりに `spec/device/fake_rmk_device.rb`（RMK 0.8 の応答を模したもの）を使う
 
-# Validate
-cornix validate             # Validates YAML configuration
+### Round-trip check（手元の layout.vil で）
 
-# Rename
-cornix rename               # Interactive file renaming
-
-# Cleanup
-cornix cleanup              # Removes generated files
-
-# Round-trip check
+```bash
 mv config config.backup
-cornix decompile
-cornix compile
-ruby bin/diff_layouts       # ✓ FILES ARE IDENTICAL
+cp ~/Downloads/layout.vil tmp/layout.vil
+cornix decompile && cornix compile
+ruby bin/diff_layouts       # tmp/layout.vil と layout.vil を 16bit 値で比較 → === ✓ FILES ARE IDENTICAL ===
 ```
-
-### Testing
-
-```bash
-# All tests (700+ tests)
-bundle exec rspec
-
-# Model tests (Phase 2)
-bundle exec rspec spec/models/
-
-# Legacy tests
-bundle exec rspec spec/compiler_spec.rb
-bundle exec rspec spec/decompiler_spec.rb
-bundle exec rspec spec/validator_spec.rb
-
-# Integration tests
-bundle exec rspec spec/integration_spec.rb
-```
-
-### Development Workflow
-
-1. **計画確認**: [Refactor Progress](.claude/implementation/refactor_progress.md)
-2. **実装**: 各フェーズのタスクを順次実装
-3. **テスト**: `bundle exec rspec`
-4. **Round-trip check**: `ruby bin/diff_layouts`
-5. **ドキュメント更新**: `.claude/implementation/refactor_progress.md`
-6. **知見記録**: `.claude/memories/`
-7. **コミット**: `git commit`
 
 ## Key Design Decisions
 
-### 1. Alias System
-- layout.vil: 必ずQMK形式（`KC_*`）
-- YAML: エイリアス形式（`Tab`, `Space`）
-- 関数引数の処理ルール: レイヤー切り替え系は数値保持、修飾キー系は`KC_*`変換
-
-### 2. Reference System
-- 3形式サポート: Name-based, Index-based, Legacy
-- Name-based推奨（可読性、FileRenamer自動更新）
-- Decompiler: 常にname-based形式で出力
-
-詳細: [Reference System](features/reference_system.md)
-
-### 3. Modifier Expression System
-- VS Code風構文: `Cmd + Q`, `Shift + Ctrl + A`
-- QMKショートカット自動検出: LSG, MEH, HYPR等
-- Decompiler: QMK形式を保持（逆変換しない）
-
-詳細: [Modifier Expressions](features/modifier_expressions.md)
-
-### 4. Model Layer Architecture
-- 5層構造: Presentation → Orchestration → Application → Domain → Infrastructure
-- Validatableモジュール: 2段階検証（structural + semantic）
-- 19モデル実装済み（Phase 2）
-
-詳細: [Current Architecture](architecture/architecture.md)
-
-### 5. Position Map Structure
-- 階層化構造（v2.0）: `left_hand.thumb_keys.left`
-- シンボル名簡略化: 冗長なプレフィックス削除
-- システムファイル: `lib/cornix/position_map.yaml`
-- ユーザー版: `config/position_map.yaml`（カスタマイズ可能）
-
-### 6. File Organization
-- `lib/cornix/keycode_aliases.yaml`: システムファイル（config/にコピーしない）
-- `lib/cornix/position_map.yaml`: テンプレート
-- `lib/cornix/models/`: ドメインモデル（Phase 2実装）
-
-## Testing & Verification
-
-### Round-trip Check（標準検証手順）
-
-```bash
-# 1. バックアップ
-mv config config.backup
-
-# 2. Decompile
-cornix decompile
-
-# 3. Compile
-cornix compile
-
-# 4. 比較
-ruby bin/diff_layouts
-# 期待結果: === ✓ FILES ARE IDENTICAL ===
-```
-
-### Test Coverage
-
-- **Legacy tests**: 493テスト（Phase 2開始前）
-- **Model tests**: ~234テスト（Phase 2）
-- **Validation enhancement tests**: +25テスト（Phase 2.7）
-- **合計**: ~862テスト
-
-## Current Status
-
-### ✅ 完了
-- Phase 1: PositionMap拡張（座標変換メソッド）
-- Phase 2: モデル層実装（19モデル、Validatable）
-  - Validatable適用: 全19モデル
-  - Context Pollution Bug修正
-  - ModelValidator リファクタリング
-
-### 📋 次のフェーズ
-- Phase 3: Loader/Writer実装
-- Phase 4: Converter移行
-- Phase 5: 新Compiler/Decompiler
-- Phase 6: 検証とクリーンアップ
-
-詳細: [Refactor Progress](implementation/refactor_progress.md)
-
-## Next Steps
-
-### 1. Phase 3開始（Phase 2完了）
-Loader/Writer実装:
-- YamlLoader, VilLoader
-- YamlWriter, VilWriter
-
-### 2. Phase 4-6（Phase 3完了後）
-Converter移行、新Compiler/Decompiler、検証とクリーンアップ
-
-詳細: [Migration Guide](implementation/migration_guide.md)
+- **キーコード表**: 名前付きのキーコードだけを `data/keycodes.yaml` に持ち、`MO(n)` / `LT(n, kc)` / `LSFT(kc)` など引数付きは
+  `KeycodeCodec` の定数とビット演算で組み立てる。別名は `data/aliases.yaml`（重複は読み込み時にエラー）
+- **.vil の表記**: `VialNotation#format` は Vial GUI が保存する表記と同じ。Vial に名前のない値は `0xHHHH`
+- **decompile の正規形**: 別名 → 修飾キー式（`Ctrl, Option, Shift, Command` の順）→ 関数形式 → `0xHHHH`。
+  参照は `Macro('名前')` / `TapDance('名前')`、設定は名前の形
+- **修飾キー**: `Domain::ModifierSet` は左右どちらか一方。左右の混在はエラー
+- **知らない値は落とさない**: 解釈できない 16bit 値は `Keycode::Raw`、.vil の未対応項目は `DeviceImage#meta` で往復させる
+- **Position Map**: テンプレート `lib/cornix/position_map.yaml` → 利用者版 `config/position_map.yaml`。
+  座標変換は `Domain::PositionMap` だけが行う
+- **rename**: 名前参照はテキスト置換で書き換え、変更の前後の compile 結果（16bit 値）を比べて違えば元に戻す
+- **cleanup / Environment**: 場所は `Application::Environment#root`（既定はリポジトリのルート）から決まる。カレントディレクトリに依存しない
 
 ## Troubleshooting
 
-### keycode_aliases.yamlが見つからない
-→ `lib/cornix/keycode_aliases.yaml`の配置を確認
-
-### Round-trip checkが失敗する
-→ `ruby bin/diff_layouts`で差分箇所を確認
-
-### config/ディレクトリが生成されない
-→ `.decompile.lock`ファイルを削除
-
-### テストが失敗する
-→ `bundle exec rspec --format documentation`で詳細確認
+- **decompile が止まる**: `config/layers/` か `config/macros/` にファイルがある。退避するか `cornix cleanup`（ロックがあれば `-f`）
+- **Round-trip check が失敗する**: `ruby bin/diff_layouts` で差分の場所を確認
+- **テストが失敗する**: `LANG=ja_JP.UTF-8` を付けているか確認。`bundle exec rspec --format documentation` で詳細
+- **依存の向きの違反**: `spec/architecture_spec.rb` の失敗は層の依存の向きの誤り（docs/architecture.md の表を参照）
 
 ## References
 
-### Official Documentation
 - [QMK Keycodes](https://docs.qmk.fm/keycodes)
 - [Vial Documentation](https://get.vial.today/)
 - [QMK Firmware](https://docs.qmk.fm/)
-
-### Internal Documentation
-- [Architecture](architecture/README.md)
-- [Implementation Guide](implementation/README.md)
-- [Feature Documentation](features/)
-- [Implementation Memories](memories/)
-
-### Help & Feedback
-- `/help`: Get help with using Claude Code
-- Feedback: https://github.com/anthropics/claude-code/issues
-
----
-
-**Note**: このCLAUDE.mdは簡潔なインデックス版です。詳細な実装ガイドやアーキテクチャ情報は、各リンク先のドキュメントを参照してください。

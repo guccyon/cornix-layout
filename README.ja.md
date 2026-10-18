@@ -348,6 +348,9 @@ mapping:
 - `Shortcut('名前')` は定義したキーコードそのものになります。関数の引数の中（`LT1(Shortcut('名前'))`）でも、その場所に書けるキー（`LT1` なら基本キー）を定義したときは使えます
 - 定義にない名前は検証エラーです。`shortcuts.yaml` の値とマクロの中では `Shortcut(...)` は使えません
 - `shortcuts.yaml` は `pull` では作られないので、自分で作ります
+- [cornixhub](https://cornixhub.com/shortcuts) で共有されているショートカット（27 アプリ・824 件）は、定義しなくても `Shortcut('アプリ:カテゴリ:ラベル')` で使えます（例: `Shortcut('Spotify:再生:次のクリップ')`）。使える名前は [data/shortcuts/](data/shortcuts/) のファイルで確かめられます。ラベルは cornixhub の日本語表記です
+- `shortcuts.yaml` に同じ名前を書くと、同梱の定義より優先されます
+- decompile で `Shortcut(...)` に書き戻されるのは `shortcuts.yaml` の定義だけです（同梱の定義と同じ値はふつうのキーコードで書かれます）
 
 ### キーの位置（`position_map.yaml`）
 

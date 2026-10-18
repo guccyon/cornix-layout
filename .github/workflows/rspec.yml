@@ -19,4 +19,9 @@ jobs:
           ruby-version: '4.0'
           bundler: latest
           bundler-cache: true
+      - name: 読み込み時に警告が出ないこと
+        run: |
+          out=$(ruby -w -Ilib -e 'require "cornix"' 2>&1)
+          for f in bin/*; do out+=$(ruby -wc "$f" 2>&1 >/dev/null); done
+          if [ -n "$out" ]; then printf '%s\n' "$out"; exit 1; fi
       - run: bundle exec rspec

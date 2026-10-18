@@ -26,13 +26,22 @@ RSpec.describe Cornix::Mapping::VialNotation do
 
 
   describe '#format_code' do
-    it 'すべての 16bit 値で旧 Device::Keycodes#decode と同じ文字列になる' do
+    it 'すべての 16bit 値で旧 Device::Keycodes#decode と同じ文字列になる（0x7780〜0x77FF を除く）' do
       mismatches = (0..0xFFFF).filter_map do |code|
+        next if (0x7780..0x77FF).cover?(code)
+
         expected = OLD_CODES[code][0]
         actual = vial.format_code(code)
         "0x#{format('%04X', code)}: 旧 #{expected} / 新 #{actual}" unless actual == expected
       end
       expect(mismatches.first(20)).to be_empty
+    end
+
+    it '0x7780〜0x77FF はマクロではない（旧表の M128〜M255）。Vial GUI に名前のない値は 16 進で書く' do
+      expect(vial.format_code(0x777F)).to eq('M127')
+      expect(vial.format_code(0x7780)).to eq('0x7780')
+      expect(vial.format_code(0x77FF)).to eq('0x77ff')
+      expect(vial.format_code(0x7C59)).to eq('0x7c59')
     end
 
     it '範囲外の値は ArgumentError' do

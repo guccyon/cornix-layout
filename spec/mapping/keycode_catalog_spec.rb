@@ -23,6 +23,14 @@ RSpec.describe Cornix::Mapping::KeycodeCatalog do
     expect(catalog.preferred_alias(0x021E)).to eq('!')
   end
 
+  it 'Vial GUI に名前のない値（vial: false）は name だけを持ち、Vial 名を持たない' do
+    expect(catalog.lookup('QK_LOCK')).to eq(0x7C59)
+    expect(catalog.name(0x7C59)).to eq('QK_LOCK')
+    expect(catalog.vial_name(0x7C59)).to be_nil
+    expect(catalog.name(0x2A)).to eq('KC_BSPACE')
+    expect(catalog.quantum?(0x7C59)).to be true
+  end
+
   it '書き込み禁止の値を判定する' do
     expect(catalog.dangerous?(0x7C00)).to be true
     expect(catalog.dangerous?(0x7E00)).to be false

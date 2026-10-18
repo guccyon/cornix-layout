@@ -59,6 +59,12 @@ module Cornix
                          'GUI_T' => 0x08, 'CMD_T' => 0x08, 'WIN_T' => 0x08, 'ALL_T' => 0x0F
                        ).freeze
 
+        # ワンショット修飾キーの名前（QMK の quantum_keycodes.h の OS_LCTL など）→ ビット
+        ONE_SHOT_BITS = %w[
+          LCTL LSFT LALT LGUI LCS LCA LCG LSA LSG LAG LCSG LCAG LSAG
+          RCTL RSFT RALT RGUI RCS RCA RCG RSA RSG RAG RCSG RCAG RSAG MEH HYPR
+        ].to_h { |name| ["OS_#{name}", FUNCTION_BITS.fetch(name)] }.freeze
+
         # LM / OSM / MT の引数に書く MOD_ 定数 → ビット
         CONSTANTS = {
           'MOD_LCTL' => 0x01, 'MOD_LSFT' => 0x02, 'MOD_LALT' => 0x04, 'MOD_LGUI' => 0x08,

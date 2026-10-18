@@ -348,7 +348,7 @@ RSpec.describe Cornix::Storage::ConfigRepository do
         layer = YAML.load_file(File.join(dir, 'layers/0_layer.yaml'))
         expect(layer.keys).to eq(%w[name description index mapping])
         expect(layer['mapping'].keys).to eq(%w[left_hand right_hand encoders])
-        expect(layer['mapping']['left_hand']['thumb_keys']).to eq('left' => 'LGUI_T(KC_LANG2)', 'middle' => 'LT1(Space)',
+        expect(layer['mapping']['left_hand']['thumb_keys']).to eq('left' => 'LGUI_T(Lang2)', 'middle' => 'LT1(Space)',
                                                                   'right' => 'LT2(Escape)')
       end
     end

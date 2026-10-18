@@ -6,7 +6,7 @@ require_relative 'keycode/macro_call'
 
 module Cornix
   module Domain
-    # マクロ 1 件。index は M0〜M255 の番号、steps は 1 つ以上の MacroStep。
+    # マクロ 1 件。index は M0〜M127 の番号、steps は 1 つ以上の MacroStep。
     # 番号がデバイスの件数に収まるか、番号・名前の重複がないかは Profile#diagnostics で検査する
     class Macro < Data.define(:index, :name, :description, :steps)
       def initialize(index:, name:, steps:, description: nil)

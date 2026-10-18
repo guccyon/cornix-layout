@@ -16,7 +16,8 @@ module Cornix
       LAYER_MOD = (0x5000..0x51FF)
       ONE_SHOT_MOD = (0x52A0..0x52BF)
       TAP_DANCE = (0x5700..0x57FF)
-      MACRO = (0x7700..0x77FF)
+      # vial-qmk の QK_MACRO〜QK_MACRO_MAX。0x7780〜 は QK_CONNECTION（OU_AUTO など）
+      MACRO = (0x7700..0x777F)
 
       # レイヤー操作の基準値（基準値 + レイヤー番号 0〜31）
       LAYER_OPS = {

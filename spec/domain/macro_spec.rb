@@ -21,9 +21,9 @@ RSpec.describe Cornix::Domain::Macro do
     expect(macro.to_s).to eq('Macro(3: Copy Current Word)')
   end
 
-  it '番号は M0〜M255 の範囲（デバイスの件数との比較は diagnostics）' do
-    expect(build_macro(index: 255).index).to eq(255)
-    expect { build_macro(index: 256) }.to raise_error(Cornix::InvalidValue, /マクロの番号/)
+  it '番号は M0〜M127 の範囲（デバイスの件数との比較は diagnostics）' do
+    expect(build_macro(index: 127).index).to eq(127)
+    expect { build_macro(index: 128) }.to raise_error(Cornix::InvalidValue, /マクロの番号/)
     expect { build_macro(index: -1) }.to raise_error(Cornix::InvalidValue)
     expect { build_macro(index: nil) }.to raise_error(Cornix::InvalidValue)
   end

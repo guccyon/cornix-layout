@@ -5,10 +5,14 @@
 # Cornix::Mapping::KeycodeCodec の定数で組み立てる。
 # shifted は入力専用の名前（KC_EXLM など）。.vil には LSFT(KC_1) の形で書く。
 # shifted の qmk は QMK の長い名前（KC_LEFT_PAREN など。旧コードのマクロ text 展開が書き出していた）。
-# 元データ: vial-gui の keycodes.py / keycodes_v6.py から抽出した表（実機 560 キーで一致を確認済み）
+# - vial: false は Vial GUI に名前がない値（vial-qmk の quantum/keycodes.h にはある）。
+#   設定ファイルでは name で書けるが、.vil には Vial GUI が読める 0xHHHH で書く。
+#   RMK 0.8 のファームウェアはこれらを何もしないキーとして扱う（RGB や Magic など既存の多くの値も同じ）。
+# 元データ: vial-gui の keycodes.py / keycodes_v6.py から抽出した表（実機 560 キーで一致を確認済み）。
+# qmk の名前と vial: false の値は QMK の data/constants/keycodes/*.hjson（最新）と vial-qmk の quantum/keycodes.h で補った。
 special:
-  - { code: 0x0000, name: KC_NO }
-  - { code: 0x0001, name: KC_TRNS, qmk: [KC_TRANSPARENT] }
+  - { code: 0x0000, name: KC_NO, qmk: [XXXXXXX] }
+  - { code: 0x0001, name: KC_TRNS, qmk: [KC_TRANSPARENT, _______] }
 basic:
   - { code: 0x0004, name: KC_A }
   - { code: 0x0005, name: KC_B }
@@ -48,22 +52,22 @@ basic:
   - { code: 0x0027, name: KC_0 }
   - { code: 0x0028, name: KC_ENTER, qmk: [KC_ENT] }
   - { code: 0x0029, name: KC_ESCAPE, qmk: [KC_ESC] }
-  - { code: 0x002A, name: KC_BSPACE, qmk: [KC_BSPC] }
+  - { code: 0x002A, name: KC_BSPACE, qmk: [KC_BSPC, KC_BACKSPACE] }
   - { code: 0x002B, name: KC_TAB }
   - { code: 0x002C, name: KC_SPACE, qmk: [KC_SPC] }
   - { code: 0x002D, name: KC_MINUS, qmk: [KC_MINS] }
   - { code: 0x002E, name: KC_EQUAL, qmk: [KC_EQL] }
-  - { code: 0x002F, name: KC_LBRACKET, qmk: [KC_LBRC] }
-  - { code: 0x0030, name: KC_RBRACKET, qmk: [KC_RBRC] }
-  - { code: 0x0031, name: KC_BSLASH, qmk: [KC_BSLS] }
+  - { code: 0x002F, name: KC_LBRACKET, qmk: [KC_LBRC, KC_LEFT_BRACKET] }
+  - { code: 0x0030, name: KC_RBRACKET, qmk: [KC_RBRC, KC_RIGHT_BRACKET] }
+  - { code: 0x0031, name: KC_BSLASH, qmk: [KC_BSLS, KC_BACKSLASH] }
   - { code: 0x0032, name: KC_NONUS_HASH, qmk: [KC_NUHS] }
-  - { code: 0x0033, name: KC_SCOLON, qmk: [KC_SCLN] }
+  - { code: 0x0033, name: KC_SCOLON, qmk: [KC_SCLN, KC_SEMICOLON] }
   - { code: 0x0034, name: KC_QUOTE, qmk: [KC_QUOT] }
   - { code: 0x0035, name: KC_GRAVE, qmk: [KC_GRV, KC_ZKHK] }
   - { code: 0x0036, name: KC_COMMA, qmk: [KC_COMM] }
   - { code: 0x0037, name: KC_DOT }
   - { code: 0x0038, name: KC_SLASH, qmk: [KC_SLSH] }
-  - { code: 0x0039, name: KC_CAPSLOCK, qmk: [KC_CLCK, KC_CAPS] }
+  - { code: 0x0039, name: KC_CAPSLOCK, qmk: [KC_CLCK, KC_CAPS, KC_CAPS_LOCK] }
   - { code: 0x003A, name: KC_F1 }
   - { code: 0x003B, name: KC_F2 }
   - { code: 0x003C, name: KC_F3 }
@@ -76,20 +80,20 @@ basic:
   - { code: 0x0043, name: KC_F10 }
   - { code: 0x0044, name: KC_F11 }
   - { code: 0x0045, name: KC_F12 }
-  - { code: 0x0046, name: KC_PSCREEN, qmk: [KC_PSCR] }
-  - { code: 0x0047, name: KC_SCROLLLOCK, qmk: [KC_SLCK, KC_BRMD] }
+  - { code: 0x0046, name: KC_PSCREEN, qmk: [KC_PSCR, KC_PRINT_SCREEN] }
+  - { code: 0x0047, name: KC_SCROLLLOCK, qmk: [KC_SLCK, KC_BRMD, KC_SCROLL_LOCK, KC_SCRL] }
   - { code: 0x0048, name: KC_PAUSE, qmk: [KC_PAUS, KC_BRK, KC_BRMU] }
   - { code: 0x0049, name: KC_INSERT, qmk: [KC_INS] }
   - { code: 0x004A, name: KC_HOME }
-  - { code: 0x004B, name: KC_PGUP }
+  - { code: 0x004B, name: KC_PGUP, qmk: [KC_PAGE_UP] }
   - { code: 0x004C, name: KC_DELETE, qmk: [KC_DEL] }
   - { code: 0x004D, name: KC_END }
-  - { code: 0x004E, name: KC_PGDOWN, qmk: [KC_PGDN] }
+  - { code: 0x004E, name: KC_PGDOWN, qmk: [KC_PGDN, KC_PAGE_DOWN] }
   - { code: 0x004F, name: KC_RIGHT, qmk: [KC_RGHT] }
   - { code: 0x0050, name: KC_LEFT }
   - { code: 0x0051, name: KC_DOWN }
   - { code: 0x0052, name: KC_UP }
-  - { code: 0x0053, name: KC_NUMLOCK, qmk: [KC_NLCK] }
+  - { code: 0x0053, name: KC_NUMLOCK, qmk: [KC_NLCK, KC_NUM_LOCK, KC_NUM] }
   - { code: 0x0054, name: KC_KP_SLASH, qmk: [KC_PSLS] }
   - { code: 0x0055, name: KC_KP_ASTERISK, qmk: [KC_PAST] }
   - { code: 0x0056, name: KC_KP_MINUS, qmk: [KC_PMNS] }
@@ -106,7 +110,7 @@ basic:
   - { code: 0x0061, name: KC_KP_9, qmk: [KC_P9] }
   - { code: 0x0062, name: KC_KP_0, qmk: [KC_P0] }
   - { code: 0x0063, name: KC_KP_DOT, qmk: [KC_PDOT] }
-  - { code: 0x0064, name: KC_NONUS_BSLASH, qmk: [KC_NUBS] }
+  - { code: 0x0064, name: KC_NONUS_BSLASH, qmk: [KC_NUBS, KC_NONUS_BACKSLASH] }
   - { code: 0x0065, name: KC_APPLICATION, qmk: [KC_APP] }
   - { code: 0x0067, name: KC_KP_EQUAL, qmk: [KC_PEQL] }
   - { code: 0x0068, name: KC_F13 }
@@ -131,19 +135,19 @@ basic:
   - { code: 0x007C, name: KC_COPY }
   - { code: 0x007D, name: KC_PSTE, qmk: [KC_PASTE] }
   - { code: 0x007E, name: KC_FIND }
-  - { code: 0x0080, name: KC__VOLUP }
-  - { code: 0x0081, name: KC__VOLDOWN }
-  - { code: 0x0082, name: KC_LCAP, qmk: [KC_LOCKING_CAPS] }
-  - { code: 0x0083, name: KC_LNUM, qmk: [KC_LOCKING_NUM] }
-  - { code: 0x0084, name: KC_LSCR, qmk: [KC_LOCKING_SCROLL] }
+  - { code: 0x0080, name: KC__VOLUP, qmk: [KC_KB_VOLUME_UP] }
+  - { code: 0x0081, name: KC__VOLDOWN, qmk: [KC_KB_VOLUME_DOWN] }
+  - { code: 0x0082, name: KC_LCAP, qmk: [KC_LOCKING_CAPS, KC_LOCKING_CAPS_LOCK] }
+  - { code: 0x0083, name: KC_LNUM, qmk: [KC_LOCKING_NUM, KC_LOCKING_NUM_LOCK] }
+  - { code: 0x0084, name: KC_LSCR, qmk: [KC_LOCKING_SCROLL, KC_LOCKING_SCROLL_LOCK] }
   - { code: 0x0085, name: KC_KP_COMMA, qmk: [KC_PCMM] }
-  - { code: 0x0087, name: KC_RO, qmk: [KC_INT1] }
-  - { code: 0x0088, name: KC_KANA, qmk: [KC_INT2] }
-  - { code: 0x0089, name: KC_JYEN, qmk: [KC_INT3] }
-  - { code: 0x008A, name: KC_HENK, qmk: [KC_INT4] }
-  - { code: 0x008B, name: KC_MHEN, qmk: [KC_INT5] }
-  - { code: 0x0090, name: KC_LANG1, qmk: [KC_HAEN] }
-  - { code: 0x0091, name: KC_LANG2, qmk: [KC_HANJ] }
+  - { code: 0x0087, name: KC_RO, qmk: [KC_INT1, KC_INTERNATIONAL_1] }
+  - { code: 0x0088, name: KC_KANA, qmk: [KC_INT2, KC_INTERNATIONAL_2] }
+  - { code: 0x0089, name: KC_JYEN, qmk: [KC_INT3, KC_INTERNATIONAL_3] }
+  - { code: 0x008A, name: KC_HENK, qmk: [KC_INT4, KC_INTERNATIONAL_4] }
+  - { code: 0x008B, name: KC_MHEN, qmk: [KC_INT5, KC_INTERNATIONAL_5] }
+  - { code: 0x0090, name: KC_LANG1, qmk: [KC_HAEN, KC_LANGUAGE_1, KC_LNG1] }
+  - { code: 0x0091, name: KC_LANG2, qmk: [KC_HANJ, KC_LANGUAGE_2, KC_LNG2] }
   - { code: 0x00A5, name: KC_PWR, qmk: [KC_SYSTEM_POWER] }
   - { code: 0x00A6, name: KC_SLEP, qmk: [KC_SYSTEM_SLEEP] }
   - { code: 0x00A7, name: KC_WAKE, qmk: [KC_SYSTEM_WAKE] }
@@ -170,30 +174,30 @@ basic:
   - { code: 0x00BC, name: KC_MRWD, qmk: [KC_MEDIA_REWIND] }
   - { code: 0x00BD, name: KC_BRIU, qmk: [KC_BRIGHTNESS_UP] }
   - { code: 0x00BE, name: KC_BRID, qmk: [KC_BRIGHTNESS_DOWN] }
-  - { code: 0x00CD, name: KC_MS_U, qmk: [KC_MS_UP] }
-  - { code: 0x00CE, name: KC_MS_D, qmk: [KC_MS_DOWN] }
-  - { code: 0x00CF, name: KC_MS_L, qmk: [KC_MS_LEFT] }
-  - { code: 0x00D0, name: KC_MS_R, qmk: [KC_MS_RIGHT] }
-  - { code: 0x00D1, name: KC_BTN1, qmk: [KC_MS_BTN1] }
-  - { code: 0x00D2, name: KC_BTN2, qmk: [KC_MS_BTN2] }
-  - { code: 0x00D3, name: KC_BTN3, qmk: [KC_MS_BTN3] }
-  - { code: 0x00D4, name: KC_BTN4, qmk: [KC_MS_BTN4] }
-  - { code: 0x00D5, name: KC_BTN5, qmk: [KC_MS_BTN5] }
-  - { code: 0x00D9, name: KC_WH_U, qmk: [KC_MS_WH_UP] }
-  - { code: 0x00DA, name: KC_WH_D, qmk: [KC_MS_WH_DOWN] }
-  - { code: 0x00DB, name: KC_WH_L, qmk: [KC_MS_WH_LEFT] }
-  - { code: 0x00DC, name: KC_WH_R, qmk: [KC_MS_WH_RIGHT] }
-  - { code: 0x00DD, name: KC_ACL0, qmk: [KC_MS_ACCEL0] }
-  - { code: 0x00DE, name: KC_ACL1, qmk: [KC_MS_ACCEL1] }
-  - { code: 0x00DF, name: KC_ACL2, qmk: [KC_MS_ACCEL2] }
-  - { code: 0x00E0, name: KC_LCTRL, qmk: [KC_LCTL] }
-  - { code: 0x00E1, name: KC_LSHIFT, qmk: [KC_LSFT] }
-  - { code: 0x00E2, name: KC_LALT, qmk: [KC_LOPT] }
-  - { code: 0x00E3, name: KC_LGUI, qmk: [KC_LCMD, KC_LWIN] }
-  - { code: 0x00E4, name: KC_RCTRL, qmk: [KC_RCTL] }
-  - { code: 0x00E5, name: KC_RSHIFT, qmk: [KC_RSFT] }
-  - { code: 0x00E6, name: KC_RALT, qmk: [KC_ALGR, KC_ROPT] }
-  - { code: 0x00E7, name: KC_RGUI, qmk: [KC_RCMD, KC_RWIN] }
+  - { code: 0x00CD, name: KC_MS_U, qmk: [KC_MS_UP, QK_MOUSE_CURSOR_UP, MS_UP] }
+  - { code: 0x00CE, name: KC_MS_D, qmk: [KC_MS_DOWN, QK_MOUSE_CURSOR_DOWN, MS_DOWN] }
+  - { code: 0x00CF, name: KC_MS_L, qmk: [KC_MS_LEFT, QK_MOUSE_CURSOR_LEFT, MS_LEFT] }
+  - { code: 0x00D0, name: KC_MS_R, qmk: [KC_MS_RIGHT, QK_MOUSE_CURSOR_RIGHT, MS_RGHT] }
+  - { code: 0x00D1, name: KC_BTN1, qmk: [KC_MS_BTN1, QK_MOUSE_BUTTON_1, MS_BTN1] }
+  - { code: 0x00D2, name: KC_BTN2, qmk: [KC_MS_BTN2, QK_MOUSE_BUTTON_2, MS_BTN2] }
+  - { code: 0x00D3, name: KC_BTN3, qmk: [KC_MS_BTN3, QK_MOUSE_BUTTON_3, MS_BTN3] }
+  - { code: 0x00D4, name: KC_BTN4, qmk: [KC_MS_BTN4, QK_MOUSE_BUTTON_4, MS_BTN4] }
+  - { code: 0x00D5, name: KC_BTN5, qmk: [KC_MS_BTN5, QK_MOUSE_BUTTON_5, MS_BTN5] }
+  - { code: 0x00D9, name: KC_WH_U, qmk: [KC_MS_WH_UP, QK_MOUSE_WHEEL_UP, MS_WHLU] }
+  - { code: 0x00DA, name: KC_WH_D, qmk: [KC_MS_WH_DOWN, QK_MOUSE_WHEEL_DOWN, MS_WHLD] }
+  - { code: 0x00DB, name: KC_WH_L, qmk: [KC_MS_WH_LEFT, QK_MOUSE_WHEEL_LEFT, MS_WHLL] }
+  - { code: 0x00DC, name: KC_WH_R, qmk: [KC_MS_WH_RIGHT, QK_MOUSE_WHEEL_RIGHT, MS_WHLR] }
+  - { code: 0x00DD, name: KC_ACL0, qmk: [KC_MS_ACCEL0, QK_MOUSE_ACCELERATION_0, MS_ACL0] }
+  - { code: 0x00DE, name: KC_ACL1, qmk: [KC_MS_ACCEL1, QK_MOUSE_ACCELERATION_1, MS_ACL1] }
+  - { code: 0x00DF, name: KC_ACL2, qmk: [KC_MS_ACCEL2, QK_MOUSE_ACCELERATION_2, MS_ACL2] }
+  - { code: 0x00E0, name: KC_LCTRL, qmk: [KC_LCTL, KC_LEFT_CTRL] }
+  - { code: 0x00E1, name: KC_LSHIFT, qmk: [KC_LSFT, KC_LEFT_SHIFT] }
+  - { code: 0x00E2, name: KC_LALT, qmk: [KC_LOPT, KC_LEFT_ALT] }
+  - { code: 0x00E3, name: KC_LGUI, qmk: [KC_LCMD, KC_LWIN, KC_LEFT_GUI] }
+  - { code: 0x00E4, name: KC_RCTRL, qmk: [KC_RCTL, KC_RIGHT_CTRL] }
+  - { code: 0x00E5, name: KC_RSHIFT, qmk: [KC_RSFT, KC_RIGHT_SHIFT] }
+  - { code: 0x00E6, name: KC_RALT, qmk: [KC_ALGR, KC_ROPT, KC_RIGHT_ALT] }
+  - { code: 0x00E7, name: KC_RGUI, qmk: [KC_RCMD, KC_RWIN, KC_RIGHT_GUI] }
 shifted:
   - { code: 0x021E, name: KC_EXLM, qmk: [KC_EXCLAIM] }
   - { code: 0x021F, name: KC_AT }
@@ -211,169 +215,185 @@ shifted:
   - { code: 0x0230, name: KC_RCBR, qmk: [KC_RIGHT_CURLY_BRACE] }
   - { code: 0x0231, name: KC_PIPE }
   - { code: 0x0233, name: KC_COLN, qmk: [KC_COLON] }
-  - { code: 0x0234, name: KC_DQUO, qmk: [KC_DOUBLE_QUOTE] }
+  - { code: 0x0234, name: KC_DQUO, qmk: [KC_DOUBLE_QUOTE, KC_DQT] }
   - { code: 0x0235, name: KC_TILD, qmk: [KC_TILDE] }
   - { code: 0x0236, name: KC_LT, qmk: [KC_LEFT_ANGLE_BRACKET, KC_LABK] }
   - { code: 0x0237, name: KC_GT, qmk: [KC_RIGHT_ANGLE_BRACKET, KC_RABK] }
   - { code: 0x0238, name: KC_QUES, qmk: [KC_QUESTION] }
 quantum:
-  - { code: 0x7000, name: MAGIC_SWAP_CONTROL_CAPSLOCK, qmk: [CL_SWAP] }
-  - { code: 0x7001, name: MAGIC_UNSWAP_CONTROL_CAPSLOCK, qmk: [CL_NORM] }
-  - { code: 0x7003, name: MAGIC_UNCAPSLOCK_TO_CONTROL, qmk: [CL_CAPS] }
-  - { code: 0x7004, name: MAGIC_CAPSLOCK_TO_CONTROL, qmk: [CL_CTRL] }
-  - { code: 0x7005, name: MAGIC_SWAP_LALT_LGUI, qmk: [LAG_SWP] }
-  - { code: 0x7006, name: MAGIC_UNSWAP_LALT_LGUI, qmk: [LAG_NRM] }
-  - { code: 0x7007, name: MAGIC_SWAP_RALT_RGUI, qmk: [RAG_SWP] }
-  - { code: 0x7008, name: MAGIC_UNSWAP_RALT_RGUI, qmk: [RAG_NRM] }
-  - { code: 0x7009, name: MAGIC_UNNO_GUI, qmk: [GUI_ON] }
-  - { code: 0x700A, name: MAGIC_NO_GUI, qmk: [GUI_OFF] }
-  - { code: 0x700B, name: MAGIC_TOGGLE_GUI, qmk: [GUI_TOGG] }
-  - { code: 0x700C, name: MAGIC_SWAP_GRAVE_ESC, qmk: [GE_SWAP] }
-  - { code: 0x700D, name: MAGIC_UNSWAP_GRAVE_ESC, qmk: [GE_NORM] }
-  - { code: 0x700E, name: MAGIC_SWAP_BACKSLASH_BACKSPACE, qmk: [BS_SWAP] }
-  - { code: 0x700F, name: MAGIC_UNSWAP_BACKSLASH_BACKSPACE, qmk: [BS_NORM] }
-  - { code: 0x7011, name: MAGIC_HOST_NKRO, qmk: [NK_ON] }
-  - { code: 0x7012, name: MAGIC_UNHOST_NKRO, qmk: [NK_OFF] }
-  - { code: 0x7013, name: MAGIC_TOGGLE_NKRO, qmk: [NK_TOGG] }
-  - { code: 0x7014, name: MAGIC_SWAP_ALT_GUI, qmk: [AG_SWAP] }
-  - { code: 0x7015, name: MAGIC_UNSWAP_ALT_GUI, qmk: [AG_NORM] }
-  - { code: 0x7016, name: MAGIC_TOGGLE_ALT_GUI, qmk: [AG_TOGG] }
-  - { code: 0x7017, name: MAGIC_SWAP_LCTL_LGUI, qmk: [LCG_SWP] }
-  - { code: 0x7018, name: MAGIC_UNSWAP_LCTL_LGUI, qmk: [LCG_NRM] }
-  - { code: 0x7019, name: MAGIC_SWAP_RCTL_RGUI, qmk: [RCG_SWP] }
-  - { code: 0x701A, name: MAGIC_UNSWAP_RCTL_RGUI, qmk: [RCG_NRM] }
-  - { code: 0x701B, name: MAGIC_SWAP_CTL_GUI, qmk: [CG_SWAP] }
-  - { code: 0x701C, name: MAGIC_UNSWAP_CTL_GUI, qmk: [CG_NORM] }
-  - { code: 0x701D, name: MAGIC_TOGGLE_CTL_GUI, qmk: [CG_TOGG] }
-  - { code: 0x701E, name: MAGIC_EE_HANDS_LEFT, qmk: [EH_LEFT] }
-  - { code: 0x701F, name: MAGIC_EE_HANDS_RIGHT, qmk: [EH_RGHT] }
-  - { code: 0x7480, name: AU_ON }
-  - { code: 0x7481, name: AU_OFF }
-  - { code: 0x7482, name: AU_TOG }
-  - { code: 0x748A, name: CLICKY_TOGGLE, qmk: [CK_TOGG] }
-  - { code: 0x748D, name: CLICKY_UP, qmk: [CK_UP] }
-  - { code: 0x748E, name: CLICKY_DOWN, qmk: [CK_DOWN] }
-  - { code: 0x748F, name: CLICKY_RESET, qmk: [CK_RST] }
-  - { code: 0x7490, name: MU_ON }
-  - { code: 0x7491, name: MU_OFF }
-  - { code: 0x7492, name: MU_TOG }
-  - { code: 0x7493, name: MU_MOD }
-  - { code: 0x7800, name: BL_ON }
-  - { code: 0x7801, name: BL_OFF }
-  - { code: 0x7802, name: BL_TOGG }
-  - { code: 0x7803, name: BL_DEC }
-  - { code: 0x7804, name: BL_INC }
-  - { code: 0x7805, name: BL_STEP }
-  - { code: 0x7806, name: BL_BRTG }
-  - { code: 0x7820, name: RGB_TOG }
-  - { code: 0x7821, name: RGB_MOD }
-  - { code: 0x7822, name: RGB_RMOD }
-  - { code: 0x7823, name: RGB_HUI }
-  - { code: 0x7824, name: RGB_HUD }
-  - { code: 0x7825, name: RGB_SAI }
-  - { code: 0x7826, name: RGB_SAD }
-  - { code: 0x7827, name: RGB_VAI }
-  - { code: 0x7828, name: RGB_VAD }
-  - { code: 0x7829, name: RGB_SPI }
-  - { code: 0x782A, name: RGB_SPD }
-  - { code: 0x782B, name: RGB_M_P }
-  - { code: 0x782C, name: RGB_M_B }
-  - { code: 0x782D, name: RGB_M_R }
-  - { code: 0x782E, name: RGB_M_SW }
-  - { code: 0x782F, name: RGB_M_SN }
-  - { code: 0x7830, name: RGB_M_K }
-  - { code: 0x7831, name: RGB_M_X }
-  - { code: 0x7832, name: RGB_M_G }
-  - { code: 0x7833, name: RGB_M_T }
-  - { code: 0x7840, name: RM_ON }
-  - { code: 0x7841, name: RM_OFF }
-  - { code: 0x7842, name: RM_TOGG }
-  - { code: 0x7843, name: RM_NEXT }
-  - { code: 0x7844, name: RM_PREV }
-  - { code: 0x7845, name: RM_HUEU }
-  - { code: 0x7846, name: RM_HUED }
-  - { code: 0x7847, name: RM_SATU }
-  - { code: 0x7848, name: RM_SATD }
-  - { code: 0x7849, name: RM_VALU }
-  - { code: 0x784A, name: RM_VALD }
-  - { code: 0x784B, name: RM_SPDU }
-  - { code: 0x784C, name: RM_SPDD }
-  - { code: 0x7C00, name: QK_BOOT, qmk: [RESET] }
-  - { code: 0x7C01, name: QK_REBOOT }
+  - { code: 0x7000, name: MAGIC_SWAP_CONTROL_CAPSLOCK, qmk: [CL_SWAP, QK_MAGIC_SWAP_CONTROL_CAPS_LOCK] }
+  - { code: 0x7001, name: MAGIC_UNSWAP_CONTROL_CAPSLOCK, qmk: [CL_NORM, QK_MAGIC_UNSWAP_CONTROL_CAPS_LOCK] }
+  - { code: 0x7003, name: MAGIC_UNCAPSLOCK_TO_CONTROL, qmk: [CL_CAPS, QK_MAGIC_CAPS_LOCK_AS_CONTROL_OFF] }
+  - { code: 0x7004, name: MAGIC_CAPSLOCK_TO_CONTROL, qmk: [CL_CTRL, QK_MAGIC_CAPS_LOCK_AS_CONTROL_ON] }
+  - { code: 0x7005, name: MAGIC_SWAP_LALT_LGUI, qmk: [LAG_SWP, QK_MAGIC_SWAP_LALT_LGUI, AG_LSWP] }
+  - { code: 0x7006, name: MAGIC_UNSWAP_LALT_LGUI, qmk: [LAG_NRM, QK_MAGIC_UNSWAP_LALT_LGUI, AG_LNRM] }
+  - { code: 0x7007, name: MAGIC_SWAP_RALT_RGUI, qmk: [RAG_SWP, QK_MAGIC_SWAP_RALT_RGUI, AG_RSWP] }
+  - { code: 0x7008, name: MAGIC_UNSWAP_RALT_RGUI, qmk: [RAG_NRM, QK_MAGIC_UNSWAP_RALT_RGUI, AG_RNRM] }
+  - { code: 0x7009, name: MAGIC_UNNO_GUI, qmk: [GUI_ON, QK_MAGIC_GUI_ON, GU_ON] }
+  - { code: 0x700A, name: MAGIC_NO_GUI, qmk: [GUI_OFF, QK_MAGIC_GUI_OFF, GU_OFF] }
+  - { code: 0x700B, name: MAGIC_TOGGLE_GUI, qmk: [GUI_TOGG, QK_MAGIC_TOGGLE_GUI, GU_TOGG] }
+  - { code: 0x700C, name: MAGIC_SWAP_GRAVE_ESC, qmk: [GE_SWAP, QK_MAGIC_SWAP_GRAVE_ESC] }
+  - { code: 0x700D, name: MAGIC_UNSWAP_GRAVE_ESC, qmk: [GE_NORM, QK_MAGIC_UNSWAP_GRAVE_ESC] }
+  - { code: 0x700E, name: MAGIC_SWAP_BACKSLASH_BACKSPACE, qmk: [BS_SWAP, QK_MAGIC_SWAP_BACKSLASH_BACKSPACE] }
+  - { code: 0x700F, name: MAGIC_UNSWAP_BACKSLASH_BACKSPACE, qmk: [BS_NORM, QK_MAGIC_UNSWAP_BACKSLASH_BACKSPACE] }
+  - { code: 0x7011, name: MAGIC_HOST_NKRO, qmk: [NK_ON, QK_MAGIC_NKRO_ON] }
+  - { code: 0x7012, name: MAGIC_UNHOST_NKRO, qmk: [NK_OFF, QK_MAGIC_NKRO_OFF] }
+  - { code: 0x7013, name: MAGIC_TOGGLE_NKRO, qmk: [NK_TOGG, QK_MAGIC_TOGGLE_NKRO] }
+  - { code: 0x7014, name: MAGIC_SWAP_ALT_GUI, qmk: [AG_SWAP, QK_MAGIC_SWAP_ALT_GUI] }
+  - { code: 0x7015, name: MAGIC_UNSWAP_ALT_GUI, qmk: [AG_NORM, QK_MAGIC_UNSWAP_ALT_GUI] }
+  - { code: 0x7016, name: MAGIC_TOGGLE_ALT_GUI, qmk: [AG_TOGG, QK_MAGIC_TOGGLE_ALT_GUI] }
+  - { code: 0x7017, name: MAGIC_SWAP_LCTL_LGUI, qmk: [LCG_SWP, QK_MAGIC_SWAP_LCTL_LGUI, CG_LSWP] }
+  - { code: 0x7018, name: MAGIC_UNSWAP_LCTL_LGUI, qmk: [LCG_NRM, QK_MAGIC_UNSWAP_LCTL_LGUI, CG_LNRM] }
+  - { code: 0x7019, name: MAGIC_SWAP_RCTL_RGUI, qmk: [RCG_SWP, QK_MAGIC_SWAP_RCTL_RGUI, CG_RSWP] }
+  - { code: 0x701A, name: MAGIC_UNSWAP_RCTL_RGUI, qmk: [RCG_NRM, QK_MAGIC_UNSWAP_RCTL_RGUI, CG_RNRM] }
+  - { code: 0x701B, name: MAGIC_SWAP_CTL_GUI, qmk: [CG_SWAP, QK_MAGIC_SWAP_CTL_GUI] }
+  - { code: 0x701C, name: MAGIC_UNSWAP_CTL_GUI, qmk: [CG_NORM, QK_MAGIC_UNSWAP_CTL_GUI] }
+  - { code: 0x701D, name: MAGIC_TOGGLE_CTL_GUI, qmk: [CG_TOGG, QK_MAGIC_TOGGLE_CTL_GUI] }
+  - { code: 0x701E, name: MAGIC_EE_HANDS_LEFT, qmk: [EH_LEFT, QK_MAGIC_EE_HANDS_LEFT] }
+  - { code: 0x701F, name: MAGIC_EE_HANDS_RIGHT, qmk: [EH_RGHT, QK_MAGIC_EE_HANDS_RIGHT] }
+  - { code: 0x7020, name: EC_SWAP, qmk: [QK_MAGIC_SWAP_ESCAPE_CAPS_LOCK], vial: false }
+  - { code: 0x7021, name: EC_NORM, qmk: [QK_MAGIC_UNSWAP_ESCAPE_CAPS_LOCK], vial: false }
+  - { code: 0x7022, name: EC_TOGG, qmk: [QK_MAGIC_TOGGLE_ESCAPE_CAPS_LOCK], vial: false }
+  - { code: 0x7480, name: AU_ON, qmk: [QK_AUDIO_ON] }
+  - { code: 0x7481, name: AU_OFF, qmk: [QK_AUDIO_OFF] }
+  - { code: 0x7482, name: AU_TOG, qmk: [QK_AUDIO_TOGGLE, AU_TOGG] }
+  - { code: 0x748A, name: CLICKY_TOGGLE, qmk: [CK_TOGG, QK_AUDIO_CLICKY_TOGGLE] }
+  - { code: 0x748D, name: CLICKY_UP, qmk: [CK_UP, QK_AUDIO_CLICKY_UP] }
+  - { code: 0x748E, name: CLICKY_DOWN, qmk: [CK_DOWN, QK_AUDIO_CLICKY_DOWN] }
+  - { code: 0x748F, name: CLICKY_RESET, qmk: [CK_RST, QK_AUDIO_CLICKY_RESET] }
+  - { code: 0x7490, name: MU_ON, qmk: [QK_MUSIC_ON] }
+  - { code: 0x7491, name: MU_OFF, qmk: [QK_MUSIC_OFF] }
+  - { code: 0x7492, name: MU_TOG, qmk: [QK_MUSIC_TOGGLE, MU_TOGG] }
+  - { code: 0x7493, name: MU_MOD, qmk: [QK_MUSIC_MODE_NEXT, MU_NEXT] }
+  - { code: 0x7780, name: OU_AUTO, qmk: [QK_OUTPUT_AUTO], vial: false }
+  - { code: 0x7781, name: OU_NEXT, qmk: [QK_OUTPUT_NEXT], vial: false }
+  - { code: 0x7782, name: OU_PREV, qmk: [QK_OUTPUT_PREV], vial: false }
+  - { code: 0x7783, name: OU_NONE, qmk: [QK_OUTPUT_NONE], vial: false }
+  - { code: 0x7784, name: OU_USB, qmk: [QK_OUTPUT_USB], vial: false }
+  - { code: 0x7785, name: OU_2P4G, qmk: [QK_OUTPUT_2P4GHZ], vial: false }
+  - { code: 0x7786, name: OU_BT, qmk: [QK_OUTPUT_BLUETOOTH], vial: false }
+  - { code: 0x7800, name: BL_ON, qmk: [QK_BACKLIGHT_ON] }
+  - { code: 0x7801, name: BL_OFF, qmk: [QK_BACKLIGHT_OFF] }
+  - { code: 0x7802, name: BL_TOGG, qmk: [QK_BACKLIGHT_TOGGLE] }
+  - { code: 0x7803, name: BL_DEC, qmk: [QK_BACKLIGHT_DOWN, BL_DOWN] }
+  - { code: 0x7804, name: BL_INC, qmk: [QK_BACKLIGHT_UP, BL_UP] }
+  - { code: 0x7805, name: BL_STEP, qmk: [QK_BACKLIGHT_STEP] }
+  - { code: 0x7806, name: BL_BRTG, qmk: [QK_BACKLIGHT_TOGGLE_BREATHING] }
+  - { code: 0x7820, name: RGB_TOG, qmk: [QK_UNDERGLOW_TOGGLE, UG_TOGG] }
+  - { code: 0x7821, name: RGB_MOD, qmk: [QK_UNDERGLOW_MODE_NEXT, UG_NEXT] }
+  - { code: 0x7822, name: RGB_RMOD, qmk: [QK_UNDERGLOW_MODE_PREVIOUS, UG_PREV] }
+  - { code: 0x7823, name: RGB_HUI, qmk: [QK_UNDERGLOW_HUE_UP, UG_HUEU] }
+  - { code: 0x7824, name: RGB_HUD, qmk: [QK_UNDERGLOW_HUE_DOWN, UG_HUED] }
+  - { code: 0x7825, name: RGB_SAI, qmk: [QK_UNDERGLOW_SATURATION_UP, UG_SATU] }
+  - { code: 0x7826, name: RGB_SAD, qmk: [QK_UNDERGLOW_SATURATION_DOWN, UG_SATD] }
+  - { code: 0x7827, name: RGB_VAI, qmk: [QK_UNDERGLOW_VALUE_UP, UG_VALU] }
+  - { code: 0x7828, name: RGB_VAD, qmk: [QK_UNDERGLOW_VALUE_DOWN, UG_VALD] }
+  - { code: 0x7829, name: RGB_SPI, qmk: [QK_UNDERGLOW_SPEED_UP, UG_SPDU] }
+  - { code: 0x782A, name: RGB_SPD, qmk: [QK_UNDERGLOW_SPEED_DOWN, UG_SPDD] }
+  - { code: 0x782B, name: RGB_M_P, qmk: [RGB_MODE_PLAIN] }
+  - { code: 0x782C, name: RGB_M_B, qmk: [RGB_MODE_BREATHE] }
+  - { code: 0x782D, name: RGB_M_R, qmk: [RGB_MODE_RAINBOW] }
+  - { code: 0x782E, name: RGB_M_SW, qmk: [RGB_MODE_SWIRL] }
+  - { code: 0x782F, name: RGB_M_SN, qmk: [RGB_MODE_SNAKE] }
+  - { code: 0x7830, name: RGB_M_K, qmk: [RGB_MODE_KNIGHT] }
+  - { code: 0x7831, name: RGB_M_X, qmk: [RGB_MODE_XMAS] }
+  - { code: 0x7832, name: RGB_M_G, qmk: [RGB_MODE_GRADIENT] }
+  - { code: 0x7833, name: RGB_M_T, qmk: [RGB_MODE_RGBTEST] }
+  - { code: 0x7840, name: RM_ON, qmk: [QK_RGB_MATRIX_ON] }
+  - { code: 0x7841, name: RM_OFF, qmk: [QK_RGB_MATRIX_OFF] }
+  - { code: 0x7842, name: RM_TOGG, qmk: [QK_RGB_MATRIX_TOGGLE] }
+  - { code: 0x7843, name: RM_NEXT, qmk: [QK_RGB_MATRIX_MODE_NEXT] }
+  - { code: 0x7844, name: RM_PREV, qmk: [QK_RGB_MATRIX_MODE_PREVIOUS] }
+  - { code: 0x7845, name: RM_HUEU, qmk: [QK_RGB_MATRIX_HUE_UP] }
+  - { code: 0x7846, name: RM_HUED, qmk: [QK_RGB_MATRIX_HUE_DOWN] }
+  - { code: 0x7847, name: RM_SATU, qmk: [QK_RGB_MATRIX_SATURATION_UP] }
+  - { code: 0x7848, name: RM_SATD, qmk: [QK_RGB_MATRIX_SATURATION_DOWN] }
+  - { code: 0x7849, name: RM_VALU, qmk: [QK_RGB_MATRIX_VALUE_UP] }
+  - { code: 0x784A, name: RM_VALD, qmk: [QK_RGB_MATRIX_VALUE_DOWN] }
+  - { code: 0x784B, name: RM_SPDU, qmk: [QK_RGB_MATRIX_SPEED_UP] }
+  - { code: 0x784C, name: RM_SPDD, qmk: [QK_RGB_MATRIX_SPEED_DOWN] }
+  - { code: 0x7C00, name: QK_BOOT, qmk: [RESET, QK_BOOTLOADER] }
+  - { code: 0x7C01, name: QK_REBOOT, qmk: [QK_RBT] }
+  - { code: 0x7C02, name: DB_TOGG, qmk: [QK_DEBUG_TOGGLE], vial: false }
   - { code: 0x7C03, name: QK_CLEAR_EEPROM, qmk: [EE_CLR] }
-  - { code: 0x7C10, name: KC_ASDN }
-  - { code: 0x7C11, name: KC_ASUP }
-  - { code: 0x7C12, name: KC_ASRP }
-  - { code: 0x7C13, name: KC_ASON }
-  - { code: 0x7C14, name: KC_ASOFF }
-  - { code: 0x7C15, name: KC_ASTG }
-  - { code: 0x7C16, name: KC_GESC }
-  - { code: 0x7C18, name: KC_LCPO }
-  - { code: 0x7C19, name: KC_RCPC }
-  - { code: 0x7C1A, name: KC_LSPO }
-  - { code: 0x7C1B, name: KC_RSPC }
-  - { code: 0x7C1C, name: KC_LAPO }
-  - { code: 0x7C1D, name: KC_RAPC }
-  - { code: 0x7C1E, name: KC_SFTENT }
-  - { code: 0x7C40, name: HPT_ON }
-  - { code: 0x7C41, name: HPT_OFF }
-  - { code: 0x7C42, name: HPT_TOG }
-  - { code: 0x7C43, name: HPT_RST }
-  - { code: 0x7C44, name: HPT_FBK }
-  - { code: 0x7C45, name: HPT_BUZ }
-  - { code: 0x7C46, name: HPT_MODI }
-  - { code: 0x7C47, name: HPT_MODD }
-  - { code: 0x7C48, name: HPT_CONT }
-  - { code: 0x7C49, name: HPT_CONI }
-  - { code: 0x7C4A, name: HPT_COND }
-  - { code: 0x7C4B, name: HPT_DWLI }
-  - { code: 0x7C4C, name: HPT_DWLD }
-  - { code: 0x7C50, name: CMB_ON }
-  - { code: 0x7C51, name: CMB_OFF }
-  - { code: 0x7C52, name: CMB_TOG }
-  - { code: 0x7C53, name: DYN_REC_START1, qmk: [DM_REC1] }
-  - { code: 0x7C54, name: DYN_REC_START2, qmk: [DM_REC2] }
-  - { code: 0x7C55, name: DYN_REC_STOP, qmk: [DM_RSTP] }
-  - { code: 0x7C56, name: DYN_MACRO_PLAY1, qmk: [DM_PLY1] }
-  - { code: 0x7C57, name: DYN_MACRO_PLAY2, qmk: [DM_PLY2] }
+  - { code: 0x7C10, name: KC_ASDN, qmk: [QK_AUTO_SHIFT_DOWN, AS_DOWN] }
+  - { code: 0x7C11, name: KC_ASUP, qmk: [QK_AUTO_SHIFT_UP, AS_UP] }
+  - { code: 0x7C12, name: KC_ASRP, qmk: [QK_AUTO_SHIFT_REPORT, AS_RPT] }
+  - { code: 0x7C13, name: KC_ASON, qmk: [QK_AUTO_SHIFT_ON, AS_ON] }
+  - { code: 0x7C14, name: KC_ASOFF, qmk: [QK_AUTO_SHIFT_OFF, AS_OFF] }
+  - { code: 0x7C15, name: KC_ASTG, qmk: [QK_AUTO_SHIFT_TOGGLE, AS_TOGG] }
+  - { code: 0x7C16, name: KC_GESC, qmk: [QK_GRAVE_ESCAPE, QK_GESC] }
+  - { code: 0x7C18, name: KC_LCPO, qmk: [QK_SPACE_CADET_LEFT_CTRL_PARENTHESIS_OPEN, SC_LCPO] }
+  - { code: 0x7C19, name: KC_RCPC, qmk: [QK_SPACE_CADET_RIGHT_CTRL_PARENTHESIS_CLOSE, SC_RCPC] }
+  - { code: 0x7C1A, name: KC_LSPO, qmk: [QK_SPACE_CADET_LEFT_SHIFT_PARENTHESIS_OPEN, SC_LSPO] }
+  - { code: 0x7C1B, name: KC_RSPC, qmk: [QK_SPACE_CADET_RIGHT_SHIFT_PARENTHESIS_CLOSE, SC_RSPC] }
+  - { code: 0x7C1C, name: KC_LAPO, qmk: [QK_SPACE_CADET_LEFT_ALT_PARENTHESIS_OPEN, SC_LAPO] }
+  - { code: 0x7C1D, name: KC_RAPC, qmk: [QK_SPACE_CADET_RIGHT_ALT_PARENTHESIS_CLOSE, SC_RAPC] }
+  - { code: 0x7C1E, name: KC_SFTENT, qmk: [QK_SPACE_CADET_RIGHT_SHIFT_ENTER, SC_SENT] }
+  - { code: 0x7C40, name: HPT_ON, qmk: [QK_HAPTIC_ON, HF_ON] }
+  - { code: 0x7C41, name: HPT_OFF, qmk: [QK_HAPTIC_OFF, HF_OFF] }
+  - { code: 0x7C42, name: HPT_TOG, qmk: [QK_HAPTIC_TOGGLE, HF_TOGG] }
+  - { code: 0x7C43, name: HPT_RST, qmk: [QK_HAPTIC_RESET, HF_RST] }
+  - { code: 0x7C44, name: HPT_FBK, qmk: [QK_HAPTIC_FEEDBACK_TOGGLE, HF_FDBK] }
+  - { code: 0x7C45, name: HPT_BUZ, qmk: [QK_HAPTIC_BUZZ_TOGGLE, HF_BUZZ] }
+  - { code: 0x7C46, name: HPT_MODI, qmk: [QK_HAPTIC_MODE_NEXT, HF_NEXT] }
+  - { code: 0x7C47, name: HPT_MODD, qmk: [QK_HAPTIC_MODE_PREVIOUS, HF_PREV] }
+  - { code: 0x7C48, name: HPT_CONT, qmk: [QK_HAPTIC_CONTINUOUS_TOGGLE, HF_CONT] }
+  - { code: 0x7C49, name: HPT_CONI, qmk: [QK_HAPTIC_CONTINUOUS_UP, HF_CONU] }
+  - { code: 0x7C4A, name: HPT_COND, qmk: [QK_HAPTIC_CONTINUOUS_DOWN, HF_COND] }
+  - { code: 0x7C4B, name: HPT_DWLI, qmk: [QK_HAPTIC_DWELL_UP, HF_DWLU] }
+  - { code: 0x7C4C, name: HPT_DWLD, qmk: [QK_HAPTIC_DWELL_DOWN, HF_DWLD] }
+  - { code: 0x7C50, name: CMB_ON, qmk: [QK_COMBO_ON, CM_ON] }
+  - { code: 0x7C51, name: CMB_OFF, qmk: [QK_COMBO_OFF, CM_OFF] }
+  - { code: 0x7C52, name: CMB_TOG, qmk: [QK_COMBO_TOGGLE, CM_TOGG] }
+  - { code: 0x7C53, name: DYN_REC_START1, qmk: [DM_REC1, QK_DYNAMIC_MACRO_RECORD_START_1] }
+  - { code: 0x7C54, name: DYN_REC_START2, qmk: [DM_REC2, QK_DYNAMIC_MACRO_RECORD_START_2] }
+  - { code: 0x7C55, name: DYN_REC_STOP, qmk: [DM_RSTP, QK_DYNAMIC_MACRO_RECORD_STOP] }
+  - { code: 0x7C56, name: DYN_MACRO_PLAY1, qmk: [DM_PLY1, QK_DYNAMIC_MACRO_PLAY_1] }
+  - { code: 0x7C57, name: DYN_MACRO_PLAY2, qmk: [DM_PLY2, QK_DYNAMIC_MACRO_PLAY_2] }
+  - { code: 0x7C58, name: QK_LEAD, qmk: [QK_LEADER], vial: false }
+  - { code: 0x7C59, name: QK_LOCK, vial: false }
+  - { code: 0x7C70, name: DT_PRNT, qmk: [QK_DYNAMIC_TAPPING_TERM_PRINT], vial: false }
+  - { code: 0x7C71, name: DT_UP, qmk: [QK_DYNAMIC_TAPPING_TERM_UP], vial: false }
+  - { code: 0x7C72, name: DT_DOWN, qmk: [QK_DYNAMIC_TAPPING_TERM_DOWN], vial: false }
   - { code: 0x7C73, name: QK_CAPS_WORD_TOGGLE, qmk: [CW_TOGG] }
-  - { code: 0x7C77, name: FN_MO13 }
-  - { code: 0x7C78, name: FN_MO23 }
+  - { code: 0x7C77, name: FN_MO13, qmk: [QK_TRI_LAYER_LOWER, TL_LOWR] }
+  - { code: 0x7C78, name: FN_MO23, qmk: [QK_TRI_LAYER_UPPER, TL_UPPR] }
   - { code: 0x7C79, name: QK_REPEAT_KEY, qmk: [QK_REP] }
   - { code: 0x7C7A, name: QK_ALT_REPEAT_KEY, qmk: [QK_AREP] }
   - { code: 0x7C7B, name: QK_LAYER_LOCK, qmk: [QK_LLCK] }
-  - { code: 0x7E00, name: USER00 }
-  - { code: 0x7E01, name: USER01 }
-  - { code: 0x7E02, name: USER02 }
-  - { code: 0x7E03, name: USER03 }
-  - { code: 0x7E04, name: USER04 }
-  - { code: 0x7E05, name: USER05 }
-  - { code: 0x7E06, name: USER06 }
-  - { code: 0x7E07, name: USER07 }
-  - { code: 0x7E08, name: USER08 }
-  - { code: 0x7E09, name: USER09 }
-  - { code: 0x7E0A, name: USER10 }
-  - { code: 0x7E0B, name: USER11 }
-  - { code: 0x7E0C, name: USER12 }
-  - { code: 0x7E0D, name: USER13 }
-  - { code: 0x7E0E, name: USER14 }
-  - { code: 0x7E0F, name: USER15 }
-  - { code: 0x7E10, name: USER16 }
-  - { code: 0x7E11, name: USER17 }
-  - { code: 0x7E12, name: USER18 }
-  - { code: 0x7E13, name: USER19 }
-  - { code: 0x7E14, name: USER20 }
-  - { code: 0x7E15, name: USER21 }
-  - { code: 0x7E16, name: USER22 }
-  - { code: 0x7E17, name: USER23 }
-  - { code: 0x7E18, name: USER24 }
-  - { code: 0x7E19, name: USER25 }
-  - { code: 0x7E1A, name: USER26 }
-  - { code: 0x7E1B, name: USER27 }
-  - { code: 0x7E1C, name: USER28 }
-  - { code: 0x7E1D, name: USER29 }
-  - { code: 0x7E1E, name: USER30 }
-  - { code: 0x7E1F, name: USER31 }
+  - { code: 0x7E00, name: USER00, qmk: [QK_KB_0] }
+  - { code: 0x7E01, name: USER01, qmk: [QK_KB_1] }
+  - { code: 0x7E02, name: USER02, qmk: [QK_KB_2] }
+  - { code: 0x7E03, name: USER03, qmk: [QK_KB_3] }
+  - { code: 0x7E04, name: USER04, qmk: [QK_KB_4] }
+  - { code: 0x7E05, name: USER05, qmk: [QK_KB_5] }
+  - { code: 0x7E06, name: USER06, qmk: [QK_KB_6] }
+  - { code: 0x7E07, name: USER07, qmk: [QK_KB_7] }
+  - { code: 0x7E08, name: USER08, qmk: [QK_KB_8] }
+  - { code: 0x7E09, name: USER09, qmk: [QK_KB_9] }
+  - { code: 0x7E0A, name: USER10, qmk: [QK_KB_10] }
+  - { code: 0x7E0B, name: USER11, qmk: [QK_KB_11] }
+  - { code: 0x7E0C, name: USER12, qmk: [QK_KB_12] }
+  - { code: 0x7E0D, name: USER13, qmk: [QK_KB_13] }
+  - { code: 0x7E0E, name: USER14, qmk: [QK_KB_14] }
+  - { code: 0x7E0F, name: USER15, qmk: [QK_KB_15] }
+  - { code: 0x7E10, name: USER16, qmk: [QK_KB_16] }
+  - { code: 0x7E11, name: USER17, qmk: [QK_KB_17] }
+  - { code: 0x7E12, name: USER18, qmk: [QK_KB_18] }
+  - { code: 0x7E13, name: USER19, qmk: [QK_KB_19] }
+  - { code: 0x7E14, name: USER20, qmk: [QK_KB_20] }
+  - { code: 0x7E15, name: USER21, qmk: [QK_KB_21] }
+  - { code: 0x7E16, name: USER22, qmk: [QK_KB_22] }
+  - { code: 0x7E17, name: USER23, qmk: [QK_KB_23] }
+  - { code: 0x7E18, name: USER24, qmk: [QK_KB_24] }
+  - { code: 0x7E19, name: USER25, qmk: [QK_KB_25] }
+  - { code: 0x7E1A, name: USER26, qmk: [QK_KB_26] }
+  - { code: 0x7E1B, name: USER27, qmk: [QK_KB_27] }
+  - { code: 0x7E1C, name: USER28, qmk: [QK_KB_28] }
+  - { code: 0x7E1D, name: USER29, qmk: [QK_KB_29] }
+  - { code: 0x7E1E, name: USER30, qmk: [QK_KB_30] }
+  - { code: 0x7E1F, name: USER31, qmk: [QK_KB_31] }
   - { code: 0x7E20, name: USER32 }
   - { code: 0x7E21, name: USER33 }
   - { code: 0x7E22, name: USER34 }

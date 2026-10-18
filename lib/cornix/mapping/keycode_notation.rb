@@ -10,7 +10,7 @@ module Cornix
     #   修飾関数        LSFT(KC_1), SGUI(4), LGUI(LSFT(Q)), HYPR(Left), LCS(A)
     #   ModTap          LGUI_T(KC_LANG2), MT(MOD_LCTL|MOD_LSFT, A), ALL_T(Esc)
     #   レイヤー        LT1(Space), LT(1, Space), MO(3), TG(3), TO(0), DF(0), OSL(4), TT(2), PDF(0), LM(1, MOD_LSFT)
-    #   ワンショット    OSM(MOD_LSFT|MOD_LGUI)
+    #   ワンショット    OSM(MOD_LSFT|MOD_LGUI), OS_LSFT, OS_MEH
     #   修飾キー式      Cmd + Shift + A, Command + Plus, Ctrl + "-"   （修飾名は Modifiers::EXPRESSION）
     #   参照            Macro('名前'), Macro(3), M3, TapDance('名前'), TapDance(2), TD(2)
     #   ショートカット  Shortcut('名前')                                   （shortcuts.yaml か data/shortcuts/ の定義の Keycode）

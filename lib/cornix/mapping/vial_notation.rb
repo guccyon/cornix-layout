@@ -39,10 +39,8 @@ module Cornix
         LAYER_FUNCTIONS.each do |op, name|
           (0..15).each { |n| named[KeycodeCodec::LAYER_OPS.fetch(op) + n] = "#{name}(#{n})" }
         end
-        (0..255).each do |n|
-          named[KeycodeCodec::TAP_DANCE.begin + n] = "TD(#{n})"
-          named[KeycodeCodec::MACRO.begin + n] = "M#{n}"
-        end
+        (0..255).each { |n| named[KeycodeCodec::TAP_DANCE.begin + n] = "TD(#{n})" }
+        Domain::Keycode::MacroCall::RANGE.each { |n| named[KeycodeCodec::MACRO.begin + n] = "M#{n}" }
         [0x00, 0x10].each do |side|
           (0x01..0x0F).each do |mods|
             bits = side | mods

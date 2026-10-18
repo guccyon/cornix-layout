@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rspec'
+require_relative '../lib/cornix'
 
 # Helper methods for hierarchical layer structure
 module LayerHelpers

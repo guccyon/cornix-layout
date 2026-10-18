@@ -1,0 +1,3 @@
+# 実機への書き込みを拒否するキーコードの範囲。
+ranges:
+  - { from: 0x7C00, to: 0x7C0F, reason: 'QK_BOOT / QK_REBOOT / QK_CLEAR_EEPROM など、押すとファームウェアの状態を壊しうるキー' }

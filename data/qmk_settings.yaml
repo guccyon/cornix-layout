@@ -1,0 +1,16 @@
+# Vial の QMK Settings（QSID）の定義。
+# - qsid:  Vial プロトコルの設定 ID
+# - name:  config/settings/qmk_settings.yaml で使う名前
+# - group: config/settings/qmk_settings.yaml の入れ子（keyboard / vial）
+# - width: 値のバイト数（vial-gui の qmk_settings.json と同じ）
+# - type:  integer か boolean（boolean は 0 / 1 で書き込む）
+settings:
+  - { qsid: 2,  name: combo_timing_window,     group: vial,     width: 2, type: integer }
+  - { qsid: 6,  name: oneshot_timeout,         group: keyboard, width: 2, type: integer }
+  - { qsid: 7,  name: tapping_term,            group: keyboard, width: 2, type: integer }
+  - { qsid: 18, name: tap_code_delay,          group: keyboard, width: 2, type: integer }
+  - { qsid: 19, name: tap_hold_caps_delay,     group: keyboard, width: 2, type: integer }
+  - { qsid: 22, name: permissive_hold,         group: keyboard, width: 1, type: boolean }
+  - { qsid: 23, name: hold_on_other_key_press, group: keyboard, width: 1, type: boolean }
+  - { qsid: 26, name: chordal_hold,            group: keyboard, width: 1, type: boolean }
+  - { qsid: 27, name: flow_tap,                group: keyboard, width: 2, type: integer }

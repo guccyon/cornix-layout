@@ -24,6 +24,9 @@ module Cornix
         )
       end
 
+      # 注記の場所（:output_key）のキーコード
+      def keycode_at(slot) = { output_key: output_key }.fetch(slot)
+
       # 出力の注記。なければ nil
       def output_note = notes[:output_key]
 

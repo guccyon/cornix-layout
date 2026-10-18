@@ -136,7 +136,7 @@ module Cornix
           keys = layer.keys.sort_by { |pos, _| order.fetch(pos) }
                       .map { |pos, kc| ["layers[#{i}].#{profile.position_map.path(pos)}", kc] }
           encoders = layer.encoders.sort_by { |side, _| side == :left ? 0 : 1 }.flat_map do |side, binding|
-            EncoderBinding::ACTIONS.map { |a| ["layers[#{i}].encoders.#{side}.#{a}", binding.public_send(a)] }
+            binding.actions.map { |a, kc| ["layers[#{i}].encoders.#{side}.#{a}", kc] }
           end
           keys + encoders
         end

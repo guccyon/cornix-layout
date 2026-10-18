@@ -32,6 +32,9 @@ module Cornix
       # { on_tap: Keycode, on_hold: ..., on_double_tap: ..., on_tap_hold: ... }
       def actions = ACTIONS.to_h { |a| [a, public_send(a)] }
 
+      # 注記の場所（動作）のキーコード
+      def keycode_at(action) = actions.fetch(action)
+
       # 動作の注記。なければ nil
       def note(action) = notes[action]
 

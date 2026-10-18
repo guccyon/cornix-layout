@@ -12,6 +12,7 @@ module Cornix
     #   macros[2].steps[1].keys[0]            → macros/02_copy.yml: sequence[1].keys[0]
     #   tap_dances[1].on_hold                 → tap_dance/01_x.yml: actions.on_hold
     #   combos[0].trigger_keys[1]             → combos/00_x.yml: trigger_keys[1]
+    #   combos[0].output_key                  → combos/00_x.yml: output_key.key（注記付きの形 { key:, note: } のとき）
     #   macros                                → macros/
     #
     # layers[i] などの i は Profile の配列の位置で、ConfigLoader は各ディレクトリのファイルを名前順に読むので
@@ -27,6 +28,7 @@ module Cornix
       def initialize(dir)
         @dir = dir
         @files = {}
+        @contents = {}
       end
 
       # Domain::Diagnostic → path を「ファイル: キーの位置」にした Domain::Diagnostic
@@ -54,7 +56,7 @@ module Cornix
         return "#{ConfigFiles.directory(kind)}/（#{position + 1} 番目のファイル）#{rest && ": #{rest}"}" unless rel
         return rel if rest.nil? || rest.empty?
 
-        "#{rel}: #{send(:"#{kind}_location", rel, rest)}"
+        "#{rel}: #{assignment_key(rel, send(:"#{kind}_location", rel, rest))}"
       end
 
       def layers_location(_rel, rest) = rest.match?(LAYER_MAPPING) ? "mapping.#{rest}" : rest
@@ -75,12 +77,24 @@ module Cornix
 
       def combos_location(_rel, rest) = rest
 
+      # 位置の値が注記付きの形（{ key:, note: }）ならキーコードの位置（.key）にする
+      def assignment_key(rel, location)
+        value = location.split('.').reduce(content(rel)) do |node, key|
+          node.is_a?(Hash) ? node.fetch(key) { node[Integer(key, 10, exception: false)] } : nil
+        end
+        value.is_a?(Hash) && value.key?('key') ? "#{location}.key" : location
+      end
+
       def files(kind) = @files[kind] ||= ConfigFiles.list(@dir, kind)
 
       def content(rel)
-        YamlFile.read(File.join(@dir, rel))
-      rescue YamlFile::Unreadable
-        nil
+        return @contents[rel] if @contents.key?(rel)
+
+        @contents[rel] = begin
+          YamlFile.read(File.join(@dir, rel))
+        rescue YamlFile::Unreadable
+          nil
+        end
       end
     end
   end

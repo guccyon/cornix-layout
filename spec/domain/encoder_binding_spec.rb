@@ -25,6 +25,7 @@ RSpec.describe Cornix::Domain::EncoderBinding do
     expect(binding.note(:push)).to eq('ミュート')
     expect(binding.note(:cw)).to be_nil
     expect(binding.actions).to eq(push: basic(0x7F), ccw: basic(0x81), cw: basic(0x80))
+    expect(binding.keycode_at(:ccw)).to eq(basic(0x81))
     expect { described_class.new(push: k::NO_KEY, ccw: k::NO_KEY, cw: k::NO_KEY, notes: { tap: 'x' }) }
       .to raise_error(Cornix::InvalidValue, /エンコーダの注記/)
   end

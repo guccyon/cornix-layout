@@ -11,3 +11,5 @@ nape_pro-layout の `{ key: <表記>, note: <注記> }` に合わせて追加し
 - 読み書きは `Storage::Schema::KeycodeField#read_assignment` / `#write_assignment`。空の note は注記なし
 - `ProfileMapper::Inheritance#notes` / `#encoder_notes`: previous の同じ場所でキーコードが同じときだけ注記を引き継ぐ（nape の pull と同じ）。
   decompile は空の config/ にしか書かないので previous を渡さず、注記は書かない
+- rename（`ConfigEditor#replace_references`）はテキスト置換なので、注記の文中にある `Macro('旧名')` も新しい名前に書き換わる（意図どおり）
+- `DiagnosticLocator` は値が注記付きの形なら位置に `.key` を付ける（構造検証の位置と揃える）

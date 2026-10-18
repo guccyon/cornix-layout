@@ -41,6 +41,9 @@ module Cornix
         # 問題があれば記録して nil。default を渡すと値が nil のときに default（注記なし）
         def read_assignment(raw, ctx, loc, default: nil)
           return Assignment.new(keycode: default, note: nil) if raw.nil? && default
+          unless [String, Integer, Hash].any? { |type| raw.is_a?(type) }
+            return ctx.type_error(raw, loc, 'キーコード（文字列）か { key: キーコード, note: 注記 }')
+          end
           return keycode_only(read(raw, ctx, loc)) unless raw.is_a?(Hash)
 
           hash = ctx.mapping(raw, loc, required: ['key'], allowed: ASSIGNMENT_KEYS) or return nil

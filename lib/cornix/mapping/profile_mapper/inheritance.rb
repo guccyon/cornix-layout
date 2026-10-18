@@ -39,10 +39,8 @@ module Cornix
         def same_keycode_notes(previous_item, current)
           return {} if previous_item.nil?
 
-          previous_item.notes.select { |slot, _| current.key?(slot) && current[slot] == keycode_at(previous_item, slot) }
+          previous_item.notes.select { |slot, _| current.key?(slot) && current[slot] == previous_item.keycode_at(slot) }
         end
-
-        def keycode_at(item, slot) = item.is_a?(Domain::Layer) ? item.key(slot) : item.public_send(slot)
 
         def item(kind, index)
           return nil if @previous.nil?

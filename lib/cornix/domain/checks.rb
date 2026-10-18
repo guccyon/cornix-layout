@@ -56,11 +56,13 @@ module Cornix
       # 注記は設定ファイルにだけある「何のための割り当てか」のメモで、デバイスには書かない。
       # slots は注記を付けられる場所の一覧（include? に答えるもの）
       def notes!(value, slots, what)
-        hash!(value, what) do |slot, text|
+        raise InvalidValue, "#{what}は Hash です: #{value.inspect}" unless value.is_a?(Hash)
+
+        value.to_h do |slot, text|
           raise InvalidValue, "#{what}を付けられない場所です: #{slot.inspect}" unless slots.include?(slot)
 
-          name!(text, "#{what}（#{slot}）")
-        end.transform_values { |text| text.dup.freeze }.freeze
+          [slot, name!(text, "#{what}（#{slot}）")]
+        end.freeze
       end
     end
   end

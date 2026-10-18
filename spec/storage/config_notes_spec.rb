@@ -12,7 +12,7 @@ RSpec.describe 'Storage::ConfigRepository の注記（{ key: ..., note: ... }）
   def edit(dir, rel, from, to)
     path = File.join(dir, rel)
     text = File.read(path)
-    raise "#{rel} に #{from.inspect} がありません" unless text.include?(from)
+    raise "#{rel} に #{from.inspect} がありません" unless from.is_a?(Regexp) ? text.match?(from) : text.include?(from)
 
     File.write(path, text.sub(from, to))
   end
@@ -95,6 +95,41 @@ RSpec.describe 'Storage::ConfigRepository の注記（{ key: ..., note: ... }）
         .and include(a_string_matching(/mapping.left_hand.row0.Q: key がありません/))
         .and include(a_string_matching(/mapping.left_hand.row0.W.memo: 未知のキーです（使えるキー: key, note）/))
         .and include(a_string_matching(/mapping.left_hand.row0.E.key: /))
+    end
+  end
+
+  it 'エンコーダ・タップダンス・コンボの形の誤りもそれぞれの位置で報告する' do
+    with_config_copy do |dir|
+      edit(dir, 'layers/0_layer_0.yaml', "      push: Mute\n", "      push: { key: Mute, note: 1 }\n")
+      edit(dir, 'layers/0_layer_0.yaml', "      ccw: VolumeDown\n", "      ccw: { key: ~, note: x }\n")
+      edit(dir, 'tap_dance/01_tap_dance.yaml', "on_tap: SGUI(KC_4)\n", "on_tap: { key: SGUI(KC_4), note: [x] }\n")
+      edit(dir, 'combos/00_combo.yaml', "output_key: KC_LBRACKET", "output_key: { note: 開き括弧 }")
+      edit(dir, 'combos/01_combo.yaml', /output_key: .*/, 'output_key: [A]')
+      problems = load_problems(dir)
+      expect(problems).to include(a_string_matching(/mapping.encoders.left.push.note: 注記（文字列）/))
+        .and include(a_string_matching(/mapping.encoders.left.ccw.key: キーコード（文字列）/))
+        .and include(a_string_matching(%r{tap_dance/01_tap_dance.yaml: on_tap.note: 注記（文字列）}))
+        .and include(a_string_matching(%r{combos/00_combo.yaml: output_key: key がありません}))
+        .and include(a_string_matching(%r{combos/01_combo.yaml: output_key: キーコード（文字列）か \{ key: キーコード, note: 注記 \}}))
+    end
+  end
+
+  it '空白だけの注記も注記なしとして読む' do
+    with_config_copy do |dir|
+      edit(dir, 'combos/00_combo.yaml', "output_key: KC_LBRACKET", "output_key: { key: KC_LBRACKET, note: '  ' }")
+      expect(repository(dir).load.combo(0).notes).to eq({})
+    end
+  end
+
+  it '診断の位置は注記付きの形ならキーコード（.key）を指す' do
+    with_config_copy do |dir|
+      add_notes(dir)
+      locator = Cornix::Storage::DiagnosticLocator.new(dir)
+      expect(locator.locate_path('layers[0].left_hand.row0.tab')).to eq('layers/0_layer_0.yaml: mapping.left_hand.row0.tab.key')
+      expect(locator.locate_path('layers[0].encoders.left.push')).to eq('layers/0_layer_0.yaml: mapping.encoders.left.push.key')
+      expect(locator.locate_path('layers[0].left_hand.row0.Q')).to eq('layers/0_layer_0.yaml: mapping.left_hand.row0.Q')
+      expect(locator.locate_path('tap_dances[1].on_tap')).to eq('tap_dance/01_tap_dance.yaml: on_tap.key')
+      expect(locator.locate_path('combos[0].output_key')).to eq('combos/00_combo.yaml: output_key.key')
     end
   end
 end

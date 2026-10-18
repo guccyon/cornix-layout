@@ -101,6 +101,7 @@ module Cornix
             Domain::EncoderBinding.new(**actions.transform_values(&:keycode), notes: KeycodeField.notes(actions))
           end
         end
+
         def empty_encoder
           no = Domain::Keycode::NO_KEY
           Domain::EncoderBinding.new(push: no, ccw: no, cw: no)

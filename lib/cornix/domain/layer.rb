@@ -31,6 +31,9 @@ module Cornix
       # 位置の割り当て。なければ nil
       def key(position) = keys[position]
 
+      # 注記の場所（位置）のキーコード。EncoderBinding / TapDance / Combo#keycode_at と同じ形
+      def keycode_at(position) = key(position)
+
       # 位置の注記。なければ nil
       def note(position) = notes[position]
 

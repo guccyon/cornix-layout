@@ -13,8 +13,8 @@ Intelligently rename Cornix configuration files (macros, tap dances, layers) bas
 **When invoked**, analyze all config files in `config/` directory and suggest meaningful names:
 
 1. **Analyze files**:
-   - Read `config/macros/*.yml` - analyze key sequences to infer purpose
-   - Read `config/tap_dance/*.yml` - analyze tap/hold actions to infer function
+   - Read `config/macros/*.{yaml,yml}` - analyze key sequences to infer purpose
+   - Read `config/tap_dance/*.{yaml,yml}` - analyze tap/hold actions to infer function
    - Ignore files that already have meaningful names (not matching generic patterns like "Macro N")
 
 2. **Generate suggestions** using Claude AI reasoning:
@@ -35,14 +35,14 @@ Intelligently rename Cornix configuration files (macros, tap dances, layers) bas
 
 4. **Complete silently**:
    - After writing `tmp/rename_plans.json`, the skill completes
-   - The calling CLI (`bin/cornix rename`) will read the plan and execute it
-   - CLI handles: file renaming, backup, rollback, compilation verification
+   - The calling CLI (`cornix rename`, or `bin/rename_file --batch`) will read the plan and execute it
+   - CLI handles: file renaming, backup, reference rewriting, rollback, compilation verification
 
 ## Important Rules
 
 - **Only analyze macros and tap dances** (not layers - layer names are already meaningful)
 - **Always preserve index prefix** in filenames (00_, 01_, etc.)
-- **Skip files with already meaningful names** (not matching `/^(Macro|Tap Dance)\s*\d+$/i`)
+- **Skip files with already meaningful names** (not matching the default names `Macro N` / `TapDance N` written by decompile)
 - **Deeply analyze content**: Don't just pattern match - understand the actual purpose
 - **Use descriptive names**: Clear, concise, and reflect the actual function
 - **Confidence levels**:
@@ -82,8 +82,8 @@ After analyzing files and getting user confirmation, generate `tmp/rename_plans.
 ```json
 [
   {
-    "old_path": "config/macros/00_macro.yml",
-    "new_basename": "00_brackets_pair.yml",
+    "old_path": "config/macros/00_macro.yaml",
+    "new_basename": "00_brackets_pair.yaml",
     "content_updates": {
       "name": "Brackets Pair",
       "description": "Insert bracket pair [] with cursor positioning"
@@ -92,8 +92,8 @@ After analyzing files and getting user confirmation, generate `tmp/rename_plans.
     "confidence": "high"
   },
   {
-    "old_path": "config/tap_dance/02_tap_dance.yml",
-    "new_basename": "02_layer1_switch.yml",
+    "old_path": "config/tap_dance/02_tap_dance.yaml",
+    "new_basename": "02_layer1_switch.yaml",
     "content_updates": {
       "name": "Layer 1 Switch",
       "description": "Switch to layer 1 when held"
@@ -140,8 +140,8 @@ Generate `tmp/rename_plans.json` with the following structure:
 ```json
 [
   {
-    "old_path": "config/macros/03_macro.yml",
-    "new_basename": "03_end_of_line.yml",
+    "old_path": "config/macros/03_macro.yaml",
+    "new_basename": "03_end_of_line.yaml",
     "content_updates": {
       "name": "End of Line",
       "description": "Jump to end of line with Cmd+Right"
@@ -163,7 +163,8 @@ bin/rename_file --batch tmp/rename_plans.json
 - **Backup**: Automatic `config.backup_<timestamp>/` creation
 - **Transaction**: Atomic batch processing (all or nothing)
 - **Rollback**: Automatic rollback on any error
-- **Verification**: Post-rename compilation check with `lib/cornix/compiler.rb`
+- **References**: Name-based references (`Macro('old')` / `TapDance('old')`) in all config files are rewritten to the new name
+- **Verification**: The configuration is compiled before and after the rename (`Cornix::Application::RenameFiles`) and the 16-bit values must match
 
 **Exit codes**:
 - `0`: Success

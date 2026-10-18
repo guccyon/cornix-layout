@@ -1,253 +1,76 @@
-# RSpec Test Suite
-
-Cornix Keyboard Layout Managerの包括的なテストスイートです。
-
-## テストファイル一覧
-
-### 1. compiler_spec.rb (415行, 30テスト)
-
-Compilerクラスの機能テスト。
-
-**テスト項目**:
-- layout.vilファイルの生成
-- 10レイヤーの生成
-- エンコーダーレイアウトの生成
-- キーコード解決:
-  - エイリアス → QMK変換
-  - Trans/NoKey等の特殊エイリアス
-  - レイヤー番号の保持 (MO(3) → MO(3), not MO(KC_3))
-  - 修飾キーの引数変換 (LSFT(1) → LSFT(KC_1))
-  - ネストされた関数呼び出し (LT(1, Space) → LT(1, KC_SPACE))
-- レイヤーコンパイル:
-  - ベースレイヤーの完全な定義
-  - オーバーライドレイヤーの差分
-  - ロータリープッシュボタンの処理
-- エンコーダーコンパイル
-- マクロコンパイル:
-  - インデックス管理
-  - タップアクション
-  - テキストアクション
-  - 無効化されたマクロのスキップ
-- タップダンスコンパイル:
-  - インデックス管理
-  - レイヤー番号の保持
-- コンボコンパイル
-- 設定コンパイル:
-  - QMK設定
-  - boolean → integer変換
-  - デフォルト値の使用
-- エッジケース:
-  - 空のオーバーライドレイヤー
-  - KC_NOの処理
-  - 特殊文字の処理
-  - 複数引数関数
-
-### 2. decompiler_spec.rb (453行, 27テスト)
-
-Decompilerクラスの機能テスト。
-
-**テスト項目**:
-- config/ディレクトリ構造の生成
-- メタデータ抽出
-- ポジションマップ抽出
-- QMK設定抽出
-- キーコード解決:
-  - QMK → エイリアス変換
-  - KC_TRNS → Trans
-  - LSFT(KC_1) → LSFT(1)
-  - レイヤー番号の保持
-- レイヤー抽出:
-  - ベースレイヤー (完全なマッピング)
-  - オーバーライドレイヤー (差分のみ)
-  - 空レイヤーのスキップ
-  - 全10レイヤーの処理
-- マクロ抽出:
-  - 構造の整合性
-  - シーケンスの保持
-  - インデックス管理
-  - 空スロットのスキップ
-- タップダンス抽出:
-  - アクション構造
-  - レイヤー番号の保持
-  - 空スロットのスキップ
-- コンボ抽出:
-  - トリガーと出力の構造
-  - 空スロットのスキップ
-- エッジケース:
-  - オプションフィールドの欠落
-  - 特殊文字の処理
-  - keycode_aliases.yamlの非コピー
-- ラウンドトリップ互換性
-
-### 3. keycode_resolver_spec.rb (174行, 21テスト)
-
-KeycodeConverterクラスのエイリアス解決テスト。
-
-**テスト項目**:
-- resolve (エイリアス → QMK):
-  - 基本エイリアス解決
-  - 未知のキーコード
-  - Transparent系エイリアス
-  - NoKey
-  - 大文字小文字の区別
-- reverse_resolve (QMK → エイリアス):
-  - 基本的な逆解決
-  - 未知のキーコード
-  - 複数エイリアスがある場合の優先順位
-  - KC_NO
-- システムエイリアスファイル:
-  - lib/cornix/keycode_aliases.yamlの読み込み
-  - 一般的なキーコードの解決
-  - 修飾キーの処理
-- エッジケース:
-  - nil処理
-  - 空文字列
-  - 数値入力
-  - 既に解決済みのQMKキーコード
-  - 関数形式のキーコード
-- 初期化:
-  - 存在しないファイルのエラー処理
-  - 不正なYAML
-  - aliasesキーの欠落
-
-### 4. position_map_spec.rb (154行, 17テスト)
-
-PositionMapクラスの物理位置マッピングテスト。
-
-**テスト項目**:
-- symbol_at (位置 → シンボル):
-  - 左手の位置
-  - 右手の位置
-  - エンコーダーシンボル
-  - 範囲外の位置
-  - 文字列handパラメータ
-- find_position (シンボル → 位置):
-  - 左手シンボルの検索
-  - 右手シンボルの検索
-  - 特殊キーの検索
-  - 存在しないシンボル
-  - 大文字小文字の区別
-  - position_map内の全シンボルの検索
-- 初期化:
-  - YAMLファイルの読み込み
-  - 存在しないファイルのエラー
-  - 不正なYAML
-- エッジケース:
-  - 負のインデックス
-  - 全位置の検索
-
-### 5. validator_spec.rb (366行, 25テスト)
-
-Validatorクラスの設定ファイル検証テスト。
-
-**テスト項目**:
-- validate:
-  - 有効な設定
-- レイヤー検証:
-  - 無効なファイル名
-  - 範囲外のインデックス (10+)
-  - 重複インデックス
-  - 有効なインデックス (0-9)
-- マクロ検証:
-  - nameフィールドの欠落
-  - 重複名
-  - 一意な名前
-- タップダンス検証:
-  - nameフィールドの欠落
-  - 重複名
-- コンボ検証:
-  - nameフィールドの欠落
-  - 重複名
-- レイヤー参照検証:
-  - 未知のマクロ参照
-  - 未知のタップダンス参照
-  - 名前による有効な参照
-  - インデックスによる有効な参照
-- エラーレポート:
-  - 複数エラーの報告
-  - 成功メッセージ
-- エッジケース:
-  - 空ディレクトリ
-  - レイヤー0のみ
-  - レイヤーインデックスのギャップ
-  - .ymlと.yamlの混在
-
-### 6. integration_spec.rb (160行, 6テスト)
-
-Compiler + Decompilerの統合テスト。
-
-**テスト項目**:
-- ラウンドトリップ変換:
-  - データ損失なし
-  - フルラウンドトリップでのデータ整合性
-- レイヤーコンパイル:
-  - Layer 0の完全性
-  - オーバーライドレイヤーの処理
-- マクロコンパイル:
-  - 正しいインデックス順序
-- エイリアス解決:
-  - レイヤー番号引数の処理
-
-## 実行方法
-
-### 全テストの実行
+# RSpec テスト
 
 ```bash
-bundle exec rspec
+LANG=ja_JP.UTF-8 bundle exec rspec                          # すべて
+LANG=ja_JP.UTF-8 bundle exec rspec spec/domain              # 層ごと
+LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompile の一致
 ```
 
-### 特定のテストファイルの実行
+- キーボードは不要（実機の代わりに `spec/device/fake_rmk_device.rb` を使う）。実機と通信するテストは書かない
+- 実行順はランダム（`--seed` で再現できる）。メッセージが日本語なので `LANG=ja_JP.UTF-8` を付ける
+- GitHub Actions（`.github/workflows/rspec.yml`）が push / pull request ごとに実行する
 
-```bash
-bundle exec rspec spec/compiler_spec.rb
-bundle exec rspec spec/decompiler_spec.rb
-bundle exec rspec spec/keycode_resolver_spec.rb
-bundle exec rspec spec/position_map_spec.rb
-bundle exec rspec spec/validator_spec.rb
-bundle exec rspec spec/integration_spec.rb
-```
+## 構成
 
-### 詳細出力での実行
+`spec/` は `lib/cornix/` と同じ層の構成にする（`lib/cornix/mapping/keycode_codec.rb` ↔ `spec/mapping/keycode_codec_spec.rb`）。
 
-```bash
-bundle exec rspec --format documentation
-```
+| ディレクトリ | 対象 | 主な内容 |
+|---|---|---|
+| `domain/` | `Domain::*` | 値オブジェクトの検証（`InvalidValue`）、`PositionMap` の座標変換、`Profile#diagnostics` |
+| `mapping/` | `Mapping::*` | キーコード表・`KeycodeCodec`・`KeycodeNotation`（表記ごとの値と往復）・`VialNotation`（全 16bit 値で旧実装と同じ表記）・`MacroCodec`・`ProfileMapper` |
+| `planning/` | `Planning::*` | `ImageDiff` の差分、`Plan` の token、マクロの一覧 |
+| `storage/` | `Storage::*` | `ConfigRepository` の読み書きと問題の報告、`VilFile`、`BackupStore`、`ConfigEditor`、`YamlFile`、`DiagnosticLocator` |
+| `device/` | `Device::*` | `Protocol` の範囲検査、`Session` / `Reader` / `Planner` / `Writer`、`HidBridge`（`CORNIX_HID_BRIDGE` で差し替え） |
+| `application/` | `Application::*` | 設定のユースケース（Validate / Compile / Decompile / Cleanup）、rename、デバイスのユースケース、`Environment` |
+| `interface/` | `Interface::*` | CLI（`Main` とコマンドの出力・終了コード）、MCP サーバー（ツール一覧と応答） |
 
-### 特定のテストのみ実行
+層をまたぐもの:
 
-```bash
-# describeブロックで絞り込み
-bundle exec rspec spec/compiler_spec.rb --example "keycode resolution"
+- **`end_to_end_spec.rb`**: `test_config` / `authors_config` を `cornix compile` して、保存した .vil と 16bit 値で一致すること、
+  .vil を decompile → validate → compile して元に戻ること。`bin/cornix`・`bin/diff_layouts`・`bin/rename_file` を子プロセスで実行する確認もある
+- **`architecture_spec.rb`**: `lib/cornix` の各層が参照してよい層だけを参照していること（`docs/architecture.md` の表）
 
-# itブロックで絞り込み
-bundle exec rspec spec/compiler_spec.rb --example "converts basic aliases"
-```
+## 共通の道具
 
-## テストカバレッジ統計
+| ファイル | 内容 |
+|---|---|
+| `spec_helper.rb` | `lib/cornix` を読み込み、RSpec を設定する |
+| `domain/support/domain_factories.rb` | Domain の値を作る helper（既定の position_map など） |
+| `mapping/support/vil_image.rb` | 保存した 16bit 値（`fixtures/expected/*.values.json`）から `DeviceImage` を作る |
+| `storage/support/storage_helpers.rb` | 一時ディレクトリへの設定の複写など |
+| `application/support/config_root.rb` | shared context `config root`: 一時ディレクトリを root にした `Environment`、`FakeClaude`、fixtures の設置 |
+| `application/device_environment_context.rb` | `FakeRmkDevice` を開く `device_opener` を渡した `Environment` |
+| `device/fake_rmk_device.rb` | RMK 0.8 の Vial 応答を模したデバイス（ファームウェアがパニックする範囲外の書き込みは例外にする） |
+| `planning/planning_images_context.rb` | 差分の spec で使う DeviceImage |
 
-- **総テストケース数**: 126
-- **総行数**: 1,722行
-- **カバー範囲**:
-  - Compiler: キーコード変換、レイヤー生成、マクロ/タップダンス/コンボ処理
-  - Decompiler: QMK→エイリアス変換、YAML生成、ラウンドトリップ
-  - KeycodeConverter: 双方向エイリアス解決
-  - PositionMap: 物理位置マッピング
-  - Validator: 設定ファイル妥当性検証
-  - Integration: エンドツーエンドのラウンドトリップ
+## fixtures
 
-## テスト設計原則
+| パス | 内容 |
+|---|---|
+| `fixtures/test_config/` | 機能を一通り使う設定（10 レイヤー、マクロ・タップダンス・コンボ、修飾キー表現、参照、設定） |
+| `fixtures/layout.vil` | `test_config` を旧実装で compile した結果（正解） |
+| `fixtures/authors_config/` | authors-keymap ブランチの `config/` の複写（実際に使っているキーマップ） |
+| `fixtures/authors_baseline.vil` | `authors_config` を旧実装で compile した結果（正解） |
+| `fixtures/authors_decompiled_config/` | `authors_baseline.vil` を旧実装で decompile した結果（旧形式の設定も読めることの確認） |
+| `fixtures/vial_keycodes_v6.yaml` | 旧 `lib/cornix/device/via_keycodes.yaml`（vial-gui から抽出した表）。`data/keycodes.yaml` との照合に使う |
+| `fixtures/position_map.yaml` | position_map のサンプル |
+| `fixtures/expected/` | 旧実装を消す前に、旧実装で求めて保存した期待値（下表） |
 
-1. **ユニットテスト**: 各クラスの機能を独立してテスト
-2. **統合テスト**: Compiler→Decompiler→Compilerの完全なフローをテスト
-3. **エッジケースカバレッジ**: nil、空文字列、範囲外値、不正入力
-4. **エラーハンドリング**: 例外処理と適切なエラーメッセージ
-5. **データ整合性**: ラウンドトリップでデータが失われないことを保証
+`fixtures/expected/`:
 
-## 継続的な改善
+| ファイル | 旧実装 | 使う spec |
+|---|---|---|
+| `vial_codes.tsv.gz` | `Device::Keycodes` の全 16bit 値の decode / encode | `mapping/vial_notation_spec.rb` |
+| `config_keycodes.yaml` | 設定ファイルの全キーコード文字列の値（値にできなかったものは null） | `mapping/keycode_notation_config_spec.rb` |
+| `layout.values.json`, `authors_baseline.values.json` | .vil を 16bit 値にしたもの | `storage/config_repository_baseline_spec.rb` ほか |
+| `macro_buffers.json` | `Device::MacroCodec` が書いたマクロのバイト列 | `mapping/macro_codec_spec.rb` |
+| `fake_device_snapshot.json` | `Device::Keyboard` が FakeRmkDevice から読んだ状態 | `device/reader_spec.rb` |
+| `mcp_tools.json` | `Device::McpServer` の tools/list と instructions | `interface/mcp/server_spec.rb` |
 
-新機能の追加時には、対応するテストケースも追加してください：
+旧実装は削除済みなので、これらの期待値は作り直せない。振る舞いを意図的に変えるときは、変えた理由を spec とコミットに書いてから期待値を更新する。
 
-1. 新しいキーコードタイプ → keycode_resolver_spec.rbに追加
-2. 新しいレイヤー機能 → compiler_spec.rb, decompiler_spec.rbに追加
-3. 新しい検証ルール → validator_spec.rbに追加
-4. 統合機能の変更 → integration_spec.rbで検証
+## 書き方
+
+- 新しいクラスには spec を書く。テスト用の値は fixtures か `domain_factories.rb` から作り、実機・ネットワーク・利用者のファイルには触れない
+- ファイルを書くテストは `Dir.mktmpdir` の下で行う（`config root` の shared context を使う）
+- コミット前に `LANG=ja_JP.UTF-8 bundle exec rspec` がすべて通ること

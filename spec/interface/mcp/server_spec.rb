@@ -1,0 +1,171 @@
+# frozen_string_literal: true
+
+require 'spec_helper'
+require 'stringio'
+require_relative '../../application/device_environment_context'
+
+RSpec.describe Cornix::Interface::Mcp::Server do
+  include_context 'device environment'
+
+  let(:server) { described_class.new(env) }
+
+  def call(name, args = {})
+    server.handle('jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
+                  'params' => { 'name' => name, 'arguments' => args })[:result]
+  end
+
+  def text(result) = result[:content][0][:text]
+
+  # 1 行 1 メッセージで送り、応答を JSON で返す
+  def round_trip(*messages)
+    input = StringIO.new(messages.map { |m| "#{JSON.generate(m)}\n" }.join)
+    output = StringIO.new
+    described_class.new(env, input: input, output: output).run
+    expect(output.string).to be_ascii_only
+    output.string.lines.map { |line| JSON.parse(line) }
+  end
+
+  it 'initialize と tools/list に応答する（旧 Device::McpServer と同じツール）' do
+    init = server.handle('jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => {})
+    expect(init[:result]).to include(protocolVersion: '2025-06-18', capabilities: { tools: {} },
+                                     serverInfo: { name: 'cornix-device', version: '0.1.0' })
+    expect(init[:result][:instructions]).to include('dry_run: true（既定）')
+    tools = server.handle('jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list')[:result][:tools]
+    expect(tools.map { |t| t[:name] }).to eq(%w[keyboard_info read_keymap backup list_backups restore_backup apply_layout])
+    apply = tools.find { |t| t[:name] == 'apply_layout' }
+    expect(apply[:inputSchema][:properties].keys).to eq(%i[vil_path dry_run confirm_token])
+    expect(apply[:inputSchema][:properties][:vil_path][:description]).to include(env.layout_path)
+  end
+
+  it '旧 Device::McpServer と同じ tools/list と instructions を返す（vil_path の既定値以外）' do
+    require_relative '../../../lib/cornix/device/mcp_server'
+    old = Cornix::Device::McpServer
+    expect(Cornix::Interface::Mcp::ToolCatalog::INSTRUCTIONS).to eq(old::INSTRUCTIONS)
+    expect(Cornix::Interface::Mcp::ToolCatalog.tools(default_vil: old::DEFAULT_VIL)).to eq(old::TOOLS)
+  end
+
+  it '通知には応答せず、知らないメソッドはエラー' do
+    expect(server.handle('jsonrpc' => '2.0', 'method' => 'notifications/initialized')).to be_nil
+    expect(server.handle('jsonrpc' => '2.0', 'id' => 1, 'method' => 'nope')[:error][:code]).to eq(-32_601)
+  end
+
+  it 'JSON として読めない行には Parse error を返す' do
+    output = StringIO.new
+    described_class.new(env, input: StringIO.new("{oops\n\n"), output: output).run
+    expect(JSON.parse(output.string)).to eq('jsonrpc' => '2.0', 'id' => nil,
+                                            'error' => { 'code' => -32_700, 'message' => 'Parse error' })
+  end
+
+  it 'JSON-RPC の往復: initialize → tools/list → apply_layout の dry run → token を付けて書き込み' do
+    vil = write_vil(File.join(@root, 'レイアウト.vil')) { |v| v['layout'][0][0][1] = 'KC_B' }
+    responses = round_trip(
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } },
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+      { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'apply_layout', arguments: { vil_path: vil } } }
+    )
+    expect(responses.map { |r| r['id'] }).to eq([1, 2, 3])
+    expect(responses[0]['result']['protocolVersion']).to eq('2025-03-26')
+    expect(responses[1]['result']['tools'].size).to eq(6)
+    dry = responses[2]['result']['content'][0]['text']
+    expect(dry).to include("対象: #{vil}", '差分 1 件:', '  - レイヤー0 (0,1): KC_NO → KC_B')
+    expect(device.writes).to be_empty
+
+    token = dry[/confirm_token: (\h+)/, 1]
+    responses = round_trip(
+      { jsonrpc: '2.0', id: 4, method: 'tools/call',
+        params: { name: 'apply_layout', arguments: { vil_path: vil, dry_run: false, confirm_token: token } } }
+    )
+    applied = responses[0]['result']['content'][0]['text']
+    expect(applied).to eq("1 件を書き込みました。\n反映前のバックアップ: #{env.backup_store.latest}\n" \
+                          '読み戻して検証し、すべて一致しました。')
+    expect(device.keymap[0][0][1]).to eq(0x05)
+  end
+
+  it 'ロケールが US-ASCII でも日本語を含む入力を UTF-8 として読む' do
+    line = %({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"apply_layout","arguments":{"vil_path":"#{@root}/存在しない.vil"}}}\n)
+    input = StringIO.new(line.b.force_encoding(Encoding::US_ASCII))
+    output = StringIO.new
+    described_class.new(env, input: input, output: output).run
+    expect(output.string).to be_ascii_only
+    result = JSON.parse(output.string)['result']
+    expect(result['isError']).to be(true)
+    expect(result['content'][0]['text']).to start_with('エラー: ').and include('存在しない.vil')
+  end
+
+  describe 'apply_layout' do
+    let(:vil_path) { write_vil(File.join(@root, 'layout.vil')) { |v| v['layout'][0][0][1] = 'KC_B' } }
+
+    it '既定は dry run で、vil_path の既定は layout.vil' do
+      vil_path
+      result = text(call('apply_layout'))
+      expect(result).to include("対象: #{env.layout_path}", 'confirm_token: ')
+      expect(device.writes).to be_empty
+    end
+
+    it 'dry_run: false には confirm_token が必要' do
+      result = call('apply_layout', 'vil_path' => vil_path, 'dry_run' => false)
+      expect(result[:isError]).to be(true)
+      expect(text(result)).to include('confirm_token が必要です')
+      expect(device.writes).to be_empty
+    end
+
+    it 'token が違えば書き込まない' do
+      result = call('apply_layout', 'vil_path' => vil_path, 'dry_run' => false, 'confirm_token' => 'stale')
+      expect(text(result)).to include('変わっています')
+      expect(device.writes).to be_empty
+    end
+
+    it '差分がなければその旨を返す' do
+      path = write_vil(File.join(@root, 'same.vil')) { nil }
+      expect(text(call('apply_layout', 'vil_path' => path))).to eq("対象: #{path}\nキーボードとの差分はありません。")
+      token = Cornix::Application::DeviceDiff.new(env).call(vil_path: path).token
+      result = call('apply_layout', 'vil_path' => path, 'dry_run' => false, 'confirm_token' => token)
+      expect(text(result)).to eq('キーボードとの差分はなかったため、何も書き込んでいません。')
+    end
+  end
+
+  it 'keyboard_info / read_keymap / backup / list_backups' do
+    expect(JSON.parse(text(call('keyboard_info')))).to include('name' => 'Fake')
+    expect(JSON.parse(text(call('read_keymap')))['layout'][0][0][0]).to eq('KC_A')
+    path = File.join(@root, 'saved.vil')
+    expect(text(call('read_keymap', 'save_path' => path))).to eq("保存しました: #{path}")
+    expect(File).to exist(path)
+    expect(text(call('list_backups'))).to eq('バックアップはありません')
+    expect(text(call('backup'))).to eq("バックアップを保存しました: #{env.backup_store.latest}")
+    expect(text(call('list_backups'))).to eq(env.backup_store.latest)
+  end
+
+  it '不明なツールはエラー' do
+    expect(text(call('nope'))).to eq('エラー: 不明なツール: nope')
+  end
+
+  it 'キーボードが接続されていないとき、各ツールはエラーを返す' do
+    disconnected = Cornix::Application::Environment.new(
+      root: @root, device_opener: ->(&_) { raise Cornix::Device::DeviceError, 'Cornix が見つかりません' }
+    )
+    result = described_class.new(disconnected).handle('jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
+                                                      'params' => { 'name' => 'keyboard_info', 'arguments' => {} })[:result]
+    expect(result[:isError]).to be(true)
+    expect(text(result)).to include('見つかりません')
+  end
+
+  describe 'restore_backup' do
+    it 'バックアップがないときはエラーを返す' do
+      expect(call('restore_backup')[:isError]).to be(true)
+    end
+
+    it '書き込み後に最新のバックアップから元に戻せる' do
+      vil_path = write_vil(File.join(@root, 'layout.vil')) { |v| v['layout'][1][1][1] = 'KC_C' }
+      token = text(call('apply_layout', 'vil_path' => vil_path))[/confirm_token: (\h+)/, 1]
+      call('apply_layout', 'vil_path' => vil_path, 'dry_run' => false, 'confirm_token' => token)
+      expect(device.keymap[1][1][1]).to eq(0x06)
+
+      dry = text(call('restore_backup'))
+      expect(dry).to include("対象: #{env.backup_store.latest}", 'レイヤー1 (1,1): KC_C → KC_NO')
+      token = dry[/confirm_token: (\h+)/, 1]
+      call('restore_backup', 'dry_run' => false, 'confirm_token' => token)
+      expect(device.keymap[1][1][1]).to eq(0)
+    end
+  end
+end

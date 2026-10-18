@@ -10,7 +10,7 @@ module Cornix
       #
       #   ショートカットの定義のちょうど 1 つと同じ値  Shortcut('名前')（references に利用者のショートカットがあるときだけ。同梱の定義は使わない）
       #   別名がある値            別名リストの先頭（catalog.preferred_alias）       Escape, "!", BT0
-      #   別名のない基本・特殊キー keycodes.yaml の name                           KC_KP_0, QK_REBOOT, QK_LOCK
+      #   別名のない基本・特殊キー keycodes.yaml の name                           KC_STOP, KC__VOLUP
       #   別名のない Modified     修飾キー式（Ctrl, Option, Shift, Command の順）   Shift + Command + Enter
       #                           右側は RCtrl / ROption / RShift / RCommand        RCtrl + RShift + A
       #   ModTap                  正規名_T(キー)、正規名がなければ MT(MOD_..., キー)  LGUI_T(Lang2)

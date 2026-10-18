@@ -283,7 +283,7 @@ module Cornix
 
         # 大文字小文字だけが違う名前を探す
         def suggestion(text)
-          @names_by_downcase ||= @catalog.names.group_by(&:downcase)
+          @names_by_downcase ||= (@catalog.names + Modifiers::ONE_SHOT_BITS.keys).group_by(&:downcase)
           @names_by_downcase[text.downcase]&.first
         end
 

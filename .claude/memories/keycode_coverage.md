@@ -14,3 +14,7 @@
 - 別名を足すと decompile の書き出しが変わる（先頭の別名が正規形）。compile の結果は変わらない
 - ワンショットの OS_LSFT などは QMK では #define（OSM(MOD_LSFT)）なので、表ではなく `Modifiers::ONE_SHOT_BITS` で受け付ける。
   書き出しは従来どおり OSM(MOD_LSFT)
+- Magic は cornixhub の一覧外の CL_TOGG / BS_TOGG も vial: false で足した（EC_* とそろえる）
+- 日本語配列の別名は QMK 名と読み違えないようにした: macOS のかな / 英数は `MacKana` / `MacEisu`（KC_LANG1 / KC_LANG2）、
+  JIS の ¥ キーは `JisYen`（`"¥"` は LALT(KC_Y)、`KC_KANA` は 0x88 で別の値）
+- dangerous_keycodes.yaml から DB_TOGG（0x7C02）を外した（デバッグ出力の切り替えで危険ではない）

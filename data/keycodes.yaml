@@ -1,13 +1,13 @@
 # Cornix (Vial protocol 6) の名前付きキーコード表。
-# - name: layout.vil に書く名前（Vial GUI が保存する名前）
+# - name: 設定ファイルに書く名前。vial: false でなければ layout.vil にもこの名前を書く（Vial GUI が保存する名前）
 # - qmk:  受け付ける別の QMK 名
+# - vial: false は Vial GUI に名前がない値（vial-qmk の quantum/keycodes.h にはある）。
+#   設定ファイルでは name で書けるが、.vil には Vial GUI が読める 0xHHHH で書く。
+#   RMK 0.8 のファームウェアはこれらを何もしないキーとして扱う（RGB や Magic など既存の多くの値も同じ）。
 # 引数付きのキーコード（LSFT(kc), LT(n, kc), MO(n), TD(n), M0 など）はここに書かず、
 # Cornix::Mapping::KeycodeCodec の定数で組み立てる。
 # shifted は入力専用の名前（KC_EXLM など）。.vil には LSFT(KC_1) の形で書く。
 # shifted の qmk は QMK の長い名前（KC_LEFT_PAREN など。旧コードのマクロ text 展開が書き出していた）。
-# - vial: false は Vial GUI に名前がない値（vial-qmk の quantum/keycodes.h にはある）。
-#   設定ファイルでは name で書けるが、.vil には Vial GUI が読める 0xHHHH で書く。
-#   RMK 0.8 のファームウェアはこれらを何もしないキーとして扱う（RGB や Magic など既存の多くの値も同じ）。
 # 元データ: vial-gui の keycodes.py / keycodes_v6.py から抽出した表（実機 560 キーで一致を確認済み）。
 # qmk の名前と vial: false の値は QMK の data/constants/keycodes/*.hjson（最新）と vial-qmk の quantum/keycodes.h で補った。
 special:
@@ -223,6 +223,7 @@ shifted:
 quantum:
   - { code: 0x7000, name: MAGIC_SWAP_CONTROL_CAPSLOCK, qmk: [CL_SWAP, QK_MAGIC_SWAP_CONTROL_CAPS_LOCK] }
   - { code: 0x7001, name: MAGIC_UNSWAP_CONTROL_CAPSLOCK, qmk: [CL_NORM, QK_MAGIC_UNSWAP_CONTROL_CAPS_LOCK] }
+  - { code: 0x7002, name: CL_TOGG, qmk: [QK_MAGIC_TOGGLE_CONTROL_CAPS_LOCK], vial: false }
   - { code: 0x7003, name: MAGIC_UNCAPSLOCK_TO_CONTROL, qmk: [CL_CAPS, QK_MAGIC_CAPS_LOCK_AS_CONTROL_OFF] }
   - { code: 0x7004, name: MAGIC_CAPSLOCK_TO_CONTROL, qmk: [CL_CTRL, QK_MAGIC_CAPS_LOCK_AS_CONTROL_ON] }
   - { code: 0x7005, name: MAGIC_SWAP_LALT_LGUI, qmk: [LAG_SWP, QK_MAGIC_SWAP_LALT_LGUI, AG_LSWP] }
@@ -236,6 +237,7 @@ quantum:
   - { code: 0x700D, name: MAGIC_UNSWAP_GRAVE_ESC, qmk: [GE_NORM, QK_MAGIC_UNSWAP_GRAVE_ESC] }
   - { code: 0x700E, name: MAGIC_SWAP_BACKSLASH_BACKSPACE, qmk: [BS_SWAP, QK_MAGIC_SWAP_BACKSLASH_BACKSPACE] }
   - { code: 0x700F, name: MAGIC_UNSWAP_BACKSLASH_BACKSPACE, qmk: [BS_NORM, QK_MAGIC_UNSWAP_BACKSLASH_BACKSPACE] }
+  - { code: 0x7010, name: BS_TOGG, qmk: [QK_MAGIC_TOGGLE_BACKSLASH_BACKSPACE], vial: false }
   - { code: 0x7011, name: MAGIC_HOST_NKRO, qmk: [NK_ON, QK_MAGIC_NKRO_ON] }
   - { code: 0x7012, name: MAGIC_UNHOST_NKRO, qmk: [NK_OFF, QK_MAGIC_NKRO_OFF] }
   - { code: 0x7013, name: MAGIC_TOGGLE_NKRO, qmk: [NK_TOGG, QK_MAGIC_TOGGLE_NKRO] }

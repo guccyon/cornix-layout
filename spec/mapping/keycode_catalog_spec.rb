@@ -33,6 +33,8 @@ RSpec.describe Cornix::Mapping::KeycodeCatalog do
 
   it '書き込み禁止の値を判定する' do
     expect(catalog.dangerous?(0x7C00)).to be true
+    expect(catalog.dangerous?(0x7C03)).to be true
+    expect(catalog.dangerous?(0x7C02)).to be false
     expect(catalog.dangerous?(0x7E00)).to be false
   end
 

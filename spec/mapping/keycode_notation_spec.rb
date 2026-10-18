@@ -29,10 +29,10 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       'XXXXXXX' => 0x0000, '_______' => 0x0001, 'KC_BACKSPACE' => 0x002A, 'KC_LEFT_CTRL' => 0x00E0,
       'KC_SCRL' => 0x0047, 'KC_NUM' => 0x0053, 'MS_BTN1' => 0x00D1, 'MS_WHLU' => 0x00D9, 'UG_TOGG' => 0x7820,
       'BL_UP' => 0x7804, 'QK_BOOTLOADER' => 0x7C00, 'QK_RBT' => 0x7C01, 'QK_GESC' => 0x7C16, 'GU_TOGG' => 0x700B,
-      'DB_TOGG' => 0x7C02, 'QK_LEAD' => 0x7C58, 'QK_LOCK' => 0x7C59, 'EC_SWAP' => 0x7020, 'DT_UP' => 0x7C71,
+      'DB_TOGG' => 0x7C02, 'CL_TOGG' => 0x7002, 'BS_TOGG' => 0x7010, 'QK_LEAD' => 0x7C58, 'QK_LOCK' => 0x7C59, 'EC_SWAP' => 0x7020, 'DT_UP' => 0x7C71,
       'OU_AUTO' => 0x7780, 'OU_BT' => 0x7786,
       # 別名（data/aliases.yaml）
-      'Lang2' => 0x0091, 'Eisu' => 0x0091, 'Kana' => 0x0090, 'Copy' => 0x007C, 'Keypad1' => 0x0059,
+      'Lang2' => 0x0091, 'MacEisu' => 0x0091, 'MacKana' => 0x0090, 'JisYen' => 0x0089, 'Win' => 0x00E3, 'Copy' => 0x007C, 'Keypad1' => 0x0059,
       'Cmd' => 0x00E3, 'BrightnessUp' => 0x00BD, 'CapsWord' => 0x7C73, 'Repeat' => 0x7C79,
       # 修飾関数
       'LSFT(KC_1)' => 0x021E, 'LSFT(A)' => 0x0204, 'LSFT(1)' => 0x021E, 'SGUI(KC_4)' => 0x0A21,
@@ -123,6 +123,7 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
         'Hoge + A' => /修飾キー名「Hoge」は使えません/,
         'Cmd +' => /キーがありません/,
         'enter' => /「enter」は不明なキーコードです（もしかして: Enter）/,
+        'os_lsft' => /（もしかして: OS_LSFT）/,
         'Foo' => /「Foo」は不明なキーコードです/,
         'LSFT(MO(1))' => /基本キーだけ/,
         'LGUI_T(LSFT(A))' => /基本キーだけ/,
@@ -156,7 +157,7 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
   describe '#format' do
     {
       0x002B => 'Tab', 0x0029 => 'Escape', 0x0000 => 'NoKey', 0x0001 => 'Trans', 0x021E => '!',
-      0x0032 => 'NonUsHash', 0x0080 => 'KC__VOLUP', 0x7C00 => 'Reset', 0x7C01 => 'Reboot', 0x7E00 => 'BT0',
+      0x0032 => 'NonUsHash', 0x0080 => 'KC__VOLUP', 0x0078 => 'KC_STOP', 0x7C00 => 'Reset', 0x7C01 => 'Reboot', 0x7E00 => 'BT0',
       0x7C59 => 'KeyLock', 0x7780 => 'OutputAuto',
       0x0A28 => 'Shift + Command + Enter', 0x0F50 => 'Ctrl + Option + Shift + Command + Left',
       0x0A2E => 'Shift + Command + =', 0x1304 => 'RCtrl + RShift + A', 0x1F04 => 'RCtrl + ROption + RShift + RCommand + A',

@@ -24,7 +24,7 @@ module Cornix
           dangerous = read('dangerous_keycodes.yaml')
 
           @qmk_names = {}
-          @names = {}
+          @names_by_code = {}
           @vial_names = {}
           @basic = []
           @quantum = []
@@ -69,9 +69,9 @@ module Cornix
           Array(entry['qmk']).each { |q| register_name(q, code) }
           return if section == 'shifted'
 
-          raise ConfigError, "名前が重複しています: #{format('0x%04X', code)}" if @names.key?(code)
+          raise ConfigError, "keycodes.yaml に値 #{format('0x%04X', code)} が 2 回あります" if @names_by_code.key?(code)
 
-          @names[code] = name
+          @names_by_code[code] = name
           @vial_names[code] = name unless entry['vial'] == false
           (section == 'quantum' ? @quantum : @basic) << code unless section == 'special'
         end
@@ -124,7 +124,7 @@ module Cornix
         def build(dangerous)
           ranges = Array(dangerous['ranges']).map { |r| [(r.fetch('from')..r.fetch('to')), r['reason']] }
           KeycodeCatalog.new(
-            qmk_names: @qmk_names, names: @names, vial_names: @vial_names, aliases: @aliases,
+            qmk_names: @qmk_names, names_by_code: @names_by_code, vial_names: @vial_names, aliases: @aliases,
             aliases_by_code: @aliases_by_code.transform_values(&:freeze).to_h,
             preferred: @aliases_by_code.transform_values(&:first).to_h,
             basic: @basic.to_set, quantum: @quantum.to_set,

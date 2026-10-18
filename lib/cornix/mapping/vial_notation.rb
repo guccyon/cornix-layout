@@ -104,7 +104,8 @@ module Cornix
         ::Kernel.format('0x%x', code)
       end
 
-      # 名前・MOD_ 定数・数値 → 値（関数形式は対象外。なければ nil）
+      # 名前・MOD_ 定数・数値 → 値（関数形式は対象外。なければ nil）。
+      # M は Vial GUI の AnyKeycode と同じく M255 まで受け付ける（M128〜 は QK_CONNECTION などの値になる）
       def lookup(name)
         if (code = @catalog.code_for_name(name)) then code
         elsif (m = MACRO_NAME.match(name)) then (KeycodeCodec::MACRO.begin + m[1].to_i if m[1].to_i <= 255)

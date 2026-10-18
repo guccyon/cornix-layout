@@ -49,6 +49,15 @@ RSpec.describe Cornix::Application::RenameFiles do
     expect(read_config('layers/0_base.yml')).to include("tab: TapDance('Tab/Escape')")
   end
 
+  it 'shortcuts.yaml の値の名前参照も書き換える' do
+    File.write(config_file('shortcuts.yaml'), "shortcuts:\n  履歴: Macro('Clipboard History')\n")
+    outcome = renamer.call([plan])
+    expect(outcome).to be_success
+    expect(outcome.verified).to be(true)
+    expect(read_config('shortcuts.yaml')).to eq("shortcuts:\n  履歴: Macro('Clip History')\n")
+    expect(outcome.updated_references).to include('shortcuts.yaml')
+  end
+
   it '事前検証: 番号の接頭辞の違い、行き先の重複、ないファイル。何も変えない' do
     plans = [
       plan.merge('new_basename' => '08_clip.yml'),

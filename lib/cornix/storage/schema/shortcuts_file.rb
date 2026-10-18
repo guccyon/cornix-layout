@@ -9,9 +9,10 @@ module Cornix
       #     前のタブへ: Command + Shift + [
       #     ウインドウを左半分に: Ctrl + Option + Left
       #
-      # 値にはキーコードの書き方なら何でも書ける（Macro('名前') も可）。ただし Shortcut(...) は書けない
+      # 値にはキーコードの書き方なら何でも書ける（Macro('名前') も可）。ただし Shortcut(...) は書けない。
+      # 解釈できない定義は問題を記録して除く（ほかの定義への参照まで「定義されていません」にしないため）
       module ShortcutsFile
-        SELF_REFERENCE = /\AShortcut\s*\(/
+        SELF_REFERENCE = /\bShortcut\s*\(/
 
         module_function
 
@@ -24,11 +25,9 @@ module Cornix
           values = entries.filter_map do |name, value|
             next unless name.is_a?(String)
 
-            loc = "shortcuts.#{name}"
-            [name, read_value(value, ctx, keycodes, loc)]
+            keycode = read_value(value, ctx, keycodes, "shortcuts.#{name}")
+            [name, keycode] if keycode
           end
-          return nil unless values.size == entries.size && values.all?(&:last)
-
           ctx.build('shortcuts') { Domain::ShortcutLibrary.new(entries: values.to_h) }
         end
 
@@ -46,6 +45,7 @@ module Cornix
           { 'shortcuts' => library.entries.to_h { |name, kc| [name, write_value(kc, keycodes, old[name])] } }
         end
 
+        # 整数（YAML の 0x0A2F）は 16 進の書き方が読み込みで失われるので残さず、正規形で書く
         def write_value(keycode, keycodes, old)
           return old if old.is_a?(String) && keycodes.read(old, Context.new(nil, Problems.new), '') == keycode
 

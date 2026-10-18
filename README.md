@@ -359,12 +359,11 @@ mapping:
 ```
 
 - `Shortcut('名前')` は定義したキーコードそのものになります（layout.vil には直接書いたときと同じ値が入ります）
-- レイヤーのキー・エンコーダ、タップダンスの動作、コンボのトリガーと出力で使えます。関数の引数の中でも使えます（`LT1(Shortcut('名前'))`）
+- レイヤーのキー・エンコーダ、タップダンスの動作、コンボのトリガーと出力で使えます。関数の引数の中でも使えます（`LT1(Shortcut('名前'))`。ただしその場所に書けるキーを定義したときだけで、`LT1(...)` なら基本キー）
 - 定義にない名前を参照すると検証エラーです
 - `shortcuts.yaml` の値には `Shortcut(...)` は書けません。マクロの中（`sequence` の `keys`）でも使えません
-- `shortcuts.yaml` は任意です。decompile は作りません（layout.vil には名前がないため）
-- 設定を保存し直すとき（`ConfigRepository#save`）は、値が `shortcuts.yaml` のどれか **1 つ** の定義と一致する位置を `Shortcut('名前')` の形で書き、
-  `shortcuts.yaml` の値は同じキーコードなら元の書き方のまま残します
+- `shortcuts.yaml` は任意です。decompile は作らず、読みも変えもしません（layout.vil には名前がないため）
+- `cornix rename` でマクロ・タップダンスの名前を変えると、`shortcuts.yaml` の中の `Macro('名前')` / `TapDance('名前')` も書き換わります
 
 ### layout.vil に変換する
 

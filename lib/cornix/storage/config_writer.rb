@@ -54,13 +54,14 @@ module Cornix
 
         # 定義の値に Shortcut('名前') は書けないので、ショートカットを除いた対応表で書く
         keycodes = Schema::KeycodeField.new(@notation, Mapping::References.new(**profile.references.merge(shortcuts: {})))
-        out[ConfigFiles.single_path(ConfigFiles::SHORTCUTS)] =
-          dump(Schema::ShortcutsFile.write(profile.shortcuts, keycodes, existing(ConfigFiles::SHORTCUTS)))
+        # 既存のファイル（shortcuts.yml でも）があればそこに書く
+        rel = ConfigFiles.single_file(@dir, ConfigFiles::SHORTCUTS)
+        out[rel || ConfigFiles.single_path(ConfigFiles::SHORTCUTS)] =
+          dump(Schema::ShortcutsFile.write(profile.shortcuts, keycodes, rel && existing(rel)))
       end
 
-      # 既存の 1 つだけのファイルの内容。なければ・読めなければ nil
-      def existing(base)
-        rel = ConfigFiles.single_file(@dir, base) or return nil
+      # 既存のファイルの内容。読めなければ nil
+      def existing(rel)
         YamlFile.read(File.join(@dir, rel))
       rescue YamlFile::Unreadable
         nil

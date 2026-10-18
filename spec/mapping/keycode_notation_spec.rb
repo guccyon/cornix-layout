@@ -193,6 +193,13 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       expect(notation.format(codec.decode(0x0006), references: shortcut_refs)).to eq('C')
       expect(notation.format(prev_tab)).to eq('Shift + Command + [')
     end
+
+    it 'NoKey / Trans は定義があっても Shortcut(\'名前\') で書かない' do
+      refs = Cornix::Mapping::References.new(shortcuts: { 'Nothing' => k::NO_KEY, 'Through' => codec.decode(0x0001) })
+      expect(notation.format(k::NO_KEY, references: refs)).to eq('NoKey')
+      expect(notation.format(codec.decode(0x0001), references: refs)).to eq('Trans')
+      expect(notation.parse("Shortcut('Nothing')", references: refs)).to eq(k::NO_KEY)
+    end
   end
 
   describe '不変条件 parse(format(k)) == k' do

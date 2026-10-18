@@ -361,12 +361,11 @@ mapping:
 ```
 
 - `Shortcut('name')` becomes the defined keycode itself (layout.vil gets the same value as writing the keycode directly)
-- It can be used in layer keys and encoders, tap dance actions, and combo triggers and output, including inside function arguments (`LT1(Shortcut('name'))`)
+- It can be used in layer keys and encoders, tap dance actions, and combo triggers and output, including inside function arguments (`LT1(Shortcut('name'))`, as long as the definition is a key allowed there; for `LT1(...)` a basic key)
 - Referring to an undefined name is a validation error
 - Values in `shortcuts.yaml` cannot use `Shortcut(...)`, and shortcuts cannot be used inside macros (`keys` of `sequence`)
-- `shortcuts.yaml` is optional. decompile does not create it (layout.vil has no names)
-- When the configuration is saved again (`ConfigRepository#save`), positions whose value matches exactly **one** definition in `shortcuts.yaml` are written as `Shortcut('name')`,
-  and values in `shortcuts.yaml` keep their original notation as long as the keycode is the same
+- `shortcuts.yaml` is optional. decompile neither creates, reads, nor changes it (layout.vil has no names)
+- When `cornix rename` renames a macro or tap dance, `Macro('name')` / `TapDance('name')` inside `shortcuts.yaml` are rewritten too
 
 ### Converting to layout.vil
 

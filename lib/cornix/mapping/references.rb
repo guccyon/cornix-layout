@@ -27,13 +27,14 @@ module Cornix
       # 名前のショートカットの Keycode。なければ nil
       def shortcut(name) = @shortcuts[name]
 
-      # keycode をちょうど 1 つのショートカットが定義していればその名前。なし・複数なら nil
+      # keycode をちょうど 1 つのショートカットが定義していればその名前。なし・複数なら nil。
+      # NoKey / Trans は名前で書かない（空き・透過の位置がすべて Shortcut('名前') にならないように）
       def shortcut_name(keycode)
+        return nil if keycode.is_a?(Domain::Keycode::NoKey) || keycode.is_a?(Domain::Keycode::Transparent)
+
         names = @shortcut_names[keycode]
         names&.size == 1 ? names.first : nil
       end
-
-      def shortcuts? = !@shortcuts.empty?
 
       NONE = new
     end

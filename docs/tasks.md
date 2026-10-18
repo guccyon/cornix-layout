@@ -87,7 +87,7 @@ Domain::Capabilities(layers:, macros:, tap_dances:, combos:, ...)  # Cornix の�
 Domain::Diagnostic(severity: :error|:warning, path: String, message: String)
 Domain::Profile(metadata:, settings:, position_map:, layers:, macros:, tap_dances:, combos:, shortcuts: ShortcutLibrary::EMPTY)
   #diagnostics(capabilities = Capabilities::CORNIX) #=> [Diagnostic]
-  #references #=> Mapping に依存しない形で名前 → 番号を返す（macro_names / tap_dance_names の Hash）
+  #references #=> Mapping に依存しない形で名前 → 番号（macro_names / tap_dance_names の Hash）と shortcuts（名前 → Keycode）を返す
 ```
 
 - 旧 `models/` と `Validatable` の検証内容（範囲、必須、重複、件数の上限、参照先の存在）を構造検証と `diagnostics` に移す。

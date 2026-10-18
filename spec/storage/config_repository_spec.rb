@@ -403,11 +403,14 @@ RSpec.describe Cornix::Storage::ConfigRepository do
 
     it '定義にない名前の参照・定義の値の Shortcut(...)・解釈できない値・形の誤りは問題になる' do
       with_config_copy do |dir|
-        write_file(dir, 'shortcuts.yaml', "shortcuts:\n  A: Shortcut('B')\n  B: NoSuchKey\n  1: Tab\n")
+        write_file(dir, 'shortcuts.yaml',
+                   "shortcuts:\n  A: Shortcut('B')\n  B: NoSuchKey\n  1: Tab\n  C: LT1(Shortcut('Good'))\n  Good: Tab\n")
         path = File.join(dir, 'layers/0_layer_0.yaml')
-        File.write(path, File.read(path).sub('tab: Tab', "tab: Shortcut('nope')"))
+        File.write(path, File.read(path).sub('tab: Tab', "tab: Shortcut('nope')").sub('Q: Q', "Q: Shortcut('Good')"))
+        # 正しい定義（Good）への参照は、ほかの定義が不正でも問題にならない
         expect(load_problems(dir)).to contain_exactly(
           "shortcuts.yaml: shortcuts.A: shortcuts.yaml の値には Shortcut(...) は書けません: Shortcut('B')",
+          "shortcuts.yaml: shortcuts.C: shortcuts.yaml の値には Shortcut(...) は書けません: LT1(Shortcut('Good'))",
           match(/\Ashortcuts.yaml: shortcuts.B: キーコード「NoSuchKey」を解釈できません/),
           match(/\Ashortcuts.yaml: shortcuts: .*ショートカットの名前/),
           match(%r{\Alayers/0_layer_0.yaml: mapping.left_hand.row0.tab: .*ショートカット「nope」は shortcuts.yaml に定義されていません})
@@ -435,6 +438,23 @@ RSpec.describe Cornix::Storage::ConfigRepository do
               前のタブへ: Command + Shift + [
               コピー: Macro('Macro 3')
           YAML
+          expect(repository(out).load).to eq(profile)
+        end
+      end
+    end
+
+    it 'save は既存の shortcuts.yml に書き、整数で書いた値は正規形にする' do
+      with_config_copy do |dir|
+        with_shortcuts(dir)
+        File.write(File.join(dir, 'shortcuts.yml'), File.read(File.join(dir, 'shortcuts.yaml')).sub('Command + Shift + [', '0x0A2F'))
+        File.delete(File.join(dir, 'shortcuts.yaml'))
+        profile = repository(dir).load
+        Dir.mktmpdir do |out|
+          FileUtils.cp(File.join(dir, 'shortcuts.yml'), out)
+          written = repository(out).save(profile)
+          expect(written).to include('shortcuts.yml')
+          expect(written).not_to include('shortcuts.yaml')
+          expect(File.read(File.join(out, 'shortcuts.yml'))).to include("前のタブへ: Shift + Command + [\n")
           expect(repository(out).load).to eq(profile)
         end
       end

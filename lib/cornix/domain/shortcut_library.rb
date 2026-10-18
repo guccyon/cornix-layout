@@ -21,15 +21,8 @@ module Cornix
         super(entries: normalized.freeze)
       end
 
-      # 名前の Keycode。なければ nil
-      def fetch(name) = name.is_a?(String) ? entries[name.strip] : nil
-
-      # keycode と同じ値を持つ名前の一覧（定義順）
-      def names_for(keycode) = entries.filter_map { |name, kc| name if kc == keycode }
-
       def names = entries.keys
       def empty? = entries.empty?
-      def size = entries.size
 
       EMPTY = new
     end

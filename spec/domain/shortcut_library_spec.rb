@@ -12,21 +12,7 @@ RSpec.describe Cornix::Domain::ShortcutLibrary do
     library = described_class.new(entries: { ' Copy ' => copy, 'Paste' => paste })
     expect(library.entries).to eq('Copy' => copy, 'Paste' => paste)
     expect(library.names).to eq(%w[Copy Paste])
-    expect(library.size).to eq(2)
     expect(library).not_to be_empty
-  end
-
-  it '#fetch は名前の Keycode（前後の空白は無視）。なければ nil' do
-    library = described_class.new(entries: { 'Copy' => copy })
-    expect(library.fetch(' Copy')).to eq(copy)
-    expect(library.fetch('Nope')).to be_nil
-    expect(library.fetch(nil)).to be_nil
-  end
-
-  it '#names_for は同じ値を持つ名前の一覧' do
-    library = described_class.new(entries: { 'A' => copy, 'B' => paste, 'C' => copy })
-    expect(library.names_for(copy)).to eq(%w[A C])
-    expect(library.names_for(basic(0x04))).to eq([])
   end
 
   it 'EMPTY は空' do

@@ -31,8 +31,13 @@ nape_pro-layout の `Shortcut('名前')` に倣ったもの。利用者向けの
   `Shortcut(...)` は問題にする）、ショートカットを加えた References でレイヤー・タップダンス・コンボを読む
 - `Parser` は `Shortcut('名前')` を定義の Keycode そのものにする（MacroCall のような参照の値は作らない）。
   なければ「ショートカット「名前」は shortcuts.yaml に定義されていません」。番号の引数は不可
-- `Formatter` は値が定義の **ちょうど 1 つ** と一致すれば `Shortcut('名前')` で書く（複数一致・references にショートカットがなければふつうの正規形）。
-  `ConfigWriter` は shortcuts.yaml の値を、既存のファイルと同じキーコードなら元の書き方のまま書く
+- shortcuts.yaml の定義のうち解釈できないものは問題を記録して除く（正しい定義への参照まで「定義されていません」にしない）。
+  値の中のどこかに `Shortcut(` があれば「書けません」の問題にする
+- `Formatter` は値が定義の **ちょうど 1 つ** と一致すれば `Shortcut('名前')` で書く（複数一致・references にショートカットがなければ
+  ふつうの正規形。NoKey / Trans は対象外）。`ConfigWriter` は shortcuts.yaml の値を、既存のファイル（`.yml` ならそこに書く）と
+  同じキーコードなら元の書き方のまま書く（整数の値は 16 進の書き方が読み込みで失われるので正規形にする）。YAML のコメントは残らない
+- この書き戻し（`ConfigRepository#save` と `ProfileMapper#to_profile` の previous）は、今は利用者の操作からは使われない
+  （decompile は previous を渡さない）。設定を書き戻す機能（pull など）を作るときのための仕組み
 - nape_pro-layout との違い: cornix には割り当ての注記（Assignment）がないので、どの位置が `Shortcut(...)` で書かれていたかは
   Profile に残らない。書き出すときは値の一致だけで決める
 - マクロの `sequence` の中では使えない（マクロの名前参照と同じ）

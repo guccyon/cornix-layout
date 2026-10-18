@@ -10,7 +10,7 @@
 | 右半分 | レイヤー1 右手 row3 `right` | ⌃⌥→ | ⌃⌥⇧⌘→ | `HYPR(KC_RIGHT)` |
 | フィル（全画面） | レイヤー1 右手 row3 `down` | ⌃⌥Enter | ⌃⌥⇧⌘Enter | `HYPR(KC_ENTER)` |
 
-- 設定ファイル: `config/layers/1_symbols.yml` に `Ctrl + Option + Shift + Command + Left` のように記述。
+- 設定ファイル: `profiles/authors/layers/1_symbols.yml` に `Ctrl + Option + Shift + Command + Left` のように記述。
   コンパイラが4修飾の組み合わせを自動で `HYPR(kc)`（Vial キーコード `0x0F00 | kc`）に変換するので、
   1キーで4修飾＋キーを同時送出できる。
 - 背景: macOS 標準のウインドウ配置はアプリのメニュー経由で動くため、⌃⌥←/→ を VSCode

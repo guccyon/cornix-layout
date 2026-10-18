@@ -22,4 +22,7 @@ module Cornix
 
   # デバイスとの通信・プロトコルの失敗
   class DeviceError < Error; end
+
+  # 目標のイメージをデバイスに書き込む計画を作れない（レイヤー数やマクロ数がデバイスの上限を超えるなど）
+  class PlanError < Error; end
 end

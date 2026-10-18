@@ -3,10 +3,12 @@
 require 'open3'
 require 'json'
 require 'fileutils'
+require_relative '../errors'
 
 module Cornix
   module Device
-    class DeviceError < StandardError; end
+    # 旧コードの例外。新しいコードが Cornix::DeviceError でまとめて捕まえられるようにその下に置く
+    class DeviceError < Cornix::DeviceError; end
 
     # ext/cornix_hid/main.swift（macOS の IOKit で raw HID を扱う小さなブリッジ）を
     # 子プロセスとして起動し、32 バイトのレポートを送受信する。

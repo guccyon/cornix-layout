@@ -21,16 +21,52 @@ RSpec.describe Cornix::Mapping::VialNotation do
     (0..0xFFFF).map { |code| listed.fetch(code) { [format('0x%x', code), code] } }.freeze
   end
 
+  # Vial Web（vial.rocks）の中身の vial-gui 0.7.5 が Cornix（10 レイヤー・マクロ 32・customKeycodes 8 個）の .vil に保存する表記。
+  # code => 名前。載っていない値は 16 進（spec/fixtures/expected/vial_gui_0_7_5_codes.tsv.gz）
+  VIAL_GUI_CODES = begin
+    path = File.expand_path('../fixtures/expected/vial_gui_0_7_5_codes.tsv.gz', __dir__)
+    Zlib::GzipReader.open(path) { |gz| gz.read.force_encoding('UTF-8') }.each_line.reject { |l| l.start_with?('#') }
+                    .to_h { |line| line.chomp.split("\t").then { |code, name| [Integer(code, 16), name] } }.freeze
+  end
+
   # 旧 Vial 表（spec/fixtures/vial_keycodes_v6.yaml。旧 lib/cornix/device/via_keycodes.yaml と同じもの）
   VIAL_TABLE = YAML.load_file(File.expand_path('../fixtures/vial_keycodes_v6.yaml', __dir__))
 
 
   describe '#format_code' do
-    it 'すべての 16bit 値で旧 Device::Keycodes#decode と同じ文字列になる（0x7780〜0x77FF を除く）' do
+    it 'すべての 16bit 値で vial-gui 0.7.5 が保存する表記と同じ文字列になる' do
+      mismatches = (0..0xFFFF).filter_map do |code|
+        expected = VIAL_GUI_CODES.fetch(code) { format('0x%x', code) }
+        actual = vial.format_code(code)
+        "0x#{format('%04X', code)}: vial-gui #{expected} / 新 #{actual}" unless actual == expected
+      end
+      expect(mismatches.first(20)).to be_empty
+    end
+
+    # vial-gui 0.7.5 は名前を知らない値を読むと黙って KC_NO にする（Keycode.deserialize）ので 16 進で書く
+    it 'vial-gui 0.7.5 にない名前と Cornix の枠を超えるレイヤー・マクロは 16 進で書く' do
+      expect(vial.format_code(0x0C04)).to eq('0xc04')   # LAG(KC_A)
+      expect(vial.format_code(0x2C04)).to eq('0x2c04')  # LAG_T(KC_A)
+      expect(vial.format_code(0x700B)).to eq('0x700b')  # MAGIC_TOGGLE_GUI
+      expect(vial.format_code(0x7E07)).to eq('USER07')
+      expect(vial.format_code(0x7E08)).to eq('0x7e08')  # USER08（Cornix の customKeycodes は 8 個）
+      expect(vial.format_code(0x5229)).to eq('MO(9)')
+      expect(vial.format_code(0x522A)).to eq('0x522a')  # MO(10)
+      expect(vial.format_code(0x4904)).to eq('LT9(KC_A)')
+      expect(vial.format_code(0x4A04)).to eq('0x4a04')  # LT10(KC_A)
+      expect(vial.format_code(0x771F)).to eq('M31')
+      expect(vial.format_code(0x7720)).to eq('0x7720')  # M32
+      expect(vial.format_code(0x57FF)).to eq('TD(255)')
+    end
+
+    it '16 進にした値を除き、旧 Device::Keycodes#decode と同じ文字列になる（0x7780〜0x77FF を除く）' do
       mismatches = (0..0xFFFF).filter_map do |code|
         next if (0x7780..0x77FF).cover?(code)
 
         expected = OLD_CODES[code][0]
+        hexed = !VIAL_GUI_CODES.key?(code) # vial-gui 0.7.5 が名前を持たないので 16 進にした値
+        next if hexed && !expected.start_with?('0x')
+
         actual = vial.format_code(code)
         "0x#{format('%04X', code)}: 旧 #{expected} / 新 #{actual}" unless actual == expected
       end
@@ -38,7 +74,7 @@ RSpec.describe Cornix::Mapping::VialNotation do
     end
 
     it '0x7780〜0x77FF はマクロではない（旧表の M128〜M255）。Vial GUI に名前のない値は 16 進で書く' do
-      expect(vial.format_code(0x777F)).to eq('M127')
+      expect(vial.format_code(0x777F)).to eq('0x777f')
       expect(vial.format_code(0x7780)).to eq('0x7780')
       expect(vial.format_code(0x77FF)).to eq('0x77ff')
       expect(vial.format_code(0x7C59)).to eq('0x7c59')
@@ -96,6 +132,13 @@ RSpec.describe Cornix::Mapping::VialNotation do
       it "#{text.inspect} を旧 encode と同じ値にする" do
         expect(vial.parse_code(text)).to eq(expected)
       end
+    end
+
+    it '16 進で書くようにした値も名前で読める（ほかのツールや古い cornix が書いた .vil）' do
+      {
+        'LAG(KC_A)' => 0x0C04, 'LAG_T(KC_A)' => 0x2C04, 'MAGIC_TOGGLE_GUI' => 0x700B, 'GUI_TOGG' => 0x700B,
+        'USER08' => 0x7E08, 'MO(10)' => 0x522A, 'PDF(15)' => 0x52EF, 'LT10(KC_A)' => 0x4A04, 'M32' => 0x7720, 'M127' => 0x777F
+      }.each { |text, expected| expect(vial.parse_code(text)).to eq(expected), text }
     end
 
     it '整数はそのまま' do

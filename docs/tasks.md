@@ -48,7 +48,7 @@ notation.format(keycode, references: Mapping::References::NONE)   #=> String（d
 
 vial = Mapping::VialNotation.new(catalog:, codec:)
 vial.parse(text)    #=> Domain::Keycode（.vil の文字列。旧 Device::Keycodes#encode が受け付けたものすべて）
-vial.format(keycode) #=> String（Vial GUI が保存する表記 = 旧 Device::Keycodes#decode と同じ）
+vial.format(keycode) #=> String（vial-gui 0.7.5 が Cornix の .vil に保存する表記。旧 Device::Keycodes#decode とは LAG(kc)・M32〜 などが 16 進になる点だけ違う）
 vial.parse_code(text) #=> Integer / vial.format_code(Integer) #=> String
 ```
 

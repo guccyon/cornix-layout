@@ -27,6 +27,13 @@ module Cornix
 
           def run(args)
             (file,), = parse!(args, max_args: 1)
+            decompile(file)
+          end
+
+          private
+
+          # → 終了コード
+          def decompile(file)
             result = use_case(:decompile).call(input: file)
             case result.status
             when :input_missing
@@ -39,8 +46,6 @@ module Cornix
               report(result)
             end
           end
-
-          private
 
           def report(result)
             out.line("Decompiling: #{result.input}")

@@ -44,7 +44,7 @@ RSpec.describe 'end-to-end（cornix compile / decompile）' do
     run = ->(*args) { Open3.capture2e(RbConfig.ruby, '-EUTF-8', File.join(@root, 'bin/cornix'), *args) }
     output, status = run.('compile')
     expect(status.exitstatus).to eq(0), output
-    expect(output).to include("✓ Compilation completed: #{File.join(File.realpath(@root), 'layout.vil')}")
+    expect(output).to include("✓ Compilation completed: #{File.join(File.realpath(@root), 'tmp/build/layout.vil')}")
     expect(image(env.layout_path)).to eq(image(File.join(fixtures, 'authors_baseline.vil')))
     output, status = run.('validate')
     expect([status.exitstatus, output]).to eq([0, "✓ All validations passed\n"])

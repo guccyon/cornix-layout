@@ -2,6 +2,7 @@
 
 require 'tmpdir'
 require 'json'
+require 'fileutils'
 require_relative '../device/fake_rmk_device'
 
 # FakeRmkDevice を開く device_opener と、一時ディレクトリを root にした Environment
@@ -27,6 +28,7 @@ RSpec.shared_context 'device environment' do
   def write_vil(path = env.layout_path)
     vil = device_vil
     yield vil
+    FileUtils.mkdir_p(File.dirname(path))
     File.write(path, JSON.generate(vil))
     opens.clear
     path

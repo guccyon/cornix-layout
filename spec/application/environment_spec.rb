@@ -8,7 +8,8 @@ RSpec.describe Cornix::Application::Environment do
     env = described_class.new
     expect(env.root).to eq(Cornix::ROOT)
     expect(env.config_dir).to eq(File.join(Cornix::ROOT, 'config'))
-    expect(env.layout_path).to eq(File.join(Cornix::ROOT, 'layout.vil'))
+    expect(env.layout_path).to eq(File.join(Cornix::ROOT, 'tmp', 'build', 'layout.vil'))
+    expect(env.decompile_input).to eq(File.join(Cornix::ROOT, 'tmp', 'layout.vil'))
     expect(env.backup_dir).to eq(File.join(Cornix::ROOT, 'tmp', 'device_backups'))
   end
 

@@ -50,11 +50,11 @@ cornix decompile ~/Downloads/layout.vil
 ls config/
 vim config/layers/0_layer.yaml
 
-# 4. compile（自動で検証してから layout.vil を書く）
+# 4. compile（自動で検証してから tmp/build/layout.vil を書く）
 cornix compile
 
-# 5. Vial の "File > Import Layout" で layout.vil を読み込む
-#    または cornix device apply でキーボードへ直接反映する
+# 5. Vial の "File > Import Layout" で tmp/build/layout.vil を読み込む
+#    または cornix apply でキーボードへ直接反映する
 ```
 
 - すでに `config/` に設定があると decompile は止まります（上書き防止）
@@ -62,16 +62,18 @@ cornix compile
 </details>
 
 <details>
-<summary><b>Use Case 2: 既存の設定を編集して compile する</b></summary>
+<summary><b>Use Case 2: キーボードから読み出し、設定を編集して反映する</b></summary>
 
 ```bash
+cornix pull              # キーボードの状態を tmp/layout.vil に読み出して config/ にする（初回）
 vim config/layers/1_symbol.yaml
-cornix validate          # 任意（compile でも自動で検証される）
-cornix compile
-git diff layout.vil      # 変更を確認（任意）
+cornix status            # compile して、キーボードとの差分を表示（書き込みなし）
+cornix apply             # compile して、差分を確認してからキーボードへ書き込む
+cornix restore           # 気に入らなければ直前の apply の前の状態に戻す
 ```
 
-- 検証エラーがあると compile は中断し、layout.vil は書きません
+- `status` / `apply` は毎回 compile し、その出力（`tmp/build/layout.vil`）をそのまま使います
+- 検証エラーがあると compile は中断し、キーボードには触れません
 - 設定は git で管理することをおすすめします
 
 </details>
@@ -121,11 +123,11 @@ decompile に成功すると `config/.decompile.lock`（元ファイルとチェ
 **cleanup コマンド**:
 
 ```bash
-cornix cleanup      # config/ と layout.vil を消す（ロックファイルがあれば消さずに止まる）
+cornix cleanup      # config/ と tmp/build/layout.vil を消す（ロックファイルがあれば消さずに止まる）
 cornix cleanup -f   # ロックファイルがあっても、確認（y/N）してから消す
 ```
 
-消すのはプロジェクトのルート（`bin/cornix` のあるリポジトリ）の `config/` と `layout.vil` です。どのディレクトリで実行しても同じ場所を対象にします。
+消すのはプロジェクトのルート（`bin/cornix` のあるリポジトリ）の `config/` と `tmp/build/layout.vil` です。どのディレクトリで実行しても同じ場所を対象にします。
 
 #### 生成されるファイル
 
@@ -308,10 +310,11 @@ sequence:
 ### layout.vil に変換する
 
 ```bash
-cornix compile
+cornix compile              # tmp/build/layout.vil に書く
+cornix compile -o my.vil    # 出力先を指定する
 ```
 
-compile は先に検証を行い、問題があれば layout.vil を書かずに終了します（終了コード 1）。検証だけを行うときは `cornix validate` を使います。生成した `layout.vil` は Vial で読み込むか、`cornix device apply` で直接反映します（次の節）。
+compile は先に検証を行い、問題があれば .vil を書かずに終了します（終了コード 1）。検証だけを行うときは `cornix validate` を使います。生成した `tmp/build/layout.vil` は Vial で読み込むか、`cornix apply` で直接反映します（次の節）。`cornix device diff` / `device apply` もファイルを省略するとこの出力を使います。
 
 コマンドの誤りや読めないファイルなどのエラーは、標準エラー出力に `エラー: …` の形で表示し、終了コード 1 で終わります。
 
@@ -319,18 +322,31 @@ compile は先に検証を行い、問題があれば layout.vil を書かずに
 
 Bluetooth / USB で接続中の Cornix に、Vial プロトコルで直接 `layout.vil` を反映できます（macOS のみ。初回に Xcode Command Line Tools の `swiftc` で小さな HID ブリッジ `tmp/cornix-hid` をビルドします）。
 
+普段は次の 4 つを使います。`status` / `apply` は compile してから、その出力をそのまま使います。
+
+```bash
+cornix pull                     # キーボードの状態を tmp/layout.vil に読み出し、config/ にする（= device read + decompile）
+cornix status                   # compile して、キーボードとの差分を表示（書き込みなし。= compile + device diff）
+cornix apply                    # compile して、差分を表示し、確認後に書き込む（--yes で確認を省略。= compile + device apply）
+cornix restore [BACKUP]         # バックアップ（既定は直前の apply の前の状態）に戻す（= device restore）
+```
+
+- `pull` は decompile と同じく、`config/` にすでに設定があると上書きせずに止まります（キーボードの状態は tmp/layout.vil に保存されます）
+
+ファイルを指定して読み書きするときは `cornix device` を使います。
+
 ```bash
 cornix device info              # 接続中のキーボードの情報（レイヤー数、ロック状態など）
 cornix device read -o now.vil   # キーボードの現在の状態を layout.vil 形式で保存
 cornix device backup            # tmp/device_backups/ に日時付きで保存
-cornix device diff              # layout.vil とキーボードの差分を表示（書き込みなし）
-cornix device apply             # 差分を表示し、確認後に書き込む（--yes で確認を省略）
-cornix device restore           # 最後のバックアップ（直前の apply の前の状態）に戻す
+cornix device diff [FILE]       # .vil とキーボードの差分を表示（書き込みなし。FILE の既定は compile の出力）
+cornix device apply [FILE]      # 差分を表示し、確認後に書き込む（--yes で確認を省略）
+cornix device restore [FILE]    # 最後のバックアップ（直前の apply の前の状態）に戻す
 ```
 
 `apply` は書き込みの前に自動でバックアップを取り、変更のあったキー・エンコーダ・タップダンス・コンボ・マクロ・設定だけを書き込み、読み戻して一致を確認します。
 
-元に戻すときは `cornix device restore` を実行します。最後に取ったバックアップとの差分を表示し、確認後に書き込みます。古いバックアップに戻したいときは `cornix device restore tmp/device_backups/<日時>.vil` のようにファイルを指定します。`restore` も書き込み前に現在の状態をバックアップするので、続けてもう一度 `restore` すると復元前の状態に戻ります。
+元に戻すときは `cornix restore`（`cornix device restore` と同じ）を実行します。最後に取ったバックアップとの差分を表示し、確認後に書き込みます。古いバックアップに戻したいときは `cornix restore tmp/device_backups/<日時>.vil` のようにファイルを指定します。`restore` も書き込み前に現在の状態をバックアップするので、続けてもう一度 `restore` すると復元前の状態に戻ります。
 
 ### キーボードが接続されていないとき
 
@@ -380,7 +396,7 @@ cornix device restore           # 最後のバックアップ（直前の apply 
 
 #### 反映の流れ
 
-1. `cornix compile` で `layout.vil` を生成する
+1. `cornix compile` で `tmp/build/layout.vil` を生成する（`apply_layout` の `vil_path` の既定）
 2. `apply_layout`（dry run）で差分と `confirm_token` を受け取り、内容を確認する
 3. 同意したら `apply_layout` を `dry_run: false` と `confirm_token` を付けて呼ぶ。自動バックアップ → 差分のみ書き込み → 読み戻し検証が行われる
 4. 元に戻すときは `restore_backup` を同じく dry run → `confirm_token` 付きの順で呼ぶ（古いバックアップは `list_backups` で選んで `backup_path` に指定）
@@ -718,7 +734,10 @@ cornix-layout/
 ├── docs/                     # architecture.md・tasks.md
 ├── .mcp.json                 # Claude Code 用の MCP サーバー登録
 ├── config/                   # 設定ファイル（生成物）
-└── layout.vil                # compile の出力
+└── tmp/                      # 生成物（git 管理外）
+    ├── build/layout.vil      # compile の出力（status / apply が使う）
+    ├── layout.vil            # decompile の既定の入力（pull がキーボードの状態を書く）
+    └── device_backups/       # apply / restore の前のバックアップ
 ```
 
 ### テスト
@@ -744,8 +763,8 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb
 mv config config.backup          # 既存の設定を退避
 cp ~/Downloads/layout.vil tmp/layout.vil
 cornix decompile                 # tmp/layout.vil → config/
-cornix compile                   # config/ → layout.vil
-ruby bin/diff_layouts            # tmp/layout.vil と layout.vil を比べる
+cornix compile                   # config/ → tmp/build/layout.vil
+ruby bin/diff_layouts            # tmp/layout.vil と tmp/build/layout.vil を比べる
 # 期待結果: === ✓ FILES ARE IDENTICAL ===
 ```
 

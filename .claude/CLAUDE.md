@@ -33,7 +33,7 @@
 - タスクを実行してコミットする際には必ず RSpec が全て通る状態を確認すること（`LANG=ja_JP.UTF-8 bundle exec rspec`）
 - Pull Request の説明は下記「Pull Request の説明」のルールに従うこと
 - [docs/architecture.md](../docs/architecture.md) の方針・依存の向き・コード規約を守ること
-- 実機のキーボードへの書き込み（`cornix device apply` / `restore`、MCP の書き込み）は利用者の同意なしに行わないこと
+- 実機のキーボードへの書き込み（`cornix apply` / `restore`、`cornix device apply` / `restore`、MCP の書き込み）は利用者の同意なしに行わないこと
 
 ### Pull Request の説明
 
@@ -55,6 +55,8 @@ PR の説明は、読み手が背景から結論まで追えるよう丁寧に�
 Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`config/`）の双方向変換ツール。
 
 - `cornix compile` / `decompile` / `validate` / `rename` / `cleanup`: 設定ファイルの変換・検証・名前付け
+- `cornix pull` / `status` / `apply` / `restore`: compile・decompile と `cornix device` を組み合わせたショートカット
+  （compile の出力は `tmp/build/layout.vil`、pull は `tmp/layout.vil` に読み出してから decompile）
 - `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
 - 名前参照（`Macro('名前')`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
 - decompile → compile で 16bit 値が元と一致する
@@ -73,7 +75,7 @@ Device          HidBridge / Protocol / Session / Reader / Planner / Writer
 ```
 
 ```
-compile    config/ ─ConfigRepository→ Profile ─ProfileMapper→ DeviceImage ─VilFile→ layout.vil
+compile    config/ ─ConfigRepository→ Profile ─ProfileMapper→ DeviceImage ─VilFile→ tmp/build/layout.vil
 decompile  layout.vil ─VilFile→ DeviceImage ─ProfileMapper→ Profile ─ConfigRepository→ config/
 validate   ConfigRepository#load（構造検証）→ Profile#diagnostics（意味検証）
 device     layout.vil → DeviceImage（目標）、実機 ─Reader→ DeviceImage（現在）→ ImageDiff → Plan(token) → Writer → 読み直して検証
@@ -126,7 +128,7 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb # compile / decompile
 mv config config.backup
 cp ~/Downloads/layout.vil tmp/layout.vil
 cornix decompile && cornix compile
-ruby bin/diff_layouts       # tmp/layout.vil と layout.vil を 16bit 値で比較 → === ✓ FILES ARE IDENTICAL ===
+ruby bin/diff_layouts       # tmp/layout.vil と tmp/build/layout.vil を 16bit 値で比較 → === ✓ FILES ARE IDENTICAL ===
 ```
 
 ## Key Design Decisions

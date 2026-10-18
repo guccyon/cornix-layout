@@ -3,7 +3,7 @@
 module Cornix
   module Interface
     module Cli
-      # compile / validate / rename が共通で使う表示（旧 CliHelpers.ensure_config_exists と旧 ModelValidator の表示）
+      # compile / validate / rename（と compile してから使う status / apply）が共通で使う表示（旧 CliHelpers.ensure_config_exists と旧 ModelValidator の表示）
       module ConfigMessages
         DECOMPILE_FIRST = "Run 'cornix decompile' first to create config files"
 
@@ -14,6 +14,25 @@ module Cornix
           out.line("Error: #{error.dir} not found")
           out.line(DECOMPILE_FIRST) if hint
           Command::FAILURE
+        end
+
+        # 検証してから compile する（表示つき）。→ CompileResult、検証エラーや config/ がなければ nil
+        def compile_config(output: nil)
+          out.line('🔍 Validating configuration...')
+          result = use_case(:compile).call(output: output)
+          print_report(result.report)
+          unless result.compiled?
+            out.line("\n❌ Validation failed. Fix errors before compiling.")
+            return
+          end
+
+          out.line("✓ Validation passed\n\n")
+          out.line('🔨 Compiling...')
+          out.line("✓ Compiled: #{result.path}")
+          result
+        rescue Application::ConfigNotFound => e
+          config_not_found(e, hint: true)
+          nil
         end
 
         # 検証の結果（旧 ModelValidator#report_results と同じ形）

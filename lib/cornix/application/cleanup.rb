@@ -5,7 +5,7 @@ require_relative 'use_case'
 
 module Cornix
   module Application
-    # 生成物（config/ と layout.vil）を消す（旧 CliHelpers.cleanup）→ CleanupResult。
+    # 生成物（config/ と compile の出力 tmp/build/layout.vil）を消す（旧 CliHelpers.cleanup）→ CleanupResult。
     #
     # config/.decompile.lock があるときは force でなければ消さない。force なら confirm.call(lock の内容) が
     # 真のときだけ消す（CLI の y/N）。場所は Environment の root から決まる（旧実装はカレントディレクトリだった）
@@ -28,7 +28,7 @@ module Cornix
         end
         if has_layout
           FileUtils.rm_f(env.layout_path)
-          deleted << 'layout.vil'
+          deleted << env.layout_path.delete_prefix("#{env.root}/")
         end
         CleanupResult.new(status: :cleaned, lock: lock, deleted: deleted)
       end

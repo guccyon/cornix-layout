@@ -57,7 +57,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
                                "  ⚠️  レイヤー0 (1,2) はキーボード上に存在しない位置のため無視します\n")
     end
 
-    it 'diff は FILE を省略すると layout.vil を使う' do
+    it 'diff は FILE を省略すると compile の出力（tmp/build/layout.vil）を使う' do
       write_vil { |v| v['layout'][1][0][1] = 'KC_BSPC' }
       expect(cornix('diff')).to eq(0)
       expect(out.string).to include('差分 1 件:')

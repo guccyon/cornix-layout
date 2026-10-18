@@ -4,7 +4,7 @@ require_relative 'use_case'
 
 module Cornix
   module Application
-    # config/ → layout.vil（旧 bin/subcommands/compile.rb + Compiler）→ CompileResult。
+    # config/ → .vil（旧 bin/subcommands/compile.rb + Compiler）→ CompileResult。
     # 先に Validate し、errors があれば何も書かない（warnings だけなら書く）。
     # output を省略すると env.layout_path に書く
     class Compile < UseCase

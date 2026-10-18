@@ -52,11 +52,11 @@ cornix decompile ~/Downloads/layout.vil
 ls config/
 vim config/layers/0_layer.yaml
 
-# 4. compile (validates first, then writes layout.vil)
+# 4. compile (validates first, then writes tmp/build/layout.vil)
 cornix compile
 
-# 5. Load layout.vil in Vial with "File > Import Layout",
-#    or write it directly to the keyboard with cornix device apply
+# 5. Load tmp/build/layout.vil in Vial with "File > Import Layout",
+#    or write it directly to the keyboard with cornix apply
 ```
 
 - decompile stops if `config/` already contains a configuration (overwrite protection)
@@ -64,16 +64,18 @@ cornix compile
 </details>
 
 <details>
-<summary><b>Use Case 2: Edit an existing configuration and compile it</b></summary>
+<summary><b>Use Case 2: Read the keyboard, edit the configuration and apply it</b></summary>
 
 ```bash
+cornix pull              # read the keyboard into tmp/layout.vil and turn it into config/ (first time)
 vim config/layers/1_symbol.yaml
-cornix validate          # optional (compile validates automatically)
-cornix compile
-git diff layout.vil      # review the change (optional)
+cornix status            # compile, then show differences from the keyboard (no writes)
+cornix apply             # compile, then write the differences after confirmation
+cornix restore           # if you don't like it, go back to the state before the last apply
 ```
 
-- If validation fails, compile stops and does not write layout.vil
+- `status` / `apply` compile every time and use the output (`tmp/build/layout.vil`) directly
+- If validation fails, compile stops and the keyboard is not touched
 - Managing the configuration with git is recommended
 
 </details>
@@ -123,11 +125,11 @@ A successful decompile creates `config/.decompile.lock` (the source file and its
 **cleanup command**:
 
 ```bash
-cornix cleanup      # delete config/ and layout.vil (stops if the lock file exists)
+cornix cleanup      # delete config/ and tmp/build/layout.vil (stops if the lock file exists)
 cornix cleanup -f   # delete even if the lock file exists, after a y/N confirmation
 ```
 
-It deletes `config/` and `layout.vil` in the project root (the repository containing `bin/cornix`), regardless of the directory you run it from.
+It deletes `config/` and `tmp/build/layout.vil` in the project root (the repository containing `bin/cornix`), regardless of the directory you run it from.
 
 #### Generated Files
 
@@ -310,10 +312,11 @@ In key assignments (layer keys and encoders, tap dance actions, combo triggers a
 ### Converting to layout.vil
 
 ```bash
-cornix compile
+cornix compile              # writes tmp/build/layout.vil
+cornix compile -o my.vil    # choose the output file
 ```
 
-compile validates first; if there are problems it exits without writing layout.vil (exit code 1). Use `cornix validate` to only validate. Load the generated `layout.vil` in Vial, or write it directly with `cornix device apply` (next section).
+compile validates first; if there are problems it exits without writing a .vil (exit code 1). Use `cornix validate` to only validate. Load the generated `tmp/build/layout.vil` in Vial, or write it directly with `cornix apply` (next section). `cornix device diff` / `device apply` also use this output when no file is given.
 
 Errors such as a wrong command or an unreadable file are printed to standard error as `エラー: …` (Japanese for "Error:") and the command exits with code 1.
 
@@ -321,18 +324,31 @@ Errors such as a wrong command or an unreadable file are printed to standard err
 
 You can apply `layout.vil` directly to a Cornix connected over Bluetooth / USB using the Vial protocol (macOS only. On first use a small HID bridge, `tmp/cornix-hid`, is built with `swiftc` from the Xcode Command Line Tools).
 
+Day to day you use these four. `status` / `apply` compile first and use the output directly.
+
+```bash
+cornix pull                     # read the keyboard into tmp/layout.vil and turn it into config/ (= device read + decompile)
+cornix status                   # compile, then show differences from the keyboard (no writes. = compile + device diff)
+cornix apply                    # compile, show differences and write after confirmation (--yes skips it. = compile + device apply)
+cornix restore [BACKUP]         # restore a backup (default: the state before the last apply. = device restore)
+```
+
+- Like decompile, `pull` stops without overwriting if `config/` already contains a configuration (the keyboard state is still saved to tmp/layout.vil)
+
+Use `cornix device` to read and write specific files.
+
 ```bash
 cornix device info              # info about the connected keyboard (layer count, lock state, ...)
 cornix device read -o now.vil   # save the keyboard's current state in layout.vil format
 cornix device backup            # save a timestamped copy under tmp/device_backups/
-cornix device diff              # show differences between layout.vil and the keyboard (no writes)
-cornix device apply             # show differences and write after confirmation (--yes skips it)
-cornix device restore           # restore the last backup (the state before the last apply)
+cornix device diff [FILE]       # show differences between a .vil and the keyboard (no writes. FILE defaults to the compile output)
+cornix device apply [FILE]      # show differences and write after confirmation (--yes skips it)
+cornix device restore [FILE]    # restore the last backup (the state before the last apply)
 ```
 
 `apply` automatically takes a backup before writing, writes only the changed keys, encoders, tap dances, combos, macros, and settings, then reads them back to verify.
 
-To undo, run `cornix device restore`. It shows the differences from the latest backup and writes after confirmation. To restore an older backup, pass the file, e.g. `cornix device restore tmp/device_backups/<timestamp>.vil`. `restore` also backs up the current state before writing, so running `restore` again returns to the state before the restore.
+To undo, run `cornix restore` (same as `cornix device restore`). It shows the differences from the latest backup and writes after confirmation. To restore an older backup, pass the file, e.g. `cornix restore tmp/device_backups/<timestamp>.vil`. `restore` also backs up the current state before writing, so running `restore` again returns to the state before the restore.
 
 ### When the Keyboard Is Not Connected
 
@@ -384,7 +400,7 @@ If the keyboard is not connected, every tool returns an error response and write
 
 #### Apply Flow
 
-1. Generate `layout.vil` with `cornix compile`
+1. Generate `tmp/build/layout.vil` with `cornix compile` (the default `vil_path` of `apply_layout`)
 2. Call `apply_layout` (dry run) to get the differences and a `confirm_token`, and review them
 3. If you agree, call `apply_layout` with `dry_run: false` and the `confirm_token`. It backs up, writes only the differences, and verifies by reading back
 4. To undo, call `restore_backup` the same way: dry run, then with the `confirm_token` (choose an older backup with `list_backups` and pass it as `backup_path`)
@@ -724,7 +740,10 @@ cornix-layout/
 ├── docs/                     # architecture.md, tasks.md
 ├── .mcp.json                 # MCP server registration for Claude Code
 ├── config/                   # configuration files (generated)
-└── layout.vil                # output of compile
+└── tmp/                      # generated files (not tracked by git)
+    ├── build/layout.vil      # output of compile (used by status / apply)
+    ├── layout.vil            # default input of decompile (pull writes the keyboard state here)
+    └── device_backups/       # backups taken before apply / restore
 ```
 
 ### Tests
@@ -750,8 +769,8 @@ A procedure to check that decompile → compile reproduces your own layout.vil:
 mv config config.backup          # move the existing configuration aside
 cp ~/Downloads/layout.vil tmp/layout.vil
 cornix decompile                 # tmp/layout.vil → config/
-cornix compile                   # config/ → layout.vil
-ruby bin/diff_layouts            # compare tmp/layout.vil and layout.vil
+cornix compile                   # config/ → tmp/build/layout.vil
+ruby bin/diff_layouts            # compare tmp/layout.vil and tmp/build/layout.vil
 # Expected: === ✓ FILES ARE IDENTICAL ===
 ```
 

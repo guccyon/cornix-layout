@@ -94,9 +94,9 @@ RSpec.describe Cornix::Interface::Mcp::Server do
   end
 
   describe 'apply_layout' do
-    let(:vil_path) { write_vil(File.join(@root, 'layout.vil')) { |v| v['layout'][0][0][1] = 'KC_B' } }
+    let(:vil_path) { write_vil { |v| v['layout'][0][0][1] = 'KC_B' } }
 
-    it '既定は dry run で、vil_path の既定は layout.vil' do
+    it '既定は dry run で、vil_path の既定は compile の出力（tmp/build/layout.vil）' do
       vil_path
       result = text(call('apply_layout'))
       expect(result).to include("対象: #{env.layout_path}", 'confirm_token: ')

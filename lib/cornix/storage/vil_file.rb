@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'fileutils'
 require 'json'
 
 module Cornix
@@ -38,6 +39,7 @@ module Cornix
 
       # DeviceImage → .vil ファイル。書いたパスを返す
       def write(image, path)
+        FileUtils.mkdir_p(File.dirname(path))
         File.write(path, dump(image))
         path
       end

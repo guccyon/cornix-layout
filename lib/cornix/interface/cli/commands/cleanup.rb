@@ -6,10 +6,10 @@ module Cornix
   module Interface
     module Cli
       module Commands
-        # cornix cleanup [-f]: config/ と layout.vil を消す（旧 bin/subcommands/cleanup.rb）。
+        # cornix cleanup [-f]: config/ と compile の出力を消す（旧 bin/subcommands/cleanup.rb）。
         # config/.decompile.lock があれば -f が必要で、そのときも y/N で確認する
         class Cleanup < Command
-          command 'cleanup', '生成したファイル（config/ と layout.vil）を消す（-f でロックがあっても確認して消す）',
+          command 'cleanup', '生成したファイル（config/ と tmp/build/layout.vil）を消す（-f でロックがあっても確認して消す）',
                   args: '[-f|--force]'
 
           CONFIRM = 'Are you sure you want to continue? [y/N]: '

@@ -3,6 +3,8 @@
 # - qmk:  受け付ける別の QMK 名
 # - vial: false は Vial GUI に名前がない値（vial-qmk の quantum/keycodes.h にはある）。
 #   設定ファイルでは name で書けるが、.vil には Vial GUI が読める 0xHHHH で書く。
+#   基準は Vial Web（vial.rocks）の中身の vial-gui 0.7.5。それより後に足された MAGIC_TOGGLE_GUI と、
+#   Vial GUI が 16 個しか名前を作らない USER16〜USER63 もここに入る。
 #   RMK 0.8 のファームウェアはこれらを何もしないキーとして扱う（RGB や Magic など既存の多くの値も同じ）。
 # 引数付きのキーコード（LSFT(kc), LT(n, kc), MO(n), TD(n), M0 など）はここに書かず、
 # Cornix::Mapping::KeycodeCodec の定数で組み立てる。
@@ -233,7 +235,7 @@ quantum:
   - { code: 0x7008, name: MAGIC_UNSWAP_RALT_RGUI, qmk: [RAG_NRM, QK_MAGIC_UNSWAP_RALT_RGUI, AG_RNRM] }
   - { code: 0x7009, name: MAGIC_UNNO_GUI, qmk: [GUI_ON, QK_MAGIC_GUI_ON, GU_ON] }
   - { code: 0x700A, name: MAGIC_NO_GUI, qmk: [GUI_OFF, QK_MAGIC_GUI_OFF, GU_OFF] }
-  - { code: 0x700B, name: MAGIC_TOGGLE_GUI, qmk: [GUI_TOGG, QK_MAGIC_TOGGLE_GUI, GU_TOGG] }
+  - { code: 0x700B, name: MAGIC_TOGGLE_GUI, qmk: [GUI_TOGG, QK_MAGIC_TOGGLE_GUI, GU_TOGG], vial: false }
   - { code: 0x700C, name: MAGIC_SWAP_GRAVE_ESC, qmk: [GE_SWAP, QK_MAGIC_SWAP_GRAVE_ESC] }
   - { code: 0x700D, name: MAGIC_UNSWAP_GRAVE_ESC, qmk: [GE_NORM, QK_MAGIC_UNSWAP_GRAVE_ESC] }
   - { code: 0x700E, name: MAGIC_SWAP_BACKSLASH_BACKSPACE, qmk: [BS_SWAP, QK_MAGIC_SWAP_BACKSLASH_BACKSPACE] }
@@ -381,51 +383,51 @@ quantum:
   - { code: 0x7E0D, name: USER13, qmk: [QK_KB_13] }
   - { code: 0x7E0E, name: USER14, qmk: [QK_KB_14] }
   - { code: 0x7E0F, name: USER15, qmk: [QK_KB_15] }
-  - { code: 0x7E10, name: USER16, qmk: [QK_KB_16] }
-  - { code: 0x7E11, name: USER17, qmk: [QK_KB_17] }
-  - { code: 0x7E12, name: USER18, qmk: [QK_KB_18] }
-  - { code: 0x7E13, name: USER19, qmk: [QK_KB_19] }
-  - { code: 0x7E14, name: USER20, qmk: [QK_KB_20] }
-  - { code: 0x7E15, name: USER21, qmk: [QK_KB_21] }
-  - { code: 0x7E16, name: USER22, qmk: [QK_KB_22] }
-  - { code: 0x7E17, name: USER23, qmk: [QK_KB_23] }
-  - { code: 0x7E18, name: USER24, qmk: [QK_KB_24] }
-  - { code: 0x7E19, name: USER25, qmk: [QK_KB_25] }
-  - { code: 0x7E1A, name: USER26, qmk: [QK_KB_26] }
-  - { code: 0x7E1B, name: USER27, qmk: [QK_KB_27] }
-  - { code: 0x7E1C, name: USER28, qmk: [QK_KB_28] }
-  - { code: 0x7E1D, name: USER29, qmk: [QK_KB_29] }
-  - { code: 0x7E1E, name: USER30, qmk: [QK_KB_30] }
-  - { code: 0x7E1F, name: USER31, qmk: [QK_KB_31] }
-  - { code: 0x7E20, name: USER32 }
-  - { code: 0x7E21, name: USER33 }
-  - { code: 0x7E22, name: USER34 }
-  - { code: 0x7E23, name: USER35 }
-  - { code: 0x7E24, name: USER36 }
-  - { code: 0x7E25, name: USER37 }
-  - { code: 0x7E26, name: USER38 }
-  - { code: 0x7E27, name: USER39 }
-  - { code: 0x7E28, name: USER40 }
-  - { code: 0x7E29, name: USER41 }
-  - { code: 0x7E2A, name: USER42 }
-  - { code: 0x7E2B, name: USER43 }
-  - { code: 0x7E2C, name: USER44 }
-  - { code: 0x7E2D, name: USER45 }
-  - { code: 0x7E2E, name: USER46 }
-  - { code: 0x7E2F, name: USER47 }
-  - { code: 0x7E30, name: USER48 }
-  - { code: 0x7E31, name: USER49 }
-  - { code: 0x7E32, name: USER50 }
-  - { code: 0x7E33, name: USER51 }
-  - { code: 0x7E34, name: USER52 }
-  - { code: 0x7E35, name: USER53 }
-  - { code: 0x7E36, name: USER54 }
-  - { code: 0x7E37, name: USER55 }
-  - { code: 0x7E38, name: USER56 }
-  - { code: 0x7E39, name: USER57 }
-  - { code: 0x7E3A, name: USER58 }
-  - { code: 0x7E3B, name: USER59 }
-  - { code: 0x7E3C, name: USER60 }
-  - { code: 0x7E3D, name: USER61 }
-  - { code: 0x7E3E, name: USER62 }
-  - { code: 0x7E3F, name: USER63 }
+  - { code: 0x7E10, name: USER16, qmk: [QK_KB_16], vial: false }
+  - { code: 0x7E11, name: USER17, qmk: [QK_KB_17], vial: false }
+  - { code: 0x7E12, name: USER18, qmk: [QK_KB_18], vial: false }
+  - { code: 0x7E13, name: USER19, qmk: [QK_KB_19], vial: false }
+  - { code: 0x7E14, name: USER20, qmk: [QK_KB_20], vial: false }
+  - { code: 0x7E15, name: USER21, qmk: [QK_KB_21], vial: false }
+  - { code: 0x7E16, name: USER22, qmk: [QK_KB_22], vial: false }
+  - { code: 0x7E17, name: USER23, qmk: [QK_KB_23], vial: false }
+  - { code: 0x7E18, name: USER24, qmk: [QK_KB_24], vial: false }
+  - { code: 0x7E19, name: USER25, qmk: [QK_KB_25], vial: false }
+  - { code: 0x7E1A, name: USER26, qmk: [QK_KB_26], vial: false }
+  - { code: 0x7E1B, name: USER27, qmk: [QK_KB_27], vial: false }
+  - { code: 0x7E1C, name: USER28, qmk: [QK_KB_28], vial: false }
+  - { code: 0x7E1D, name: USER29, qmk: [QK_KB_29], vial: false }
+  - { code: 0x7E1E, name: USER30, qmk: [QK_KB_30], vial: false }
+  - { code: 0x7E1F, name: USER31, qmk: [QK_KB_31], vial: false }
+  - { code: 0x7E20, name: USER32, vial: false }
+  - { code: 0x7E21, name: USER33, vial: false }
+  - { code: 0x7E22, name: USER34, vial: false }
+  - { code: 0x7E23, name: USER35, vial: false }
+  - { code: 0x7E24, name: USER36, vial: false }
+  - { code: 0x7E25, name: USER37, vial: false }
+  - { code: 0x7E26, name: USER38, vial: false }
+  - { code: 0x7E27, name: USER39, vial: false }
+  - { code: 0x7E28, name: USER40, vial: false }
+  - { code: 0x7E29, name: USER41, vial: false }
+  - { code: 0x7E2A, name: USER42, vial: false }
+  - { code: 0x7E2B, name: USER43, vial: false }
+  - { code: 0x7E2C, name: USER44, vial: false }
+  - { code: 0x7E2D, name: USER45, vial: false }
+  - { code: 0x7E2E, name: USER46, vial: false }
+  - { code: 0x7E2F, name: USER47, vial: false }
+  - { code: 0x7E30, name: USER48, vial: false }
+  - { code: 0x7E31, name: USER49, vial: false }
+  - { code: 0x7E32, name: USER50, vial: false }
+  - { code: 0x7E33, name: USER51, vial: false }
+  - { code: 0x7E34, name: USER52, vial: false }
+  - { code: 0x7E35, name: USER53, vial: false }
+  - { code: 0x7E36, name: USER54, vial: false }
+  - { code: 0x7E37, name: USER55, vial: false }
+  - { code: 0x7E38, name: USER56, vial: false }
+  - { code: 0x7E39, name: USER57, vial: false }
+  - { code: 0x7E3A, name: USER58, vial: false }
+  - { code: 0x7E3B, name: USER59, vial: false }
+  - { code: 0x7E3C, name: USER60, vial: false }
+  - { code: 0x7E3D, name: USER61, vial: false }
+  - { code: 0x7E3E, name: USER62, vial: false }
+  - { code: 0x7E3F, name: USER63, vial: false }

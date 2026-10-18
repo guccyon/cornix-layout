@@ -61,6 +61,7 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompil
 | ファイル | 旧実装 | 使う spec |
 |---|---|---|
 | `vial_codes.tsv.gz` | `Device::Keycodes` の全 16bit 値の decode / encode | `mapping/vial_notation_spec.rb` |
+| `vial_gui_0_7_5_codes.tsv.gz` | （旧実装ではなく）vial-gui 0.7.5 の `Keycode.serialize` を Cornix の枠（10 レイヤー・マクロ 32・タップダンス 32）で全 16bit 値に適用した結果。名前になる値だけ | `mapping/vial_notation_spec.rb` |
 | `config_keycodes.yaml` | 設定ファイルの全キーコード文字列の値（値にできなかったものは null） | `mapping/keycode_notation_config_spec.rb` |
 | `layout.values.json`, `authors_baseline.values.json` | .vil を 16bit 値にしたもの | `storage/config_repository_baseline_spec.rb` ほか |
 | `macro_buffers.json` | `Device::MacroCodec` が書いたマクロのバイト列 | `mapping/macro_codec_spec.rb` |

@@ -21,3 +21,10 @@
 - 2026-10-19 に Cornix を接続した Vial（vial.rocks）で確認: QK_REPEAT_KEY / QK_ALT_REPEAT_KEY（repeat_key）、QK_LAYER_LOCK（layer_lock）、
   USER08 以降（customKeycodes は 8 個）は非表示。data/unsupported_keycodes.yaml で validate などが警告する（#17）。
   Caps Word、PDF(n)、FN_MO13/23、Dynamic Macro は表示される。vial.rocks は vial-gui 0.7.5 で LAG / LAG_T / GUI Toggle を知らない（#18）
+- .vil の表記の基準は Vial Web（vial.rocks）の中身の vial-gui 0.7.5（e42622c）。0.7.5 の `Keycode.deserialize` は
+  知らない名前を AnyKeycode で解釈し、失敗すると黙って 0（KC_NO）にするので、Load saved layout でキーが消える。
+  0.7.5 より後の LAG(kc) / LAG_T(kc) / MAGIC_TOGGLE_GUI、Vial GUI が枠の数だけ作る名前の外（USER16〜、MO(10)〜 / LT10〜、
+  M32〜。TD は 0〜255 常にある）は 16 進で書く。TO(10) は AnyKeycode が ON_PRESS を足して別の値に読むので特に危ない
+- 確認方法: vial-gui を v0.7.5 で clone し、simpleeval を入れた venv で `recreate_keyboard_keycodes`（protocol 6・10 レイヤー・
+  マクロ 32・TD 32）のあと全 16bit 値を `Keycode.serialize` / `deserialize` と突き合わせる。結果は
+  spec/fixtures/expected/vial_gui_0_7_5_codes.tsv.gz に保存し、vial_notation_spec が全値で一致を検査する

@@ -148,7 +148,7 @@ ruby bin/diff_layouts       # tmp/layout.vil と tmp/build/layout.vil を 16bit 
 
 - **キーコード表**: 名前付きのキーコードだけを `data/keycodes.yaml` に持ち、`MO(n)` / `LT(n, kc)` / `LSFT(kc)` など引数付きは
   `KeycodeCodec` の定数とビット演算で組み立てる。別名は `data/aliases.yaml`（重複は読み込み時にエラー）
-- **.vil の表記**: `VialNotation#format` は Vial GUI が保存する表記と同じ。Vial に名前のない値は `0xHHHH`
+- **.vil の表記**: `VialNotation#format` は Vial Web の中身の vial-gui 0.7.5 が Cornix の .vil に保存する表記と同じ。Vial に名前のない値（LAG(kc) など 0.7.5 より後の名前、枠を超える MO(10) / M32 なども）は `0xHHHH`
 - **decompile の正規形**: 別名 → 修飾キー式（`Ctrl, Option, Shift, Command` の順）→ 関数形式 → `0xHHHH`。
   参照は `Macro('名前')` / `TapDance('名前')`、設定は名前の形
 - **修飾キー**: `Domain::ModifierSet` は左右どちらか一方。左右の混在はエラー

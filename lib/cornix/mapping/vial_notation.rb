@@ -4,15 +4,19 @@ module Cornix
   module Mapping
     # layout.vil に書くキーコードの文字列 ⇄ Domain::Keycode。
     #
-    # format は Vial GUI が .vil に保存する表記（KC_A, LSFT(KC_2), LT1(KC_SPACE), MO(3), TD(3), M7,
+    # format は Vial GUI が Cornix の .vil に保存する表記（KC_A, LSFT(KC_2), LT1(KC_SPACE), MO(3), TD(3), M7,
     # OSM(MOD_LCTL|MOD_LSFT)、表にない値は 0x7e40 のような小文字の 16 進）。
+    # 基準は Vial Web（vial.rocks）の中身の vial-gui 0.7.5。Vial GUI は名前を知らない値を読むと黙って KC_NO にするため、
+    # それより後に足された名前（LAG(kc) / LAG_T(kc)）と、Cornix の枠（Domain::Capabilities::CORNIX）を超える
+    # レイヤー・マクロ（MO(10) / LT10(kc) / M32 など。Vial GUI は枠の数だけ名前を作る）は 16 進で書く。
     # parse は Vial GUI の AnyKeycode と同じく、名前・QMK 名・MOD_ 定数・数値と、
     # LSFT(KC_A) / LT(1, KC_A) / MT(MOD_LCTL, KC_A) / OSM(MOD_LCTL|MOD_LSFT) / MO(3) / TD(3) / M7 / KC_A|0x200 などの式を受け付ける。
     class VialNotation
-      # Vial の名前を持つ修飾関数（ビット → 名前）。それ以外の修飾の組は .vil では 16 進で書かれる
+      # Vial の名前を持つ修飾関数（ビット → 名前）。それ以外の修飾の組は .vil では 16 進で書かれる。
+      # LAG (0x0C) は vial-gui 0.7.5 にないので入れない（読むほうは Expression が受け付ける）
       MOD_FUNCTION_NAMES = {
         0x01 => 'LCTL', 0x02 => 'LSFT', 0x03 => 'C_S', 0x04 => 'LALT', 0x05 => 'LCA', 0x06 => 'LSA',
-        0x07 => 'MEH', 0x08 => 'LGUI', 0x09 => 'LCG', 0x0A => 'SGUI', 0x0C => 'LAG', 0x0D => 'LCAG',
+        0x07 => 'MEH', 0x08 => 'LGUI', 0x09 => 'LCG', 0x0A => 'SGUI', 0x0D => 'LCAG',
         0x0F => 'HYPR', 0x11 => 'RCTL', 0x12 => 'RSFT', 0x14 => 'RALT', 0x18 => 'RGUI', 0x19 => 'RCG'
       }.freeze
 
@@ -21,10 +25,16 @@ module Cornix
                       .transform_values { |name| "#{name}_T" }
                       .merge(0x0F => 'ALL_T', 0x1D => 'RCAG_T').freeze
 
+      # .vil に名前で書くレイヤー・マクロの範囲（Vial GUI が Cornix に接続したときに名前を作る範囲）。
+      # LT は 0〜15 までしか表せない
+      NAMED_LAYERS = (0...Domain::Capabilities::CORNIX.layers)
+      NAMED_LAYER_TAPS = (0...[Domain::Capabilities::CORNIX.layers, 16].min)
+      NAMED_MACROS = (0...Domain::Capabilities::CORNIX.macros)
+
       # 上位バイトで決まり、下位バイトに基本キーを入れる値（上位バイトの値 → 関数名）
       MASKED = MOD_FUNCTION_NAMES.to_h { |bits, name| [bits << 8, name] }
                                  .merge(MOD_TAP_NAMES.to_h { |bits, name| [KeycodeCodec::MOD_TAP.begin | (bits << 8), name] })
-                                 .merge((0..15).to_h { |n| [KeycodeCodec::LAYER_TAP.begin | (n << 8), "LT#{n}"] })
+                                 .merge(NAMED_LAYER_TAPS.to_h { |n| [KeycodeCodec::LAYER_TAP.begin | (n << 8), "LT#{n}"] })
                                  .freeze
 
       LAYER_FUNCTIONS = {
@@ -34,13 +44,13 @@ module Cornix
 
       ONE_SHOT_MOD_ORDER = %i[ctrl shift alt gui].freeze
 
-      # 引数付きで名前を持つ値（値 → 名前）。レイヤー操作は 0〜15 だけ Vial の表にある
+      # 引数付きで名前を持つ値（値 → 名前）。TD は Vial GUI が枠の数によらず 0〜255 の名前を持つ
       NAMED = {}.tap do |named|
         LAYER_FUNCTIONS.each do |op, name|
-          (0..15).each { |n| named[KeycodeCodec::LAYER_OPS.fetch(op) + n] = "#{name}(#{n})" }
+          NAMED_LAYERS.each { |n| named[KeycodeCodec::LAYER_OPS.fetch(op) + n] = "#{name}(#{n})" }
         end
         (0..255).each { |n| named[KeycodeCodec::TAP_DANCE.begin + n] = "TD(#{n})" }
-        Domain::Keycode::MacroCall::RANGE.each { |n| named[KeycodeCodec::MACRO.begin + n] = "M#{n}" }
+        NAMED_MACROS.each { |n| named[KeycodeCodec::MACRO.begin + n] = "M#{n}" }
         [0x00, 0x10].each do |side|
           (0x01..0x0F).each do |mods|
             bits = side | mods

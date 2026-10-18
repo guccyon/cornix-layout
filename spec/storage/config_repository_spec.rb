@@ -575,21 +575,23 @@ RSpec.describe Cornix::Storage::ConfigRepository do
       end
     end
 
-    it 'preset: と sequence の両方・どちらもない・知らない名前・文字列でない値・name も preset もないのは問題になる' do
+    it 'preset: と sequence の両方・知らない名前・文字列でない値と、preset がないときの足りないキーは問題になる' do
       with_config_copy do |dir|
         write_file(dir, 'macros/20_a.yaml', "index: 20\nname: A\npreset: 'macOS:テキスト:コピー'\nsequence:\n- action: tap\n  keys: A\n")
         write_file(dir, 'macros/21_b.yaml', "index: 21\nname: B\n")
         write_file(dir, 'macros/22_c.yaml', "index: 22\npreset: 'macOS:テキスト:コピ'\n")
         write_file(dir, 'macros/23_d.yaml', "index: 23\npreset: 1\n")
         write_file(dir, 'macros/24_e.yaml', "index: 24\nsequence:\n- action: tap\n  keys: A\n")
+        write_file(dir, 'macros/25_f.yaml', "index: 25\n")
         expect(load_problems(dir)).to eq([
           'macros/20_a.yaml: sequence と preset はどちらか一方だけを書いてください',
-          'macros/21_b.yaml: sequence か preset がありません',
+          'macros/21_b.yaml: sequence がありません',
           'macros/22_c.yaml: preset: プリセット「macOS:テキスト:コピ」は同梱のショートカット（data/shortcuts/）にありません' \
           '（候補: macOS:テキスト:コピー / macOS:テキスト:行末 / macOS:テキスト:行頭）',
           'macros/23_d.yaml: preset: プリセットの名前（文字列）を書いてください: 整数 1 として読まれました。' \
           '文字列にするには引用符で囲んでください（例: "1"）',
-          'macros/24_e.yaml: name がありません'
+          'macros/24_e.yaml: name がありません',
+          'macros/25_f.yaml: name, sequence がありません'
         ])
       end
     end

@@ -104,7 +104,8 @@ cornixhub（https://cornixhub.com/shortcuts）で共有されているショー�
   右側の修飾キーは右側のまま）。`Mapping::ShortcutCatalog#preset` が作る
 - `name` を省くと preset の名前（`Schema::Header` も同じ規則で References の名前を作るので `Macro('アプリ:カテゴリ:ラベル')` で参照できる）
 - `Domain::Macro#preset` に名前を持ち、`Schema::MacroFile.write` は sequence の代わりに preset を書く。デバイスにはないので、
-  decompile（previous なし）ではふつうの sequence になる。逆引きはしない（#13 と同じ方針。同じ手順の別のショートカットに化けるため）
+  decompile では preset は戻らず、ふつうの sequence になる。逆引きはしない（#13 と同じ方針。同じ手順の別のショートカットに化けるため）
+- preset は同梱の定義だけを引く（shortcuts.yaml で同じ名前を上書きしても効かない。shortcuts.yaml の値はマクロの手順にならないこともあるため）
 - 知らない名前は「プリセット「名前」は同梱のショートカットにありません（候補: ...）」（DidYouMean で 3 件まで）
 - `ShortcutCatalog` は `Application::Environment#shortcut_catalog` から `ConfigRepository` に渡す。マクロの keys など References::NONE の場面では
   `Shortcut(...)` は「ここでは使えません」（`References#shortcuts_available?`）

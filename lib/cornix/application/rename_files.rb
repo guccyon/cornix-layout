@@ -104,7 +104,7 @@ module Cornix
 
       def apply(plan)
         path = resolve(plan.old_path)
-        old_name = plan.name && current_name(path)
+        old_name = plan.name && current_name(path, plan.type)
         new_path = File.join(File.dirname(path), plan.new_basename)
         editor.update_fields(path, plan.content_updates)
         new_path = editor.rename(path, plan.new_basename)
@@ -114,9 +114,9 @@ module Cornix
         RenamedFile.new(success: false, old_path: path, new_path: new_path, error: "Rename failed: #{e.message}")
       end
 
-      def current_name(path)
-        data = editor.read(path)
-        data.is_a?(Hash) ? data['name'] : nil
+      # name を省いたプリセットのマクロは preset の名前（Macro('アプリ:カテゴリ:ラベル') で参照されている）
+      def current_name(path, type)
+        Storage::Schema::Header.name_of(editor.read(path), preset: type == 'macro')
       end
 
       def update_references(plan, old_name)

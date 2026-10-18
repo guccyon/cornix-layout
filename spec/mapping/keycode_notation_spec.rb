@@ -212,6 +212,16 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
         .to raise_error(Cornix::UnknownKeycode, /Shortcut\(...\) の引数は '名前' です/)
     end
 
+    it '同梱の複数の手順の定義（preset_macros）は macros/ の preset: を案内する。shortcuts の同じ名前が先' do
+      refs = Cornix::Mapping::References.new(shortcuts: { 'App:Y' => codec.decode(0x0004) }, preset_macros: %w[App:X App:Y])
+      expect(refs.preset_macro?('App:X')).to be(true)
+      expect(refs.preset_macro?('App:Z')).to be(false)
+      expect { notation.parse("Shortcut(' App:X ')", references: refs) }
+        .to raise_error(Cornix::UnknownKeycode,
+                        /「App:X」は複数の手順のマクロなので Shortcut\(...\) では使えません。macros\/ のファイルに preset: 'App:X' と書き、Macro\('App:X'\) で参照してください/)
+      expect(notation.parse("Shortcut('App:Y')", references: refs)).to eq(codec.decode(0x0004))
+    end
+
     it 'format は定義のちょうど 1 つと同じ値を Shortcut(\'名前\') で書く（複数一致・なしならふつうの書き方）' do
       expect(notation.format(prev_tab, references: shortcut_refs)).to eq("Shortcut('前のタブへ')")
       expect(notation.format(codec.decode(0x0814), references: shortcut_refs)).to eq(%(Shortcut("It's")))

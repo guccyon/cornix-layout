@@ -21,7 +21,8 @@ module Cornix
       #     - action: text          # text は content（ASCII の文字列）
       #       content: "``````"
       #
-      # sequence の代わりに preset（同梱のショートカットの名前）を書くと、その手順のマクロになる（name は省略すると preset の名前）:
+      # sequence の代わりに preset（同梱のショートカットの名前）を書くと、その手順のマクロになる（name は省略すると preset の名前）。
+      # preset は同梱の定義だけを引く（shortcuts.yaml で同じ名前を上書きしても効かない）:
       #
       #   index: 5
       #   preset: 'macOS:システム:ウィンドウキャプチャ'
@@ -36,16 +37,15 @@ module Cornix
         end
         Presets.const_set(:NONE, Presets.new(catalog: nil, notation: nil))
         STEP_KEYS = %w[action keys duration content].freeze
-        KEY_ACTIONS = { 'tap' => Domain::MacroStep::Tap, 'down' => Domain::MacroStep::Down,
-                        'up' => Domain::MacroStep::Up }.freeze
+        KEY_ACTIONS = Domain::MacroStep::KEY_ACTIONS
         ACTIONS = (KEY_ACTIONS.keys + %w[delay text]).freeze
 
         module_function
 
         def read(data, ctx, keycodes, presets = Presets::NONE)
-          hash = ctx.mapping(data, '', required: %w[index], allowed: KEYS) or return nil
+          hash = ctx.mapping(data, '', required: required_keys(data), allowed: KEYS) or return nil
           preset = read_preset(hash, ctx)
-          name = read_name(hash, ctx, preset)
+          name = hash.key?('name') ? ctx.name(hash['name'], 'name') : Header.name_of(hash, preset: preset.is_a?(String))
           description = ctx.description(hash['description'])
           index = ctx.bounded(hash['index'], 'index', Domain::Keycode::MacroCall::RANGE, 'マクロ番号')
           steps = preset ? preset_steps(preset, ctx, presets) : read_sequence(hash['sequence'], ctx, keycodes)
@@ -56,22 +56,15 @@ module Cornix
           end
         end
 
-        # name を省略できるのは preset を書いたとき（preset の名前になる）
-        def read_name(hash, ctx, preset)
-          return ctx.name(hash['name'], 'name') if hash.key?('name')
-          return preset if preset.is_a?(String)
-
-          ctx.problem('', 'name がありません') if preset.nil?
+        # 必ず書くキー。preset を書いたときは name（省くと preset の名前）と sequence はいらない
+        def required_keys(data)
+          data.is_a?(Hash) && data.key?('preset') ? %w[index] : %w[name index sequence]
         end
 
         # preset の名前。sequence と preset はどちらか一方。なければ nil、誤りは問題を記録して :invalid
         def read_preset(hash, ctx)
           if hash.key?('preset') && hash.key?('sequence')
             ctx.problem('', 'sequence と preset はどちらか一方だけを書いてください')
-            return :invalid
-          end
-          unless hash.key?('preset') || hash.key?('sequence')
-            ctx.problem('', 'sequence か preset がありません')
             return :invalid
           end
           return nil unless hash.key?('preset')

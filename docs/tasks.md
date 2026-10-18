@@ -81,8 +81,8 @@ Domain::PositionMap.from_h(hash)                           # position_map.yaml �
 Domain::EncoderBinding(push:, ccw:, cw:, notes: { push: String, ... })   # 各 Keycode。notes は省略可
 Domain::Layer(index:, name:, description:, keys: { KeyPosition => Keycode }, encoders: { left: EncoderBinding, right: EncoderBinding },
               notes: { KeyPosition => String })            # notes（注記）は割り当てのある位置だけ。省略可
-Domain::MacroStep::Tap / Down / Up(keys: [Keycode]), Delay(ms:), Text(content:)
-Domain::Macro(index:, name:, description:, steps:)
+Domain::MacroStep::Tap / Down / Up(keys: [Keycode]), Delay(ms:), Text(content:)   # KEY_ACTIONS: action の名前 → Tap / Down / Up
+Domain::Macro(index:, name:, description:, steps:, preset: nil)   # preset は同梱のショートカットの名前（デバイスにはない。書き戻し用）
 Domain::TapDance(index:, name:, description:, on_tap:, on_hold:, on_double_tap:, on_tap_hold:, tapping_term:,
                  notes: { on_tap: String, ... })
 Domain::Combo(index:, name:, description:, trigger_keys: [Keycode], output_key: Keycode, notes: { output_key: String })

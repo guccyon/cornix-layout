@@ -21,6 +21,15 @@ RSpec.describe Cornix::Domain::Macro do
     expect(macro.to_s).to eq('Macro(3: Copy Current Word)')
   end
 
+  it 'preset はプリセットの名前（省略すると nil。空・文字列でなければ InvalidValue）' do
+    expect(build_macro.preset).to be_nil
+    macro = described_class.new(index: 0, name: 'Copy', steps: steps, preset: 'macOS:テキスト:コピー')
+    expect(macro.preset).to eq('macOS:テキスト:コピー')
+    expect { described_class.new(index: 0, name: 'Copy', steps: steps, preset: ' ') }
+      .to raise_error(Cornix::InvalidValue, /マクロのプリセットの名前/)
+    expect { described_class.new(index: 0, name: 'Copy', steps: steps, preset: 1) }.to raise_error(Cornix::InvalidValue)
+  end
+
   it '番号は M0〜M127 の範囲（デバイスの件数との比較は diagnostics）' do
     expect(build_macro(index: 127).index).to eq(127)
     expect { build_macro(index: 128) }.to raise_error(Cornix::InvalidValue, /マクロの番号/)

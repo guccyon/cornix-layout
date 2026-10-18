@@ -285,6 +285,7 @@ preset: 'macOS:システム:ウィンドウキャプチャ'   # ⌘⇧4 → Spac
 
 - Shortcuts that cannot be a single key, such as keys pressed one after another (S → P for `Fusion 360:スケッチ:スプライン`), are used this way (not with `Shortcut(...)`)
 - Single-key shortcuts work too. A key with modifiers becomes "press the modifiers → tap the key → release the modifiers"
+- `preset` uses only the bundled definitions (overriding the same name in `shortcuts.yaml` does not change it)
 - You choose the macro number (`index`) yourself. The preset is not written to the keyboard, so decompile writes the macro as a plain `sequence`
 
 ### Tap dances

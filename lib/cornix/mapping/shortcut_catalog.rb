@@ -27,8 +27,7 @@ module Cornix
       DIR = File.join(Cornix::DATA_DIR, 'shortcuts')
       MACRO_KEY = 'macro'
       STEP_KEYS = %w[action keys].freeze
-      STEP_ACTIONS = { 'tap' => Domain::MacroStep::Tap, 'down' => Domain::MacroStep::Down,
-                       'up' => Domain::MacroStep::Up }.freeze
+      STEP_ACTIONS = Domain::MacroStep::KEY_ACTIONS
 
       # 修飾キー（Domain::ModifierSet の名前）→ 左側の修飾キーの基本キーの値（右側は + 4）
       MODIFIER_CODES = { ctrl: 0xE0, shift: 0xE1, alt: 0xE2, gui: 0xE3 }.freeze

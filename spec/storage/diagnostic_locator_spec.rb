@@ -27,6 +27,13 @@ RSpec.describe Cornix::Storage::DiagnosticLocator do
     end
   end
 
+  it 'preset: のマクロ（sequence がない）の手順は preset' do
+    with_config_copy do |dir|
+      write_file(dir, 'macros/00_macro.yaml', "index: 0\npreset: 'macOS:テキスト:コピー'\n")
+      expect(described_class.new(dir).locate_path('macros[0].steps[1].keys[0]')).to eq('macros/00_macro.yaml: preset')
+    end
+  end
+
   it 'タップダンスの動作は actions: があれば actions の下' do
     expect(at('tap_dances[1].on_hold')).to eq('tap_dance/01_tap_dance.yaml: on_hold')
 

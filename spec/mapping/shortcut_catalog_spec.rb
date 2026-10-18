@@ -13,6 +13,14 @@ RSpec.describe Cornix::Mapping::ShortcutCatalog do
     end
   end
 
+  # 入れ子の中の { macro: [...] } の keys の表記すべて
+  def macro_keys_in(node)
+    return [] unless node.is_a?(Hash)
+    return node['macro'].flat_map { |step| Array(step['keys']) } if node.keys == ['macro']
+
+    node.values.flat_map { |value| macro_keys_in(value) }
+  end
+
   describe '同梱の data/shortcuts/' do
     subject(:catalog) { described_class.default }
 
@@ -32,10 +40,9 @@ RSpec.describe Cornix::Mapping::ShortcutCatalog do
       catalog.texts.each do |name, text|
         expect(notation.format(notation.parse(text))).to eq(text), name
       end
-      yaml = Dir[File.join(described_class::DIR, '*.yaml')].sum('') { |path| File.read(path) }
-      macro_keys = yaml.scan(/keys: (\[[^\]]*\]|[^ }]+)/).flatten.flat_map { |v| v.delete('[]').split(', ') }
+      macro_keys = Dir[File.join(described_class::DIR, '*.yaml')].flat_map { |path| macro_keys_in(YAML.safe_load_file(path)) }
       expect(macro_keys).not_to be_empty
-      macro_keys.map { |key| key.delete("'") }.each { |key| expect(notation.format(notation.parse(key))).to eq(key) }
+      macro_keys.each { |key| expect(notation.format(notation.parse(key))).to eq(key) }
     end
 
     it '複数の手順のもの（#13 で入れなかったもの）はマクロの定義で、preset で手順になる' do

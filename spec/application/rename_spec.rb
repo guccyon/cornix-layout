@@ -58,6 +58,18 @@ RSpec.describe Cornix::Application::RenameFiles do
     expect(outcome.updated_references).to include('shortcuts.yaml')
   end
 
+  it 'name を省いたプリセットのマクロは preset の名前の参照を書き換える' do
+    File.write(config_file('macros/20_capture.yml'), "index: 20\npreset: 'macOS:システム:ウィンドウキャプチャ'\n")
+    File.write(config_file('layers/0_base.yml'),
+               read_config('layers/0_base.yml').sub("tab: TapDance('Tab Escape')", "tab: Macro('macOS:システム:ウィンドウキャプチャ')"))
+    outcome = renamer.call([{ old_path: 'macros/20_capture.yml', new_basename: '20_window_capture.yml',
+                              content_updates: { name: 'Window Capture' } }])
+    expect(outcome).to be_success
+    expect(outcome.verified).to be(true)
+    expect(read_config('layers/0_base.yml')).to include("tab: Macro('Window Capture')")
+    expect(read_config('macros/20_window_capture.yml')).to include("name: Window Capture\n", 'preset: macOS:システム:ウィンドウキャプチャ')
+  end
+
   it '事前検証: 番号の接頭辞の違い、行き先の重複、ないファイル。何も変えない' do
     plans = [
       plan.merge('new_basename' => '08_clip.yml'),

@@ -1,6 +1,7 @@
 # Windows のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
 # Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Windows:システム:全画面キャプチャ')）。
 # 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+# 修飾キーは cornix の正規形で書いている（Command = Win / Super、Option = Alt）
 Windows:
   システム:
     全画面キャプチャ: Command + PrintScreen

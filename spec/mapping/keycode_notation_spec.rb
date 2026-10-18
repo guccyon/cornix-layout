@@ -181,7 +181,8 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
     it '定義にない名前・番号の引数は UnknownKeycode' do
       expect { notation.parse("Shortcut('nope')", references: shortcut_refs) }
         .to raise_error(Cornix::UnknownKeycode, /ショートカット「nope」は shortcuts.yaml にも同梱のショートカット（data\/shortcuts\/）にも定義されていません/)
-      expect { notation.parse("Shortcut('前のタブへ')") }.to raise_error(Cornix::UnknownKeycode, /定義されていません/)
+      expect { notation.parse("Shortcut('前のタブへ')") }
+        .to raise_error(Cornix::UnknownKeycode, /Shortcut\(...\) はここでは使えません/)
       expect { notation.parse('Shortcut(1)', references: shortcut_refs) }
         .to raise_error(Cornix::UnknownKeycode, /Shortcut\(...\) の引数は '名前' です/)
     end

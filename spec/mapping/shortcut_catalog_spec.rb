@@ -34,7 +34,7 @@ RSpec.describe Cornix::Mapping::ShortcutCatalog do
       end
     end
 
-    it 'library は notation ごとに 1 回だけ解析する' do
+    it 'library は直前と同じ notation なら解析し直さない' do
       expect(catalog.library(notation)).to equal(catalog.library(notation))
     end
   end
@@ -52,6 +52,8 @@ RSpec.describe Cornix::Mapping::ShortcutCatalog do
     expect { catalog_from('a.yaml' => "App:\n  X: Tab\n", 'b.yaml' => "App:\n  X: Esc\n") }
       .to raise_error(Cornix::ConfigError, /「App:X」が重複/)
     expect { catalog_from('a.yaml' => "App: [\n") }.to raise_error(Cornix::ConfigError)
+    expect { catalog_from('a.yaml' => "App:\n  X: NoSuchKey\n").library(notation) }
+      .to raise_error(Cornix::ConfigError, %r{/a\.yaml: ショートカット「App:X」: キーコード「NoSuchKey」を解釈できません})
     expect { described_class.new('App:X' => 'NoSuchKey').library(notation) }
       .to raise_error(Cornix::ConfigError, /ショートカット「App:X」: キーコード「NoSuchKey」を解釈できません/)
   end

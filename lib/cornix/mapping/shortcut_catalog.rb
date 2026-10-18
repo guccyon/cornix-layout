@@ -10,7 +10,7 @@ module Cornix
     #
     #   ShortcutCatalog.default                 同梱の表（プロセスで 1 回だけ読む）
     #   catalog.texts                           名前 => キーコードの表記（ファイル名順・定義順）
-    #   catalog.library(notation)               Domain::ShortcutLibrary（notation ごとに 1 回だけ解析する）
+    #   catalog.library(notation)               Domain::ShortcutLibrary（直前と同じ notation なら解析し直さない）
     #
     # 同梱データの誤り（形・名前の重複・解釈できない表記）は ConfigError
     class ShortcutCatalog
@@ -21,10 +21,11 @@ module Cornix
 
       def self.load(dir = DIR)
         texts = {}
+        paths = {}
         Dir[File.join(dir, '*.{yaml,yml}')].sort.each do |path|
-          flatten(read(path), [], path, texts)
+          flatten(read(path), [], path, texts, paths)
         end
-        new(texts)
+        new(texts, paths)
       end
 
       def self.read(path)
@@ -33,7 +34,7 @@ module Cornix
         raise ConfigError.new(e.message, path: path)
       end
 
-      def self.flatten(node, keys, path, texts)
+      def self.flatten(node, keys, path, texts, paths)
         where = keys.empty? ? 'ファイルの先頭' : keys.join(SEPARATOR)
         raise ConfigError.new("#{where} は空でない Hash にしてください", path: path) unless node.is_a?(Hash) && !node.empty?
 
@@ -43,36 +44,41 @@ module Cornix
           end
 
           names = keys + [key.strip]
-          next flatten(value, names, path, texts) if value.is_a?(Hash)
+          next flatten(value, names, path, texts, paths) if value.is_a?(Hash)
 
           name = names.join(SEPARATOR)
           raise ConfigError.new("「#{name}」の値はキーコードの表記（文字列）にしてください", path: path) unless value.is_a?(String)
           raise ConfigError.new("ショートカット「#{name}」が重複しています", path: path) if texts.key?(name)
 
           texts[name] = value
+          paths[name] = path
         end
       end
       private_class_method :read, :flatten
 
       attr_reader :texts
 
-      def initialize(texts = {})
+      # paths は名前 => 定義のあるファイル（エラーの場所に使う）
+      def initialize(texts = {}, paths = {})
         @texts = texts.dup.freeze
-        @libraries = {}
+        @paths = paths.dup.freeze
+        @library = nil
       end
 
       def library(notation)
-        @libraries[notation] ||= Domain::ShortcutLibrary.new(entries: @texts.to_h { |name, text| [name, parse(notation, name, text)] })
-      end
+        return @library.last if @library&.first.equal?(notation)
 
-      EMPTY = new
+        library = Domain::ShortcutLibrary.new(entries: @texts.to_h { |name, text| [name, parse(notation, name, text)] })
+        @library = [notation, library]
+        library
+      end
 
       private
 
       def parse(notation, name, text)
         notation.parse(text)
       rescue UnknownKeycode => e
-        raise ConfigError.new("ショートカット「#{name}」: #{e.message}", path: DIR)
+        raise ConfigError.new("ショートカット「#{name}」: #{e.message}", path: @paths[name])
       end
     end
   end

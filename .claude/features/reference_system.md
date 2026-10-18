@@ -55,6 +55,8 @@ cornixhub（https://cornixhub.com/shortcuts）で共有されているショー�
 - `Profile#shortcuts` は利用者の定義だけ。`Formatter`（`References#shortcut_name`）も利用者の定義だけを使う
   （同梱の定義も使うと、decompile で Command + B が `Shortcut('Xcode:一般:ビルド')` のように書かれてしまう）
 - 1 つのキーコードで表せないもの（連続して押す・押したまま操作する 6 件）は入れていない
+- `ShortcutCatalog` は `Application::Environment#shortcut_catalog` から `ConfigRepository` に渡す。マクロの keys など References::NONE の場面では
+  `Shortcut(...)` は「ここでは使えません」（`References#shortcuts_available?`）
 - データは cornixhub のページの JS から取り出したもの（2026-10-19）。英語版はなく、ラベルは日本語。アプリ名はサイトの英語表記
   （note は「メモ」と訳されているので note のまま）、訳のないカテゴリ window は「ウィンドウ」にした
 

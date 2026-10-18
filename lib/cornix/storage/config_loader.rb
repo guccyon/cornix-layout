@@ -14,7 +14,7 @@ module Cornix
     # キーコードの文字列は KeycodeNotation#parse で 1 回だけ解析する。
     # 問題はすべて集めて最後に 1 つの InvalidConfig にする（「ファイル: キーの位置: 内容」）
     class ConfigLoader
-      def initialize(dir, notation:, settings_catalog:, shortcut_catalog: Mapping::ShortcutCatalog.default)
+      def initialize(dir, notation:, settings_catalog:, shortcut_catalog:)
         @dir = dir
         @notation = notation
         @settings_catalog = settings_catalog
@@ -100,7 +100,7 @@ module Cornix
       # shortcuts を渡したときだけ同梱のショートカットも引けるようにする（shortcuts.yaml の値には Shortcut(...) を書けないため）
       def build_references(macro_files, tap_dance_files, shortcuts = nil)
         Mapping::References.new(macros: names(macro_files), tap_dances: names(tap_dance_files),
-                                shortcuts: shortcuts ? shortcuts.entries : {},
+                                shortcuts: shortcuts&.entries,
                                 preset_shortcuts: shortcuts ? @shortcut_catalog.library(@notation).entries : {})
       end
 

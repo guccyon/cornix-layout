@@ -106,6 +106,8 @@ module Cornix
 
         # Shortcut('名前') は shortcuts.yaml（なければ同梱の data/shortcuts/）の定義の Keycode そのもの
         def shortcut(name, refs)
+          fail!('Shortcut(...) はここでは使えません（マクロの keys など）') unless refs.shortcuts_available?
+
           refs.shortcut(name.strip) or
             fail!("ショートカット「#{name}」は shortcuts.yaml にも同梱のショートカット（data/shortcuts/）にも定義されていません")
         end

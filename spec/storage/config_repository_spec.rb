@@ -500,6 +500,16 @@ RSpec.describe Cornix::Storage::ConfigRepository do
       end
     end
 
+    it 'マクロの keys では使えない（同梱の名前でも「使えません」になる）' do
+      with_config_copy do |dir|
+        path = Dir[File.join(dir, 'macros', '*.yaml')].min
+        data = YAML.safe_load_file(path)
+        data['sequence'] = [{ 'action' => 'tap', 'keys' => ["Shortcut('Spotify:再生:次のクリップ')"] }]
+        File.write(path, data.to_yaml)
+        expect(load_problems(dir)).to include(match(/Shortcut\(...\) はここでは使えません/))
+      end
+    end
+
     it 'shortcuts.yaml の値からは参照できない（Shortcut(...) は書けない）' do
       with_config_copy do |dir|
         write_file(dir, 'shortcuts.yaml', "shortcuts:\n  次へ: Shortcut('Spotify:再生:次のクリップ')\n")

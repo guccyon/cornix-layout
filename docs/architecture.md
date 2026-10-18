@@ -20,7 +20,8 @@ cornix-layout の内部構造。設計の経緯は設計案ドキュメント（
 Interface       CLI (bin/cornix) ・ MCP サーバー
 Application     ユースケース（Compile / Decompile / Validate / Cleanup / Rename / Init / Device*）と Environment（DI）・
                 Workspace（使う設定ディレクトリと tmp/ の場所を決める）
-Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / MacroCodec / ProfileMapper
+Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / MacroCodec / ProfileMapper /
+                QmkSettingCatalog / ShortcutCatalog（同梱の data/*.yaml の表）
 Planning        ImageDiff / Change / Plan（DeviceImage どうしの差分と書き込み計画）
 Domain          Profile 集約と値オブジェクト（Keycode, ModifierSet, LayerRef, Layer, Macro, ...）。I/O なし
 Image           DeviceImage（16bit 値とバイト列のまま）。I/O なし

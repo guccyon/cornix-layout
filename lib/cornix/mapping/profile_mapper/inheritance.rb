@@ -10,6 +10,7 @@ module Cornix
       # - 注記: 同じ番号のものの同じ場所（キーの位置・エンコーダの操作・タップダンスの動作・コンボの出力）の注記。
       #   キーコードが変わっていない場所だけ引き継ぐ（注記はデバイスにないので、値が変われば意味も変わったとみなす）
       # - メタデータ: keyboard と extra（extra_keys 以外。file_naming / references など）
+      # - 名前付きショートカット（shortcuts.yaml。デバイスにはないので previous のものをそのまま使う）
       class Inheritance
         DEFAULT_NAMES = { layer: 'Layer', macro: 'Macro', tap_dance: 'TapDance', combo: 'Combo' }.freeze
 
@@ -33,6 +34,8 @@ module Cornix
 
         # previous の metadata の extra（順序を保つ。なければ空）
         def metadata_extra = @previous ? @previous.metadata.extra : {}
+
+        def shortcuts = @previous ? @previous.shortcuts : Domain::ShortcutLibrary::EMPTY
 
         private
 

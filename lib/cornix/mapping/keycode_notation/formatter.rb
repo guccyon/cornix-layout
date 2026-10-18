@@ -8,6 +8,7 @@ module Cornix
     class KeycodeNotation
       # Domain::Keycode → 設定ファイルの正規形。
       #
+      #   ショートカットの定義のちょうど 1 つと同じ値  Shortcut('名前')（references にショートカットがあるときだけ）
       #   別名がある値            別名リストの先頭（catalog.preferred_alias）       Escape, "!", BT0
       #   別名のない基本・特殊キー Vial 名                                         KC_KP_0, QK_REBOOT
       #   別名のない Modified     修飾キー式（Ctrl, Option, Shift, Command の順）   Shift + Command + Enter
@@ -36,6 +37,9 @@ module Cornix
         end
 
         def format(keycode, references)
+          shortcut = references.shortcut_name(keycode)
+          return reference('Shortcut', shortcut) if shortcut
+
           case keycode
           when K::MacroCall then reference('Macro', references.macro_name(keycode.index)) || "M#{keycode.index}"
           when K::TapDanceCall then reference('TapDance', references.tap_dance_name(keycode.index)) || "TD(#{keycode.index})"

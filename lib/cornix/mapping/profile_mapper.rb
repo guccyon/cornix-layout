@@ -9,7 +9,8 @@ module Cornix
     #   未使用のマクロは []、タップダンスは KC_NO × 4 + DEFAULT_TAPPING_TERM、コンボは 0 × (combo_keys + 1)
     # - to_profile: イメージを解釈して Profile にする。previous（設定ファイルから読んだ Profile）があれば
     #   同じ番号のレイヤー・マクロ・タップダンス・コンボの名前と説明、キーコードが変わっていない場所の注記、
-    #   メタデータの keyboard と extra_keys 以外の項目を引き継ぐ（Inheritance）。解釈できない 16bit 値は Keycode::Raw のまま持つ
+    #   メタデータの keyboard と extra_keys 以外の項目、名前付きショートカットを引き継ぐ（Inheritance）。
+    #   解釈できない 16bit 値は Keycode::Raw のまま持つ
     class ProfileMapper
       # 未使用のタップダンスの枠に書くタッピング時間（旧 TapDanceCollection#to_qmk_array の既定値）
       DEFAULT_TAPPING_TERM = 250

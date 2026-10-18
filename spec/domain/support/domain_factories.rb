@@ -50,8 +50,9 @@ module DomainFactories
 
   def build_metadata = D::Metadata.new(keyboard: 'cornix', version: 1)
 
-  def build_profile(layers: [build_layer], macros: [], tap_dances: [], combos: [], position_map: self.position_map)
+  def build_profile(layers: [build_layer], macros: [], tap_dances: [], combos: [], position_map: self.position_map,
+                    shortcuts: D::ShortcutLibrary::EMPTY)
     D::Profile.new(metadata: build_metadata, settings: D::QmkSettings::EMPTY, position_map: position_map,
-                   layers: layers, macros: macros, tap_dances: tap_dances, combos: combos)
+                   layers: layers, macros: macros, tap_dances: tap_dances, combos: combos, shortcuts: shortcuts)
   end
 end

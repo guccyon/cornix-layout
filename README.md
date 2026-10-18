@@ -12,6 +12,7 @@ Vial の `layout.vil` は直接編集しにくいため、YAML の設定ファ�
 - 🔤 **エイリアス**: `KC_TAB` → `Tab`、`KC_TRNS` → `Trans`、`LSFT(KC_1)` → `!` のような読みやすい名前で書けます
 - ⌨️ **修飾キー表現**: `Cmd + Q`、`Ctrl + Shift + F` のような VS Code 風の書き方ができます
 - 🏷️ **名前で参照**: `Macro('Bracket Pair')`、`TapDance('Tab Escape')` のように名前でマクロ・タップダンスを指定できます
+- 🔖 **名前付きショートカット**: `shortcuts.yaml` に `前のタブへ: Command + Shift + [` のように定義し、`Shortcut('前のタブへ')` で何か所でも使えます
 - 🔄 **双方向変換**: `layout.vil` ⇔ YAML。decompile → compile で 16bit 値が元と一致します
 - ✅ **検証**: compile の前に、YAML の構造とキーコード・参照・件数の上限などをすべて検査し、問題を「ファイル: 場所: 内容」でまとめて表示します
 - 🔌 **キーボードへ直接反映**: Vial Web を使わずに CLI / MCP サーバーから差分だけを書き込めます（[詳細](#キーボードへの直接反映vial-web-不要)）
@@ -138,6 +139,7 @@ config/
 ├── position_map.yaml          # キーの名前と物理位置の対応
 ├── settings/
 │   └── qmk_settings.yaml      # QMK Settings（tapping_term など）
+├── shortcuts.yaml             # 名前付きショートカット（任意。decompile は作らず、自分で作る）
 ├── layers/
 │   ├── 0_layer.yaml           # レイヤー 0
 │   └── ...                    # レイヤー 1〜9
@@ -331,6 +333,37 @@ sequence:
 - `'` を含む名前は `"..."` で囲みます（`Macro("Rock'n Roll")`）
 - `Combo(...)` は layout.vil のキーに割り当てられないので使えません（検証エラー）
 - マクロの中（`sequence` の `keys`）では名前参照は使えません
+
+### 名前付きショートカット（`shortcuts.yaml`）
+
+同じショートカットを何か所でも使うときや、キーの組み合わせより意味で書きたいときは、`config/shortcuts.yaml` に名前を付けて定義し、`Shortcut('名前')` で参照します。
+
+```yaml
+# config/shortcuts.yaml
+shortcuts:
+  前のタブへ: Command + Shift + [
+  次のタブへ: Command + Shift + ]
+  ウインドウを左半分に: Ctrl + Option + Left
+  括弧のペア: Macro('Bracket Pair')    # マクロ・タップダンスの名前参照も書ける
+```
+
+```yaml
+# config/layers/0_base.yaml
+mapping:
+  left_hand:
+    row0:
+      Q: Shortcut('前のタブへ')
+      W: Shortcut('次のタブへ')
+  encoders:
+    left: { push: Shortcut('ウインドウを左半分に'), ccw: VolumeDown, cw: VolumeUp }
+```
+
+- `Shortcut('名前')` は定義したキーコードそのものになります（layout.vil には直接書いたときと同じ値が入ります）
+- レイヤーのキー・エンコーダ、タップダンスの動作、コンボのトリガーと出力で使えます。関数の引数の中でも使えます（`LT1(Shortcut('名前'))`。ただしその場所に書けるキーを定義したときだけで、`LT1(...)` なら基本キー）
+- 定義にない名前を参照すると検証エラーです
+- `shortcuts.yaml` の値には `Shortcut(...)` は書けません。マクロの中（`sequence` の `keys`）でも使えません
+- `shortcuts.yaml` は任意です。decompile は作らず、読みも変えもしません（layout.vil には名前がないため）
+- `cornix rename` でマクロ・タップダンスの名前を変えると、`shortcuts.yaml` の中の `Macro('名前')` / `TapDance('名前')` も書き換わります
 
 ### layout.vil に変換する
 

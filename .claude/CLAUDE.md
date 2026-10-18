@@ -10,7 +10,7 @@
 - **座標系**: [architecture/coordinate_system.md](architecture/coordinate_system.md)（論理位置と layout.vil の物理位置）
 - **背景**: [context/project_background.md](context/project_background.md)
 - **Features**:
-  - [Reference System](features/reference_system.md) - Macro / TapDance の参照
+  - [Reference System](features/reference_system.md) - Macro / TapDance / Shortcut の参照
   - [Modifier Expressions](features/modifier_expressions.md) - VS Code 風修飾キー表現
   - [Rename](features/rename.md) - `cornix rename` と `bin/rename_file`
   - [Validation](features/validation.md) - 構造検証と意味検証
@@ -21,6 +21,7 @@
   - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
   - [vial_qmk_settings_restore_issue](memories/vial_qmk_settings_restore_issue.md) - permissive_hold が復元されない件
   - [key_notes](memories/key_notes.md) - 割り当ての注記（`{ key:, note: }`）の持ち方と引き継ぎ
+  - [named_shortcuts](memories/named_shortcuts.md) - Shortcut('名前') を nape_pro-layout から移植したときの判断
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---
@@ -59,7 +60,7 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
 - `cornix pull` / `status` / `apply` / `restore`: compile・decompile と `cornix device` を組み合わせたショートカット
   （compile の出力は `tmp/build/layout.vil`、pull は `tmp/layout.vil` に読み出してから decompile）
 - `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
-- 名前参照（`Macro('名前')`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
+- 名前参照（`Macro('名前')`）、名前付きショートカット（`Shortcut('名前')`、`config/shortcuts.yaml`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
 - decompile → compile で 16bit 値が元と一致する
 
 ## Architecture

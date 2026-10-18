@@ -12,6 +12,7 @@ Vial's `layout.vil` is hard to edit by hand, so this tool manages the layout as 
 - 🔤 **Aliases**: Write readable names such as `KC_TAB` → `Tab`, `KC_TRNS` → `Trans`, `LSFT(KC_1)` → `!`
 - ⌨️ **Modifier expressions**: VS Code-style notation such as `Cmd + Q` and `Ctrl + Shift + F`
 - 🏷️ **Name-based references**: Refer to macros and tap dances by name, e.g. `Macro('Bracket Pair')`, `TapDance('Tab Escape')`
+- 🔖 **Named shortcuts**: Define `Previous Tab: Command + Shift + [` in `shortcuts.yaml` and use `Shortcut('Previous Tab')` anywhere
 - 🔄 **Bidirectional conversion**: `layout.vil` ⇔ YAML. decompile → compile reproduces the original 16-bit values
 - ✅ **Validation**: Before compiling, the YAML structure, keycodes, references, and limits are all checked, and every problem is reported as "file: location: message"
 - 🔌 **Direct keyboard updates**: Write only the differences from the CLI or an MCP server, without Vial Web ([details](#direct-keyboard-updates-no-vial-web))
@@ -140,6 +141,7 @@ config/
 ├── position_map.yaml          # key names ⇔ physical positions
 ├── settings/
 │   └── qmk_settings.yaml      # QMK Settings (tapping_term, etc.)
+├── shortcuts.yaml             # named shortcuts (optional; not created by decompile, you write it)
 ├── layers/
 │   ├── 0_layer.yaml           # layer 0
 │   └── ...                    # layers 1-9
@@ -333,6 +335,37 @@ In key assignments (layer keys and encoders, tap dance actions, combo triggers a
 - Wrap names containing `'` in `"..."` (`Macro("Rock'n Roll")`)
 - `Combo(...)` cannot be assigned to a key in layout.vil and is not supported (validation error)
 - Name-based references cannot be used inside macros (`keys` of `sequence`)
+
+### Named Shortcuts (`shortcuts.yaml`)
+
+When you use the same shortcut in several places, or want to write what a key means rather than its key combination, give it a name in `config/shortcuts.yaml` and refer to it with `Shortcut('name')`.
+
+```yaml
+# config/shortcuts.yaml
+shortcuts:
+  Previous Tab: Command + Shift + [
+  Next Tab: Command + Shift + ]
+  Tile Window Left: Ctrl + Option + Left
+  Bracket Pair: Macro('Bracket Pair')    # name-based macro / tap dance references are allowed
+```
+
+```yaml
+# config/layers/0_base.yaml
+mapping:
+  left_hand:
+    row0:
+      Q: Shortcut('Previous Tab')
+      W: Shortcut('Next Tab')
+  encoders:
+    left: { push: Shortcut('Tile Window Left'), ccw: VolumeDown, cw: VolumeUp }
+```
+
+- `Shortcut('name')` becomes the defined keycode itself (layout.vil gets the same value as writing the keycode directly)
+- It can be used in layer keys and encoders, tap dance actions, and combo triggers and output, including inside function arguments (`LT1(Shortcut('name'))`, as long as the definition is a key allowed there; for `LT1(...)` a basic key)
+- Referring to an undefined name is a validation error
+- Values in `shortcuts.yaml` cannot use `Shortcut(...)`, and shortcuts cannot be used inside macros (`keys` of `sequence`)
+- `shortcuts.yaml` is optional. decompile neither creates, reads, nor changes it (layout.vil has no names)
+- When `cornix rename` renames a macro or tap dance, `Macro('name')` / `TapDance('name')` inside `shortcuts.yaml` are rewritten too
 
 ### Converting to layout.vil
 

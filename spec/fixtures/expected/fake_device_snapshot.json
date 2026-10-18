@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "uid": 578437695752307201,
+  "vial_protocol": 6,
+  "via_protocol": 9,
+  "settings": {
+    "2": 50,
+    "7": 200,
+    "22": 0
+  },
+  "layout": [
+    [
+      [
+        "KC_A",
+        "KC_NO",
+        "KC_NO"
+      ],
+      [
+        "KC_NO",
+        "KC_NO",
+        -1
+      ]
+    ],
+    [
+      [
+        "KC_NO",
+        "KC_NO",
+        "KC_NO"
+      ],
+      [
+        "KC_NO",
+        "LSFT(KC_A)",
+        -1
+      ]
+    ]
+  ],
+  "encoder_layout": [
+    [
+      [
+        "KC_VOLD",
+        "KC_VOLU"
+      ]
+    ],
+    [
+      [
+        "KC_VOLD",
+        "KC_VOLU"
+      ]
+    ]
+  ],
+  "macro": [
+    [
+      [
+        "tap",
+        "KC_B"
+      ]
+    ],
+    [],
+    [],
+    []
+  ],
+  "tap_dance": [
+    [
+      "KC_NO",
+      "KC_NO",
+      "KC_NO",
+      "KC_NO",
+      250
+    ],
+    [
+      "KC_B",
+      "MO(1)",
+      "KC_NO",
+      "KC_NO",
+      180
+    ]
+  ],
+  "combo": [
+    [
+      "KC_NO",
+      "KC_NO",
+      "KC_NO",
+      "KC_NO",
+      "KC_NO"
+    ],
+    [
+      "KC_NO",
+      "KC_NO",
+      "KC_NO",
+      "KC_NO",
+      "KC_NO"
+    ]
+  ],
+  "layout_options": 0,
+  "alt_repeat_key": [],
+  "key_override": []
+}

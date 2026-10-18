@@ -1,0 +1,15 @@
+---
+index: 7
+name: Macro 7
+description: ''
+sequence:
+- action: down
+  keys:
+  - LGui
+- action: tap
+  keys:
+  - Space
+  - '4'
+- action: up
+  keys:
+  - LGui

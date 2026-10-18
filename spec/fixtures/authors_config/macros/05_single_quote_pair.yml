@@ -1,0 +1,11 @@
+---
+name: Single Quote Pair
+description: シングルクォートペア '' を挿入してカーソルを内側に配置
+enabled: true
+index: 5
+sequence:
+- action: tap
+  keys:
+  - KC_QUOTE
+  - KC_QUOTE
+  - KC_LEFT

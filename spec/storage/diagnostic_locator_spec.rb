@@ -29,7 +29,6 @@ RSpec.describe Cornix::Storage::DiagnosticLocator do
 
   it 'タップダンスの動作は actions: があれば actions の下' do
     expect(at('tap_dances[1].on_hold')).to eq('tap_dance/01_tap_dance.yaml: on_hold')
-    skip 'authors-keymap の config がありません' unless File.directory?(StorageHelpers::AUTHORS_CONFIG)
 
     with_config_copy(StorageHelpers::AUTHORS_CONFIG) do |dir|
       expect(described_class.new(dir).locate_path('tap_dances[1].on_hold'))

@@ -7,8 +7,10 @@ require 'yaml'
 # spec/storage で使う道具
 module StorageHelpers
   TEST_CONFIG = File.expand_path('../../fixtures/test_config', __dir__)
-  AUTHORS_CONFIG = File.expand_path('../../../../../authors-keymap/config', __dir__)
-  BASELINE_VIL = File.expand_path('../../../../domain-architecture/tmp/baseline/layout.vil', __dir__)
+  # authors-keymap の config の複写と、それを旧コードで compile / decompile した結果
+  AUTHORS_CONFIG = File.expand_path('../../fixtures/authors_config', __dir__)
+  AUTHORS_DECOMPILED_CONFIG = File.expand_path('../../fixtures/authors_decompiled_config', __dir__)
+  BASELINE_VIL = File.expand_path('../../fixtures/authors_baseline.vil', __dir__)
 
   def notation = Cornix::Mapping::KeycodeNotation.new
   def settings_catalog = Cornix::Mapping::QmkSettingCatalog.default

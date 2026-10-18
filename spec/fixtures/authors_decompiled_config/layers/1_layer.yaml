@@ -1,0 +1,74 @@
+---
+name: Layer 1
+description: ''
+index: 1
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: "?"
+      W: "\""
+      E: =
+      R: NoKey
+      T: "~"
+    row1:
+      caps: Trans
+      A: "@"
+      S: "'"
+      D: $
+      F: /
+      G: "`"
+    row2:
+      lshift: Trans
+      Z: NoKey
+      X: "!"
+      C: ^
+      V: "|"
+      B: "\\"
+    row3:
+      lctrl: NoKey
+      command: NoKey
+      option: Trans
+    thumb_keys:
+      left: Trans
+      middle: Space
+      right: NoKey
+  right_hand:
+    row0:
+      "Y": ¥
+      U: _
+      I: (
+      O: )
+      P: "%"
+      backspace: "-"
+    row1:
+      H: "#"
+      J: +
+      K: "["
+      L: "]"
+      colon: ":"
+      enter: ";"
+    row2:
+      "N": "&"
+      M: "-"
+      comma: "{"
+      dot: "}"
+      up: /
+      rshift: Trans
+    row3:
+      left: HYPR(KC_LEFT)
+      down: HYPR(KC_ENTER)
+      right: HYPR(KC_RIGHT)
+    thumb_keys:
+      left: SGUI(KC_ENTER)
+      middle: LGUI(KC_SPACE)
+      right: NoKey
+  encoders:
+    left:
+      push: MediaPlayPause
+      ccw: MediaRewind
+      cw: MediaFastForward
+    right:
+      push: LGUI(KC_0)
+      ccw: LGUI(KC_MINUS)
+      cw: LGUI(LSFT(KC_EQUAL))

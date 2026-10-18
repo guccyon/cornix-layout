@@ -17,7 +17,7 @@ RSpec.describe 'end-to-end（cornix compile / decompile）' do
 
   def cornix(*argv)
     out = StringIO.new
-    status = Cornix::Interface::Cli::Main.new(env_factory: -> { env }, out: out, err: out, input: StringIO.new).run(argv)
+    status = Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, out: out, err: out, input: StringIO.new).run(argv)
     [status, out.string]
   end
 
@@ -41,7 +41,7 @@ RSpec.describe 'end-to-end（cornix compile / decompile）' do
   it 'bin/cornix をコピーした場所で compile / validate を実行できる（root は bin/ の親）' do
     %w[bin lib data].each { |dir| FileUtils.cp_r(File.join(repo, dir), File.join(@root, dir)) }
     install_config('authors_config')
-    run = ->(*args) { Open3.capture2e(RbConfig.ruby, '-EUTF-8', File.join(@root, 'bin/cornix'), *args) }
+    run = ->(*args) { Open3.capture2e(RbConfig.ruby, '-EUTF-8', File.join(@root, 'bin/cornix'), *args, chdir: @root) }
     output, status = run.('compile')
     expect(status.exitstatus).to eq(0), output
     expect(output).to include("✓ Compilation completed: #{File.join(File.realpath(@root), 'tmp/build/layout.vil')}")

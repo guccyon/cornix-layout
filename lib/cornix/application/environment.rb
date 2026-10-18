@@ -13,20 +13,30 @@ module Cornix
     # claude は rename の提案を作る Claude CLI（#available? と #run(prompt) → [成功, 出力]）。テストでは差し替える。
     #
     # 場所の既定値: config_dir = root/config、tmp_dir = root/tmp、
-    # layout_path = root/tmp/build/layout.vil（compile の出力。status / apply / device diff などの既定の入力）、
-    # decompile_input = root/tmp/layout.vil（decompile の既定の入力。pull がデバイスから読んだ状態もここに書く）、
-    # backup_dir = root/tmp/device_backups。
+    # layout_path = tmp_dir/build/layout.vil（compile の出力。status / apply / device diff などの既定の入力）、
+    # decompile_input = tmp_dir/layout.vil（decompile の既定の入力。pull がデバイスから読んだ状態もここに書く）、
+    # backup_dir = tmp_dir/device_backups。
     # position_map のテンプレートは root によらず lib/cornix/position_map.yaml
+    #
+    # CLI は Environment.for(workspace) で作る（Workspace が設定ディレクトリと tmp/ の場所を決める）
     class Environment
       POSITION_MAP_TEMPLATE = File.join(Cornix::ROOT, 'lib', 'cornix', 'position_map.yaml')
 
-      attr_reader :root, :config_dir, :layout_path, :backup_dir, :tmp_dir, :decompile_input, :position_map_template
+      attr_reader :root, :config_dir, :layout_path, :backup_dir, :tmp_dir, :decompile_input, :position_map_template,
+                  :workspace
 
-      def initialize(root: Cornix::ROOT, config_dir: nil, layout_path: nil, backup_dir: nil, device_opener: nil,
-                     claude: nil, position_map_template: POSITION_MAP_TEMPLATE)
+      # tmp のファイルは workspace.tmp_dir の下に置く（<root>/config なら <root>/tmp のまま。
+      # ほかの設定ディレクトリでは tmp/profiles/<名前>/ に分け、設定ごとに混ざらないようにする）
+      def self.for(workspace, **opts)
+        new(root: workspace.root, config_dir: workspace.config_dir, tmp_dir: workspace.tmp_dir, workspace: workspace, **opts)
+      end
+
+      def initialize(root: Cornix::ROOT, config_dir: nil, layout_path: nil, backup_dir: nil, tmp_dir: nil,
+                     device_opener: nil, claude: nil, position_map_template: POSITION_MAP_TEMPLATE, workspace: nil)
         @root = root.to_s
+        @workspace = workspace
         @config_dir = (config_dir || File.join(@root, 'config')).to_s
-        @tmp_dir = File.join(@root, 'tmp')
+        @tmp_dir = (tmp_dir || File.join(@root, 'tmp')).to_s
         @layout_path = (layout_path || File.join(@tmp_dir, 'build', 'layout.vil')).to_s
         @decompile_input = File.join(@tmp_dir, 'layout.vil')
         @backup_dir = (backup_dir || File.join(@tmp_dir, 'device_backups')).to_s

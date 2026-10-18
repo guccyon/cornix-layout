@@ -3,22 +3,18 @@
 require 'spec_helper'
 require 'json'
 require_relative 'support/storage_helpers'
-require_relative '../../lib/cornix/device/keycodes'
+require_relative '../mapping/support/vil_image'
 
-# authors-keymap の config を読み込んだ Profile が、旧コードで compile した tmp/baseline/layout.vil と
-# 16bit 値で一致すること（ProfileMapper の代わりに、位置ごとに codec.encode と旧 Device::Keycodes#encode を比べる）
+# authors-keymap の config（spec/fixtures/authors_config）を読み込んだ Profile が、旧コードで compile した
+# spec/fixtures/authors_baseline.vil と 16bit 値で一致すること（ProfileMapper の代わりに、位置ごとに codec.encode と
+# 旧 Device::Keycodes#encode で求めて保存した値 spec/fixtures/expected/authors_baseline.values.json を比べる）
 RSpec.describe 'Storage::ConfigRepository と旧 compile の結果（authors-keymap）' do
   include StorageHelpers
-
-  before do
-    skip 'authors-keymap の config がありません' unless File.directory?(StorageHelpers::AUTHORS_CONFIG)
-    skip 'tmp/baseline/layout.vil がありません' unless File.file?(StorageHelpers::BASELINE_VIL)
-  end
 
   let(:profile) { repository(StorageHelpers::AUTHORS_CONFIG).load }
   let(:vil) { JSON.parse(File.read(StorageHelpers::BASELINE_VIL)) }
   let(:codec) { Cornix::Mapping::KeycodeCodec.new }
-  let(:old) { Cornix::Device::Keycodes.new }
+  let(:values) { VilImage.values('authors_baseline') }
 
   def code(keycode) = codec.encode(keycode)
 
@@ -32,8 +28,7 @@ RSpec.describe 'Storage::ConfigRepository と旧 compile の結果（authors-key
       layer = profile.layer(index)
       map.positions.filter_map do |pos|
         row, col = map.matrix(pos)
-        cell = rows[row][col]
-        expected = cell == -1 ? nil : old.encode(cell)
+        expected = values['layout'][index][row][col]
         actual = layer.key(pos)&.then { |k| code(k) }
         "layer #{index} #{map.path(pos)}: 旧 #{expected.inspect} / 新 #{actual.inspect}" unless actual == expected
       end
@@ -48,16 +43,14 @@ RSpec.describe 'Storage::ConfigRepository と旧 compile の結果（authors-key
       %i[left right].each_with_index do |side, i|
         row, col = profile.position_map.encoder_push_matrix(side)
         binding = layer.encoder(side)
-        expect(code(binding.push)).to eq(old.encode(rows[row][col]))
-        expect([code(binding.ccw), code(binding.cw)]).to eq(vil['encoder_layout'][index][i].map { |c| old.encode(c) })
+        expect(code(binding.push)).to eq(values['layout'][index][row][col])
+        expect([code(binding.ccw), code(binding.cw)]).to eq(values['encoder_layout'][index][i])
       end
     end
   end
 
   it 'マクロが一致する' do
-    expected = vil['macro'].each_with_index.reject { |steps, _| steps.empty? }.to_h do |steps, index|
-      [index, steps.map { |kind, *rest| [kind, *(%w[tap down up].include?(kind) ? rest.map { |k| old.encode(k) } : rest)] }]
-    end
+    expected = values['macro'].each_with_index.reject { |steps, _| steps.empty? }.to_h { |steps, index| [index, steps] }
     actual = profile.macros.to_h do |macro|
       [macro.index, macro.steps.map do |step|
         case step
@@ -74,7 +67,8 @@ RSpec.describe 'Storage::ConfigRepository と旧 compile の結果（authors-key
     profile.tap_dances.each do |td|
       expected = vil['tap_dance'][td.index]
       actual = td.actions.values.map { |k| code(k) } + [td.tapping_term]
-      expect(actual).to eq(expected[0, 4].map { |c| old.encode(c) } + [expected[4]])
+      expect(actual).to eq(values['tap_dance'][td.index])
+      expect(expected[4]).to eq(td.tapping_term)
     end
     unused = vil['tap_dance'].each_index.to_a - profile.tap_dances.map(&:index)
     expect(unused.map { |i| vil['tap_dance'][i] }).to all(eq(['KC_NO', 'KC_NO', 'KC_NO', 'KC_NO', 250]))
@@ -82,7 +76,7 @@ RSpec.describe 'Storage::ConfigRepository と旧 compile の結果（authors-key
 
   it 'コンボが一致する' do
     profile.combos.each do |combo|
-      expected = vil['combo'][combo.index].map { |c| old.encode(c) }
+      expected = values['combo'][combo.index]
       triggers = combo.trigger_keys.map { |k| code(k) }
       expect(triggers + ([0] * (4 - triggers.size)) + [code(combo.output_key)]).to eq(expected)
     end
@@ -98,11 +92,8 @@ RSpec.describe 'Storage::ConfigRepository と旧 compile の結果（authors-key
     expect(metadata.extra_keys).to eq(vil.slice('layout_options', 'alt_repeat_key', 'key_override'))
   end
 
-  it '旧 decompile の出力（tmp/baseline/decompiled_config）も読めて、キーコードが同じになる' do
-    old_dir = File.join(File.dirname(StorageHelpers::BASELINE_VIL), 'decompiled_config')
-    skip 'decompiled_config がありません' unless File.directory?(old_dir)
-
-    decompiled = repository(old_dir).load
+  it '旧 decompile の出力（spec/fixtures/authors_decompiled_config）も読めて、キーコードが同じになる' do
+    decompiled = repository(StorageHelpers::AUTHORS_DECOMPILED_CONFIG).load
     expect(decompiled.layers.map { |l| [l.keys, l.encoders] }).to eq(profile.layers.map { |l| [l.keys, l.encoders] })
     expect(decompiled.macros.map(&:steps)).to eq(profile.macros.map(&:steps))
     expect(decompiled.tap_dances.map(&:actions)).to eq(profile.tap_dances.map(&:actions))

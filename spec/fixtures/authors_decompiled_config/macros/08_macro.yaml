@@ -1,0 +1,18 @@
+---
+index: 8
+name: Macro 8
+description: ''
+sequence:
+- action: down
+  keys:
+  - LShift
+- action: tap
+  keys:
+  - "'"
+  - "'"
+- action: up
+  keys:
+  - LShift
+- action: tap
+  keys:
+  - Left

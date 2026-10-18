@@ -1,0 +1,18 @@
+---
+index: 3
+name: Macro 3
+description: ''
+sequence:
+- action: down
+  keys:
+  - LGui
+- action: tap
+  keys:
+  - D
+  - C
+- action: up
+  keys:
+  - LGui
+- action: tap
+  keys:
+  - Right

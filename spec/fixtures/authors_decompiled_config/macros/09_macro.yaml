@@ -1,0 +1,15 @@
+---
+index: 9
+name: Macro 9
+description: ''
+sequence:
+- action: text
+  content: "``````"
+- action: tap
+  keys:
+  - Left
+  - Left
+  - Left
+  - Enter
+  - Enter
+  - Up

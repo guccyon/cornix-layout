@@ -1,0 +1,17 @@
+---
+index: 2
+name: Macro 2
+description: ''
+sequence:
+- action: down
+  keys:
+  - LGui
+- action: tap
+  keys:
+  - C
+- action: up
+  keys:
+  - LGui
+- action: tap
+  keys:
+  - Right

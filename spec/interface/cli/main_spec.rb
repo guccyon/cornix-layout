@@ -14,7 +14,7 @@ RSpec.describe Cornix::Interface::Cli::Main do
   end
 
   it 'コマンドの表は名前 → Command のクラス' do
-    expect(described_class::COMMANDS.keys).to eq(%w[device mcp])
+    expect(described_class::COMMANDS.keys).to eq(%w[compile decompile validate rename cleanup device mcp])
     expect(described_class::COMMANDS.values).to all(be < Cornix::Interface::Cli::Command)
   end
 

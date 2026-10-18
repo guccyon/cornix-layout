@@ -1,0 +1,10 @@
+---
+index: 0
+name: Combo 0
+description: ''
+trigger_keys:
+- KC_K
+- KC_L
+- KC_NO
+- KC_NO
+output_key: M0

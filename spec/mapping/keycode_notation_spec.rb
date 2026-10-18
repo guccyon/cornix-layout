@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../lib/cornix/modifier_expression_compiler'
 
 RSpec.describe Cornix::Mapping::KeycodeNotation do
   subject(:notation) { described_class.new }
@@ -78,7 +77,9 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
 
     it '旧 ModifierExpressionCompiler が受け付けた修飾名をすべて受け付ける' do
       expect(described_class::Modifiers::EXPRESSION.keys)
-        .to include(*Cornix::ModifierExpressionCompiler::MODIFIER_TO_FUNCTION.keys)
+        .to include('Shift', 'LShift', 'Ctrl', 'LCtrl', 'Control', 'LControl', 'Alt', 'LAlt', 'Option', 'LOption',
+                    'Cmd', 'LCmd', 'Command', 'LCommand', 'Win', 'LWin', 'Gui', 'LGui', 'RShift', 'RCtrl', 'RControl',
+                    'RAlt', 'ROption', 'RCmd', 'RCommand', 'RWin', 'RGui')
     end
 
     # 旧実装は LCS / LCSG / LSAG / RCSG / RCAG / RSAG / RCA / RSG / RAG を書き出し（.vil で解釈できない）、

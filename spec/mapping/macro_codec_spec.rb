@@ -2,8 +2,7 @@
 
 require 'spec_helper'
 require 'json'
-require_relative '../../lib/cornix/device/keycodes'
-require_relative '../../lib/cornix/device/macro_codec'
+require_relative 'support/vil_image'
 
 RSpec.describe Cornix::Mapping::MacroCodec do
   subject(:codec) { described_class.new }
@@ -68,49 +67,28 @@ RSpec.describe Cornix::Mapping::MacroCodec do
     expect(codec.decode([1, 9, 0x61, 1].pack('C*'))).to eq([action(:text, 'a')])
   end
 
+  # 旧 Device::MacroCodec が書いたバイト列（spec/fixtures/expected/macro_buffers.json に保存したもの）と比べる
   describe '旧 Device::MacroCodec との一致' do
-    keycodes = Cornix::Device::Keycodes.new
-    old = Cornix::Device::MacroCodec.new(keycodes)
-    sources = [
-      File.expand_path('../fixtures/layout.vil', __dir__),
-      File.expand_path('../../../domain-architecture/tmp/baseline/layout.vil', __dir__)
-    ].select { |path| File.exist?(path) }
+    expected = JSON.parse(File.read(File.join(VilImage::FIXTURES, 'expected', 'macro_buffers.json')))
+    to_actions = ->(macros) { macros.map { |m| m.map { |step| VilImage.macro_action(step) } } }
 
-    to_actions = lambda do |macro|
-      macro.map do |tag, *args|
-        case tag
-        when 'tap', 'down', 'up'
-          Cornix::Image::MacroAction.new(kind: tag.to_sym, keys: args.map { |k| keycodes.encode(k) })
-        else
-          Cornix::Image::MacroAction.new(kind: tag.to_sym, value: args.first)
-        end
-      end
-    end
-
-    sources.each do |path|
-      it "#{File.basename(File.dirname(path))}/#{File.basename(path)} のマクロで同じバイト列と同じ解読結果になる" do
-        # 旧 Device::Keycodes が知らない名前（KC_LEFT_PAREN など）を含むマクロは比較できないので空にする
-        macros = JSON.parse(File.read(path, encoding: 'UTF-8')).fetch('macro').map do |m|
-          old.encode(m)
-          m
-        rescue Cornix::Device::Keycodes::UnknownKeycode
-          []
-        end
+    VilImage::NAMES.each do |name|
+      it "spec/fixtures/#{name}.vil のマクロで同じバイト列になり、解読すると元に戻る" do
+        # 旧 Device::Keycodes が知らない名前（KC_LEFT_PAREN など）を含むマクロは旧コードで比較できなかったので空にする
+        skipped = expected.dig(name, 'skipped')
+        macros = VilImage.load(name).macros.each_with_index.map { |m, i| skipped.include?(i) ? [] : m }
         expect(macros.count { |m| !m.empty? }).to be >= 10
-        buffer = codec.encode_all(macros.map { |m| to_actions.call(m) })
-        expect(buffer).to eq(old.encode_all(macros))
-        expect(codec.decode_all(buffer, macros.size)).to eq(old.decode_all(buffer, macros.size).map { |m| to_actions.call(m) })
+        buffer = codec.encode_all(macros)
+        expect(buffer.unpack1('H*')).to eq(expected.dig(name, 'buffer'))
+        expect(codec.decode_all(buffer, macros.size)).to eq(macros)
       end
     end
 
     it '合成したマクロ（拡張コード・delay・ばらばらの tap）でも一致する' do
-      macros = [
-        [%w[tap KC_A], %w[tap KC_B], ['delay', 254], ['delay', 255], %w[down LSFT(KC_NO)], %w[up LSFT(KC_2)]],
-        [['text', 'x'], ['text', 'y'], %w[tap LT1(KC_SPACE) MO(3)]]
-      ]
-      buffer = codec.encode_all(macros.map { |m| to_actions.call(m) })
-      expect(buffer).to eq(old.encode_all(macros))
-      expect(codec.decode_all(buffer, 2)).to eq(old.decode_all(buffer, 2).map { |m| to_actions.call(m) })
+      synthetic = expected.fetch('synthetic')
+      buffer = codec.encode_all(to_actions.call(synthetic['macros']))
+      expect(buffer.unpack1('H*')).to eq(synthetic['buffer'])
+      expect(codec.decode_all(buffer, 2)).to eq(to_actions.call(synthetic['decoded']))
     end
   end
 end

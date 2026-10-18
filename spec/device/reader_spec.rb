@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'json'
 require_relative 'fake_rmk_device'
 
 RSpec.describe Cornix::Device::Reader do
@@ -34,15 +35,14 @@ RSpec.describe Cornix::Device::Reader do
     expect(device.writes).to be_empty
   end
 
+  # 同じ変更をした FakeRmkDevice を旧 Device::Keyboard#snapshot で読んだ結果（spec/fixtures/expected に保存したもの）。
+  # キーコードの文字列は旧 Device::Keycodes#decode（= VialNotation#format_code）
   it '旧 Device::Keyboard#snapshot と同じ値を読む' do
     device.keymap[1][1][1] = 0x0204
     device.macro[0, 4] = [1, 1, 0x05, 0]
     device.tap_dances[1] = [5, 0x5221, 0, 0, 180]
-    protocol = Cornix::Device::Protocol.new(device)
-    allow(protocol).to receive(:definition).and_return(FakeRmkDevice::DEFINITION)
-    keyboard = Cornix::Device::Keyboard.new(protocol)
-    snap = keyboard.snapshot
-    kc = keyboard.keycodes
+    snap = JSON.parse(File.read(File.expand_path('../fixtures/expected/fake_device_snapshot.json', __dir__)))
+    kc = Struct.new(:vial) { def decode(code) = vial.format_code(code) }.new(Cornix::Mapping::VialNotation.new)
 
     expect(image.layers.map { |rows| rows.map { |cols| cols.map { |v| v.nil? ? -1 : kc.decode(v) } } }).to eq(snap['layout'])
     expect(image.encoders.map { |es| es.map { |e| [kc.decode(e.ccw), kc.decode(e.cw)] } }).to eq(snap['encoder_layout'])

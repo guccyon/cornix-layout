@@ -1,0 +1,74 @@
+---
+name: Layer 3
+description: ''
+index: 3
+mapping:
+  left_hand:
+    row0:
+      tab: Escape
+      Q: F1
+      W: F2
+      E: F3
+      R: F4
+      T: NoKey
+    row1:
+      caps: BT2
+      A: F5
+      S: F6
+      D: F7
+      F: F8
+      G: NoKey
+    row2:
+      lshift: BT1
+      Z: F9
+      X: F10
+      C: F11
+      V: F12
+      B: ClearBT
+    row3:
+      lctrl: BT0
+      command: Trans
+      option: Trans
+    thumb_keys:
+      left: Trans
+      middle: NoKey
+      right: TD(1)
+  right_hand:
+    row0:
+      "Y": NoKey
+      U: Kp7
+      I: Kp8
+      O: Kp9
+      P: KpEqual
+      backspace: Backspace
+    row1:
+      H: NoKey
+      J: Kp4
+      K: Kp5
+      L: Kp6
+      colon: KpPlus
+      enter: KpAsterisk
+    row2:
+      "N": NoKey
+      M: Kp1
+      comma: Kp2
+      dot: Kp3
+      up: KpMinus
+      rshift: Trans
+    row3:
+      left: KpDot
+      down: KpSlash
+      right: KpEnter
+    thumb_keys:
+      left: Trans
+      middle: Kp0
+      right: NoKey
+  encoders:
+    left:
+      push: Mute
+      ccw: VolumeDown
+      cw: VolumeUp
+    right:
+      push: Trans
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

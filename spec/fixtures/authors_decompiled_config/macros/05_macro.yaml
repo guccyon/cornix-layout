@@ -1,0 +1,10 @@
+---
+index: 5
+name: Macro 5
+description: ''
+sequence:
+- action: tap
+  keys:
+  - "'"
+  - "'"
+  - Left

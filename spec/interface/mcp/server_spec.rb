@@ -37,11 +37,11 @@ RSpec.describe Cornix::Interface::Mcp::Server do
     expect(apply[:inputSchema][:properties][:vil_path][:description]).to include(env.layout_path)
   end
 
-  it '旧 Device::McpServer と同じ tools/list と instructions を返す（vil_path の既定値以外）' do
-    require_relative '../../../lib/cornix/device/mcp_server'
-    old = Cornix::Device::McpServer
-    expect(Cornix::Interface::Mcp::ToolCatalog::INSTRUCTIONS).to eq(old::INSTRUCTIONS)
-    expect(Cornix::Interface::Mcp::ToolCatalog.tools(default_vil: old::DEFAULT_VIL)).to eq(old::TOOLS)
+  it '旧 Device::McpServer と同じ tools/list と instructions を返す（spec/fixtures/expected/mcp_tools.json）' do
+    old = JSON.parse(File.read(File.expand_path('../../fixtures/expected/mcp_tools.json', __dir__)))
+    expect(Cornix::Interface::Mcp::ToolCatalog::INSTRUCTIONS).to eq(old['instructions'])
+    tools = Cornix::Interface::Mcp::ToolCatalog.tools(default_vil: old['default_vil'])
+    expect(JSON.parse(JSON.generate(tools))).to eq(old['tools'])
   end
 
   it '通知には応答せず、知らないメソッドはエラー' do
@@ -142,7 +142,7 @@ RSpec.describe Cornix::Interface::Mcp::Server do
 
   it 'キーボードが接続されていないとき、各ツールはエラーを返す' do
     disconnected = Cornix::Application::Environment.new(
-      root: @root, device_opener: ->(&_) { raise Cornix::Device::DeviceError, 'Cornix が見つかりません' }
+      root: @root, device_opener: ->(&_) { raise Cornix::DeviceError, 'Cornix が見つかりません' }
     )
     result = described_class.new(disconnected).handle('jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
                                                       'params' => { 'name' => 'keyboard_info', 'arguments' => {} })[:result]

@@ -3,16 +3,14 @@
 require 'spec_helper'
 require 'json'
 require 'tmpdir'
-require_relative '../../lib/cornix/device/keycodes'
+require_relative '../mapping/support/vil_image'
 
 RSpec.describe Cornix::Storage::VilFile do
   subject(:vil_file) { described_class.new }
 
   let(:image_class) { Cornix::Image }
   let(:fixture) { File.expand_path('../fixtures/layout.vil', __dir__) }
-  let(:baseline) do
-    File.expand_path('../../../domain-architecture/tmp/baseline/layout.vil', __dir__)
-  end
+  let(:baseline) { File.expand_path('../fixtures/authors_baseline.vil', __dir__) }
 
   # 2 つの JSON の葉を並べて、文字列が違う場所を [場所, 元, 出力] で返す
   def spelling_differences(original, dumped, at = '')
@@ -73,37 +71,23 @@ RSpec.describe Cornix::Storage::VilFile do
       include_examples 'round trip', 'fixture'
     end
 
-    context 'tmp/baseline/layout.vil' do
+    context 'spec/fixtures/authors_baseline.vil' do
       let(:path) { baseline }
       let(:expected_spelling_differences) { 2 } # KC_PGDN → KC_PGDOWN, LGUI(LSFT(KC_EQUAL)) → SGUI(KC_EQUAL)
 
       include_examples 'round trip', 'baseline'
     end
 
-    it '整数は旧 Device::Keycodes#encode と同じ値になる（旧表にない名前を除く）' do
-      keycodes = Cornix::Device::Keycodes.new
-      unknown_to_old = []
-      old = lambda do |v|
-        keycodes.encode(v)
-      rescue Cornix::Device::Keycodes::UnknownKeycode
-        unknown_to_old << v
-        vil_file.vial.parse_code(v)
+    it '整数は旧 Device::Keycodes#encode で求めて保存した値（spec/fixtures/expected）と同じになる' do
+      VilImage::NAMES.each do |name|
+        expected = VilImage.load(name)
+        image = vil_file.read(VilImage.path(name))
+        %i[layers encoders tap_dances combos macros settings meta].each do |field|
+          expect(image.public_send(field)).to eq(expected.public_send(field)), "#{name}: #{field}"
+        end
+        # 旧表にない名前は p1 で追加した QMK の長い名前だけ
+        expect(VilImage.values(name)['names_unknown_to_old_table'] - %w[KC_LEFT_PAREN KC_RIGHT_PAREN]).to be_empty
       end
-      [fixture, baseline].select { |path| File.exist?(path) }.each do |path|
-        json = JSON.parse(File.read(path))
-        image = vil_file.read(path)
-        expected_layers = json['layout'].map { |rows| rows.map { |cols| cols.map { |v| v == -1 ? nil : old.(v) } } }
-        expect(image.layers).to eq(expected_layers)
-        expect(image.encoders.map { |encs| encs.map { |e| [e.ccw, e.cw] } })
-          .to eq(json['encoder_layout'].map { |encs| encs.map { |pair| pair.map(&old) } })
-        expect(image.tap_dances.map { |td| [td.on_tap, td.on_hold, td.on_double_tap, td.on_tap_hold, td.tapping_term] })
-          .to eq(json['tap_dance'].map { |td| td.first(4).map(&old) + [td[4]] })
-        expect(image.combos.map { |c| [*c.keys, c.output] }).to eq(json['combo'].map { |c| c.map(&old) })
-        expect(image.macros.map { |m| m.map { |a| a.keys.empty? ? [a.kind.to_s, a.value] : [a.kind.to_s, *a.keys] } })
-          .to eq(json['macro'].map { |m| m.map { |a| %w[tap down up].include?(a[0]) ? [a[0], *a[1..].map(&old)] : a } })
-      end
-      # 旧表にない名前は p1 で追加した QMK の長い名前だけ
-      expect(unknown_to_old.uniq - %w[KC_LEFT_PAREN KC_RIGHT_PAREN]).to be_empty
     end
   end
 

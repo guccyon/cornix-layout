@@ -2,19 +2,17 @@
 
 require 'spec_helper'
 require 'yaml'
-require_relative '../../lib/cornix/device/keycodes'
-require_relative '../../lib/cornix/models/layer/keycode_value'
-require_relative '../../lib/cornix/converters/keycode_converter'
-require_relative '../../lib/cornix/converters/reference_converter'
 
 # 実際の設定ファイルに書かれたキーコードをすべて解釈でき、旧コードと同じ 16bit 値になること。
-# 旧コードの値 = 旧 compile が .vil に書いた文字列（KeycodeValue#to_qmk）を旧 Device::Keycodes#encode した値。
+# 旧コードの値 = 旧 compile が .vil に書いた文字列（KeycodeValue#to_qmk）を旧 Device::Keycodes#encode した値
+# （spec/fixtures/expected/config_keycodes.yaml に保存したもの。旧コードで値にできなかった文字列は null）。
 RSpec.describe Cornix::Mapping::KeycodeNotation, '実際の設定ファイル' do
-  root = File.expand_path('../..', __dir__)
+  fixtures = File.expand_path('../fixtures', __dir__)
   configs = {
-    'spec/fixtures/test_config' => File.join(root, 'spec/fixtures/test_config'),
-    'authors-keymap/config' => File.expand_path('../../authors-keymap/config', root)
+    'test_config' => File.join(fixtures, 'test_config'),
+    'authors_config' => File.join(fixtures, 'authors_config')
   }
+  old_codes = YAML.safe_load_file(File.join(fixtures, 'expected', 'config_keycodes.yaml'))
 
   # 設定ディレクトリからキーコードの文字列を集める
   def self.keycode_strings(dir)
@@ -45,27 +43,17 @@ RSpec.describe Cornix::Mapping::KeycodeNotation, '実際の設定ファイル' d
 
   subject(:notation) { described_class.new }
 
-  let(:old_device) { Cornix::Device::Keycodes.new }
-  let(:old_converter) { Cornix::Converters::KeycodeConverter.new(File.join(root, 'lib/cornix/keycode_aliases.yaml')) }
-
   configs.each do |label, dir|
     context label do
-      before { skip "#{dir} がありません" unless Dir.exist?(dir) }
-
       let(:strings) { self.class.keycode_strings(dir) }
       let(:references) { self.class.references(dir) }
-      let(:old_references) { Cornix::Converters::ReferenceConverter.new(dir) }
 
       # 旧 compile が書く文字列の 16bit 値（旧コードで値にできなければ nil）
-      def old_code(text)
-        qmk = Cornix::Models::Layer::KeycodeValue.from_yaml(text).to_qmk(old_converter, reference_converter: old_references)
-        old_device.encode(qmk)
-      rescue StandardError
-        nil
-      end
+      define_method(:old_code) { |text| old_codes.fetch(label).fetch(text) }
 
       it 'キーコードの文字列をすべて解釈できる' do
         expect(strings).not_to be_empty
+        expect(strings).to match_array(old_codes.fetch(label).keys)
         failures = strings.filter_map do |text|
           notation.parse(text, references: references)
           nil

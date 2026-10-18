@@ -10,14 +10,26 @@ module Cornix
     #
     # device_opener は ->(&blk) { ... } で、Device::Session を blk に渡すもの（閉じるのは opener の責務）。
     # 既定は Device::Session.open（HID ブリッジを開く）。テストでは FakeRmkDevice を使う opener を渡す。
+    # claude は rename の提案を作る Claude CLI（#available? と #run(prompt) → [成功, 出力]）。テストでは差し替える。
+    #
+    # 場所の既定値: config_dir = root/config、layout_path = root/layout.vil、tmp_dir = root/tmp、
+    # decompile_input = root/tmp/layout.vil、backup_dir = root/tmp/device_backups。
+    # position_map のテンプレートは root によらず lib/cornix/position_map.yaml
     class Environment
-      attr_reader :root, :config_dir, :layout_path, :backup_dir
+      POSITION_MAP_TEMPLATE = File.join(Cornix::ROOT, 'lib', 'cornix', 'position_map.yaml')
 
-      def initialize(root: Cornix::ROOT, config_dir: nil, layout_path: nil, backup_dir: nil, device_opener: nil)
+      attr_reader :root, :config_dir, :layout_path, :backup_dir, :tmp_dir, :decompile_input, :position_map_template
+
+      def initialize(root: Cornix::ROOT, config_dir: nil, layout_path: nil, backup_dir: nil, device_opener: nil,
+                     claude: nil, position_map_template: POSITION_MAP_TEMPLATE)
         @root = root.to_s
         @config_dir = (config_dir || File.join(@root, 'config')).to_s
         @layout_path = (layout_path || File.join(@root, 'layout.vil')).to_s
-        @backup_dir = (backup_dir || File.join(@root, 'tmp', 'device_backups')).to_s
+        @tmp_dir = File.join(@root, 'tmp')
+        @decompile_input = File.join(@tmp_dir, 'layout.vil')
+        @backup_dir = (backup_dir || File.join(@tmp_dir, 'device_backups')).to_s
+        @position_map_template = position_map_template.to_s
+        @claude = claude
         @device_opener = device_opener || lambda do |&blk|
           Device::Session.open(catalog: catalog, settings_catalog: settings_catalog, &blk)
         end
@@ -32,6 +44,10 @@ module Cornix
       def mapper = @mapper ||= Mapping::ProfileMapper.new(codec: codec)
       def vil_file = @vil_file ||= Storage::VilFile.new(vial: vial)
       def backup_store = @backup_store ||= Storage::BackupStore.new(backup_dir, vil_file: vil_file)
+      def repository = @repository ||= Storage::ConfigRepository.new(config_dir, notation: notation, settings_catalog: settings_catalog)
+      def config_editor = @config_editor ||= Storage::ConfigEditor.new(config_dir)
+      def decompile_lock = Storage::DecompileLock.new(config_dir)
+      def claude = @claude ||= ClaudeCli.new
 
       # Planning::Change を人が読む文字列にする（キーコードは .vil と同じ Vial の表記）
       def describer

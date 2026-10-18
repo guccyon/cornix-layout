@@ -1,0 +1,11 @@
+---
+name: Tab Escape
+description: タップで Tab、長押しで Escape
+enabled: true
+index: 4
+actions:
+  on_tap: KC_TAB
+  on_hold: KC_ESCAPE
+  on_double_tap: KC_NO
+  on_tap_hold: KC_NO
+tapping_term: 200

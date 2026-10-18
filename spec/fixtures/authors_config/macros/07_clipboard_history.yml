@@ -1,0 +1,14 @@
+---
+name: Clipboard History
+description: Spotlightでクリップボード履歴を表示
+enabled: true
+index: 7
+sequence:
+- action: down
+  keys: KC_LGUI
+- action: tap
+  keys:
+  - KC_SPACE
+  - KC_4
+- action: up
+  keys: KC_LGUI

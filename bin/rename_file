@@ -1,161 +1,97 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'pathname'
-lib_path = Pathname.new(__FILE__).realpath.dirname.parent.join('lib')
-$LOAD_PATH.unshift(lib_path) unless $LOAD_PATH.include?(lib_path)
-
-require 'cornix/file_renamer'
+# 設定ファイルの名前と name / description を変える（Application::RenameFiles の薄い入口。結果は JSON で表示する）。
+#
+#   bin/rename_file --old-path config/macros/00_macro.yml --new-basename 00_copy.yml --name Copy
+#   bin/rename_file --batch plans.json [--dry-run] [--cleanup-backup] [--config-dir DIR]
+#
+# 名前参照（Macro('旧名') / TapDance('旧名')）も書き換え、変更の前後で compile の結果が同じことを確かめる。
+# 失敗したら config/ をバックアップから元に戻す
+require_relative '../lib/cornix'
 require 'optparse'
 require 'json'
 
-# コマンドラインオプション
 options = {
-  old_path: nil,
-  new_basename: nil,
-  name: nil,
-  description: nil,
-  batch_file: nil,
-  dry_run: false,
-  cleanup_backup: false,
-  config_dir: 'config'
+  old_path: nil, new_basename: nil, name: nil, description: nil, batch_file: nil,
+  dry_run: false, cleanup_backup: false, config_dir: 'config'
 }
 
 OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
-
-  opts.on('--old-path PATH', 'Path to the file to rename') do |path|
-    options[:old_path] = path
-  end
-
-  opts.on('--new-basename NAME', 'New basename for the file (with index prefix)') do |name|
-    options[:new_basename] = name
-  end
-
-  opts.on('--name NAME', 'Update the "name" field in YAML') do |name|
-    options[:name] = name
-  end
-
-  opts.on('--description DESC', 'Update the "description" field in YAML') do |desc|
-    options[:description] = desc
-  end
-
-  opts.on('--batch FILE', 'JSON file with batch rename plans') do |file|
-    options[:batch_file] = file
-  end
-
-  opts.on('--dry-run', 'Preview without applying changes') do
-    options[:dry_run] = true
-  end
-
-  opts.on('--cleanup-backup', 'Delete backup on success') do
-    options[:cleanup_backup] = true
-  end
-
-  opts.on('--config-dir DIR', 'Configuration directory (default: config)') do |dir|
-    options[:config_dir] = dir
-  end
-
+  opts.on('--old-path PATH', 'Path to the file to rename') { |v| options[:old_path] = v }
+  opts.on('--new-basename NAME', 'New basename for the file (with index prefix)') { |v| options[:new_basename] = v }
+  opts.on('--name NAME', 'Update the "name" field in YAML') { |v| options[:name] = v }
+  opts.on('--description DESC', 'Update the "description" field in YAML') { |v| options[:description] = v }
+  opts.on('--batch FILE', 'JSON file with batch rename plans') { |v| options[:batch_file] = v }
+  opts.on('--dry-run', 'Preview without applying changes') { options[:dry_run] = true }
+  opts.on('--cleanup-backup', 'Delete backup on success') { options[:cleanup_backup] = true }
+  opts.on('--config-dir DIR', 'Configuration directory (default: config)') { |v| options[:config_dir] = v }
   opts.on('-h', '--help', 'Show this help message') do
     puts opts
     exit 0
   end
 end.parse!
 
-# dry-runモードではバックアップを作成しない
-backup_on_init = !options[:dry_run]
+def cleanup_backup(renamer, result, path)
+  return result unless path
+
+  renamer.delete_backup(path)
+  result.merge(backup_cleaned_up: !File.exist?(path))
+end
 
 begin
-  renamer = Cornix::FileRenamer.new(options[:config_dir], backup_on_init: backup_on_init)
+  config_dir = File.expand_path(options[:config_dir])
+  raise ArgumentError, "Config directory not found: #{config_dir}" unless Dir.exist?(config_dir)
 
-  result = if options[:batch_file]
-    # バッチモード
-    unless File.exist?(options[:batch_file])
-      { success: false, error: "Batch file not found: #{options[:batch_file]}" }
-    else
-      plans_json = File.read(options[:batch_file])
-      plans = JSON.parse(plans_json, symbolize_names: true)
-
-      if options[:dry_run]
-        # dry-runモード: 検証のみ
-        validation_results = plans.map.with_index do |plan, idx|
-          errors = renamer.send(:validate_rename_plan, plan)
-          { plan_index: idx, plan: plan, errors: errors }
-        end
-
-        {
-          success: validation_results.all? { |r| r[:errors].empty? },
-          dry_run: true,
-          validation_results: validation_results
-        }
-      else
-        # 実行モード
-        result = renamer.rename_batch(plans)
-
-        # 成功時にバックアップをクリーンアップ（オプション）
-        if result[:success] && options[:cleanup_backup]
-          cleanup_success = renamer.cleanup_backup(result[:backup_path])
-          result[:backup_cleaned_up] = cleanup_success
-        end
-
-        result
-      end
-    end
-  else
-    # 単一ファイルモード
-    unless options[:old_path] && options[:new_basename]
-      { success: false, error: 'Both --old-path and --new-basename are required for single file mode' }
-    else
-      content_updates = {}
-      content_updates['name'] = options[:name] if options[:name]
-      content_updates['description'] = options[:description] if options[:description]
-
-      if options[:dry_run]
-        # dry-runモード: 検証のみ
-        plan = {
-          old_path: options[:old_path],
-          new_basename: options[:new_basename],
-          content_updates: content_updates
-        }
-        errors = renamer.send(:validate_rename_plan, plan)
-        {
-          success: errors.empty?,
-          dry_run: true,
-          plan: plan,
-          validation_errors: errors
-        }
-      else
-        # 実行モード
-        result = renamer.rename_file(
-          options[:old_path],
-          options[:new_basename],
-          content_updates: content_updates
-        )
-
-        # 成功時にバックアップをクリーンアップ（オプション）
-        if result[:success] && options[:cleanup_backup] && renamer.backup_path
-          cleanup_success = renamer.cleanup_backup
-          result[:backup_cleaned_up] = cleanup_success
-        end
-
-        result
-      end
-    end
+  env = Cornix::Application::Environment.new(root: File.dirname(config_dir), config_dir: config_dir)
+  renamer = Cornix::Application::RenameFiles.new(env)
+  # 旧実装と同じく、相対パスはまずカレントディレクトリからのパスとして解決する
+  localize = lambda do |plan|
+    path = plan.old_path
+    expanded = path && File.expand_path(path)
+    path && !File.absolute_path?(path) && expanded.start_with?("#{config_dir}/") ? plan.with(old_path: expanded) : plan
   end
 
-  # 結果を出力
+  result =
+    if options[:batch_file]
+      if File.exist?(options[:batch_file])
+        plans = JSON.parse(File.read(options[:batch_file])).map { |h| localize.(Cornix::Application::RenamePlan.from_h(h)) }
+        if options[:dry_run]
+          checks = plans.each_with_index.map { |plan, idx| { plan_index: idx, plan: plan.to_h, errors: renamer.check(plan) } }
+          { success: checks.all? { |r| r[:errors].empty? }, dry_run: true, validation_results: checks }
+        else
+          outcome = renamer.call(plans)
+          result = outcome.to_h
+          options[:cleanup_backup] && outcome.success? ? cleanup_backup(renamer, result, outcome.backup_path) : result
+        end
+      else
+        { success: false, error: "Batch file not found: #{options[:batch_file]}" }
+      end
+    elsif options[:old_path] && options[:new_basename]
+      updates = { 'name' => options[:name], 'description' => options[:description] }.compact
+      plan = localize.(Cornix::Application::RenamePlan.new(old_path: options[:old_path],
+                                                            new_basename: options[:new_basename], content_updates: updates))
+      if options[:dry_run]
+        errors = renamer.check(plan)
+        { success: errors.empty?, dry_run: true, plan: plan.to_h, validation_errors: errors }
+      else
+        outcome = renamer.call([plan])
+        result = if outcome.success?
+                   outcome.completed.first.to_h.merge(backup_path: outcome.backup_path)
+                 else
+                   { success: false, old_path: plan.old_path, new_path: nil, error: outcome.errors.join('; '),
+                     backup_path: outcome.backup_path }
+                 end
+        options[:cleanup_backup] && outcome.success? ? cleanup_backup(renamer, result, outcome.backup_path) : result
+      end
+    else
+      { success: false, error: 'Both --old-path and --new-basename are required for single file mode' }
+    end
+
   puts JSON.pretty_generate(result)
-
-  # 終了コード
   exit(result[:success] ? 0 : 1)
-
 rescue StandardError => e
-  # エラーハンドリング
-  error_result = {
-    success: false,
-    error: e.message,
-    backtrace: e.backtrace[0..5]
-  }
-  puts JSON.pretty_generate(error_result)
+  puts JSON.pretty_generate(success: false, error: e.message, backtrace: e.backtrace[0..5])
   exit 1
 end

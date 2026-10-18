@@ -1,0 +1,29 @@
+---
+index: 4
+name: Macro 4
+description: ''
+sequence:
+- action: down
+  keys:
+  - LGui
+- action: tap
+  keys:
+  - Left
+- action: down
+  keys:
+  - LShift
+- action: tap
+  keys:
+  - Right
+- action: up
+  keys:
+  - LShift
+- action: tap
+  keys:
+  - C
+- action: up
+  keys:
+  - LGui
+- action: tap
+  keys:
+  - Right

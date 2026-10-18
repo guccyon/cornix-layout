@@ -2,24 +2,33 @@
 
 require 'spec_helper'
 require 'yaml'
-require_relative '../../lib/cornix/device/keycodes'
+require 'zlib'
 
 RSpec.describe Cornix::Mapping::VialNotation do
   subject(:vial) { described_class.new }
 
-  let(:old) { Cornix::Device::Keycodes.new }
   let(:k) { Cornix::Domain::Keycode }
 
-  def old_encode(text)
-    old.encode(text)
-  rescue Cornix::Device::Keycodes::UnknownKeycode
-    nil
+  # 旧 Device::Keycodes の decode / encode の結果（spec/fixtures/expected/vial_codes.tsv.gz に保存したもの）。
+  # code => [decode(code), encode(decode(code)) または nil]。保存していない値は ["0x%x", code]
+  OLD_CODES = begin
+    path = File.expand_path('../fixtures/expected/vial_codes.tsv.gz', __dir__)
+    listed = Zlib::GzipReader.open(path) { |gz| gz.read.force_encoding('UTF-8') }.each_line.reject { |l| l.start_with?('#') }
+                             .to_h do |line|
+      code, text, encoded = line.chomp.split("\t", -1)
+      [Integer(code, 16), [text, encoded.empty? ? nil : Integer(encoded, 16)]]
+    end
+    (0..0xFFFF).map { |code| listed.fetch(code) { [format('0x%x', code), code] } }.freeze
   end
+
+  # 旧 Vial 表（spec/fixtures/vial_keycodes_v6.yaml。旧 lib/cornix/device/via_keycodes.yaml と同じもの）
+  VIAL_TABLE = YAML.load_file(File.expand_path('../fixtures/vial_keycodes_v6.yaml', __dir__))
+
 
   describe '#format_code' do
     it 'すべての 16bit 値で旧 Device::Keycodes#decode と同じ文字列になる' do
       mismatches = (0..0xFFFF).filter_map do |code|
-        expected = old.decode(code)
+        expected = OLD_CODES[code][0]
         actual = vial.format_code(code)
         "0x#{format('%04X', code)}: 旧 #{expected} / 新 #{actual}" unless actual == expected
       end
@@ -43,8 +52,9 @@ RSpec.describe Cornix::Mapping::VialNotation do
   describe '#parse_code' do
     it '旧 decode が書いたすべての文字列を旧 encode と同じ値にする' do
       mismatches = (0..0xFFFF).filter_map do |code|
-        text = old.decode(code)
-        expected = old_encode(text) or next
+        text, expected = OLD_CODES[code]
+        next if expected.nil?
+
         actual = vial.parse_code(text)
         "#{text}: 旧 #{expected} / 新 #{actual}" unless actual == expected
       end
@@ -52,25 +62,30 @@ RSpec.describe Cornix::Mapping::VialNotation do
     end
 
     it '旧 Vial 表の名前と別名をすべて旧 encode と同じ値にする' do
-      table = YAML.load_file(File.expand_path('../../lib/cornix/device/via_keycodes.yaml', __dir__))
-      names = (table['codes'].map(&:first) + table['aliases'].keys).reject { |name| name.include?('(kc)') }
-      mismatches = names.filter_map do |name|
-        expected = old_encode(name)
+      codes = VIAL_TABLE['codes'].reject { |name, _| name.include?('(kc)') }.to_h
+      aliases = VIAL_TABLE['aliases'].reject { |name, _| name.include?('(kc)') }.transform_values { |name| codes.fetch(name) }
+      mismatches = codes.merge(aliases).filter_map do |name, expected|
         actual = vial.parse_code(name)
         "#{name}: 旧 #{expected.inspect} / 新 #{actual}" unless actual == expected
       end
       expect(mismatches).to be_empty
     end
 
-    [
-      'KC_A', ' KC_A ', 'KC_ENT', 'KC_EXLM', 'LSFT(KC_A)', 'LSFT(LCTL(KC_A))', 'S(KC_1)', 'LCMD(KC_A)', 'LSG(KC_A)',
-      'LT(1,KC_A)', 'LT(1, KC_A)', 'LT15(KC_A)', 'MT(MOD_LCTL|MOD_LSFT, KC_A)', 'ALL_T(KC_A)', 'CMD_T(KC_A)',
-      'RCAG_T(KC_A)', 'LM(2, MOD_LSFT)', 'OSM(MOD_LCTL|MOD_LSFT)', 'OSM(MOD_MEH)', 'OSM(2)', 'MO(3)', 'MO(20)',
-      'TG(3)', 'DF(1)', 'OSL(4)', 'TT(2)', 'PDF(0)', 'TO(3)', 'TO(20)', 'TD(3)', 'M7', 'M255', 'KC_A|0x200',
-      '0x7c00', '0x7C00', '123', 'MOD_LSFT', 'USER05', 'QK_BOOT', 'RESET'
-    ].each do |text|
+    # 旧 Device::Keycodes#encode の値
+    {
+      'KC_A' => 0x0004, ' KC_A ' => 0x0004, 'KC_ENT' => 0x0028, 'KC_EXLM' => 0x021E,
+      'LSFT(KC_A)' => 0x0204, 'LSFT(LCTL(KC_A))' => 0x0304, 'S(KC_1)' => 0x021E, 'LCMD(KC_A)' => 0x0804,
+      'LSG(KC_A)' => 0x0A04, 'LT(1,KC_A)' => 0x4104, 'LT(1, KC_A)' => 0x4104, 'LT15(KC_A)' => 0x4F04,
+      'MT(MOD_LCTL|MOD_LSFT, KC_A)' => 0x2304, 'ALL_T(KC_A)' => 0x2F04, 'CMD_T(KC_A)' => 0x2804, 'RCAG_T(KC_A)' => 0x3D04,
+      'LM(2, MOD_LSFT)' => 0x5042, 'OSM(MOD_LCTL|MOD_LSFT)' => 0x52A3, 'OSM(MOD_MEH)' => 0x52A7, 'OSM(2)' => 0x52A2,
+      'MO(3)' => 0x5223, 'MO(20)' => 0x5234, 'TG(3)' => 0x5263, 'DF(1)' => 0x5241,
+      'OSL(4)' => 0x5284, 'TT(2)' => 0x52C2, 'PDF(0)' => 0x52E0, 'TO(3)' => 0x5203,
+      'TO(20)' => 0x5214, 'TD(3)' => 0x5703, 'M7' => 0x7707, 'M255' => 0x77FF,
+      'KC_A|0x200' => 0x0204, '0x7c00' => 0x7C00, '0x7C00' => 0x7C00, '123' => 0x007B,
+      'MOD_LSFT' => 0x0002, 'USER05' => 0x7E05, 'QK_BOOT' => 0x7C00, 'RESET' => 0x7C00
+    }.each do |text, expected|
       it "#{text.inspect} を旧 encode と同じ値にする" do
-        expect(vial.parse_code(text)).to eq(old_encode(text))
+        expect(vial.parse_code(text)).to eq(expected)
       end
     end
 
@@ -82,7 +97,7 @@ RSpec.describe Cornix::Mapping::VialNotation do
     it 'TO(n) は書き方によらず 0x5200 + n' do
       expect(vial.parse_code('TO(3)')).to eq(0x5203)
       expect(vial.parse_code('TO( 3 )')).to eq(0x5203)
-      expect(old_encode('TO( 3 )')).to eq(0x5213)
+      # 旧 encode('TO( 3 )') は 0x5213 だった
     end
 
     it '解釈できなければ UnknownKeycode' do

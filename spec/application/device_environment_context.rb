@@ -23,11 +23,12 @@ RSpec.shared_context 'device environment' do
   # 現在のデバイスの .vil（Hash）
   def device_vil = JSON.parse(Cornix::Application::DeviceRead.new(env).call.vil)
 
-  # 現在のデバイスの .vil を変えて path に書く
+  # 現在のデバイスの .vil を変えて path に書く（準備のために開いた回数は opens に数えない）
   def write_vil(path = env.layout_path)
     vil = device_vil
     yield vil
     File.write(path, JSON.generate(vil))
+    opens.clear
     path
   end
 end

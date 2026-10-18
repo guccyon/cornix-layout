@@ -66,28 +66,24 @@ module Cornix
             SUCCESS
           end
 
+          # 1 回の接続の中で、差分を表示 → y/N（--yes なら尋ねない）→ 書き込み（旧実装と同じく接続は 1 回）
           def apply(action, args)
             (file,), opts = parse!(args, max_args: 1) { |p, o| p.on('--yes', '確認を省略する') { o[:yes] = true } }
-            restore = action == 'restore'
-            plan = restore ? use_case(:device_restore).call(file, dry_run: true) : use_case(:device_diff).call(vil_path: file)
-            out.line("#{restore ? '復元元' : '反映元'}: #{plan.source}")
-            print_diff(plan)
-            return SUCCESS if plan.empty?
-
-            unless opts[:yes] || confirm?(CONFIRM)
-              out.line('中止しました')
-              return SUCCESS
+            label = action == 'restore' ? '復元元' : '反映元'
+            confirm = lambda do |plan|
+              out.line("#{label}: #{plan.source}")
+              print_diff(plan)
+              plan.empty? || opts[:yes] || confirm?(CONFIRM)
             end
-            report_apply(write(restore, plan))
-          end
+            outcome = if action == 'restore'
+                        use_case(:device_restore).call(file, confirm: confirm)
+                      else
+                        use_case(:device_apply).call(vil_path: file, confirm: confirm)
+                      end
+            return report_apply(outcome) if outcome.written?
 
-          # dry run で確かめた source と token のまま書き込む（その間に差分が変わっていたら PlanError）
-          def write(restore, plan)
-            if restore
-              use_case(:device_restore).call(plan.source, expected_token: plan.token)
-            else
-              use_case(:device_apply).call(vil_path: plan.source, expected_token: plan.token)
-            end
+            out.line('中止しました') if outcome.cancelled?
+            SUCCESS
           end
 
           def print_diff(plan)

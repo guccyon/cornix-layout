@@ -9,7 +9,7 @@ module Cornix
     # 基準は Vial Web（vial.rocks）の中身の vial-gui 0.7.5。Vial GUI は名前を知らない値を読むと黙って KC_NO にするため、
     # それより後に足された名前（LAG(kc) / LAG_T(kc)）と、Cornix の枠（Domain::Capabilities::CORNIX）を超える
     # レイヤー・マクロ（MO(10) / LT10(kc) / M32 など。Vial GUI は枠の数だけ名前を作る）は 16 進で書く。
-    # 名前付きのキー（MAGIC_TOGGLE_GUI、USER16〜 など）は data/keycodes.yaml の vial: false で決まる。
+    # 名前付きのキー（MAGIC_TOGGLE_GUI、USER08〜 など）は data/keycodes.yaml の vial: false で決まる。
     # parse は Vial GUI の AnyKeycode と同じく、名前・QMK 名・MOD_ 定数・数値と、
     # LSFT(KC_A) / LT(1, KC_A) / MT(MOD_LCTL, KC_A) / OSM(MOD_LCTL|MOD_LSFT) / MO(3) / TD(3) / M7 / KC_A|0x200 などの式を受け付ける。
     class VialNotation

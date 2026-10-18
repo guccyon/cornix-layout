@@ -24,7 +24,7 @@
   Caps Word、PDF(n)、FN_MO13/23、Dynamic Macro は表示される。vial.rocks は vial-gui 0.7.5 で LAG / LAG_T / GUI Toggle を知らない（#18）
 - .vil の表記の基準は Vial Web（vial.rocks）の中身の vial-gui 0.7.5（e42622c）。0.7.5 の `Keycode.deserialize` は
   知らない名前を AnyKeycode で解釈し、失敗すると黙って 0（KC_NO）にするので、Load saved layout でキーが消える。
-  0.7.5 より後の LAG(kc) / LAG_T(kc) / MAGIC_TOGGLE_GUI、Vial GUI が枠の数だけ作る名前の外（USER16〜、MO(10)〜 / LT10〜、
+  0.7.5 より後の LAG(kc) / LAG_T(kc) / MAGIC_TOGGLE_GUI、Vial GUI が枠の数だけ作る名前の外（USER08〜（Cornix の customKeycodes は 8 個）、MO(10)〜 / LT10〜、
   M32〜。TD は 0〜255 常にある）は 16 進で書く。TO(10) は AnyKeycode が ON_PRESS を足して別の値に読むので特に危ない
 - 確認方法: spec/fixtures/expected/vial_gui_codes.py（先頭に手順）で vial-gui v0.7.5 の `Keycode.serialize` を Cornix の枠で
   全 16bit 値に適用し、vial_gui_0_7_5_codes.tsv.gz に保存する。vial_notation_spec が format_code と全値で一致を検査する

@@ -36,7 +36,7 @@ RSpec.describe Cornix::Application::Environment do
     expect(describer.keycode(0x5203)).to eq('TO(3)')
     expect(describer.keycode(0x0C04)).to eq('Option + Command + A') # LAG(KC_A)
     expect(describer.keycode(0x7728)).to eq('M40')
-    expect(describer.keycode(0x7E10)).to eq('USER16')
+    expect(describer.keycode(0x7E08)).to eq('USER08')
     expect(describer.keycode(0x7E40)).to eq('0x7e40')
   end
 

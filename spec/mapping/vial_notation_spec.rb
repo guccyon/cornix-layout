@@ -21,7 +21,7 @@ RSpec.describe Cornix::Mapping::VialNotation do
     (0..0xFFFF).map { |code| listed.fetch(code) { [format('0x%x', code), code] } }.freeze
   end
 
-  # Vial Web（vial.rocks）の中身の vial-gui 0.7.5 が Cornix（10 レイヤー・マクロ 32）の .vil に保存する表記。
+  # Vial Web（vial.rocks）の中身の vial-gui 0.7.5 が Cornix（10 レイヤー・マクロ 32・customKeycodes 8 個）の .vil に保存する表記。
   # code => 名前。載っていない値は 16 進（spec/fixtures/expected/vial_gui_0_7_5_codes.tsv.gz）
   VIAL_GUI_CODES = begin
     path = File.expand_path('../fixtures/expected/vial_gui_0_7_5_codes.tsv.gz', __dir__)
@@ -48,8 +48,8 @@ RSpec.describe Cornix::Mapping::VialNotation do
       expect(vial.format_code(0x0C04)).to eq('0xc04')   # LAG(KC_A)
       expect(vial.format_code(0x2C04)).to eq('0x2c04')  # LAG_T(KC_A)
       expect(vial.format_code(0x700B)).to eq('0x700b')  # MAGIC_TOGGLE_GUI
-      expect(vial.format_code(0x7E0F)).to eq('USER15')
-      expect(vial.format_code(0x7E10)).to eq('0x7e10')  # USER16
+      expect(vial.format_code(0x7E07)).to eq('USER07')
+      expect(vial.format_code(0x7E08)).to eq('0x7e08')  # USER08（Cornix の customKeycodes は 8 個）
       expect(vial.format_code(0x5229)).to eq('MO(9)')
       expect(vial.format_code(0x522A)).to eq('0x522a')  # MO(10)
       expect(vial.format_code(0x4904)).to eq('LT9(KC_A)')
@@ -137,7 +137,7 @@ RSpec.describe Cornix::Mapping::VialNotation do
     it '16 進で書くようにした値も名前で読める（ほかのツールや古い cornix が書いた .vil）' do
       {
         'LAG(KC_A)' => 0x0C04, 'LAG_T(KC_A)' => 0x2C04, 'MAGIC_TOGGLE_GUI' => 0x700B, 'GUI_TOGG' => 0x700B,
-        'USER16' => 0x7E10, 'MO(10)' => 0x522A, 'PDF(15)' => 0x52EF, 'LT10(KC_A)' => 0x4A04, 'M32' => 0x7720, 'M127' => 0x777F
+        'USER08' => 0x7E08, 'MO(10)' => 0x522A, 'PDF(15)' => 0x52EF, 'LT10(KC_A)' => 0x4A04, 'M32' => 0x7720, 'M127' => 0x777F
       }.each { |text, expected| expect(vial.parse_code(text)).to eq(expected), text }
     end
 

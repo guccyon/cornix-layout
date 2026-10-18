@@ -4,7 +4,7 @@
 # - vial: false は Vial GUI に名前がない値（vial-qmk の quantum/keycodes.h にはある）。
 #   設定ファイルでは name で書けるが、.vil には Vial GUI が読める 0xHHHH で書く。
 #   基準は Vial Web（vial.rocks）の中身の vial-gui 0.7.5。それより後に足された MAGIC_TOGGLE_GUI と、
-#   Vial GUI が 16 個しか名前を作らない USER16〜USER63 もここに入る。
+#   Vial GUI が Cornix の customKeycodes の数（8 個）しか名前を作らない USER08〜USER63 もここに入る。
 #   RMK 0.8 のファームウェアはこれらを何もしないキーとして扱う（RGB や Magic など既存の多くの値も同じ）。
 # 引数付きのキーコード（LSFT(kc), LT(n, kc), MO(n), TD(n), M0 など）はここに書かず、
 # Cornix::Mapping::KeycodeCodec の定数で組み立てる。
@@ -375,14 +375,14 @@ quantum:
   - { code: 0x7E05, name: USER05, qmk: [QK_KB_5] }
   - { code: 0x7E06, name: USER06, qmk: [QK_KB_6] }
   - { code: 0x7E07, name: USER07, qmk: [QK_KB_7] }
-  - { code: 0x7E08, name: USER08, qmk: [QK_KB_8] }
-  - { code: 0x7E09, name: USER09, qmk: [QK_KB_9] }
-  - { code: 0x7E0A, name: USER10, qmk: [QK_KB_10] }
-  - { code: 0x7E0B, name: USER11, qmk: [QK_KB_11] }
-  - { code: 0x7E0C, name: USER12, qmk: [QK_KB_12] }
-  - { code: 0x7E0D, name: USER13, qmk: [QK_KB_13] }
-  - { code: 0x7E0E, name: USER14, qmk: [QK_KB_14] }
-  - { code: 0x7E0F, name: USER15, qmk: [QK_KB_15] }
+  - { code: 0x7E08, name: USER08, qmk: [QK_KB_8], vial: false }
+  - { code: 0x7E09, name: USER09, qmk: [QK_KB_9], vial: false }
+  - { code: 0x7E0A, name: USER10, qmk: [QK_KB_10], vial: false }
+  - { code: 0x7E0B, name: USER11, qmk: [QK_KB_11], vial: false }
+  - { code: 0x7E0C, name: USER12, qmk: [QK_KB_12], vial: false }
+  - { code: 0x7E0D, name: USER13, qmk: [QK_KB_13], vial: false }
+  - { code: 0x7E0E, name: USER14, qmk: [QK_KB_14], vial: false }
+  - { code: 0x7E0F, name: USER15, qmk: [QK_KB_15], vial: false }
   - { code: 0x7E10, name: USER16, qmk: [QK_KB_16], vial: false }
   - { code: 0x7E11, name: USER17, qmk: [QK_KB_17], vial: false }
   - { code: 0x7E12, name: USER18, qmk: [QK_KB_18], vial: false }

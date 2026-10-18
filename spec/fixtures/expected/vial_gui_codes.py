@@ -18,13 +18,14 @@ class Cornix:
     layers = 10
     macro_count = 32
     tap_dance_count = 32
-    custom_keycodes = None
+    # Cornix の customKeycodes（8 個）。Vial GUI は USER00〜USER07 にだけ名前を作る（serialize には個数だけが効く）
+    custom_keycodes = [{"name": "BT%d" % i} for i in range(8)]
     midi = None
     supported_features = set()  # 名前の表には影響しない（hidden が付くだけ）
 
 
 recreate_keyboard_keycodes(Cornix())
-lines = ["# vial-gui 0.7.5 (e42622c) Keycode.serialize(code) for Cornix: vial_protocol 6, 10 layers, 32 macros, 32 tap dances",
+lines = ["# vial-gui 0.7.5 (e42622c) Keycode.serialize(code) for Cornix: vial_protocol 6, 10 layers, 32 macros, 32 tap dances, 8 custom keycodes",
          "# code<TAB>serialize(code). codes not listed are serialized as hex"]
 for code in range(0x10000):
     name = Keycode.serialize(code)

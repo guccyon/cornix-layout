@@ -92,6 +92,23 @@ describe('QMK 設定の欄', () => {
     expect(row(flowTap).classList.contains('error')).toBe(false);
   });
 
+  it('数でない文字（badInput）は「整数を入れてください」', () => {
+    editor.update(fixtureSnapshot(), []);
+    const input = editor.input(tapping)!;
+    Object.defineProperty(input, 'validity', { value: { badInput: true } });
+    type(input, '');
+    expect(commits).toEqual([]);
+    expect(row(tapping).querySelector('.setting-message')?.textContent).toBe('整数を入れてください');
+  });
+
+  it('ファイルにない真偽値の設定は既定値で描き、決めていない印を付ける', () => {
+    const settings = fixtureSnapshot().settings.map((s) => (s.name === 'permissive_hold' ? { ...s, value: null, default: true } : s));
+    editor.update(fixtureSnapshot({ settings }), []);
+    expect(editor.input(permissive)?.checked).toBe(true);
+    expect(editor.input(permissive)?.indeterminate).toBe(true);
+    expect(row(permissive).querySelector('.setting-unset')).not.toBeNull();
+  });
+
   it('検証の結果（diagnostics）をその設定の欄に出す', () => {
     const address = { file: settingsFile, path: ['keyboard', 'tapping_term'] };
     editor.update(fixtureSnapshot({ diagnostics: [{ severity: 'warning', source: 'semantic', message: '短すぎます', address }] }), []);

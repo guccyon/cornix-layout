@@ -58,6 +58,12 @@ export function changedFiles(changes: readonly Change[], a: Record<string, FileV
   return files.filter((file) => (a[file] ?? null) !== (b[file] ?? null));
 }
 
+/** 2 つの files（ファイル → 版）が同じか（キーの並びによらず比べる） */
+export function sameFiles(a: Record<string, FileVersion>, b: Record<string, FileVersion>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((key) => key in a && key in b && a[key] === b[key]);
+}
+
 /** 構造検証の error（保存すると読めなくなるので保存を止める。protocol.md の 6.2 の 2） */
 export function structureErrors(diagnostics: readonly Diagnostic[]): Diagnostic[] {
   return diagnostics.filter((d) => d.severity === 'error' && d.source === 'structure');

@@ -43,8 +43,14 @@ export type FakeServerOptions = {
   respondVersion?: string;
 };
 
+/**
+ * テストが偽のサーバーの振る舞いを途中で変える通知（偽のサーバーだけのもの。Ruby のサーバーは `$/` の通知を捨てる）。
+ * params: { scenario?: 'default' | 'invalid'; delays?: { [method]: ミリ秒 } }（delays はそのメソッドの応答を遅らせる。保存の途中を作るため）
+ */
+export const FAKE_CONFIGURE = '$/fake/configure';
+
 /** 通知で送るメソッド（id 付きで来たら -32600） */
-const NOTIFICATION_METHODS = new Set(['initialized', 'exit', 'profile/close', 'workspace/didChangeFiles', '$/cancelRequest']);
+const NOTIFICATION_METHODS = new Set(['initialized', 'exit', 'profile/close', 'workspace/didChangeFiles', '$/cancelRequest', FAKE_CONFIGURE]);
 
 type Message = {
   jsonrpc?: string;
@@ -122,11 +128,15 @@ class FakeServer {
   private readonly profiles = new Map<string, { dir: string; name: string }>();
   /** 開いたプロファイルの「知っている版」（profile/open・profile/saved・profile/didChange で覚えた版） */
   private readonly known = new Map<string, Record<string, FileVersion>>();
+  private scenario: 'default' | 'invalid';
+  private delays: Record<string, number> = {};
 
   constructor(
     private readonly options: FakeServerOptions,
     private readonly send: (message: Message) => void,
-  ) {}
+  ) {
+    this.scenario = options.scenario ?? 'default';
+  }
 
   /** protocol.md の 1.・4.・9. と、spec/fixtures/protocol/lifecycle の Ruby のサーバーの振る舞いに合わせる */
   handle(raw: unknown): void {
@@ -169,7 +179,9 @@ class FakeServer {
     }
     try {
       const result = this.request(method, params ?? {});
-      this.send({ jsonrpc: '2.0', id, result });
+      const delay = this.delays[method];
+      if (delay) setTimeout(() => this.send({ jsonrpc: '2.0', id, result }), delay);
+      else this.send({ jsonrpc: '2.0', id, result });
     } catch (error) {
       if (error instanceof RpcError) this.error(id, error.code, error.message, error.data);
       else this.error(id, ErrorCodes.InternalError, String(error));
@@ -194,6 +206,12 @@ class FakeServer {
       case 'workspace/didChangeFiles':
         this.didChangeFiles(params as DidChangeFilesParams);
         return;
+      case FAKE_CONFIGURE: {
+        const p = (params ?? {}) as { scenario?: 'default' | 'invalid'; delays?: Record<string, number> };
+        if (p.scenario) this.scenario = p.scenario;
+        if (p.delays) this.delays = p.delays;
+        return;
+      }
       default:
         // 知らない通知は捨てる（$/cancelRequest も v0.1 では何もしない）
         return;
@@ -250,25 +268,28 @@ class FakeServer {
         };
       }
       case 'profile/validate': {
-        const p = params as DraftParams;
-        this.checkDraft(p);
+        const p = this.checkDraft(params);
+        this.planEdits(p); // 書き換えられない変更は validate でも -32061
         return { diagnostics: this.validate(p.profileId, p.changes) };
       }
       case 'profile/planEdits': {
-        const p = params as DraftParams;
-        this.checkDraft(p);
+        const p = this.checkDraft(params);
         return { files: this.planEdits(p), diagnostics: this.validate(p.profileId, p.changes) };
       }
       case 'profile/saved': {
         const p = params as { profileId: string; files: Record<string, FileVersion> };
+        requireString(p, 'profileId');
         this.profile(p.profileId);
+        if (p.files === null || typeof p.files !== 'object' || Array.isArray(p.files)) {
+          throw new RpcError(ErrorCodes.InvalidParams, 'files の形が違います', { field: 'files' });
+        }
+        // 知っている版に知らされた版を重ねたものと、読み直した版を全部比べる（#41 と同じ。知らされていないファイルの外での変更も知らせる）
+        const expected: Record<string, FileVersion> = { ...(this.known.get(p.profileId) ?? {}), ...p.files };
         const snapshot = this.remember(this.snapshot(p.profileId));
-        // 保存の直後にさらに外で変わっていれば（知らされた版と読み直した版が違えば）profile/didChange も送る
-        const changed = Object.fromEntries(
-          Object.entries(p.files ?? {})
-            .filter(([file, version]) => (snapshot.files[file] ?? null) !== version)
-            .map(([file]) => [file, snapshot.files[file] ?? null]),
-        );
+        const changed: Record<string, FileVersion> = {};
+        for (const file of new Set([...Object.keys(expected), ...Object.keys(snapshot.files)])) {
+          if ((expected[file] ?? null) !== (snapshot.files[file] ?? null)) changed[file] = snapshot.files[file] ?? null;
+        }
         if (Object.keys(changed).length > 0) {
           this.send({ jsonrpc: '2.0', method: 'profile/didChange', params: { profileId: p.profileId, files: changed, snapshot } });
         }
@@ -325,6 +346,22 @@ class FakeServer {
     return profile;
   }
 
+  private invalidSnapshot(profileId: string, profile: { dir: string; name: string }, files: Record<string, FileVersion>): ProfileSnapshot {
+    return {
+      profileId,
+      name: profile.name,
+      dir: profile.dir,
+      status: 'invalid',
+      files,
+      metadata: {},
+      positionMap: [],
+      layers: [],
+      settings: [],
+      references: { layers: [], macros: [], tapDances: [], shortcuts: [] },
+      diagnostics: [],
+    };
+  }
+
   /** snapshot の版を「知っている版」にする */
   private remember(snapshot: ProfileSnapshot): ProfileSnapshot {
     this.known.set(snapshot.profileId, snapshot.files);
@@ -335,18 +372,9 @@ class FakeServer {
     const { dir, name } = this.profile(profileId);
     const files = this.files(dir);
     const base = path.resolve(this.options.root, dir);
-    if (this.options.scenario === 'invalid') {
+    if (this.scenario === 'invalid') {
       return {
-        profileId,
-        name,
-        dir,
-        status: 'invalid',
-        files,
-        metadata: {},
-        positionMap: [],
-        layers: [],
-        settings: [],
-        references: { layers: [], macros: [], tapDances: [], shortcuts: [] },
+        ...this.invalidSnapshot(profileId, { dir, name }, files),
         diagnostics: [
           {
             severity: 'error',
@@ -366,7 +394,7 @@ class FakeServer {
       files,
       metadata: data.METADATA,
       positionMap: data.POSITION_MAP,
-      layers: data.LAYERS.map((layer) => layerFromDisk(base, layer)),
+      layers: data.LAYERS.flatMap((layer) => layerFromDisk(base, layer) ?? []),
       settings: settingsFromDisk(base, data.SETTINGS),
       references: data.REFERENCES,
       diagnostics: [...BASE_DIAGNOSTICS],
@@ -419,27 +447,62 @@ class FakeServer {
     return { items: items.slice(0, limit), typed: typed(query, rawQuery), truncated: items.length > limit };
   }
 
-  private checkDraft(params: DraftParams): void {
-    const { dir } = this.profile(params.profileId);
+  /**
+   * profile/validate・planEdits の params を確かめる。順は #41 の Ruby のサーバーと同じ:
+   * params の形（-32602）→ 版の食い違い（-32060）→ 宛先・値の型・baseVersions の抜け（-32602）。書き換えられない（-32061）はそのあと
+   */
+  private checkDraft(raw: unknown): DraftParams {
+    const params = raw as Record<string, unknown>;
+    requireString(params, 'profileId');
+    const { dir } = this.profile(params.profileId as string);
+    if (params.baseVersions === null || typeof params.baseVersions !== 'object' || Array.isArray(params.baseVersions)) {
+      throw new RpcError(ErrorCodes.InvalidParams, 'baseVersions の形が違います', { field: 'baseVersions' });
+    }
+    if (!Array.isArray(params.changes)) throw new RpcError(ErrorCodes.InvalidParams, 'changes の形が違います', { field: 'changes' });
+    params.changes.forEach((change: unknown, index) => {
+      const at = `changes[${index}]`;
+      const c = change as { address?: { file?: unknown; path?: unknown }; value?: unknown } | null;
+      if (!c || typeof c !== 'object') throw new RpcError(ErrorCodes.InvalidParams, `${at} の形が違います`, { field: at });
+      if (!c.address || typeof c.address !== 'object' || typeof c.address.file !== 'string') {
+        throw new RpcError(ErrorCodes.InvalidParams, `${at}.address の形が違います`, { field: `${at}.address` });
+      }
+      if (!Array.isArray(c.address.path) || !c.address.path.every((k) => typeof k === 'string' || typeof k === 'number')) {
+        throw new RpcError(ErrorCodes.InvalidParams, `${at}.address.path の形が違います`, { field: `${at}.address.path` });
+      }
+      if (!['string', 'number', 'boolean'].includes(typeof c.value)) {
+        throw new RpcError(ErrorCodes.InvalidParams, `${at}.value の形が違います`, { field: `${at}.value` });
+      }
+    });
+    const draft = params as unknown as DraftParams;
     const current = this.files(dir);
-    const conflicts = Object.entries(params.baseVersions ?? {}).filter(([file, version]) => file in current && current[file] !== version);
+    const conflicts = Object.entries(draft.baseVersions).filter(([file, version]) => file in current && current[file] !== version);
     if (conflicts.length > 0) {
       throw new RpcError(ErrorCodes.VersionConflict, 'ファイルが外で変わっています', {
         files: Object.fromEntries(conflicts.map(([file]) => [file, current[file] ?? null])),
       });
     }
-    // Ruby のサーバーと同じく、-32060 のあとで params の形を確かめる（変更のあるファイルは baseVersions に必ず入れる）
-    for (const change of params.changes ?? []) {
-      if (!(change.address.file in (params.baseVersions ?? {}))) {
+    draft.changes.forEach((change, index) => {
+      const at = `changes[${index}]`;
+      const setting = data.SETTINGS.find((s) => s.address.file === change.address.file && s.address.path.join('/') === change.address.path.join('/'));
+      if (setting) {
+        const ok = setting.type === 'integer' ? Number.isInteger(change.value) : typeof change.value === 'boolean' || change.value === 0 || change.value === 1;
+        if (!ok) throw new RpcError(ErrorCodes.InvalidParams, `${setting.name} の値の形が違います`, { field: `${at}.value` });
+      } else {
+        // レイヤーのキー・エンコーダ: ディスクにあるファイルで、position_map の位置か、エンコーダの操作だけを指せる
+        const [mapping, hand, group, symbol] = change.address.path.map(String);
+        const handName = hand === 'left_hand' ? 'left' : hand === 'right_hand' ? 'right' : undefined;
+        const key = handName && data.POSITION_MAP.some((e) => e.hand === handName && e.group === group && e.symbol === symbol);
+        const encoder = hand === 'encoders' && (group === 'left' || group === 'right') && ['push', 'ccw', 'cw'].includes(symbol ?? '');
+        if (!(change.address.file in current) || !change.address.file.startsWith('layers/') || mapping !== 'mapping' || change.address.path.length !== 4 || !(key || encoder)) {
+          throw new RpcError(ErrorCodes.InvalidParams, `${at}.address は指せない場所です`, { field: `${at}.address` });
+        }
+        if (typeof change.value !== 'string') throw new RpcError(ErrorCodes.InvalidParams, `${at}.value はキーの表記の文字列です`, { field: `${at}.value` });
+      }
+      if (!(change.address.file in draft.baseVersions)) {
         throw new RpcError(ErrorCodes.InvalidParams, `baseVersions に ${change.address.file} がありません`, { field: 'baseVersions' });
       }
-    }
-    params.changes.forEach((change, index) => {
-      const setting = data.SETTINGS.find((s) => s.address.file === change.address.file && s.address.path.join('/') === change.address.path.join('/'));
-      if (!setting) return;
-      const ok = setting.type === 'integer' ? Number.isInteger(change.value) : typeof change.value === 'boolean' || change.value === 0 || change.value === 1;
-      if (!ok) throw new RpcError(ErrorCodes.InvalidParams, `${setting.name} の値の形が違います`, { field: `changes[${index}].value` });
     });
+    return draft;
   }
 
   /**
@@ -509,12 +572,28 @@ class FakeServer {
   private didChangeFiles(params: DidChangeFilesParams): void {
     for (const [profileId, profile] of this.profiles) {
       const base = path.resolve(this.options.root, profile.dir);
-      const inside = (params.changes ?? []).some((change) => {
-        const rel = path.relative(base, path.resolve(this.options.root, change.path));
-        return !(rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel));
+      // 設定ディレクトリの中か、その親（ディレクトリごと消えた・移したとき）を指す知らせなら読み直す
+      const related = (params.changes ?? []).some((change) => {
+        const target = path.resolve(this.options.root, change.path);
+        const rel = path.relative(base, target);
+        const inside = !(rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel));
+        const parent = rel === '' || base.startsWith(target + path.sep);
+        return inside || parent;
       });
-      if (!inside) continue;
+      if (!related) continue;
       const known = this.known.get(profileId) ?? {};
+      if (!fs.existsSync(base)) {
+        // 設定ディレクトリが消えた: files はすべて null、snapshot は読めない（#41 と同じ）
+        if (Object.values(known).every((version) => version === null) && Object.keys(known).length > 0) continue;
+        const files = Object.fromEntries(Object.keys(known).map((file) => [file, null]));
+        this.known.set(profileId, files);
+        const snapshot: ProfileSnapshot = {
+          ...this.invalidSnapshot(profileId, profile, files),
+          diagnostics: [{ severity: 'error', source: 'structure', message: `設定ディレクトリ ${profile.dir} がありません` }],
+        };
+        this.send({ jsonrpc: '2.0', method: 'profile/didChange', params: { profileId, files, snapshot } });
+        continue;
+      }
       const current = this.files(profile.dir);
       const files: Record<string, FileVersion> = {};
       for (const file of new Set([...Object.keys(known), ...Object.keys(current)])) {
@@ -544,12 +623,13 @@ const BASE_DIAGNOSTICS: Diagnostic[] = [
 ];
 
 /**
- * レイヤーのキーとエンコーダの値をディスクのファイルから読む（ファイルがなければ fixtures のまま）。
+ * レイヤーのキーとエンコーダの値をディスクのファイルから読む（設定ディレクトリがディスクになければ fixtures のまま）。
  * 書いてある表記が fixtures と同じなら fixtures の KeyValue（注記付き）を、違えば読み直した KeyValue を使う
  */
-function layerFromDisk(base: string, layer: LayerSnapshot): LayerSnapshot {
+function layerFromDisk(base: string, layer: LayerSnapshot): LayerSnapshot | undefined {
   const full = path.join(base, layer.file);
-  if (!fs.existsSync(full)) return layer;
+  // 設定ディレクトリがディスクにあるのにレイヤーのファイルがなければ、そのレイヤーはない
+  if (!fs.existsSync(full)) return fs.existsSync(base) ? undefined : layer;
   const lines = fs.readFileSync(full, 'utf-8').split('\n');
   const read = (keyPath: (string | number)[], fixture: KeyValue | null): KeyValue | null => {
     const range = findValue(lines, keyPath);

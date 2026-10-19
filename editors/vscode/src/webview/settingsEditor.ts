@@ -114,6 +114,12 @@ export class SettingsEditor {
   private commitNumber(row: Row): void {
     const text = row.input.value.trim();
     row.typing = false;
+    // type="number" の欄は数でない文字を打つと value が空になる（badInput）
+    if (row.input.validity.badInput) {
+      row.local = '整数を入れてください';
+      this.renderMessage(row);
+      return;
+    }
     if (text === '') {
       // v0.1 には設定を消す操作がない（ファイルから消すのはテキストで）
       const current = this.changes.get(addressKey(row.setting.address))?.value ?? row.setting.value;
@@ -146,7 +152,10 @@ export class SettingsEditor {
     const change = this.changes.get(key);
     const value = change ? change.value : setting.value;
     if (setting.type === 'boolean') {
-      input.checked = value === true;
+      // ファイルにない設定は既定値で描き、どちらとも決めていない印（indeterminate）を付ける。
+      // 押すとその値を書く（既定値と同じ値でも「書いていない」とは違う変更として残す）
+      input.checked = value === null ? setting.default === true : value === true;
+      input.indeterminate = value === null;
     } else if (!row.typing && !row.local) {
       input.value = typeof value === 'number' ? String(value) : '';
       input.placeholder = typeof setting.default === 'number' ? `既定 ${setting.default}` : '';

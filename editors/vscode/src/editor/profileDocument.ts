@@ -2,6 +2,7 @@
 // 変更は VS Code の編集（CustomDocumentEditEvent）として渡すので、dirty の印・元に戻す・やり直し・閉じるときの確認は VS Code が面倒をみる。
 // 保存は protocol.md の 6.2（profile/planEdits → WorkspaceEdit → TextDocument#save → profile/saved）、
 // 外での変更は 7.3（未保存がなければ黙って描き直す。あればどちらを残すか聞き、画面の変更を残すなら Change を当て直す）。
+// 方針: 利用者の変更を黙って捨てない（問いを閉じたら捨てずに残す側に倒す）。
 import * as vscode from 'vscode';
 import {
   ErrorCodes,
@@ -21,7 +22,16 @@ import { openProfileFile, profileDirPath, profileFileUri } from './profileFiles'
 import { PROFILE_EDITOR_VIEW_TYPE } from './profileUri';
 import { ProfileWatcher } from './profileWatcher';
 import type { ProfilePrompts } from './prompts';
-import { backupBefore, changedFiles, describeAddress, describeValue, fileVersionOf, rebaseChanges, structureErrors } from './rebase';
+import {
+  backupBefore,
+  changedFiles,
+  describeAddress,
+  describeValue,
+  fileVersionOf,
+  rebaseChanges,
+  sameFiles,
+  structureErrors,
+} from './rebase';
 
 /**
  * ホットエグジットのときに書き出す中身。files は変更を作ったときのファイルの版（snapshot.files）で、
@@ -74,8 +84,15 @@ export class ProfileDocument implements vscode.CustomDocument {
    * 読めない間は聞かずに待ち、読めるようになったらこれを「外の変更の前」として 7.3 の扱いをする
    */
   private changeBase: ProfileSnapshot | undefined;
+  /** ホットエグジットから戻したときにプロファイルが読めなかった。読めるようになったらこのバックアップの版と値で 7.3 の扱いをする */
+  private waitingBackup: Pick<Backup, 'files' | 'saved'> | undefined;
   /** 「外の変更を残す」で revert を通すときに、読み直さずに使う snapshot */
   private revertSnapshot: ProfileSnapshot | undefined;
+  /** revert のたびに増やす（聞いている間に revert されたら当て直さない） */
+  private revertGeneration = 0;
+  private reverting: Promise<void> | undefined;
+  /** 外の変更を取り込むたびに増やす（そのあとの undo の扱いを変える。applyChange） */
+  private epoch = 0;
 
   /** 設定ディレクトリの見張り。保存の間（6.2 の 5）は watcher.hold() で知らせを溜める */
   readonly watcher: ProfileWatcher;
@@ -127,14 +144,14 @@ export class ProfileDocument implements vscode.CustomDocument {
     return this.snapshotValue.profileId;
   }
 
-  /** 外での変更の扱いを聞いている途中か（テスト用） */
-  get isResolvingExternalChange(): boolean {
-    return this.resolving !== undefined;
+  /** 保存の途中か（テスト用） */
+  get isSaving(): boolean {
+    return this.saving !== undefined;
   }
 
-  /** 保存の途中か、外での変更の扱いが終わるまで待つ（テスト用） */
+  /** 保存・revert の途中か、外での変更の扱いが終わるまで待つ（テスト用） */
   async settled(): Promise<void> {
-    while (this.saving || this.resolving) await (this.saving ?? this.resolving)?.catch(() => undefined);
+    while (this.saving || this.resolving || this.reverting) await (this.saving ?? this.resolving ?? this.reverting)?.catch(() => undefined);
   }
 
   /**
@@ -142,15 +159,19 @@ export class ProfileDocument implements vscode.CustomDocument {
    * 編集ごとに「前の値（そのときの未保存の値か snapshot の値）」と「新しい値」を持ち、undo では前の値を当てる。
    * 当てた値が snapshot の値と同じなら未保存の変更から外すので、保存や外での変更で snapshot が変わったあとに戻しても、
    * 画面の値と未保存の変更が食い違わない（保存のあとに戻すと、ディスクの値に対する変更として残る）。
+   * ただし前の値が snapshot の値だった（未保存の変更がなかった）編集を、外の変更を取り込んだあとに戻すときは、
+   * 外の変更の前の値ではなく今の snapshot の値に戻す（変更を外す）。利用者が見ていない値で外の変更を黙って戻さないため。
    * 前の値がない（割り当てのない位置）ときの undo は変更を外すだけ（v0.1 には割り当てを消す操作がない。protocol.md の 11. の 7）
    */
   applyChange(change: Change, label = '値の変更'): void {
+    const hadChange = this.changes.get(change.address) !== undefined;
     const before = this.currentValue(change.address);
+    const epoch = this.epoch;
     this.setValue(change.address, change.value);
     this.onDidEditEmitter.fire({
       document: this,
       label,
-      undo: () => this.setValue(change.address, before),
+      undo: () => this.setValue(change.address, !hadChange && this.epoch !== epoch ? null : before),
       redo: () => this.setValue(change.address, change.value),
     });
   }
@@ -180,7 +201,7 @@ export class ProfileDocument implements vscode.CustomDocument {
       }
       return;
     }
-    this.server.request('profile/validate', this.draftParams(this.changes.list())).then(
+    this.server.request('profile/validate', this.draftParams()).then(
       (result) => {
         if (generation !== this.validateGeneration || this.closed) return;
         this.draftDiagnostics = result.diagnostics;
@@ -191,13 +212,9 @@ export class ProfileDocument implements vscode.CustomDocument {
     );
   }
 
-  private draftParams(changes: readonly Change[]): DraftParams {
-    const files = [...new Set(changes.map((change) => change.address.file))];
-    return {
-      profileId: this.profileId,
-      baseVersions: Object.fromEntries(files.map((file) => [file, this.snapshotValue.files[file] ?? null])),
-      changes: [...changes],
-    };
+  /** 今の未保存の変更の profile/validate・profile/planEdits の params */
+  private draftParams(): DraftParams {
+    return { profileId: this.profileId, baseVersions: this.changes.baseVersions(this.snapshotValue.files), changes: this.changes.list() };
   }
 
   // ---------------------------------------------------------------------------
@@ -215,23 +232,62 @@ export class ProfileDocument implements vscode.CustomDocument {
       await this.runSave(cancellation);
     })();
     this.saving = run;
+    let saved = false;
     try {
       await run;
+      saved = true;
     } finally {
       if (this.saving === run) {
         this.saving = undefined;
         this.flushDeferred();
       }
+      // VS Code は保存の Promise が解決したあとに、そのときの編集の位置を保存点にする。保存の間に画面で足した変更（と undo・redo）も
+      // 保存点の手前に入るので、変更が残っていれば保存点を置いたあと（次のタスク）に編集を 1 つ足して dirty に戻す
+      if (saved) setTimeout(() => this.markRemainingDirty(), 0);
     }
   }
 
+  /** 保存のあとに残った未保存の変更を、1 つの編集として VS Code の履歴に載せる（undo で外し、redo で戻す） */
+  private markRemainingDirty(): void {
+    const remaining = this.changes.list();
+    if (this.closed || remaining.length === 0 || this.saving) return;
+    const apply = (values: ReadonlyMap<string, Change>, restore: boolean) => {
+      for (const change of remaining) {
+        if (values.get(addressKey(change.address)) === undefined) continue;
+        this.changes.assign(change.address, restore ? change.value : null, snapshotValueAt(this.snapshotValue, change.address));
+      }
+      this.fire();
+      this.validate();
+    };
+    const byKey = new Map(remaining.map((change) => [addressKey(change.address), change]));
+    this.onDidEditEmitter.fire({
+      document: this,
+      label: '保存の間の変更',
+      undo: () => apply(byKey, false),
+      redo: () => apply(byKey, true),
+    });
+  }
+
   private async runSave(cancellation: vscode.CancellationToken): Promise<void> {
-    const changes = this.changes.list();
-    if (changes.length === 0) return;
+    if (this.changes.size === 0) return;
     if (this.snapshotValue.status !== 'ok') this.stop('プロファイルが読めない状態なので保存しません。設定ファイルをテキストで直してください。');
     if (this.external || this.resolving) this.stop('設定ファイルが外で変わっています。どちらの変更を残すか選んでから、もう一度保存してください。');
 
+    // 場所が見つからない変更（外での変更で当て直せず、捨てなかったもの）があれば、捨てるか聞き直す
+    const lost = this.changes.list().filter((change) => snapshotValueAt(this.snapshotValue, change.address) === undefined);
+    if (lost.length > 0) {
+      const answer = await this.env.prompts().confirmLost(this.snapshotValue.name, this.lostItems(lost, this.snapshotValue));
+      if (answer !== 'discard') {
+        this.stop('場所が見つからない未保存の変更があるので保存しませんでした。捨てるか、テキストで直してください。');
+      }
+      for (const change of lost) this.changes.delete(change.address);
+      this.fire();
+      this.validate();
+      if (this.changes.size === 0) return;
+    }
+
     // 1. 書き換える対象のファイルがテキストエディタで未保存なら止める
+    const changes = this.changes.list();
     const files = [...new Set(changes.map((change) => change.address.file))];
     const dirty = files.filter((file) => {
       const uri = profileFileUri(this.dir, file)?.toString();
@@ -244,9 +300,9 @@ export class ProfileDocument implements vscode.CustomDocument {
     // 2. 書き換えを作る。構造の error があれば保存しない（意味検証の error と warning は止めない）
     let plan: PlanEditsResult;
     try {
-      plan = await this.server.request('profile/planEdits', this.draftParams(changes));
+      plan = await this.server.request('profile/planEdits', this.draftParams());
     } catch (error) {
-      this.planFailed(error);
+      return this.planFailed(error);
     }
     const errors = structureErrors(plan.diagnostics);
     if (errors.length > 0) {
@@ -291,13 +347,17 @@ export class ProfileDocument implements vscode.CustomDocument {
       const uri = profileFileUri(this.dir, file.file);
       if (!uri) this.stop(`設定ディレクトリの外のファイルは書き換えません: ${file.file}`);
       uris.set(file.file, uri);
-      if (file.create) {
-        edit.createFile(uri, { ignoreIfExists: true });
-      } else if ((await readVersion(uri)) !== file.baseVersion) {
-        // サーバーが書き換えを作ったあとに外で変わった
+      // サーバーが書き換えを作ったあとに外で変わった（作るはずのファイルが外でできた場合も）
+      if ((await readVersion(uri)) !== file.baseVersion) {
         this.reportExternal([file.file]);
         this.stop(`${file.file} が外で変わったので保存しませんでした。外の変更の扱いを選んでから、もう一度保存してください。`);
       }
+      // 開いている TextDocument がまだ外の変更を読み込んでいなければ（VS Code の読み直しは少し遅れる）、待ってから当てる。
+      // 古い中身に当てると、保存が「ファイルが変更されています」で失敗する
+      if (!file.create && !(await this.waitTextInSync(uri))) {
+        this.stop(`${file.file} をテキストエディタが読み直していないので保存しませんでした。少し待ってから、もう一度保存してください。`, file.file);
+      }
+      if (file.create) edit.createFile(uri, { ignoreIfExists: true });
       for (const text of file.edits) {
         const { start, end } = text.range;
         edit.replace(uri, new vscode.Range(start.line, start.character, end.line, end.character), text.newText);
@@ -308,19 +368,37 @@ export class ProfileDocument implements vscode.CustomDocument {
     for (const [file, uri] of uris) {
       const document = await vscode.workspace.openTextDocument(uri);
       if (document.isDirty && !(await document.save())) throw new Error(`${file} を保存できませんでした`);
-      // 保存時の整形（files.insertFinalNewline など）のあとの中身の版（6.2 の 4）。BOM なども含めてサーバーが読むのと同じバイト列で作る
+      // 保存時の整形（files.insertFinalNewline など）のあとの中身の版（6.2 の 4）。BOM なども含めてサーバーが読むのと同じ、
+      // 保存したあとのディスクのバイト列から作る
       versions[file] = await readVersion(uri);
     }
     return versions;
   }
 
+  /** 開いている TextDocument の中身がディスクと同じになるまで待つ（開いていなければすぐ true。dirty は手前で止めている） */
+  private async waitTextInSync(uri: vscode.Uri, timeoutMs = 2000): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const document = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+      if (!document) return true;
+      const disk = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri)); // TextDecoder は BOM を除く
+      if (document.getText() === disk) return true;
+      if (Date.now() > deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
   /** profile/planEdits の失敗を知らせて止める */
-  private planFailed(error: unknown): never {
+  private async planFailed(error: unknown): Promise<never> {
     const { code, data } = error as { code?: unknown; data?: unknown };
     if (code === ErrorCodes.VersionConflict) {
       const files = Object.keys((data as { files?: Record<string, FileVersion> } | undefined)?.files ?? {});
-      // サーバーに読み直させる（知っている版と違えば profile/didChange が来て 7.3 の扱いになる）
+      // サーバーに読み直させる（知っている版と違えば profile/didChange が来て、保存のあとに 7.3 の扱いになる）
       this.reportExternal(files);
+      // サーバーは届いた順に処理するので、次のリクエストの応答より前に profile/didChange が届く。
+      // 届かなければ（サーバーはもう新しい版を知っているのに、拡張がその知らせを取りこぼした）、開き直して同じ扱いにする
+      await this.server.request('profile/list', {}).catch(() => undefined);
+      if (!this.deferred) await this.resync();
       this.stop(`${files.join('、') || '設定ファイル'} が外で変わっています。外の変更の扱いを選んでから、もう一度保存してください。`);
     }
     if (code === ErrorCodes.EditNotLocal) {
@@ -334,6 +412,24 @@ export class ProfileDocument implements vscode.CustomDocument {
     this.stop(`保存の書き換えを作れませんでした（${errorMessage(error)}）。`);
   }
 
+  /** profile/open で開き直し、その snapshot を外での変更として扱う（保存の途中なら保存のあとに） */
+  private async resync(): Promise<void> {
+    const old = this.profileId;
+    let fresh: ProfileSnapshot;
+    try {
+      fresh = await this.server.request('profile/open', { dir: this.dir });
+    } catch {
+      return;
+    }
+    if (this.closed) {
+      this.server.notify('profile/close', { profileId: fresh.profileId });
+      return;
+    }
+    this.server.notify('profile/close', { profileId: old });
+    if (this.saving) this.deferred = fresh;
+    else this.acceptExternal(fresh);
+  }
+
   /** 利用者に知らせて保存をやめる（file があれば「ファイルを開く」のボタンを付ける） */
   private stop(message: string, file?: string): never {
     this.env.prompts().saveFailed(message, file ? () => void openProfileFile(this.dir, file) : undefined);
@@ -342,8 +438,7 @@ export class ProfileDocument implements vscode.CustomDocument {
 
   /** 設定ディレクトリのファイルが変わったかもしれないとサーバーに知らせる（読み直して、知っている版と違えば profile/didChange） */
   private reportExternal(files: string[]): void {
-    const base = profileDirPath(this.dir);
-    if (!base || files.length === 0) return;
+    if (!profileDirPath(this.dir) || files.length === 0) return;
     const prefix = this.dir.replace(/\/+$/, '');
     this.server.notify('workspace/didChangeFiles', { changes: files.map((file) => ({ path: `${prefix}/${file}`, type: 'changed' })) });
   }
@@ -352,19 +447,35 @@ export class ProfileDocument implements vscode.CustomDocument {
   // 元に戻す（revert）とホットエグジット
   // ---------------------------------------------------------------------------
 
-  /** 未保存の変更を捨てて読み直す。「外の変更を残す」もここを通す（そのときは profile/didChange の snapshot を使い、読み直さない） */
+  /**
+   * 未保存の変更を捨てて読み直す。保存の途中なら終わるのを待つ。
+   * 「外の変更を残す」もここを通す（そのときは profile/didChange の snapshot を使い、読み直さない。聞いている間に次の知らせが来ていればそちら）
+   */
   async revert(): Promise<void> {
+    const run = this.runRevert();
+    this.reverting = run;
+    try {
+      await run;
+    } finally {
+      if (this.reverting === run) this.reverting = undefined;
+    }
+  }
+
+  private async runRevert(): Promise<void> {
+    await this.saving?.catch(() => undefined);
     const snapshot = this.revertSnapshot;
     this.revertSnapshot = undefined;
+    this.revertGeneration += 1;
     this.changes.clear();
     this.draftDiagnostics = undefined;
     this.validateGeneration += 1;
-    this.external = undefined;
     this.changeBase = undefined;
+    this.waitingBackup = undefined;
     this.backupFiles = undefined;
+    const newer = this.external?.snapshot;
+    this.external = undefined;
     if (snapshot) {
-      this.snapshotValue = snapshot;
-      this.fire();
+      this.adopt(newer ?? snapshot);
       return;
     }
     await this.reopen(true);
@@ -387,13 +498,24 @@ export class ProfileDocument implements vscode.CustomDocument {
     };
   }
 
-  /** バックアップの変更を戻す。変更が触るファイルの版が今と違えば（閉じている間に外で変わった）7.3 と同じく聞く */
+  /**
+   * バックアップの変更を戻す。変更が触るファイルの版が今と違えば（閉じている間に外で変わった）7.3 と同じく聞く。
+   * プロファイルが読めなければ、読めるようになるまで聞かずに待つ（読めない snapshot に当て直すと、すべて当て直せなくなるため）
+   */
   private restoreBackup(backup: Backup): void {
     this.changes.replaceAll(backup.changes);
     this.backupFiles = backup.files;
     if (this.changes.size === 0) return;
-    if (changedFiles(backup.changes, backup.files, this.snapshotValue.files).length > 0) {
-      this.ask({ snapshot: this.snapshotValue, reason: 'backup', before: backupBefore(this.snapshotValue, backup.files, backup.saved) });
+    if (this.snapshotValue.status !== 'ok') {
+      this.waitingBackup = { files: backup.files, saved: backup.saved };
+      return;
+    }
+    this.checkBackup(backup, this.snapshotValue);
+  }
+
+  private checkBackup(backup: Pick<Backup, 'files' | 'saved'>, snapshot: ProfileSnapshot): void {
+    if (changedFiles(this.changes.list(), backup.files, snapshot.files).length > 0) {
+      this.ask({ snapshot, reason: 'backup', before: backupBefore(snapshot, backup.files, backup.saved) });
     } else {
       this.validate();
     }
@@ -405,7 +527,9 @@ export class ProfileDocument implements vscode.CustomDocument {
 
   /** profile/didChange。未保存の変更がなければ黙って描き直し、あればどちらを残すか聞く */
   handleExternalChange(params: ProfileDidChangeParams): void {
-    if (params.profileId !== this.profileId || this.closed) return;
+    if (this.closed) return;
+    // 開き直し（resync・再起動）で、聞いている snapshot の profileId が新しくなっていることがある
+    if (params.profileId !== this.profileId && params.profileId !== this.external?.snapshot.profileId) return;
     if (this.saving) {
       this.deferred = params.snapshot;
       return;
@@ -415,18 +539,27 @@ export class ProfileDocument implements vscode.CustomDocument {
 
   private acceptExternal(snapshot: ProfileSnapshot): void {
     if (this.changes.size === 0 && !this.external && !this.resolving) {
-      this.snapshotValue = snapshot;
       this.changeBase = undefined;
+      this.waitingBackup = undefined;
       this.draftDiagnostics = undefined;
-      this.fire();
+      this.adopt(snapshot);
       return;
     }
     if (snapshot.status !== 'ok') {
       // 読めない間は聞かずに待つ（Claude が書きかけのときなど）。画面は読めない表示にし、変更を作ったときの snapshot を覚えておく
       if (this.snapshotValue.status === 'ok') this.changeBase ??= this.snapshotValue;
+      if (this.external && this.external.snapshot.status === 'ok') this.changeBase ??= this.external.snapshot;
       this.external = undefined;
       this.snapshotValue = snapshot;
       this.fire();
+      return;
+    }
+    if (this.waitingBackup) {
+      // ホットエグジットから戻したときに読めなかったプロファイルが読めるようになった
+      const backup = this.waitingBackup;
+      this.waitingBackup = undefined;
+      this.adopt(snapshot);
+      this.checkBackup(backup, snapshot);
       return;
     }
     if (this.changeBase) {
@@ -450,6 +583,13 @@ export class ProfileDocument implements vscode.CustomDocument {
   private async resolveExternal(): Promise<void> {
     const prompts = this.env.prompts();
     while (this.external && !this.closed) {
+      if (this.changes.size === 0) {
+        // 聞く前に変更がなくなった（undo など）: 黙って描き直す
+        const { snapshot } = this.external;
+        this.external = undefined;
+        this.adopt(snapshot);
+        continue;
+      }
       const { reason } = this.external;
       // 閉じた（答えなかった）ときは画面の変更を残す（利用者の変更を黙って捨てない。未保存のままなので戻すこともできる）
       const choice = (await prompts.chooseSide(this.snapshotValue.name, this.changes.size, reason)) ?? 'screen';
@@ -464,6 +604,7 @@ export class ProfileDocument implements vscode.CustomDocument {
   /** 「画面の変更を残す」: Change を新しい snapshot に当て直す（7.3） */
   private async keepScreen(change: ExternalChange): Promise<void> {
     const prompts = this.env.prompts();
+    const generation = this.revertGeneration;
     const target = change.snapshot;
     const base = this.snapshotValue;
     const before = change.before ?? ((address: Address) => snapshotValueAt(base, address));
@@ -479,6 +620,7 @@ export class ProfileDocument implements vscode.CustomDocument {
           external: describeValue(conflict.external),
         })),
       );
+      if (generation !== this.revertGeneration || this.closed) return; // 聞いている間に revert した
       // 閉じたときは画面の値を残す
       const keep = new Set(chosen ?? conflicts.map((_, index) => index));
       conflicts.forEach((conflict, index) => {
@@ -486,27 +628,32 @@ export class ProfileDocument implements vscode.CustomDocument {
       });
     }
     if (lost.length > 0) {
-      const answer = await prompts.confirmLost(
-        target.name,
-        lost.map((c) => ({ label: describeAddress(base, c.address), value: describeValue(c.value) })),
-      );
+      const answer = await prompts.confirmLost(target.name, this.lostItems(lost, base));
+      if (generation !== this.revertGeneration || this.closed) return;
       if (answer === 'external') {
-        await this.keepExternal(this.external?.snapshot ?? target);
-        this.external = undefined;
+        await this.keepExternal(target);
         return;
       }
+      // 閉じたときは捨てずに残す（場所が見つからないので画面には出ず、保存のときにもう一度聞く）
+      if (answer !== 'discard') result.push(...lost);
     }
-    if (this.closed) return;
-    // 聞いている間に画面で足した変更は残す（変えた場所が当て直したものと同じなら、画面の新しい値を使う）
-    const originalKeys = new Map(original.map((c) => [addressKey(c.address), c.value]));
-    const edited = this.changes.list().filter((c) => originalKeys.get(addressKey(c.address)) !== c.value);
+    // 聞いている間の画面の操作を活かす: 変えた・足したものは画面の新しい値、undo などで外したものは当て直さない
+    const originalValues = new Map(original.map((c) => [addressKey(c.address), c.value]));
+    const now = this.changes.list();
+    const nowKeys = new Set(now.map((c) => addressKey(c.address)));
+    const edited = now.filter((c) => originalValues.get(addressKey(c.address)) !== c.value);
     const editedKeys = new Set(edited.map((c) => addressKey(c.address)));
+    const removed = new Set(original.map((c) => addressKey(c.address)).filter((key) => !nowKeys.has(key)));
     this.snapshotValue = target;
+    this.epoch += 1;
     this.backupFiles = undefined;
     this.draftDiagnostics = undefined;
     this.changes.clear();
-    for (const c of [...result.filter((c) => !editedKeys.has(addressKey(c.address))), ...edited]) {
-      this.changes.assign(c.address, c.value, snapshotValueAt(target, c.address));
+    for (const c of [...result.filter((c) => !editedKeys.has(addressKey(c.address)) && !removed.has(addressKey(c.address))), ...edited]) {
+      const saved = snapshotValueAt(target, c.address);
+      // 場所が見つからない変更は比べずに残す
+      if (saved === undefined) this.changes.set(c);
+      else this.changes.assign(c.address, c.value, saved);
     }
     if (this.changes.size === 0) {
       // 残る変更がない: revert を通して dirty を消す
@@ -515,6 +662,10 @@ export class ProfileDocument implements vscode.CustomDocument {
     }
     this.fire();
     this.validate();
+  }
+
+  private lostItems(lost: Change[], snapshot: ProfileSnapshot) {
+    return lost.map((c) => ({ label: describeAddress(snapshot, c.address), value: describeValue(c.value) }));
   }
 
   /**
@@ -539,7 +690,15 @@ export class ProfileDocument implements vscode.CustomDocument {
     this.draftDiagnostics = undefined;
     this.changeBase = undefined;
     this.backupFiles = undefined;
+    const newer = this.external?.snapshot;
+    this.external = undefined;
+    this.adopt(newer ?? snapshot);
+  }
+
+  /** 外の変更（か読み直した中身）の snapshot で描き直す */
+  private adopt(snapshot: ProfileSnapshot): void {
     this.snapshotValue = snapshot;
+    this.epoch += 1;
     this.fire();
   }
 
@@ -547,29 +706,37 @@ export class ProfileDocument implements vscode.CustomDocument {
   private flushDeferred(): void {
     const snapshot = this.deferred;
     this.deferred = undefined;
-    if (!snapshot || this.closed || snapshot.profileId !== this.profileId) return;
-    if (JSON.stringify(snapshot.files) === JSON.stringify(this.snapshotValue.files)) return;
+    if (!snapshot || this.closed) return;
+    if (snapshot.profileId === this.profileId && sameFiles(snapshot.files, this.snapshotValue.files)) return;
     this.acceptExternal(snapshot);
   }
 
   /**
    * profile/open からやり直す（profileId は変わる）。closeOld は同じサーバーに前の profileId を閉じさせるとき
-   * （再起動したあとの新しいサーバーは前の profileId を知らないので送らない）
+   * （再起動したあとの新しいサーバーは前の profileId を知らないので送らない）。
+   * 再起動のあとに未保存の変更が触るファイルの版が変わっていれば（落ちている間に外で変わった）、7.3 と同じく聞く
    */
   private async reopen(closeOld: boolean): Promise<void> {
-    const old = this.profileId;
+    const old = this.snapshotValue;
+    let fresh: ProfileSnapshot;
     try {
-      this.snapshotValue = await this.server.request('profile/open', { dir: this.dir });
+      fresh = await this.server.request('profile/open', { dir: this.dir });
     } catch {
       return; // 知らせはサーバーの側で出している。開き直せなければ前の profileId のまま
     }
     // 開き直せてから前の profileId を閉じる
-    if (closeOld) this.server.notify('profile/close', { profileId: old });
+    if (closeOld) this.server.notify('profile/close', { profileId: old.profileId });
     if (this.closed) {
-      this.server.notify('profile/close', { profileId: this.profileId });
+      this.server.notify('profile/close', { profileId: fresh.profileId });
       return;
     }
-    this.fire();
+    const base = this.changeBase ?? old;
+    if (this.changes.size > 0 && (fresh.status !== 'ok' || changedFiles(this.changes.list(), base.files, fresh.files).length > 0)) {
+      // 前の snapshot の profileId は新しいサーバーにはないので、聞いている間の検証は失敗する（当て直したあとに検証し直す）
+      this.acceptExternal(fresh);
+      return;
+    }
+    this.adopt(fresh);
     this.validate();
   }
 
@@ -580,7 +747,8 @@ export class ProfileDocument implements vscode.CustomDocument {
   dispose(): void {
     this.closed = true;
     this.validateGeneration += 1;
-    this.server.notify('profile/close', { profileId: this.profileId });
+    const ids = new Set([this.profileId, this.external?.snapshot.profileId].filter((id): id is string => id !== undefined));
+    for (const profileId of ids) this.server.notify('profile/close', { profileId });
     for (const disposable of this.disposables) disposable.dispose();
     this.onDidDisposeEmitter.fire();
     this.onDidDisposeEmitter.dispose();

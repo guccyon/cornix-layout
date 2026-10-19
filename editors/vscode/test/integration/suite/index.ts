@@ -68,6 +68,7 @@ test('編集画面がキーボード図とレイヤーの欄を描く（変更�
   }
   await vscode.commands.executeCommand('workbench.action.files.revert');
   await waitFor('revert', async () => profileTab()?.isDirty === false && document.changes.size === 0);
+  await document.settled();
 });
 
 test('変更で dirty になり、戻す（revert）と消える', async () => {
@@ -83,6 +84,7 @@ test('変更で dirty になり、戻す（revert）と消える', async () => {
 
   await vscode.commands.executeCommand('workbench.action.files.revert');
   await waitFor('revert', async () => profileTab()?.isDirty === false && document.changes.size === 0);
+  await document.settled();
 });
 
 test('設定ディレクトリのファイルが変わると workspace/didChangeFiles が届き、hold の間は溜める', async () => {
@@ -127,6 +129,7 @@ test('バックアップから戻すと未保存の変更と、そのときの�
   }
   await vscode.commands.executeCommand('workbench.action.files.revert');
   await waitFor('revert', async () => profileTab()?.isDirty === false && document.changes.size === 0);
+  await document.settled();
 });
 
 // ---------------------------------------------------------------------------
@@ -154,8 +157,8 @@ class FakePrompts implements ProfilePrompts {
     this.calls.push({ method: 'confirmLost', args });
     return Promise.resolve(this.lost);
   }
-  saveFailed(message: string) {
-    this.calls.push({ method: 'saveFailed', args: [message] });
+  saveFailed(message: string, openFile?: () => void) {
+    this.calls.push({ method: 'saveFailed', args: [message, openFile !== undefined] });
   }
   of(method: string): PromptLog[] {
     return this.calls.filter((call) => call.method === method);
@@ -187,6 +190,7 @@ async function revertProfile(document: ProfileDocument): Promise<void> {
   await vscode.commands.executeCommand('vscode.openWith', document.uri, 'cornix.profileEditor');
   await vscode.commands.executeCommand('workbench.action.files.revert');
   await waitFor('revert', async () => profileTab()?.isDirty === false && document.changes.size === 0);
+  await document.settled();
 }
 
 let prompts: FakePrompts;
@@ -194,6 +198,7 @@ let prompts: FakePrompts;
 test('変更して保存（Ctrl+S）すると、ファイルはその値だけが変わり、未保存の変更が空になる。保存のあとの undo はディスクの値に対する変更になる', async () => {
   const document = api.profileEditor.openDocuments[0];
   assert.ok(document);
+  await document.settled(); // 前のテストの revert の読み直しを待つ
   prompts = new FakePrompts();
   api.profileEditor.prompts = prompts;
   const before = readWorkspaceFile(BASE);
@@ -357,6 +362,226 @@ test('ホットエグジットから戻したとき、閉じている間に外�
     restored.dispose();
     backup.delete();
   }
+});
+
+/** 偽のサーバーの振る舞いを途中で変える（test/fake-server/server.ts の FAKE_CONFIGURE） */
+function configureFake(params: { scenario?: 'default' | 'invalid'; delays?: Record<string, number> }): void {
+  (api.server.notify as unknown as (method: string, params: unknown) => void).call(api.server, '$/fake/configure', params);
+}
+
+const rightKey = (group: string, symbol: string): Address => baseKey(group, symbol, 'right_hand');
+
+test('保存の途中に画面で足した変更は、保存のあとも dirty のまま残る', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  configureFake({ delays: { 'profile/saved': 1500 } });
+  try {
+    document.applyChange({ address: baseKey('row2', 'Z'), value: 'Tab' });
+    await waitFor('dirty', async () => profileTab()?.isDirty === true);
+    await vscode.commands.executeCommand('vscode.openWith', document.uri, 'cornix.profileEditor');
+    const saving = vscode.commands.executeCommand('workbench.action.files.save');
+    await waitFor('保存の途中', async () => document.isSaving);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    document.applyChange({ address: baseKey('row2', 'X'), value: 'Tab' });
+    await saving;
+    await document.settled();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  } finally {
+    configureFake({ delays: {} });
+  }
+  assert.match(readWorkspaceFile(BASE), /\n {6}Z: Tab\n {6}X: X\n/);
+  assert.deepEqual(document.changes.list(), [{ address: baseKey('row2', 'X'), value: 'Tab' }]);
+  await waitFor('保存のあとも dirty', async () => profileTab()?.isDirty === true);
+  await revertProfile(document);
+});
+
+test('保存のときに外で変わっていれば（-32060）止めて、外での変更の扱いを聞いてから保存し直せる', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  const hold = document.watcher.hold(); // 見張りの知らせが届く前に保存する
+  try {
+    await writeOutside(BASE, '      X: X\n', '      X: Enter\n');
+    document.applyChange({ address: baseKey('row2', 'C'), value: 'Tab' });
+    await saveProfile(document);
+    assert.match(String(prompts.of('saveFailed').at(-1)?.args[0]), /外で変わっています/);
+    await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
+    await document.settled();
+    assert.equal(snapshotValueAt(document.snapshot, baseKey('row2', 'X')), 'Enter');
+    assert.deepEqual(document.changes.list(), [{ address: baseKey('row2', 'C'), value: 'Tab' }]);
+  } finally {
+    hold.dispose();
+  }
+  await saveProfile(document);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  assert.match(readWorkspaceFile(BASE), /\n {6}C: Tab\n/);
+});
+
+test('書き換えを作ったあと当てる前に外で変わっていれば、当てずに止めて聞く', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  configureFake({ delays: { 'profile/planEdits': 800 } });
+  const hold = document.watcher.hold();
+  try {
+    document.applyChange({ address: baseKey('row2', 'V'), value: 'Tab' });
+    await vscode.commands.executeCommand('vscode.openWith', document.uri, 'cornix.profileEditor');
+    const saving = vscode.commands.executeCommand('workbench.action.files.save');
+    await waitFor('保存の途中', async () => document.isSaving);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await writeOutside(BASE, '      U: U\n', '      U: Enter\n');
+    await saving;
+    await document.settled();
+    assert.match(String(prompts.of('saveFailed').at(-1)?.args[0]), /外で変わったので保存しませんでした/);
+    await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
+    await document.settled();
+  } finally {
+    hold.dispose();
+    configureFake({ delays: {} });
+  }
+  assert.match(readWorkspaceFile(BASE), /\n {6}V: V\n/);
+  assert.equal(snapshotValueAt(document.snapshot, rightKey('row0', 'U')), 'Enter');
+  assert.deepEqual(document.changes.list(), [{ address: baseKey('row2', 'V'), value: 'Tab' }]);
+  await revertProfile(document);
+});
+
+test('値の部分だけでは書き換えられなければ（-32061）止めて、ファイルを開くボタン付きで知らせる', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  await writeOutside(BASE, '      B: B\n', '');
+  await waitFor('描き直し', async () => snapshotValueAt(document.snapshot, baseKey('row2', 'B')) === null);
+  const before = readWorkspaceFile(BASE);
+  document.applyChange({ address: baseKey('row2', 'B'), value: 'Tab' });
+  await saveProfile(document);
+  assert.deepEqual(prompts.of('saveFailed').at(-1)?.args.slice(1), [true]);
+  assert.match(String(prompts.of('saveFailed').at(-1)?.args[0]), /値の部分だけでは書き換えられない/);
+  assert.equal(readWorkspaceFile(BASE), before);
+  await revertProfile(document);
+});
+
+test('場所がなくなった変更は、問いを閉じたら捨てずに残し、保存のときにもう一度聞く', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  prompts.lost = undefined; // 閉じた
+  const symbols = vscode.Uri.joinPath(workspaceRoot(), 'profiles/default/layers/1_symbols.yml');
+  const moved = vscode.Uri.joinPath(workspaceRoot(), '.symbols-moved.yml');
+  const address: Address = { file: 'layers/1_symbols.yml', path: ['mapping', 'left_hand', 'row0', 'Q'] };
+  document.applyChange({ address, value: 'Tab' });
+  await vscode.workspace.fs.rename(symbols, moved);
+  try {
+    await waitFor('聞く', async () => prompts.of('confirmLost').length > 0);
+    await document.settled();
+    assert.deepEqual(prompts.of('confirmLost')[0]?.args, ['default', [{ label: 'レイヤー 1 Symbols の左手 row0 Q', value: 'Tab' }]]);
+    assert.deepEqual(document.changes.list(), [{ address, value: 'Tab' }]);
+    assert.equal(profileTab()?.isDirty, true);
+    // 保存のときにもう一度聞く。捨てると保存するものがなくなり、dirty が消える
+    prompts.lost = 'discard';
+    await saveProfile(document);
+    assert.equal(prompts.of('confirmLost').length, 2);
+    assert.equal(document.changes.size, 0);
+    await waitFor('dirty が消える', async () => profileTab()?.isDirty === false);
+  } finally {
+    await vscode.workspace.fs.rename(moved, symbols);
+  }
+  await waitFor('戻ったレイヤー', async () => document.snapshot.layers.some((layer) => layer.file === 'layers/1_symbols.yml'));
+});
+
+test('外の変更で読めなくなったら聞かずに待ち、読めるようになってから聞く', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  document.applyChange({ address: rightKey('row1', 'H'), value: 'Tab' });
+  configureFake({ scenario: 'invalid' });
+  try {
+    await writeOutside(BASE, '      J: J\n', '      J: Enter\n');
+    await waitFor('読めない表示', async () => document.snapshot.status === 'invalid');
+    assert.deepEqual(prompts.of('chooseSide'), []);
+  } finally {
+    configureFake({ scenario: 'default' });
+  }
+  await writeOutside(BASE, '      K: K\n', '      K: Enter\n');
+  await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
+  await document.settled();
+  assert.equal(document.snapshot.status, 'ok');
+  assert.equal(snapshotValueAt(document.snapshot, rightKey('row1', 'J')), 'Enter');
+  assert.deepEqual(document.changes.list(), [{ address: rightKey('row1', 'H'), value: 'Tab' }]);
+  await revertProfile(document);
+});
+
+test('ホットエグジットから戻したときに読めなければ、読めるようになるまで待ってから当て直す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  document.applyChange({ address: rightKey('row1', 'L'), value: 'Tab' });
+  const destination = vscode.Uri.joinPath(workspaceRoot(), '.backup-invalid.json');
+  const backup = await api.profileEditor.backupCustomDocument(document, { destination });
+  await revertProfile(document);
+  configureFake({ scenario: 'invalid' });
+  const token = new vscode.CancellationTokenSource().token;
+  const restored = await api.profileEditor.openCustomDocument(document.uri, { backupId: backup.id, untitledDocumentData: undefined }, token);
+  try {
+    configureFake({ scenario: 'default' });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(restored.snapshot.status, 'invalid');
+    assert.deepEqual(prompts.of('chooseSide'), []);
+    assert.equal(restored.changes.size, 1);
+    prompts.side = 'screen';
+    prompts.conflicts = [0];
+    await writeOutside(BASE, '      L: L\n', '      L: Enter\n');
+    await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
+    await restored.settled();
+    assert.deepEqual(prompts.of('chooseSide')[0]?.args, ['default', 1, 'backup']);
+    assert.equal(restored.snapshot.status, 'ok');
+    assert.deepEqual(restored.changes.list(), [{ address: rightKey('row1', 'L'), value: 'Tab' }]);
+  } finally {
+    restored.dispose();
+    backup.delete();
+  }
+});
+
+test('外の変更を取り込んだあとの undo は、外の変更の前の値ではなく今の値に戻す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  prompts.conflicts = [0]; // 画面の値を残す
+  const edits: vscode.CustomDocumentEditEvent<ProfileDocument>[] = [];
+  const subscription = api.profileEditor.onDidChangeCustomDocument((edit) => edits.push(edit));
+  document.applyChange({ address: rightKey('row2', 'N'), value: 'Tab' });
+  subscription.dispose();
+  await writeOutside(BASE, '      N: N\n', '      N: Enter\n');
+  await waitFor('聞く', async () => prompts.of('resolveConflicts').length > 0);
+  await document.settled();
+  assert.deepEqual(document.changes.list(), [{ address: rightKey('row2', 'N'), value: 'Tab' }]);
+  await edits.at(-1)?.undo();
+  assert.equal(document.changes.size, 0);
+  assert.equal(document.currentValue(rightKey('row2', 'N')), 'Enter');
+  await revertProfile(document);
+});
+
+test('サーバーが落ちている間に外で変わっていれば、再起動のあとに 7.3 と同じく聞く', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  prompts.conflicts = [0];
+  document.applyChange({ address: rightKey('row0', 'Y'), value: 'Tab' });
+  await api.server.stop();
+  await writeOutside(BASE, '      Y: Y\n', '      Y: Enter\n');
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  await api.server.restart();
+  await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
+  await document.settled();
+  assert.deepEqual(prompts.of('resolveConflicts')[0]?.args[1], [{ label: 'レイヤー 0 Base の右手 row0 Y', screen: 'Tab', external: 'Enter' }]);
+  assert.deepEqual(document.changes.list(), [{ address: rightKey('row0', 'Y'), value: 'Tab' }]);
+  await revertProfile(document);
 });
 
 test('開いたままサーバーが落ちても、再起動すると profile/open からやり直す', async () => {

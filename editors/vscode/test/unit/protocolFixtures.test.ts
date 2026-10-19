@@ -11,9 +11,19 @@ import { readMessages, runFakeServer } from '../fake-server/server';
 
 const REPO = path.resolve(__dirname, '../../../..');
 const DIR = path.join(REPO, 'spec/fixtures/protocol');
-const SUPPORTED = ['lifecycle', 'profile_list', 'profile_open', 'keycode_candidates', 'keycode_inspect'];
+const SUPPORTED = [
+  'lifecycle',
+  'profile_list',
+  'profile_open',
+  'keycode_candidates',
+  'keycode_inspect',
+  'profile_validate',
+  'profile_plan_edits',
+  'profile_saved',
+  'workspace_did_change_files',
+];
 /** 応答が error のデータだけを流すディレクトリ（keycode_shortcut_tree は error のデータがないので流さない） */
-const ERRORS_ONLY = new Set(['profile_open', 'keycode_candidates', 'keycode_inspect']);
+const ERRORS_ONLY = new Set(['profile_open', 'keycode_candidates', 'keycode_inspect', 'profile_validate', 'profile_plan_edits', 'profile_saved']);
 /** 偽のサーバーでは比べない項目（偽のサーバーの implementation は "fake"） */
 const IGNORED = new Set(['$.result.serverInfo.implementation']);
 

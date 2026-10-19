@@ -5,6 +5,9 @@
 
 export const PROFILE_SCHEME = 'cornix-profile';
 
+/** カスタムエディタの viewType（package.json の customEditors） */
+export const PROFILE_EDITOR_VIEW_TYPE = 'cornix.profileEditor';
+
 export type ProfileUriParts = { scheme: string; path: string; query: string };
 
 export function profileUriParts(dir: string, name: string): ProfileUriParts {

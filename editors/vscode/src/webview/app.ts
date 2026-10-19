@@ -24,6 +24,8 @@ export type AppOptions = {
   /** 描き終えたら（統合テストが待つ） */
   onRendered?: (message: Extract<WebviewMessage, { type: 'rendered' }>) => void;
   state?: { get(): ViewState | undefined; set(state: ViewState): void };
+  /** 下のペインのレイヤーの欄のあとに置く部品（QMK 設定・メタデータ）。読めないプロファイルの表示では出ない */
+  sections?: HTMLElement[];
 };
 
 /** 作り直す前のフォーカスと打ちかけ */
@@ -71,7 +73,7 @@ export class App {
         attachTooltip(input.input, () => this.describe(id), { focus: 'always', canShow: () => !input.isOpen && !input.isEditing }),
     });
     this.topPane = h('div', { class: 'top-pane' }, this.header, this.banner, this.tabs, this.keyboard.element);
-    this.bottomPane = h('div', { class: 'bottom-pane' }, this.layerInfo, this.problems, this.editor.element);
+    this.bottomPane = h('div', { class: 'bottom-pane' }, this.layerInfo, this.problems, this.editor.element, ...(options.sections ?? []));
     this.root.replaceChildren(h('div', { class: 'loading' }, '読み込んでいます…'));
   }
 

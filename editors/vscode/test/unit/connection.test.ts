@@ -1,4 +1,6 @@
 // 拡張の接続（vscode-jsonrpc）と偽のサーバー（自前の枠）を、メモリの上の流れでつないで確かめる
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { ResponseError } from 'vscode-jsonrpc/node';
@@ -46,10 +48,10 @@ describe('CornixConnection と偽のサーバー', () => {
     expect(list.default).toBe('profiles/default');
     const snapshot = await connection.request('profile/open', { dir: 'profiles/default' });
     expect(snapshot).toMatchObject({ profileId: 'p1', name: 'default', status: 'ok' });
-    // position_map のすべての位置（左右 24 キーずつ）を返し、割り当てのない位置は value が null
+    // position_map のすべての位置（左右 24 キーずつ）を返す。値はディスクのレイヤーのファイルから読む（割り当てのない位置は null。fakeServer.test.ts）
     expect(snapshot.positionMap).toHaveLength(48);
     expect(snapshot.layers[0]?.keys).toHaveLength(48);
-    expect(snapshot.layers[1]?.keys.some((key) => key.value === null)).toBe(true);
+    expect(snapshot.layers[1]?.keys.find((key) => key.hand === 'left' && key.row === 0 && key.col === 1)?.value?.text).toBe('Question');
     expect(snapshot.layers[0]?.keys.find((key) => key.hand === 'left' && key.row === 3 && key.col === 4)).toMatchObject({
       address: { file: 'layers/0_base.yml', path: ['mapping', 'left_hand', 'thumb_keys', 'middle'] },
       value: { text: 'LT1(Space)', kind: 'layerTap', display: { label: 'Space', tap: 'Space', hold: 'L1' } },
@@ -80,12 +82,31 @@ describe('CornixConnection と偽のサーバー', () => {
     expect(unknown.diagnostics[0]?.message).toBe('「ないキー」は読めない表記です');
   });
 
-  it('workspace/didChangeFiles で開いているプロファイルの profile/didChange が来る', async () => {
-    const { connection } = await connect();
-    const { profileId } = await connection.request('profile/open', { dir: 'profiles/default' });
-    const received = new Promise<ProfileDidChangeParams>((resolve) => connection.onNotification('profile/didChange', resolve));
-    await connection.notify('workspace/didChangeFiles', { changes: [{ path: 'profiles/default/layers/0_base.yml', type: 'changed' }] });
-    await expect(received).resolves.toMatchObject({ profileId, files: { 'layers/0_base.yml': expect.stringMatching(/^sha256:[0-9a-f]{64}$/) } });
+  it('workspace/didChangeFiles で、知っている版と違うファイルがあれば profile/didChange が来る', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cornix-conn-'));
+    try {
+      fs.cpSync(ROOT, root, { recursive: true });
+      const { connection } = await connect({ root });
+      const { profileId } = await connection.request('profile/open', { dir: 'profiles/default' });
+      const received: ProfileDidChangeParams[] = [];
+      connection.onNotification('profile/didChange', (params) => received.push(params));
+      const notify = () => connection.notify('workspace/didChangeFiles', { changes: [{ path: 'profiles/default/layers/0_base.yml', type: 'changed' }] });
+      // 中身が変わっていなければ知らせない
+      await notify();
+      await connection.request('profile/list', {});
+      expect(received).toEqual([]);
+      const file = path.join(root, 'profiles/default/layers/0_base.yml');
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').replace('      Q: Q\n', '      Q: Escape\n'));
+      await notify();
+      await connection.request('profile/list', {});
+      expect(received).toHaveLength(1);
+      expect(received[0]).toMatchObject({ profileId, files: { 'layers/0_base.yml': expect.stringMatching(/^sha256:[0-9a-f]{64}$/) } });
+      // snapshot はディスクの値を読み直している
+      const q = received[0]?.snapshot.layers[0]?.keys.find((key) => key.hand === 'left' && key.row === 0 && key.col === 1);
+      expect(q?.value?.text).toBe('Escape');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('サーバーが約束の版を断ったら（-32051）ProtocolVersionError', async () => {

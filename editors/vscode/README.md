@@ -50,9 +50,10 @@ npm run package           # .vsix を作る（自分用。code --install-extensi
 
 - 起動: `test/fake-server/cornix serve --root <ワークスペース>`（先に `npm run build`）。設定 `cornix.path` にこのファイルを指定すると拡張がつなぐ
 - ライフサイクルとエラーは Ruby のサーバーに合わせてあり、vitest が `spec/fixtures/protocol/` の `lifecycle` と `profile_list` を偽のサーバーにも流して確かめる（`test/unit/protocolFixtures.test.ts`）
-- `profile/list` はワークスペースの `profiles/`・`.cornix.yml`・`config/` を見て返す（Ruby と同じ並びと既定）。それ以外の中身（`profile/open` の snapshot など）は固定のデータ
-- すべてのメソッドに答える。`profile/planEdits` はディスクのファイルの行を素朴にたどるだけ（ブロック形式の `キー: 値`）で、Ruby の書き換えの代わりではない
-- `workspace/didChangeFiles` で開いているプロファイルのファイルが来れば `profile/didChange` を返す
+- `profile/list` はワークスペースの `profiles/`・`.cornix.yml`・`config/` を見て返す（Ruby と同じ並びと既定）。snapshot のレイヤーのキー・エンコーダと QMK 設定の値はディスクのファイルの `キー: 値` の行から読み、それ以外（表示の文字・候補など）は固定のデータ
+- すべてのメソッドに答える。`profile/planEdits` はディスクのファイルの行を素朴にたどるだけ（ブロック形式の `キー: 値`。ない場所への挿入は -32061）で、Ruby の書き換えの代わりではない
+- `profile/validate` は保存済みの問題に変更の問題を足す（読めない表記は構造の error だけ、`Macro(数字)` は定義のないマクロ、`MO(9)` はほかの項目にかかる問題の例）
+- 開いたプロファイルごとに「知っている版」を持ち、`workspace/didChangeFiles` と `profile/saved` で版が違えば `profile/didChange` を送る
 - わざと崩す: `CORNIX_FAKE_SCENARIO=invalid`（構造検証で読めないプロファイル）、`CORNIX_FAKE_EXIT_ON=<メソッド>`（そのリクエストで落ちる。再起動の確認用）
 - 16bit 値や表示の文字はそれらしい値で、Ruby のサーバーの結果と一致するとは限らない。約束の形の正しさは Ruby の適合テスト（`spec/fixtures/protocol/`）が決める
 
@@ -73,7 +74,10 @@ editors/vscode/
     profiles/             プロファイルの一覧（アクティビティバー）と「プロファイルを開く」
     editor/
       profileUri.ts       cornix-profile:/<名前>?dir=<dir> の仮想ドキュメントの URI（ADR 015）
-      profileDocument.ts  1 つのプロファイル（snapshot と未保存の変更）。保存は段 3
+      profileDocument.ts  1 つのプロファイル（snapshot と未保存の変更）。保存（6.2）・外での変更（7.3）・ホットエグジット・onchange の検証
+      rebase.ts           外での変更の当て直し（7.3）と、場所・値の名前などの道具（vscode に依存しない）
+      prompts.ts          保存と外での変更で利用者に聞くこと（統合テストが差し替える）
+      profileFiles.ts     設定ディレクトリのファイルの場所と、テキストで開くこと
       pendingChanges.ts   未保存の変更（同じ Address は最後の値だけ）
       profileWatcher.ts   設定ディレクトリの見張り → workspace/didChangeFiles
       profileEditorProvider.ts  カスタムエディタ（CustomEditorProvider）
@@ -85,6 +89,8 @@ editors/vscode/
       keyboardView.ts     キーボード図（2 役のキーは tap / hold を上下に、アイコン、印）
       layerEditor.ts      レイヤーの欄
       keyInput.ts         キー入力欄（候補・typed・警告。どこも同じ部品）
+      settingsEditor.ts   QMK 設定の欄（整数は数値、真偽値はチェックボックス。説明と既定値）
+      metadataView.ts     metadata.yaml と position_map の表示（読むだけ）
       hostClient.ts       ホストへのリクエストの中継（keycode/candidates・keycode/inspect）
       icons/              アイコン ID → 要素（manifest.ts は media/icons/extract.mjs が作る）
   media/                  画面の CSS と同梱のアイコン（SVG とライセンス表記。media/icons/NOTICE.md）
@@ -99,6 +105,14 @@ editors/vscode/
 
 - 編集画面はカスタムエディタ（ADR 015）。プロファイルを `cornix-profile:` の仮想ドキュメントに見立てるので、タブの題はプロファイルの名前になり、
   dirty の印・閉じるときの確認・ホットエグジットは VS Code が面倒をみる。画面の変更は `ProfileDocument#applyChange` に渡すと
-  VS Code の編集の履歴に載り、元に戻す・やり直し（Webview にフォーカスがあるときの Ctrl+Z）も効く。保存・外での変更・ホットエグジットの残りは段 3（[tasks.md](../../docs/vscode-extension/tasks.md) の「I」の申し送り）
+  VS Code の編集の履歴に載り、元に戻す・やり直し（Webview にフォーカスがあるときの Ctrl+Z）も効く
+- 保存（Ctrl+S）は protocol.md の 6.2: 対象のファイルがテキストで未保存なら止める → `profile/planEdits`（構造の error があれば止める）→
+  `WorkspaceEdit` で当てて `TextDocument#save` → `profile/saved`。その間は見張りの知らせを溜める。保存できなければ知らせを出し、
+  `CancellationError` を投げて dirty のまま残す（-32060 はサーバーに読み直させて外での変更の扱いへ、-32061 は「ファイルを開く」のボタン）
+- 値を決めるたびに `profile/validate` を呼び、その結果を画面に送る snapshot の `diagnostics` に入れる（ほかの項目にかかる問題も参照している側の欄に出る）
+- 外での変更（7.3）: 未保存の変更がなければ黙って描き直す。あれば「画面の変更を残す」「外の変更を残す」を聞き、残すなら Change を当て直す
+  （同じ場所が外でも変わったものは項目ごとに、場所がなくなったものは捨てるか選ばせる）。「外の変更を残す」は編集画面を前に出して revert を通す。
+  外の変更でプロファイルが読めなくなったら、読めるようになるまで聞かずに待つ
+- ホットエグジット: バックアップに変更を作ったときの版と値を入れ、戻したときに変更が触るファイルの版が今と違えば 7.3 と同じく聞く
 - サーバーは最初のリクエストのときに起動する。落ちたら「再起動」のボタンを出し、再起動したら開いていたプロファイルは `profile/open` からやり直す
 - 単体テストは vscode に依存しないもの（`locateCornix`・`connection`・`pendingChanges` など）だけ。vscode を使うものは統合テストで確かめる

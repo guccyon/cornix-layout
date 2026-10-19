@@ -685,3 +685,156 @@ button {
   outline-style: double;
   outline-offset: 2px;
 }
+
+/* ---- QMK 設定とメタデータ（下のペインのレイヤーの欄のあと） ---- */
+
+.settings-editor,
+.metadata-view {
+  margin-top: 20px;
+  border-top: 1px solid var(--vscode-editorWidget-border, #8883);
+  padding-top: 8px;
+}
+
+.section-details > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.section-details > summary h2 {
+  display: inline;
+  font-size: 1.1em;
+  margin: 4px 0;
+}
+
+.read-only {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.settings-group h3,
+.metadata-view h3 {
+  margin: 10px 0 4px;
+  font-size: 1em;
+}
+
+.setting {
+  display: grid;
+  grid-template-columns: minmax(12em, max-content) 8em 1fr;
+  grid-template-areas:
+    'name control info'
+    '. message message';
+  align-items: center;
+  gap: 2px 12px;
+  padding: 3px 4px;
+  border-radius: var(--radius);
+}
+
+.setting-name {
+  grid-area: name;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.95em;
+}
+
+.setting-control {
+  grid-area: control;
+}
+
+.setting-info {
+  grid-area: info;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.setting-message {
+  grid-area: message;
+  font-size: 0.85em;
+}
+
+.setting-message:empty {
+  display: none;
+}
+
+.setting.changed .setting-name {
+  color: var(--changed);
+}
+
+.setting.changed .setting-name::after {
+  content: ' ●';
+  font-size: 0.7em;
+}
+
+.setting-number {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-family: var(--vscode-editor-font-family);
+}
+
+.setting-number:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.setting.error .setting-number {
+  border-color: var(--error);
+}
+
+.setting.warning .setting-number {
+  border-color: var(--warning);
+}
+
+.setting-checkbox {
+  accent-color: var(--vscode-checkbox-background, var(--vscode-button-background));
+}
+
+.metadata-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 16px;
+  margin: 0;
+}
+
+.metadata-list dt {
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-descriptionForeground);
+}
+
+.metadata-list dd {
+  margin: 0;
+  font-family: var(--vscode-editor-font-family);
+  overflow-wrap: anywhere;
+}
+
+.position-row {
+  display: grid;
+  grid-template-columns: minmax(14em, max-content) 1fr;
+  gap: 16px;
+  padding: 1px 0;
+}
+
+.position-group {
+  color: var(--vscode-descriptionForeground);
+}
+
+.position-symbols {
+  font-family: var(--vscode-editor-font-family);
+}
+
+@media (max-width: 640px) {
+  .setting {
+    grid-template-columns: 1fr 8em;
+    grid-template-areas:
+      'name control'
+      'info info'
+      'message message';
+  }
+}

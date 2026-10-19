@@ -104,3 +104,110 @@ describe('偽のサーバーの profile/open・keycode/*', () => {
     expect(titles).toEqual(['ショートカット 前のタブへ', '同梱のショートカット VS Code:基本操作:コマンドパレット']);
   });
 });
+
+// 保存と外での変更のメソッド（protocol.md の 5.6・6・7）。統合テストのワークスペースを写して使う
+describe('偽のサーバーの profile/validate・planEdits・saved・didChange', () => {
+  const WORKSPACE = path.resolve(__dirname, '../integration/workspace');
+  const base = 'layers/0_base.yml';
+  const q = { file: base, path: ['mapping', 'left_hand', 'row0', 'Q'] };
+
+  async function opened() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cornix-fake-save-'));
+    fs.cpSync(WORKSPACE, root, { recursive: true });
+    const server = start(root);
+    let id = 10;
+    /** これまでに届いた profile/didChange の数 */
+    const didChanges = async () => (await server.next(0)).filter((m) => (m as { method?: string }).method === 'profile/didChange').length;
+    const call = async (method: string, params: object) => {
+      const before = (await server.next(0)).length;
+      server.send({ id: ++id, method, params });
+      const messages = await server.next(before + 1);
+      // 通知（profile/didChange）が先に来ることもあるので、id の合うものを探す
+      for (let i = 0; i < 50 && !messages.some((m) => m.id === id); i++) await new Promise((r) => setTimeout(r, 5));
+      return messages.find((m) => m.id === id)!;
+    };
+    server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.1', clientInfo: { name: 't', version: '0' } } });
+    await server.next(1);
+    const open = await call('profile/open', { dir: 'profiles/default' });
+    const snapshot = open.result as { profileId: string; files: Record<string, string> };
+    const file = path.join(root, 'profiles/default', base);
+    const notify = (method: string, params: object) => server.send({ method, params });
+    return { root, file, call, notify, snapshot, didChanges, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
+  }
+
+  it('validate は保存済みの問題に変更の問題を足し、読めない表記があれば構造の error だけを返す', async () => {
+    const { call, snapshot, cleanup } = await opened();
+    try {
+      const baseVersions = { [base]: snapshot.files[base] };
+      const semantic = await call('profile/validate', { profileId: snapshot.profileId, baseVersions, changes: [{ address: q, value: 'MO(9)' }] });
+      const messages = (semantic.result as { diagnostics: { message: string; address?: { path: string[] } }[] }).diagnostics;
+      expect(messages.map((d) => d.address?.path.at(-1) ?? null)).toEqual([null, 'Q', 'fn']);
+      const structure = await call('profile/validate', { profileId: snapshot.profileId, baseVersions, changes: [{ address: q, value: 'ないキー' }] });
+      expect(structure.result).toMatchObject({ diagnostics: [{ source: 'structure', address: q }] });
+      expect((structure.result as { diagnostics: unknown[] }).diagnostics).toHaveLength(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('planEdits は値の部分だけを書き換え、同じ値なら書き換えを作らない。版が違えば -32060', async () => {
+    const { call, snapshot, file, cleanup } = await opened();
+    try {
+      const baseVersions = { [base]: snapshot.files[base] };
+      const plan = await call('profile/planEdits', {
+        profileId: snapshot.profileId,
+        baseVersions,
+        changes: [{ address: q, value: 'Escape' }, { address: { file: base, path: ['mapping', 'left_hand', 'row0', 'W'] }, value: 'W' }],
+      });
+      expect(plan.result).toMatchObject({
+        files: [{ file: base, baseVersion: snapshot.files[base], create: false, edits: [{ range: { start: { line: 8 }, end: { line: 8 } }, newText: 'Escape' }] }],
+      });
+      expect((plan.result as { files: { edits: unknown[] }[] }).files[0]?.edits).toHaveLength(1);
+      fs.appendFileSync(file, '# 外で書いた\n');
+      const conflict = await call('profile/planEdits', { profileId: snapshot.profileId, baseVersions, changes: [{ address: q, value: 'Escape' }] });
+      expect(conflict.error).toMatchObject({ code: ErrorCodes.VersionConflict, data: { files: { [base]: expect.stringMatching(/^sha256:/) } } });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('saved はディスクから読み直し、知らされた版と違えば profile/didChange も送る。didChangeFiles は知っている版と違うときだけ', async () => {
+    const { call, notify, snapshot, file, didChanges, cleanup } = await opened();
+    try {
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').replace('      Q: Q\n', '      Q: Escape\n'));
+      const saved = await call('profile/saved', { profileId: snapshot.profileId, files: { [base]: 'sha256:stale' } });
+      const result = saved.result as { files: Record<string, string>; layers: { keys: { address: { path: string[] }; value: { text: string } | null }[] }[] };
+      expect(result.layers[0]?.keys.find((k) => k.address.path.at(-1) === 'Q')?.value?.text).toBe('Escape');
+      expect(await didChanges()).toBe(1);
+      // saved で覚えた版と同じなので知らせない。変われば知らせる
+      const changes = [{ path: `profiles/default/${base}`, type: 'changed' }];
+      notify('workspace/didChangeFiles', { changes });
+      await call('profile/list', {});
+      expect(await didChanges()).toBe(1);
+      fs.appendFileSync(file, '# 外で書いた\n');
+      notify('workspace/didChangeFiles', { changes });
+      await call('profile/list', {});
+      expect(await didChanges()).toBe(2);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('レイヤーのファイルにない位置は value が null', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cornix-fake-null-'));
+    try {
+      fs.mkdirSync(path.join(root, 'profiles/default/layers'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'profiles/default/metadata.yaml'), 'keyboard: cornix\n');
+      fs.writeFileSync(path.join(root, 'profiles/default', base), 'name: Base\nmapping:\n  left_hand:\n    row0:\n      Q: Tab\n');
+      const server = start(root);
+      server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.1', clientInfo: { name: 't', version: '0' } } });
+      server.send({ id: 2, method: 'profile/open', params: { dir: 'profiles/default' } });
+      const snapshot = (await server.next(2))[1]?.result as { layers: { keys: { address: { path: string[] }; value: { text: string } | null }[] }[] };
+      const keys = snapshot.layers[0]?.keys ?? [];
+      expect(keys.find((k) => k.address.path.at(-1) === 'Q')?.value?.text).toBe('Tab');
+      expect(keys.filter((k) => k.value === null)).toHaveLength(47);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

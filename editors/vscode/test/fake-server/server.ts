@@ -1,5 +1,7 @@
 // テスト用の偽のサーバー。protocol.md の例を元にしたデータ（fixtures.ts）を、`cornix serve` と同じ枠（Content-Length）と約束で返す。
 // Ruby のサーバーがなくても画面の作業と統合テストを進めるためのもの。枠は vscode-jsonrpc を使わずに自前で読み書きし、拡張の側の枠の扱いも確かめる。
+// ディスクに設定ディレクトリがあれば、レイヤーのキー・エンコーダと QMK 設定の値はファイルの `キー: 値` の行から読む（ほかは fixtures の固定のデータ）。
+// 開いたプロファイルごとに「知っている版」を持ち、workspace/didChangeFiles と profile/saved で版が違えば profile/didChange を送る（protocol.md の 6.4・7.2）。
 //
 // わざと崩すための環境変数（main.ts が読む）:
 //   CORNIX_FAKE_SCENARIO=invalid   profile/open が status: "invalid" のプロファイルを返す
@@ -18,7 +20,9 @@ import {
   type FileEdits,
   type FileVersion,
   type KeyValue,
+  type LayerSnapshot,
   type ProfileListResult,
+  type QmkSettingSnapshot,
   type ProfileSnapshot,
   type TextEdit,
 } from '../../src/protocol';
@@ -116,6 +120,8 @@ class FakeServer {
   private state: 'new' | 'initialized' | 'shutdown' = 'new';
   private nextProfile = 1;
   private readonly profiles = new Map<string, { dir: string; name: string }>();
+  /** 開いたプロファイルの「知っている版」（profile/open・profile/saved・profile/didChange で覚えた版） */
+  private readonly known = new Map<string, Record<string, FileVersion>>();
 
   constructor(
     private readonly options: FakeServerOptions,
@@ -183,6 +189,7 @@ class FakeServer {
         return;
       case 'profile/close':
         this.profiles.delete((params as { profileId?: string } | undefined)?.profileId ?? '');
+        this.known.delete((params as { profileId?: string } | undefined)?.profileId ?? '');
         return;
       case 'workspace/didChangeFiles':
         this.didChangeFiles(params as DidChangeFilesParams);
@@ -216,7 +223,7 @@ class FakeServer {
         if (!summary) throw new RpcError(ErrorCodes.ProfileNotFound, `プロファイル ${dir} が見つかりません`, { dir });
         const profileId = `p${this.nextProfile++}`;
         this.profiles.set(profileId, summary);
-        return this.snapshot(profileId);
+        return this.remember(this.snapshot(profileId));
       }
       case 'keycode/candidates': {
         const p = params as { profileId?: unknown; context?: unknown; query?: string; limit?: number };
@@ -245,17 +252,27 @@ class FakeServer {
       case 'profile/validate': {
         const p = params as DraftParams;
         this.checkDraft(p);
-        return { diagnostics: this.validate(p.changes) };
+        return { diagnostics: this.validate(p.profileId, p.changes) };
       }
       case 'profile/planEdits': {
         const p = params as DraftParams;
         this.checkDraft(p);
-        return { files: this.planEdits(p), diagnostics: this.validate(p.changes) };
+        return { files: this.planEdits(p), diagnostics: this.validate(p.profileId, p.changes) };
       }
       case 'profile/saved': {
         const p = params as { profileId: string; files: Record<string, FileVersion> };
         this.profile(p.profileId);
-        return this.snapshot(p.profileId);
+        const snapshot = this.remember(this.snapshot(p.profileId));
+        // 保存の直後にさらに外で変わっていれば（知らされた版と読み直した版が違えば）profile/didChange も送る
+        const changed = Object.fromEntries(
+          Object.entries(p.files ?? {})
+            .filter(([file, version]) => (snapshot.files[file] ?? null) !== version)
+            .map(([file]) => [file, snapshot.files[file] ?? null]),
+        );
+        if (Object.keys(changed).length > 0) {
+          this.send({ jsonrpc: '2.0', method: 'profile/didChange', params: { profileId: p.profileId, files: changed, snapshot } });
+        }
+        return snapshot;
       }
       default:
         throw new RpcError(ErrorCodes.MethodNotFound, `知らないメソッドです: ${method}`);
@@ -308,9 +325,16 @@ class FakeServer {
     return profile;
   }
 
+  /** snapshot の版を「知っている版」にする */
+  private remember(snapshot: ProfileSnapshot): ProfileSnapshot {
+    this.known.set(snapshot.profileId, snapshot.files);
+    return snapshot;
+  }
+
   private snapshot(profileId: string): ProfileSnapshot {
     const { dir, name } = this.profile(profileId);
     const files = this.files(dir);
+    const base = path.resolve(this.options.root, dir);
     if (this.options.scenario === 'invalid') {
       return {
         profileId,
@@ -342,17 +366,10 @@ class FakeServer {
       files,
       metadata: data.METADATA,
       positionMap: data.POSITION_MAP,
-      layers: data.LAYERS,
-      settings: data.SETTINGS,
+      layers: data.LAYERS.map((layer) => layerFromDisk(base, layer)),
+      settings: settingsFromDisk(base, data.SETTINGS),
       references: data.REFERENCES,
-      diagnostics: [
-        {
-          severity: 'warning',
-          source: 'semantic',
-          message: 'Cornix は Repeat Key に対応していません（偽のサーバーの例）',
-          file: 'layers/1_symbols.yml',
-        },
-      ],
+      diagnostics: [...BASE_DIAGNOSTICS],
     };
   }
 
@@ -411,17 +428,48 @@ class FakeServer {
         files: Object.fromEntries(conflicts.map(([file]) => [file, current[file] ?? null])),
       });
     }
+    // Ruby のサーバーと同じく、-32060 のあとで params の形を確かめる（変更のあるファイルは baseVersions に必ず入れる）
+    for (const change of params.changes ?? []) {
+      if (!(change.address.file in (params.baseVersions ?? {}))) {
+        throw new RpcError(ErrorCodes.InvalidParams, `baseVersions に ${change.address.file} がありません`, { field: 'baseVersions' });
+      }
+    }
+    params.changes.forEach((change, index) => {
+      const setting = data.SETTINGS.find((s) => s.address.file === change.address.file && s.address.path.join('/') === change.address.path.join('/'));
+      if (!setting) return;
+      const ok = setting.type === 'integer' ? Number.isInteger(change.value) : typeof change.value === 'boolean' || change.value === 0 || change.value === 1;
+      if (!ok) throw new RpcError(ErrorCodes.InvalidParams, `${setting.name} の値の形が違います`, { field: `changes[${index}].value` });
+    });
   }
 
-  private validate(changes: Change[]): Diagnostic[] {
-    return changes.flatMap((change): Diagnostic[] => {
+  /**
+   * 保存済みのファイルの問題（BASE_DIAGNOSTICS）に、変更の値の問題を足す。読めない表記があれば構造の error だけを返す（protocol.md の 5.6）。
+   * `Macro(数字)` は定義のないマクロ（意味検証の error）。`MO(9)` にすると、レイヤー 0 の左手 row3 の fn（MO(3)）にも
+   * 「ほかの項目にかかる問題」の例として warning を出す（参照している側に出すことを画面で確かめるためのもの）
+   */
+  private validate(profileId: string, changes: Change[]): Diagnostic[] {
+    this.profile(profileId);
+    const own = changes.flatMap((change): Diagnostic[] => {
       if (typeof change.value !== 'string') return [];
+      if (change.value === 'MO(9)') {
+        return [
+          { severity: 'error', source: 'semantic', message: 'レイヤー 9 は定義されていません', address: change.address },
+          {
+            severity: 'warning',
+            source: 'semantic',
+            message: 'MO(9) と同じレイヤーの切り替えのキーです（偽のサーバーの例）',
+            address: { file: 'layers/0_base.yml', path: ['mapping', 'left_hand', 'row3', 'fn'] },
+          },
+        ];
+      }
       const macro = /^Macro\((\d+)\)$/.exec(change.value);
       if (macro) {
         return [{ severity: 'error', source: 'semantic', message: `マクロ M${macro[1]} が定義されていません`, address: change.address }];
       }
       return data.interpret(change.value) ? [] : [{ ...unreadable(change.value), address: change.address }];
     });
+    if (own.some((d) => d.source === 'structure')) return own.filter((d) => d.source === 'structure');
+    return [...BASE_DIAGNOSTICS, ...own];
   }
 
   /**
@@ -438,7 +486,7 @@ class FakeServer {
         throw new RpcError(ErrorCodes.EditNotLocal, `${file} がないので書き換えられません（偽のサーバー）`, { address: changes[0]?.address, reason: 'flowInsert' });
       }
       const lines = fs.readFileSync(full, 'utf-8').split('\n');
-      const edits: TextEdit[] = changes.map((change) => {
+      const edits: TextEdit[] = changes.flatMap((change) => {
         const range = findValue(lines, change.address.path);
         if (!range) {
           throw new RpcError(ErrorCodes.EditNotLocal, `${file} の ${change.address.path.join('.')} は書き換えられません（偽のサーバー）`, {
@@ -446,30 +494,110 @@ class FakeServer {
             reason: 'flowInsert',
           });
         }
-        return { range, newText: quote(String(change.value)) };
+        const newText = quote(String(change.value));
+        // 今の値と同じなら書き換えない（protocol.md の 6.3）
+        return textAt(lines, range) === newText ? [] : [{ range, newText }];
       });
       return { file, baseVersion: versionOf(fs.readFileSync(full)), create: false, edits };
-    });
+    }).filter((file) => file.edits.length > 0);
   }
 
+  /**
+   * 知らせのパスが開いているプロファイルの中なら読み直し、知っている版と違う設定ファイル（足された・消えたものも。知らせのパスに限らない）が
+   * あるときだけ profile/didChange を送る（protocol.md の 7.2）。送ったら知っている版を新しくするので、同じ知らせの 2 回目は送らない
+   */
   private didChangeFiles(params: DidChangeFilesParams): void {
     for (const [profileId, profile] of this.profiles) {
       const base = path.resolve(this.options.root, profile.dir);
+      const inside = (params.changes ?? []).some((change) => {
+        const rel = path.relative(base, path.resolve(this.options.root, change.path));
+        return !(rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel));
+      });
+      if (!inside) continue;
+      const known = this.known.get(profileId) ?? {};
+      const current = this.files(profile.dir);
       const files: Record<string, FileVersion> = {};
-      for (const change of params.changes ?? []) {
-        const full = path.resolve(this.options.root, change.path);
-        const rel = path.relative(base, full);
-        if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) continue;
-        files[rel.split(path.sep).join('/')] = fs.existsSync(full) ? versionOf(fs.readFileSync(full)) : null;
+      for (const file of new Set([...Object.keys(known), ...Object.keys(current)])) {
+        const before = known[file] ?? null;
+        const after = current[file] ?? null;
+        if (before !== after) files[file] = after;
       }
       if (Object.keys(files).length === 0) continue;
-      this.send({ jsonrpc: '2.0', method: 'profile/didChange', params: { profileId, files, snapshot: this.snapshot(profileId) } });
+      const snapshot = this.remember(this.snapshot(profileId));
+      this.send({ jsonrpc: '2.0', method: 'profile/didChange', params: { profileId, files, snapshot } });
     }
   }
 
   private log(line: string): void {
     this.options.log?.(`[fake-cornix] ${line}`);
   }
+}
+
+/** 保存済みのファイルの検証の結果（偽のサーバーの例。profile/open と profile/validate が返す） */
+const BASE_DIAGNOSTICS: Diagnostic[] = [
+  {
+    severity: 'warning',
+    source: 'semantic',
+    message: 'Cornix は Repeat Key に対応していません（偽のサーバーの例）',
+    file: 'layers/1_symbols.yml',
+  },
+];
+
+/**
+ * レイヤーのキーとエンコーダの値をディスクのファイルから読む（ファイルがなければ fixtures のまま）。
+ * 書いてある表記が fixtures と同じなら fixtures の KeyValue（注記付き）を、違えば読み直した KeyValue を使う
+ */
+function layerFromDisk(base: string, layer: LayerSnapshot): LayerSnapshot {
+  const full = path.join(base, layer.file);
+  if (!fs.existsSync(full)) return layer;
+  const lines = fs.readFileSync(full, 'utf-8').split('\n');
+  const read = (keyPath: (string | number)[], fixture: KeyValue | null): KeyValue | null => {
+    const range = findValue(lines, keyPath);
+    if (!range) return null;
+    const text = unquote(textAt(lines, range));
+    if (fixture && fixture.text === text) return fixture;
+    return data.interpret(text) ?? { text, canonical: text, code: null, kind: 'raw', display: { label: text } };
+  };
+  const encoder = (binding: LayerSnapshot['encoders']['left']) => ({
+    push: { ...binding.push, value: read(binding.push.address.path, binding.push.value) },
+    ccw: { ...binding.ccw, value: read(binding.ccw.address.path, binding.ccw.value) },
+    cw: { ...binding.cw, value: read(binding.cw.address.path, binding.cw.value) },
+  });
+  return {
+    ...layer,
+    keys: layer.keys.map((key) => ({ ...key, value: read(key.address.path, key.value) })),
+    encoders: { left: encoder(layer.encoders.left), right: encoder(layer.encoders.right) },
+  };
+}
+
+/** QMK 設定の値をディスクの settings/qmk_settings.yaml から読む（ファイルがなければ fixtures のまま、書いていなければ null） */
+function settingsFromDisk(base: string, settings: QmkSettingSnapshot[]): QmkSettingSnapshot[] {
+  const full = path.join(base, 'settings/qmk_settings.yaml');
+  if (!fs.existsSync(full)) return settings;
+  const lines = fs.readFileSync(full, 'utf-8').split('\n');
+  return settings.map((setting) => {
+    const range = findValue(lines, setting.address.path);
+    if (!range) return { ...setting, value: null };
+    const text = unquote(textAt(lines, range));
+    const value = setting.type === 'boolean' ? text === 'true' || text === '1' : Number(text);
+    return { ...setting, value };
+  });
+}
+
+function textAt(lines: string[], range: { start: { line: number; character: number }; end: { character: number } }): string {
+  return (lines[range.start.line] ?? '').slice(range.start.character, range.end.character);
+}
+
+function unquote(text: string): string {
+  if (/^".*"$/.test(text)) {
+    try {
+      return JSON.parse(text) as string;
+    } catch {
+      return text.slice(1, -1);
+    }
+  }
+  if (/^'.*'$/.test(text)) return text.slice(1, -1).replace(/''/g, "'");
+  return text;
 }
 
 /** keycode/candidates の limit を省いたときの数（protocol.md の 5.3） */

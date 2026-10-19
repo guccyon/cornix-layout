@@ -78,7 +78,7 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
 
 ```
 Interface       CLI（bin/cornix → Interface::Cli::Main）・MCP サーバー（Interface::Mcp::Server）・エディタのサーバー（Interface::EditorServer、cornix serve）
-Application     ユースケース（Compile / Decompile / Validate / Cleanup / RenameFiles / SuggestRenames / Device*）と Environment（DI）
+Application     ユースケース（Compile / Decompile / Validate / Cleanup / RenameFiles / SuggestRenames / Device* / Editor::*）と Environment（DI）
 Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / MacroCodec / ProfileMapper / QmkSettingCatalog / ShortcutCatalog / AppIconCatalog / KeyDisplay / CandidateCatalog
 Planning        ImageDiff / Change / Plan
 Domain          Profile 集約と値オブジェクト（Keycode, ModifierSet, LayerRef, Layer, Macro, TapDance, Combo, PositionMap, ...）。I/O なし

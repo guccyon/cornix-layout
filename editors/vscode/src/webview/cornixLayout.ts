@@ -4,20 +4,21 @@
 // 単位は 1 キーの幅（u）。左手の左上が (0, 0)。
 // - 各手 row0〜row2 は 6 キー（列ごとに少し上下にずらす: 中指がいちばん上）、row3 は外側に 3 キー、親指は内側に 3 キー
 // - 論理位置の列は左右とも「物理的に左から右」なので、右手は row3（col 0〜2）が外側（右）、親指（col 3〜5）が内側（左）になる
-// - エンコーダは両手の間に、左回し・押し込み・右回しの 3 つの欄を縦に並べて描く。実機の丸いつまみの位置や形には合わせず、
-//   割り当てたキーの文字が普通のキーと同じ大きさで読めることを優先する（基板は描かない）。
+// - エンコーダは両手の間に、丸いつまみとして描く。円を上・中・下の 3 つの帯に分け、左回し・押し込み・右回しの欄にする。
+//   位置は実機と少しずれてよく、割り当てたキーの文字が普通のキーと同じ大きさで読めることを優先する（基板は描かない）。
+//   入りきらない長い文字は 1 行で省略し、全部は説明（ツールチップ）で見せる。
 //   layout.vil のマトリクスで押し込みが row2 / row5 の col 6 にあるのは配線の位置で、図の位置を決めない
 import type { Hand } from '../protocol';
 
 export type KeyRect = { x: number; y: number; w: number; h: number; rotate: number };
-/** エンコーダ 1 つ分の外枠（u）。中に左回し・押し込み・右回しの欄を上から並べる */
+/** エンコーダ 1 つ分の外枠（u）。円なので w = h。中に左回し・押し込み・右回しの帯を上から並べる */
 export type EncoderPlace = { x: number; y: number; w: number; h: number };
 
 /** 片手の列ごとの縦のずらし（u）。左手の col 0（外側）から col 5（内側）の順 */
 const COLUMN_STAGGER = [0.45, 0.45, 0.15, 0, 0.15, 0.3];
 const HALF_WIDTH = 6;
 /** 両手の間（エンコーダを置く） */
-const GAP = 4;
+const GAP = 4.4;
 const RIGHT_ORIGIN = HALF_WIDTH + GAP;
 const KEY = 0.94;
 
@@ -46,12 +47,13 @@ export function keyRect(hand: Hand, row: number, col: number): KeyRect | undefin
   return { x: RIGHT_ORIGIN + (HALF_WIDTH - left.x - left.w), y: left.y, w: left.w, h: left.h, rotate: -left.rotate };
 }
 
-/** エンコーダの外枠（u）。両手の間を左右に分け、親指のキーより上に収める（ファイルの先頭のコメント） */
+/** エンコーダの外枠（u）。両手の間を左右に分けた円で、row0〜row2 の高さの中ほど、親指のキーより上に置く（ファイルの先頭のコメント） */
 const ENCODER_MARGIN = 0.13;
-const ENCODER_WIDTH = (GAP - ENCODER_MARGIN * 3) / 2;
+const ENCODER_SIZE = (GAP - ENCODER_MARGIN * 3) / 2;
+const ENCODER_TOP = 0.5;
 export const ENCODERS: Record<Hand, EncoderPlace> = {
-  left: { x: HALF_WIDTH + ENCODER_MARGIN, y: 0.15, w: ENCODER_WIDTH, h: 3.1 },
-  right: { x: RIGHT_ORIGIN - ENCODER_MARGIN - ENCODER_WIDTH, y: 0.15, w: ENCODER_WIDTH, h: 3.1 },
+  left: { x: HALF_WIDTH + ENCODER_MARGIN, y: ENCODER_TOP, w: ENCODER_SIZE, h: ENCODER_SIZE },
+  right: { x: RIGHT_ORIGIN - ENCODER_MARGIN - ENCODER_SIZE, y: ENCODER_TOP, w: ENCODER_SIZE, h: ENCODER_SIZE },
 };
 
 /** 図全体の大きさ（u） */

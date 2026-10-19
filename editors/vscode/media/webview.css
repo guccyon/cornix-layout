@@ -235,66 +235,160 @@ button {
   top: 2px;
 }
 
-/* エンコーダ: 左回し・押し込み・右回しの欄を縦に並べる（実機のつまみの形ではなく、キーと同じ大きさの文字で読めるように） */
+/* エンコーダ: 丸いつまみ。円を上・中・下の帯に分け、左回し・押し込み・右回しの欄にする。
+   文字はキーと同じ大きさで 1 行に描き、入りきらない分は省略する（全部は説明で見せる） */
 .encoder {
   position: absolute;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 4%;
+  overflow: hidden;
+  border: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
+  border-bottom-width: 2px;
+  border-bottom-color: var(--vscode-keybindingLabel-bottomBorder, var(--vscode-input-border, #6668));
+  border-radius: 50%;
+  background: var(--vscode-keybindingLabel-background, var(--vscode-input-background));
 }
 
 .encoder-part {
   position: relative;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
-  padding: 0 4px 0 26px;
-  border-radius: 8px;
+  flex-direction: row;
+  gap: 0.3em;
+  padding: 0 14%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
-/* 欄の左の印で、どの操作かを見分ける */
+/* 円の上と下の帯は外側ほど細いので、文字を真ん中の帯の側に寄せる */
+.encoder-ccw {
+  align-items: flex-end;
+  padding-bottom: 0.35em;
+}
+
+.encoder-cw {
+  align-items: flex-start;
+  padding-top: 0.35em;
+}
+
+.encoder-push {
+  border-top: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
+  border-bottom: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
+  background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+  padding: 0 14% 0 18%;
+}
+
+/* 円の中では枠線を描けないので、なぞったとき・選んだとき・変更・問題は内側の線で示す */
+.encoder-part:hover {
+  box-shadow: inset 0 0 0 1px var(--selected);
+}
+
+.encoder-part.changed {
+  box-shadow: inset 0 0 0 2px var(--changed);
+}
+
+.encoder-part.warning {
+  box-shadow: inset 0 0 0 2px var(--warning);
+}
+
+.encoder-part.error {
+  box-shadow: inset 0 0 0 2px var(--error);
+}
+
+.encoder-part.selected {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--selected);
+  background: color-mix(in srgb, var(--selected) 18%, transparent);
+}
+
+.encoder:has(.encoder-part.selected) {
+  outline: 2px solid var(--selected);
+  outline-offset: 1px;
+  z-index: 1;
+}
+
+/* 帯の印で、どの操作かを見分ける（上と下の帯は円の外寄りの細いところ、押し込みは左端に） */
 .encoder-part::before {
   position: absolute;
-  left: 5px;
-  top: 50%;
-  transform: translateY(-50%);
   color: var(--vscode-descriptionForeground);
-  font-size: 1.6em;
   line-height: 1;
 }
 
 .encoder-ccw::before {
   content: '⟲';
+  top: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.1em;
 }
 
 .encoder-push::before {
   content: '●';
-  font-size: 0.8em;
+  left: 6%;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7em;
 }
 
 .encoder-cw::before {
   content: '⟳';
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.1em;
 }
 
-.encoder-part .key-label {
+/* 長い文字も 2 行にせず 1 行で省略する */
+.encoder-part .key-label,
+.encoder-part .key-label.long {
+  display: block;
+  min-width: 0;
   max-width: 100%;
+  font-size: 1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.encoder-part .key-label.raw {
+  font-size: 0.85em;
+}
+
+/* 2 役の値は帯の中で横に並べる（タップの後ろに小さくホールド） */
 .encoder-part.dual {
-  padding-left: 26px;
+  justify-content: center;
+  padding: 0 14%;
 }
 
-/* アイコンは左の印と重ならないよう右上に */
-.encoder-part .key-icon {
-  left: auto;
-  right: 3px;
+.encoder-part.dual.encoder-push {
+  padding-left: 18%;
+}
+
+.encoder-part .key-tap,
+.encoder-part .key-hold {
+  flex: 0 1 auto;
   width: auto;
-  height: 32%;
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* アイコンのある欄は、2 行に折り返した文字とも重ならないよう右に余白を取る */
-.encoder-part:has(.key-icon) {
-  padding-right: 26px;
+.encoder-part .key-hold {
+  flex: 0 1 auto;
+  padding: 0 0.3em;
+  border-top: none;
+  border-radius: 3px;
+}
+
+/* アイコンは文字の前に、文字と同じ高さで */
+.encoder-part .key-icon {
+  position: static;
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
 }
 
 /* ---- 下のペイン ---- */
@@ -370,10 +464,11 @@ button {
   overflow: auto;
 }
 
+/* 左手の節の下に右手の節。各段（とエンコーダ）の欄は、幅が足りれば 6 つを横 1 列に、足りなければ折り返す */
 .layer-editor {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .hand h3 {
@@ -383,7 +478,7 @@ button {
 
 .group {
   display: grid;
-  grid-template-columns: 4.5em 1fr;
+  grid-template-columns: 5.5em minmax(0, 1fr);
   gap: 8px;
   padding: 4px 0;
   border-top: 1px solid var(--vscode-editorWidget-border, #8883);
@@ -391,13 +486,17 @@ button {
 
 .group-label {
   padding-top: 5px;
+  white-space: nowrap;
   color: var(--vscode-descriptionForeground);
 }
 
+/* 列の幅は「6 等分」と「160px」の大きいほう。広ければ 6 列で、段ごとに列がそろう。狭ければ 160px の列で折り返す */
 .fields {
+  --field-columns: 6;
+  --field-gap: 10px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 6px 10px;
+  grid-template-columns: repeat(auto-fill, minmax(max(160px, (100% - (var(--field-columns) - 1) * var(--field-gap)) / var(--field-columns)), 1fr));
+  gap: 6px var(--field-gap);
 }
 
 .field {

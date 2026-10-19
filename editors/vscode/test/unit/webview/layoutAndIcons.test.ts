@@ -28,7 +28,7 @@ describe('Cornix の物理配置', () => {
     for (const { entry, rect } of rects) {
       expect(rect, `${entry.hand} ${entry.group} ${entry.symbol}`).toBeDefined();
       expect(rect!.x).toBeGreaterThanOrEqual(0);
-      expect(rect!.x + rect!.w).toBeLessThanOrEqual(BOARD.width);
+      expect(rect!.x + rect!.w).toBeLessThanOrEqual(BOARD.width + 1e-9); // 小数の誤差
       expect(rect!.y + rect!.h).toBeLessThanOrEqual(BOARD.height);
     }
     for (let i = 0; i < rects.length; i++) {
@@ -48,14 +48,19 @@ describe('Cornix の物理配置', () => {
     expect(x('right', 0, 0)).toBeGreaterThan(x('left', 0, 5));
   });
 
-  it('エンコーダは両手の間にあり、キーと重ならない', () => {
+  it('エンコーダは両手の間の円で、キーと重ならない', () => {
     for (const place of Object.values(ENCODERS)) {
       const box = { ...place, rotate: 0 };
       for (const entry of data.POSITION_MAP) expect(overlaps(box, keyRect(entry.hand, entry.row, entry.col)!)).toBe(false);
     }
     expect(ENCODERS.left.x + ENCODERS.left.w).toBeLessThan(ENCODERS.right.x);
-    // 文字が読めるように、エンコーダの欄はキーより幅がある
-    for (const place of Object.values(ENCODERS)) expect(place.w).toBeGreaterThan(keyRect('left', 0, 0)!.w * 1.5);
+    for (const place of Object.values(ENCODERS)) {
+      expect(place.w).toBe(place.h); // 円（CSS の border-radius: 50%）
+      // 文字が読めるように、円はキー 2 つ分ほどの大きさ（上下の帯の幅がキーより広い）
+      expect(place.w).toBeGreaterThanOrEqual(keyRect('left', 0, 0)!.w * 2);
+      // 親指のキーより上
+      expect(place.y + place.h).toBeLessThan(keyRect('left', 3, 3)!.y);
+    }
   });
 
   it('レイヤーの欄は position_map の順のキーとエンコーダ 6 つ', () => {
@@ -72,7 +77,7 @@ describe('Cornix の物理配置', () => {
     ]);
   });
 
-  it('図のエンコーダは上から左回し・押し込み・右回しの欄で、2 役の値はキーと同じく tap / hold を上下に描く', () => {
+  it('図のエンコーダは上から左回し・押し込み・右回しの帯で、2 役の値は tap / hold を分けて描く', () => {
     const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
     const view = new KeyboardView({ onSelect: () => undefined });
     view.setSlots(slots);

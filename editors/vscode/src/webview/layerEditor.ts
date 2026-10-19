@@ -1,4 +1,5 @@
-// 下のペイン: 選んでいるレイヤーの編集画面。手ごと・グループ（段・親指）ごとにキー入力欄を並べ、最後にエンコーダ。
+// 下のペイン: 選んでいるレイヤーの編集画面。左手の節の下に右手の節を置き、手ごとにグループ（段・親指）ごとのキー入力欄を並べ、最後にエンコーダ。
+// 欄の並べ方（広ければ横 1 列、狭ければ折り返す）は media/webview.css の .fields。
 import type { Diagnostic } from '../protocol';
 import { h } from './dom';
 import type { HostClient } from './hostClient';

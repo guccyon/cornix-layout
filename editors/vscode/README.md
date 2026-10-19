@@ -119,7 +119,7 @@ editors/vscode/
     webview/              編集画面（素の TypeScript。上にキーボード図、下にレイヤーの欄）
       main.ts             入口（ホストとのメッセージをつなぐ）
       app.ts              画面の全体（レイヤーの選択・欄の選択を上下で共有、Change をホストに渡す）
-      cornixLayout.ts     Cornix の物理配置（論理位置 hand / row / col → 図の座標。ADR 009）。エンコーダは左回し・押し込み・右回しの欄を縦に並べる
+      cornixLayout.ts     Cornix の物理配置（論理位置 hand / row / col → 図の座標。ADR 009）。エンコーダは円を上・中・下の帯に分けて左回し・押し込み・右回しの欄にする
       keyboardView.ts     キーボード図（2 役のキーは tap / hold を上下に、アイコン、印）
       layerEditor.ts      レイヤーの欄
       keyInput.ts         キー入力欄（候補・typed・警告。どこも同じ部品）

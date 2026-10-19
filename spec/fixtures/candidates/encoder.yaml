@@ -1,0 +1,11 @@
+# エンコーダの押し込み・回転（context: encoder）。上に出すものはメディア・マウスホイール・音量
+- context: encoder
+  query: ''
+  expect: [VolumeUp, VolumeDown, Mute, MediaPlayPause, MediaNext, MediaPrevious]
+- context: encoder
+  query: wheel
+  expect: [MouseWheelUp, MouseWheelDown, MouseWheelLeft, MouseWheelRight]
+# 一致の強さが先（完全一致の A がメディアより上）
+- context: encoder
+  query: a
+  expect: [A]

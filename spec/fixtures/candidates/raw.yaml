@@ -1,0 +1,22 @@
+# 直接の値（0x で始まるときだけ。先頭に出す）
+- context: layerKey
+  query: '0x7E40'
+  expect: ['0x7E40']
+- context: layerKey
+  query: '0x0004'
+  expect: [A]
+- context: layerKey
+  query: '0x7c79'
+  expect: [Repeat]
+  warning:
+    Repeat: Cornix は Repeat Key に対応していません
+# 書き込み禁止の値は出さない
+- context: layerKey
+  query: '0x7C00'
+  expect: []
+- context: layerKey
+  query: '0x'
+  expect: []
+- context: layerKey
+  query: '0xZZ'
+  expect: []

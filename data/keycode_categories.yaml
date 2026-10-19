@@ -1,0 +1,73 @@
+# キー入力欄の候補の分類と、場面（context）ごとに上に出すもの。
+# VS Code 拡張の keycode/candidates が使う（Ruby の Cornix::Mapping::CandidateCatalog。将来の TypeScript 版も同じものを読む）。
+#
+# - categories: 分類 → キーの名前（data/keycodes.yaml の name）。並びは候補の並び（同じ分類の中で、ここに書いた順が先）
+# - defaults:   categories に書いていないキーの分類。data/keycodes.yaml の節（special / basic / quantum）と、
+#               data/aliases.yaml の modified（"!" など修飾付きの別名）ごとに決める。ここで決まるキーは値の小さい順
+# - order:      分類の並び（候補を並べるときの既定の順）
+# - contexts:   場面ごとに上に出すもの（categories の分類か、キーの名前）。上に出すものどうしは order と同じ規則で並べる
+#
+# 分類の名前は protocol.md の CandidateCategory のうち、キーの表から作るもの（basic / modifier / media / mouse / special）。
+# layer / macro / tapDance / shortcut / presetShortcut / raw は表ではなく、プロファイルと data/shortcuts/ と入力から作る。
+categories:
+  modifier: [KC_LCTRL, KC_LSHIFT, KC_LALT, KC_LGUI, KC_RCTRL, KC_RSHIFT, KC_RALT, KC_RGUI]
+  media:
+    - KC_VOLU
+    - KC_VOLD
+    - KC_MUTE
+    - KC_MPLY
+    - KC_MNXT
+    - KC_MPRV
+    - KC_MSTP
+    - KC_MFFD
+    - KC_MRWD
+    - KC_EJCT
+    - KC_MSEL
+    - KC_BRIU
+    - KC_BRID
+    - KC__VOLUP
+    - KC__VOLDOWN
+    - KC_MAIL
+    - KC_CALC
+    - KC_MYCM
+    - KC_WSCH
+    - KC_WHOM
+    - KC_WBAK
+    - KC_WFWD
+    - KC_WSTP
+    - KC_WREF
+    - KC_WFAV
+    - KC_PWR
+    - KC_SLEP
+    - KC_WAKE
+  mouse:
+    - KC_BTN1
+    - KC_BTN2
+    - KC_BTN3
+    - KC_BTN4
+    - KC_BTN5
+    - KC_MS_U
+    - KC_MS_D
+    - KC_MS_L
+    - KC_MS_R
+    - KC_WH_U
+    - KC_WH_D
+    - KC_WH_L
+    - KC_WH_R
+    - KC_ACL0
+    - KC_ACL1
+    - KC_ACL2
+defaults:
+  special: special    # KC_NO / KC_TRNS
+  basic: basic
+  quantum: special
+  modified: basic     # "!" "@" "¥" など
+order: [basic, modifier, media, mouse, special]
+contexts:
+  layerKey:
+    prefer:
+      categories: [basic]
+  encoder:
+    prefer:
+      categories: [media]
+      keys: [KC_WH_U, KC_WH_D, KC_WH_L, KC_WH_R]

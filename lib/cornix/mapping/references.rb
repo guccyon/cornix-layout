@@ -33,6 +33,14 @@ module Cornix
 
       def tap_dance_name(index) = @tap_dance_names[index]
 
+      # 名前のあるマクロ・タップダンスの名前（渡した順）。番号は macro_index / tap_dance_index で引く
+      def macro_names = @macros.keys
+
+      def tap_dance_names = @tap_dances.keys
+
+      # 利用者のショートカット（shortcuts.yaml）の名前（渡した順）。同梱の定義（preset_shortcuts）は含めない
+      def shortcut_names = @shortcuts.keys
+
       # Shortcut('名前') を使える場面か
       def shortcuts_available? = @shortcuts_available
 

@@ -1,0 +1,8 @@
+# .vsix に入れないもの（入れるのは package.json・out/extension.js・out/webview.js・resources/・media/・README.md）
+**
+!package.json
+!README.md
+!out/extension.js
+!out/webview.js
+!resources/**
+!media/**

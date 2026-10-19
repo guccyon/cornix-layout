@@ -1,0 +1,4 @@
+{
+  // 統合テストと画面の作業用: Ruby の代わりにテスト用の偽のサーバーとつなぐ（先に npm run build）
+  "cornix.path": "../../fake-server/cornix"
+}

@@ -1,9 +1,14 @@
 name: RSpec
 
+# Ruby のテスト。PR では VS Code 拡張（editors/vscode/）だけの変更なら動かさない（そちらは vscode.yml）。
+# main への push では今までどおり毎回動かす。
 on:
   push:
     branches: [main]
   pull_request:
+    paths-ignore:
+      - 'editors/vscode/**'
+      - '.github/workflows/vscode.yml'
 
 permissions:
   contents: read

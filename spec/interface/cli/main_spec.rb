@@ -25,6 +25,27 @@ RSpec.describe Cornix::Interface::Cli::Main do
     expect(out.string).to include('cornix device read [-o FILE]')
   end
 
+  it 'version / --version / -v でバージョンを表示する' do
+    %w[version --version -v].each do |name|
+      out.truncate(0)
+      out.rewind
+      expect(run(name)).to eq(0)
+      expect(out.string).to eq("cornix #{Cornix::VERSION}\n")
+    end
+    expect(Cornix::VERSION).to match(/\A\d+\.\d+\.\d+\z/)
+  end
+
+  it '共通のオプションと --version を組み合わせても、設定を読まずにバージョンを表示する' do
+    workspace_factory = ->(**) { raise 'Workspace を作らないこと' }
+    expect(run('--profile', 'nope', '--version', workspace_factory: workspace_factory)).to eq(0)
+    expect(out.string).to eq("cornix #{Cornix::VERSION}\n")
+  end
+
+  it 'help version で version の使い方を表示する' do
+    expect(run('help', 'version')).to eq(0)
+    expect(out.string).to include('cornix version').and include('--version')
+  end
+
   it '知らないコマンドは exit 1' do
     expect(run('nope')).to eq(1)
     expect(err.string).to include('エラー: 知らないコマンドです: nope')

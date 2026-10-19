@@ -28,7 +28,7 @@ RSpec.describe Cornix::Interface::Mcp::Server do
   it 'initialize と tools/list に応答する（旧 Device::McpServer と同じツール）' do
     init = server.handle('jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => {})
     expect(init[:result]).to include(protocolVersion: '2025-06-18', capabilities: { tools: {} },
-                                     serverInfo: { name: 'cornix-device', version: '0.1.0' })
+                                     serverInfo: { name: 'cornix-device', version: Cornix::VERSION })
     expect(init[:result][:instructions]).to include('dry_run: true（既定）')
     tools = server.handle('jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list')[:result][:tools]
     expect(tools.map { |t| t[:name] }).to eq(%w[keyboard_info read_keymap backup list_backups restore_backup apply_layout])

@@ -115,10 +115,11 @@ data/
 lib/cornix.rb       全ファイルを層の順に require
 lib/cornix/
   domain/ image/ mapping/ planning/ storage/ device/ application/ interface/
-  errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
+  version.rb（Cornix::VERSION）, errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
 ext/cornix_hid/     raw HID ブリッジ（Swift、tmp/cornix-hid にビルド）
 spec/               lib と同じ層の構成 + end_to_end_spec.rb / architecture_spec.rb / fixtures/
 docs/               設計文書（README.md が一覧。architecture / domain-model / notation / validation / rename / device / tasks / background）
+CHANGELOG.md        変更履歴（Keep a Changelog の形。リリースごとに項を作る）
 config/             利用者の設定（生成物。main ブランチにはない）
 ```
 
@@ -165,6 +166,9 @@ ruby bin/diff_layouts       # tmp/layout.vil と tmp/build/layout.vil を 16bit 
   `cornix init` が設定ディレクトリ（指定がなければ `profiles/default`）と（必要なら）`.cornix.yml` を作り、デバイスか `--from` の .vil から設定を書く。
   `config/` は読むほうだけ後方互換で残す（新しく作るのは profiles/ の下）。`.cornix.yml` がなく中身のある `config/` があるところでは、
   指定なしの init は使う設定が黙って変わらないように止める。
+
+- **バージョンとリリース**: バージョンは `lib/cornix/version.rb` の `Cornix::VERSION`（`cornix --version` と MCP の serverInfo が使う）。
+  利用者に見える変更は `CHANGELOG.md` の `[Unreleased]` に足し、リリースのときに版の項へ移して `vX.Y.Z` のタグと GitHub Release を作る
 
 ## Troubleshooting
 

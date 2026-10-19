@@ -71,7 +71,10 @@ To use it as a `cornix` command, put a symlink to `bin/cornix` in a directory on
 ```bash
 mkdir -p ~/.local/bin && ln -s "$PWD/bin/cornix" ~/.local/bin/cornix   # add ~/.local/bin to PATH if it is not there
 cornix help             # list of commands (cornix help <command> for details)
+cornix --version        # the version of the tool
 ```
+
+Releases are tagged as `vX.Y.Z` (for example `git checkout v1.0.0`). The changes in each version are in [CHANGELOG.md](CHANGELOG.md) (in Japanese).
 
 ### 2. Create the settings (`init`)
 

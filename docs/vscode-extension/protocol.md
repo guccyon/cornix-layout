@@ -176,7 +176,7 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 // result
 {
   "protocolVersion": "0.1",
-  "serverInfo": { "name": "cornix", "version": "0.1.0", "implementation": "ruby" },
+  "serverInfo": { "name": "cornix", "version": "1.0.0", "implementation": "ruby" },   // version は Cornix::VERSION（約束の版 protocolVersion とは別）
   "capabilities": {
     "semanticValidation": true,   // Profile#diagnostics に当たる意味検証をする
     "keycodeCode": true           // KeyValue.code（16bit 値）を返す

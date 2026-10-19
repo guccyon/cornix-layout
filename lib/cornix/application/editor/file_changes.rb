@@ -12,7 +12,7 @@ module Cornix
       #   #=> [{ profileId: 'p1', files: { 'layers/0_base.yml' => 'sha256:…' }, snapshot: ProfileSnapshot }]
       #
       # paths はワークスペースのフォルダ（workbench.root）からの相対パスか絶対パス。開いているプロファイルのうち、
-      # 設定ディレクトリ（そのものか、その中）を指すパスがあるものだけを見る（ディレクトリごと消えたときも）。
+      # 設定ディレクトリそのもの・その中・その親（ディレクトリごと消えた・名前が変わった）を指すパスがあるものだけを見る。
       # 見るプロファイルは、設定ファイルの版を読んで知っている版（workbench.versions）と比べ、違うときだけ読み直す
       # （Snapshot。知っている版もそれになる）。files は知っている版と違うファイルと新しい版で、足されたファイルも入り、
       # 消えたファイルは nil。知らせのパスに入っていない設定ファイルの違いも入れる
@@ -32,7 +32,7 @@ module Cornix
           full = paths.map { |path| File.expand_path(path.to_s, @workbench.root) }
           @workbench.opened.filter_map do |opened|
             dir = File.expand_path(opened.env.config_dir)
-            next unless full.any? { |path| path == dir || path.start_with?("#{dir}/") }
+            next unless full.any? { |path| related?(path, dir) }
 
             known = @workbench.versions(opened.id).dup
             next if self.class.diff(known, versions_on_disk(dir)).empty?
@@ -44,6 +44,11 @@ module Cornix
         end
 
         private
+
+        # path が設定ディレクトリそのもの・その中・その親（ディレクトリごと消えた・名前が変わった）を指すか
+        def related?(path, dir)
+          path == dir || path.start_with?("#{dir}/") || dir.start_with?("#{path.chomp('/')}/")
+        end
 
         # 設定ファイルの版だけを読む（読み直すかどうかの判断用。プロファイルは組み立てない）
         def versions_on_disk(dir)

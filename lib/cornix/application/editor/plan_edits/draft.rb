@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-require_relative 'errors'
+require_relative 'change'
+require_relative 'version_conflict'
+require_relative 'invalid_change'
+require_relative 'not_local'
 require_relative 'targets'
 
 module Cornix
   module Application
     module Editor
       class PlanEdits
-        # 画面での変更 1 つ（protocol.md の Change）。path は JSON の道筋（文字列か整数）、value は文字列・整数・真偽値
-        Change = Data.define(:file, :path, :value)
-
         # 未保存の変更（Change の並び）を、いま読んだ設定ファイルに当てた結果（profile/validate と profile/planEdits の共通の部分）。
         #
         #   draft = Draft.new(reading, settings_catalog).apply(base_versions, changes)
@@ -27,11 +27,16 @@ module Cornix
         # ファイルが 0 / 1 で書いていれば 0 / 1 で書き、同じ値なら書き換えない）
         class Draft
           FileEdit = Data.define(:file, :base_version, :create, :edits) do
-            def to_h = { file: file, baseVersion: base_version, create: create, edits: edits.map(&:to_protocol) }
-          end
-          Result = Data.define(:files, :texts, :reading)
+            def initialize(file:, base_version:, create:, edits:) = super(file:, base_version:, create:, edits: edits.dup.freeze)
 
-          INTEGER_TEXT = /\A[01]\z/
+            # protocol.md の 6.1 の files の 1 件の形
+            def to_protocol = { file: file, baseVersion: base_version, create: create, edits: edits.map(&:to_protocol) }
+          end
+          Result = Data.define(:files, :texts, :reading) do
+            def initialize(files:, texts:, reading:) = super(files: files.dup.freeze, texts: texts.dup.freeze, reading: reading)
+          end
+
+          ZERO_OR_ONE = /\A[01]\z/
 
           def initialize(reading, settings_catalog)
             @reading = reading
@@ -39,9 +44,9 @@ module Cornix
           end
 
           def apply(base_versions, changes)
-            check_versions!(base_versions)
+            check_conflicts!(base_versions)
             resolved = changes.each_with_index.map { |change, i| resolve(change, i) }
-            check_base_versions!(base_versions, resolved)
+            require_base_versions!(base_versions, resolved)
             texts = {}
             files = resolved.group_by { |target, _| target.file }.filter_map do |file, list|
               edit_file(file, list, texts)
@@ -51,7 +56,7 @@ module Cornix
 
           private
 
-          def check_versions!(base_versions)
+          def check_conflicts!(base_versions)
             conflicts = base_versions.each_with_object({}) do |(file, version), h|
               current = @reading.files[file]
               h[file] = current unless current == version
@@ -59,7 +64,7 @@ module Cornix
             raise VersionConflict, conflicts unless conflicts.empty?
           end
 
-          def check_base_versions!(base_versions, resolved)
+          def require_base_versions!(base_versions, resolved)
             missing = resolved.map { |target, _| target.file }.uniq.reject { |file| base_versions.key?(file) }
             return if missing.empty?
 
@@ -100,7 +105,7 @@ module Cornix
           # 真偽値の設定を、ファイルが 0 / 1 で書いているか
           def written_as_integer?(target)
             node_text = @reading.document(target.file)&.scalar(target.path)
-            !node_text.nil? && INTEGER_TEXT.match?(node_text)
+            !node_text.nil? && ZERO_OR_ONE.match?(node_text)
           end
 
           def edit_file(file, list, texts)

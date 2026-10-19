@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../handler'
-require_relative 'profile_plan_edits'
+require_relative 'draft_params'
 
 module Cornix
   module Interface

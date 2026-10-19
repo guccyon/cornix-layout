@@ -91,6 +91,12 @@ module Cornix
         rescue Storage::InvalidConfig => e
           @profile = nil
           @problems = e.problems
+        rescue ConfigError
+          raise if @source.directory?
+
+          # 設定ディレクトリが（開いたあとに）消えた。どのファイルとも言えない構造の問題 1 件にする（status: "invalid" で描き直せるように）
+          @profile = nil
+          @problems = [Storage::Problem.new(file: nil, message: '設定ディレクトリがありません（消えたか、名前が変わりました）')].freeze
         end
       end
     end

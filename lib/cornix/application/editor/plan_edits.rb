@@ -2,7 +2,10 @@
 
 require_relative 'profile_reading'
 require_relative 'diagnostics'
-require_relative 'plan_edits/errors'
+require_relative 'plan_edits/change'
+require_relative 'plan_edits/version_conflict'
+require_relative 'plan_edits/invalid_change'
+require_relative 'plan_edits/not_local'
 require_relative 'plan_edits/targets'
 require_relative 'plan_edits/draft'
 
@@ -28,7 +31,7 @@ module Cornix
         def call(id, base_versions:, changes:)
           env = @workbench.fetch(id).env
           draft = Draft.new(ProfileReading.read(env), env.settings_catalog).apply(base_versions, changes)
-          { files: draft.files.map(&:to_h), diagnostics: Diagnostics.new(draft.reading, env.capabilities).call }
+          { files: draft.files.map(&:to_protocol), diagnostics: Diagnostics.new(draft.reading, env.capabilities).call }
         end
       end
     end

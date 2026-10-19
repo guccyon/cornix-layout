@@ -96,6 +96,25 @@ RSpec.describe 'profile/validate・planEdits・saved・workspace/didChangeFiles 
     expect(fresh[:result]).to eq(diagnostics: [])
   end
 
+  it 'profile/saved のあとに、溜めておいた保存したファイルの workspace/didChangeFiles を受けても送らない（6.2 の 5）' do
+    snapshot = open
+    File.write(path(layer), File.read(path(layer)).sub('tab: Tab', 'tab: Escape'))
+    request('profile/saved', { 'profileId' => snapshot[:profileId], 'files' => { layer => version(layer) } })
+    notify('workspace/didChangeFiles', { 'changes' => [{ 'path' => "profiles/default/#{layer}", 'type' => 'changed' }] })
+    expect(notifications).to be_empty
+  end
+
+  it 'params の形の誤りは版の食い違いより先に -32602、形が正しければ版の食い違いが宛先や値の型より先' do
+    snapshot = open
+    stale = snapshot[:files][layer]
+    File.write(path(layer), File.read(path(layer)).sub('tab: Tab', 'tab: Escape'))
+    address = { 'file' => layer, 'path' => %w[mapping left_hand row0 tab] }
+    params = ->(value) { { 'profileId' => snapshot[:profileId], 'baseVersions' => { layer => stale }, 'changes' => [{ 'address' => address, 'value' => value }] } }
+    expect(request('profile/planEdits', params.(1.5))[:error]).to include(code: -32_602, data: { field: 'changes[0].value' })
+    expect(request('profile/planEdits', params.(nil))[:error]).to include(code: -32_602, data: { field: 'changes[0].value' })
+    expect(request('profile/planEdits', params.(1))[:error]).to include(code: -32_060)
+  end
+
   it 'baseVersions の値が文字列でも null でもなければ -32602' do
     snapshot = open
     response = request('profile/validate', { 'profileId' => snapshot[:profileId], 'baseVersions' => { layer => 1 } })

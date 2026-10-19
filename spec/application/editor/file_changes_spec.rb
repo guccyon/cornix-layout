@@ -61,6 +61,17 @@ RSpec.describe Cornix::Application::Editor::FileChanges do
     expect(result.first[:files].values).to all(be_nil)
   end
 
+  it '設定ディレクトリの親を指す知らせも見る（profiles/ ごと消えた・名前が変わった）。消えたら files はすべて nil で status: invalid' do
+    opened = open('profiles/default')
+    FileUtils.mv(File.join(@root, 'profiles'), File.join(@root, 'renamed'))
+    result = changes('profiles')
+    expect(result.map { |n| n[:profileId] }).to eq([opened.id])
+    expect(result.first[:files]).not_to be_empty
+    expect(result.first[:files].values).to all(be_nil)
+    expect(result.first[:snapshot]).to include(status: 'invalid', diagnostics: [include(source: 'structure')])
+    expect(changes('profiles/')).to eq([])
+  end
+
   it '開いているプロファイルの設定ディレクトリの外のパスは見ない（ほかのプロファイルが変わっていても）' do
     open('profiles/default')
     edit('profiles/ipad', layer)

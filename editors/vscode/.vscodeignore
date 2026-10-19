@@ -1,8 +1,9 @@
-# .vsix に入れないもの（入れるのは package.json・out/extension.js・out/webview.js・resources/・media/ の CSS・アイコン・ライセンス表記・README.md）
+# .vsix に入れないもの（入れるのは package.json・LICENSE・out/extension.js・out/webview.js・resources/・media/ の CSS・アイコン・ライセンス表記・README.md）
 # 素材の取り出しの道具 media/icons/extract.mjs は入れない（vsce は「!media/**」のあとの除外を効かせないので、入れるものを拡張子で書く）
 **
 !package.json
 !README.md
+!LICENSE
 !out/extension.js
 !out/webview.js
 !resources/**

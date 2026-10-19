@@ -107,14 +107,16 @@ function matchesFocusVisible(element: HTMLElement): boolean {
   }
 }
 
-/** 説明の中身: 題・説明の行・注記・その欄の問題 */
+/** 説明の中身: どの欄か・題・説明の行・注記・その欄の問題 */
 export function describeContent(
   text: string,
   result: InspectResult | undefined,
-  options: { note?: string | undefined; diagnostics?: readonly Diagnostic[] } = {},
+  options: { context?: string | undefined; note?: string | undefined; diagnostics?: readonly Diagnostic[] } = {},
 ): Node | null {
   if (!text && !options.diagnostics?.length) return null;
   const root = h('div', { class: 'tooltip-body' });
+  // どの欄の説明か（図では印でしか分からないエンコーダの操作など）
+  if (options.context) root.append(h('div', { class: 'tooltip-context' }, options.context));
   const title = result?.description?.title ?? result?.value?.canonical ?? text;
   root.append(h('div', { class: 'tooltip-title' }, title));
   if (result?.value && result.value.text !== title) root.append(h('div', { class: 'tooltip-code' }, result.value.text));

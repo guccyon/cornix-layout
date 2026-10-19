@@ -248,7 +248,7 @@ button {
   position: relative;
   flex: 1;
   min-height: 0;
-  padding: 0 4px 0 22px;
+  padding: 0 4px 0 26px;
   border-radius: 8px;
 }
 
@@ -259,7 +259,7 @@ button {
   top: 50%;
   transform: translateY(-50%);
   color: var(--vscode-descriptionForeground);
-  font-size: 1.25em;
+  font-size: 1.6em;
   line-height: 1;
 }
 
@@ -269,7 +269,7 @@ button {
 
 .encoder-push::before {
   content: '●';
-  font-size: 0.7em;
+  font-size: 0.8em;
 }
 
 .encoder-cw::before {
@@ -281,7 +281,7 @@ button {
 }
 
 .encoder-part.dual {
-  padding-left: 22px;
+  padding-left: 26px;
 }
 
 /* アイコンは左の印と重ならないよう右上に */
@@ -290,6 +290,11 @@ button {
   right: 3px;
   width: auto;
   height: 32%;
+}
+
+/* アイコンのある欄は、2 行に折り返した文字とも重ならないよう右に余白を取る */
+.encoder-part:has(.key-icon) {
+  padding-right: 26px;
 }
 
 /* ---- 下のペイン ---- */
@@ -633,6 +638,11 @@ button {
   box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
   pointer-events: none;
   font-size: 0.95em;
+}
+
+.tooltip-context {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
 }
 
 .tooltip-title {

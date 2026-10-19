@@ -39,12 +39,12 @@ npm run package           # .vsix を作る（自分用。code --install-extensi
 
 Marketplace には出していないので、.vsix を作って自分の VS Code に入れる。
 
-1. .vsix を作る: `cd editors/vscode && npm ci && npm run package`（`editors/vscode/cornix-vscode-0.1.0.vsix` ができる）
-2. 入れる: `code --install-extension editors/vscode/cornix-vscode-0.1.0.vsix`（またはコマンドパレットの「Extensions: Install from VSIX...」）。
+1. .vsix を作る: `cd editors/vscode && npm ci && npm run package`（`editors/vscode/` の中に `cornix-vscode-0.1.0.vsix` ができる）
+2. 入れる: そのまま `editors/vscode/` の中で `code --install-extension cornix-vscode-0.1.0.vsix`（またはコマンドパレットの「Extensions: Install from VSIX...」）。
    入れ直すときも同じ（版が同じなら上書き）。外すときは `code --uninstall-extension guccyon.cornix-vscode`
 3. プロファイルのあるフォルダを開く。たとえば authors-keymap の worktree（`.cornix.yml` に `profile: authors`）をフォルダとして開き、
    ワークスペースを信頼する（Restricted Mode では動かない）
-4. 設定 `cornix.path` に、`cornix serve` のある `bin/cornix` の絶対パスを入れる。空なら開いたフォルダの `bin/cornix` を使うが、
+4. 設定 `cornix.path` に、`cornix serve` のある `bin/cornix` の絶対パスを入れる。空なら開いたフォルダの `bin/cornix`、なければ `PATH` の `cornix` を使うが、
    そのブランチに `cornix serve` がなければ起動できない（まだ main に入っていないうちは、`feature/vscode-extension` などの worktree の `bin/cornix` を指す）。
    ワークスペースの `.vscode/settings.json` に書くと、そのフォルダだけに効く
 
@@ -56,7 +56,7 @@ Marketplace には出していないので、.vsix を作って自分の VS Code
    保存したら `bin/cornix validate` や `bin/cornix compile` は今までどおりターミナルで（拡張はキーボードに書き込まない）
 
 起動できないとき（「cornix のサーバーを起動できませんでした」）は出力パネル「Cornix」を見る。
-`undefined method 'define' for Data:Class` などが出ていれば、VS Code が古い Ruby（macOS の `/usr/bin/ruby` 2.6）で動かしている。
+``undefined method `define' for Data:Class`` などが出ていれば、VS Code が古い Ruby（macOS の `/usr/bin/ruby` 2.6）で動かしている。
 Dock から起動した VS Code はログインシェルから環境を読むので、mise や rbenv の Ruby が PATH の後ろに回ることがある。
 そのときは使う Ruby を決めたスクリプトを作って `cornix.path` に指定する。
 

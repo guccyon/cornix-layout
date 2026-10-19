@@ -160,6 +160,16 @@ describe('App の変更', () => {
     expect(tooltip?.hidden).toBe(false);
     expect(tooltip?.querySelector('.tooltip-title')?.textContent).toBe('マクロ Bracket Pair（M0）');
     expect(tooltip?.textContent).toContain('tap: [ ] ←');
+    expect(tooltip?.querySelector('.tooltip-context')).toBeNull();
+  });
+
+  it('エンコーダの説明は、どの操作の欄かを先頭に出す（図では印でしか分からないため）', async () => {
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    root.querySelector<HTMLElement>('.encoder-ccw')!.dispatchEvent(new Event('mouseenter'));
+    await settle(400);
+    const tooltip = document.querySelector<HTMLElement>('.tooltip');
+    expect(tooltip?.hidden).toBe(false);
+    expect(tooltip?.querySelector('.tooltip-context')?.textContent).toBe('左手 エンコーダの左回し');
   });
 });
 

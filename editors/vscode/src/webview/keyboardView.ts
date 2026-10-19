@@ -4,10 +4,7 @@ import type { Diagnostic, Hand, KeyValue } from '../protocol';
 import { BOARD, ENCODERS, keyRect } from './cornixLayout';
 import { h } from './dom';
 import { iconElement } from './icons';
-import { HAND_LABEL, keyAccessibleName, severityOf, type EncoderOp, type Slot } from './model';
-
-/** エンコーダの欄を上から並べる順（回す向きを上下に分け、押し込みをまん中に） */
-const ENCODER_STACK: EncoderOp[] = ['ccw', 'push', 'cw'];
+import { ENCODER_OPS, HAND_LABEL, keyAccessibleName, severityOf, type Slot } from './model';
 
 /** 1 つの欄の描き方 */
 export type SlotView = {
@@ -84,7 +81,7 @@ export class KeyboardView {
         `height: ${pct(place.h, BOARD.height)}`,
       ].join('; '),
     });
-    for (const op of ENCODER_STACK) {
+    for (const { op } of ENCODER_OPS) {
       const slot = slots.find((s) => s.hand === hand && s.encoder === op);
       if (!slot) continue;
       const part = h('button', { type: 'button', class: `encoder-part encoder-${op}`, 'data-slot': slot.id });

@@ -3,6 +3,7 @@
 // 写した先の cornix.path はテスト用の偽のサーバー（test/fake-server/cornix）の絶対パスにする。
 // CORNIX_INTEGRATION_SERVER=ruby（npm run test:integration:ruby）なら、このリポジトリの bin/cornix serve とつなぎ、suite/realServer.ts を動かす。
 // そのときのワークスペースは spec/fixtures/authors_config を profiles/default に写したもの（PATH に Ruby が要る。gem は使わない）。
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -57,9 +58,18 @@ function rubyWrapper(dir: string, cornix: string): string {
     .map((entry) => path.join(entry, 'ruby'))
     .find((candidate) => fs.existsSync(candidate));
   if (!ruby) throw new Error('PATH に ruby がありません');
+  // 古い Ruby だと bin/cornix が Data.define で分かりにくく落ちるので、先に止める
+  const version = execFileSync(ruby, ['-e', 'print RUBY_VERSION'], { encoding: 'utf-8' });
+  const [major = 0, minor = 0] = version.split('.').map(Number);
+  if (major < 3 || (major === 3 && minor < 2)) throw new Error(`PATH の ruby（${ruby}、${version}）が古いです。Ruby 3.2 以上を PATH の先に置いてください`);
   const wrapper = path.join(dir, 'cornix');
-  fs.writeFileSync(wrapper, `#!/bin/sh\nexec '${ruby}' '${cornix}' "$@"\n`, { mode: 0o755 });
+  fs.writeFileSync(wrapper, `#!/bin/sh\nexec ${shellQuote(ruby)} ${shellQuote(cornix)} "$@"\n`, { mode: 0o755 });
   return wrapper;
+}
+
+/** sh の単一引用符で包む（中の ' は '\'' にする） */
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 main().catch((error: unknown) => {

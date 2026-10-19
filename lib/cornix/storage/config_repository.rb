@@ -53,8 +53,6 @@ module Cornix
       # モデル内のパス → [ファイル, キーの道筋]（Address の形）。指せなければ nil
       def address(model_path) = locator.address(model_path)
 
-      private def locator = DiagnosticLocator.new(@dir, source: @source)
-
       def position_map_path
         rel = ConfigFiles.single_file(@dir, ConfigFiles::POSITION_MAP)
         rel && File.join(@dir, rel)
@@ -75,6 +73,10 @@ module Cornix
         problems.raise_if_any!
         position_map
       end
+
+      private
+
+      def locator = DiagnosticLocator.new(@dir, source: @source)
     end
   end
 end

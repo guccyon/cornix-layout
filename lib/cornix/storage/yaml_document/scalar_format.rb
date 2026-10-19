@@ -15,6 +15,8 @@ module Cornix
         # 引用符なしの値の先頭に来ると意味が変わる記号
         INDICATOR = /\A[-?:,\[\]{}#&*!|>'"%@`]/
         SWAP = { "'" => '"', '"' => "'" }.freeze
+        # 二重引用符の中のエスケープ（ほかの制御文字は \xHH）
+        ESCAPES = { '"' => '\\"', '\\' => '\\\\', "\n" => '\\n', "\r" => '\\r', "\t" => '\\t' }.freeze
 
         module_function
 
@@ -54,7 +56,7 @@ module Cornix
         def quoted(value, quote)
           return "'#{value.gsub("'", "''")}'" if quote == "'"
 
-          escaped = value.gsub(/["\\\n\r\t]/) { |c| { '"' => '\\"', '\\' => '\\\\', "\n" => '\\n', "\r" => '\\r', "\t" => '\\t' }[c] }
+          escaped = value.gsub(/["\\\x00-\x1F\x7F]/) { |c| ESCAPES.fetch(c) { Kernel.format('\\x%02X', c.ord) } }
           "\"#{escaped}\""
         end
       end

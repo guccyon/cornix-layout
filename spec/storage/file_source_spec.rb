@@ -41,6 +41,20 @@ RSpec.describe Cornix::Storage::FileSource do
       expect(source.list(:layers)).to eq(source.list(:layers).sort)
       expect(source.list(:macros)).to eq(disk.list(:macros))
     end
+
+    it '. で始まるファイルは一覧に並べず、パスの書き方はそろえる' do
+      overlay = described_class.new(disk, { 'layers/.draft.yaml' => "x\n", './layers/0_base.yml' => "edited\n" })
+      expect(overlay.list(:layers)).to eq(disk.list(:layers))
+      expect(overlay.read('layers/0_base.yml')).to eq("edited\n")
+      expect(overlay.exist?('./layers/../layers/0_base.yml')).to be(true)
+    end
+
+    it '中身は UTF-8 として扱う（BINARY の文字列も読める）' do
+      text = disk.read('layers/0_base.yml').sub('Base', 'ベース')
+      overlay = described_class.new(disk, { 'layers/0_base.yml' => text.b })
+      expect(overlay.read('layers/0_base.yml').encoding).to eq(Encoding::UTF_8)
+      expect(Cornix::Storage::YamlFile.parse(overlay.read('layers/0_base.yml'))['name']).to eq('ベース')
+    end
   end
 
   describe Cornix::Storage::FileVersion do

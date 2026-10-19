@@ -7,7 +7,9 @@ module Cornix
     class Problem < Data.define(:file, :location, :message)
       SEGMENT = /\[(\d+)\]|([^.\[\]]+)/
 
-      # 位置の文字列 → キーの道筋（"sequence[1].keys[0]" → ["sequence", 1, "keys", 0]、"" → []）
+      # 位置の文字列 → キーの道筋（"sequence[1].keys[0]" → ["sequence", 1, "keys", 0]、"" → []）。
+      # 文字列から戻すので、キーに . [ ] を含むと別の道筋になる（shortcuts.yaml の利用者が付ける名前の "Ver.2" など）。
+      # レイヤー・マクロなどのキーは決まった名前か position_map の記号なので起きない
       def self.path_of(location)
         location.to_s.scan(SEGMENT).map { |index, key| index ? Integer(index, 10) : key }
       end

@@ -127,6 +127,31 @@ RSpec.describe Cornix::Storage::YamlDocument do
       expect(edited(text, %w[row1 caps], 'Esc')).to eq("row1:\n  caps: Esc   # なし\n  A: A\n")
     end
 
+    it '注記付きの形で key が空なら key のコロンのあとに書く（フロー・ブロック）' do
+      flow = edited("a:\n  b: {key: , note: x}\n", %w[a b], 'Esc')
+      expect(flow).to eq("a:\n  b: {key: Esc , note: x}\n") # コロンのあとの空白はそのまま
+      expect(Psych.safe_load(flow)).to eq({ 'a' => { 'b' => { 'key' => 'Esc', 'note' => 'x' } } })
+      expect(edited("a:\n  b:\n    key:\n    note: x\n", %w[a b], 'Esc')).to eq("a:\n  b:\n    key: Esc\n    note: x\n")
+    end
+
+    it 'key と note のほかのキーがあるマッピングは注記付きの形とみなさない' do
+      text = "row0:\n  key: A\n  other: B\n"
+      expect(doc(text).scalar(%w[row0])).to be_nil
+      expect(doc(text).scalar(%w[row0 key])).to eq('A')
+      expect { doc(text).replace(%w[row0], 'X') }
+        .to raise_error(Cornix::Storage::EditNotLocal) { |e| expect(e.reason).to eq(:multiline) }
+    end
+
+    it '制御文字は二重引用符の中でエスケープする' do
+      result = edited("a: b\n", ['a'], "x\u0001y\ttab")
+      expect(result).to eq("a: \"x\\x01y\\ttab\"\n")
+      expect(Psych.safe_load(result)).to eq({ 'a' => "x\u0001y\ttab" })
+    end
+
+    it 'UTF-8 でない文字列（BINARY）も UTF-8 として読む' do
+      expect(doc('ベース: a'.b).scalar(['ベース'])).to eq('a')
+    end
+
     it '整数と真偽値はそのまま書く（QMK 設定）' do
       text = "keyboard:\n  tapping_term: 180\n  permissive_hold: false\n"
       expect(edited(text, %w[keyboard tapping_term], 200)).to eq(text.sub('180', '200'))
@@ -207,6 +232,20 @@ RSpec.describe Cornix::Storage::YamlDocument do
     it '空のファイルと --- だけのファイルには最初から書く' do
       expect(edited('', %w[keyboard tapping_term], 180, order: [])).to eq("keyboard:\n  tapping_term: 180\n")
       expect(edited("---\n", %w[keyboard tapping_term], 180, order: [])).to eq("---\nkeyboard:\n  tapping_term: 180\n")
+    end
+
+    it '文書全体が ~ や null なら、それを消して最初から書く' do
+      expect(edited("--- ~\n", %w[keyboard t], 180, order: [])).to eq("---\nkeyboard:\n  t: 180\n")
+      expect(edited("null\n", %w[keyboard t], 180, order: [])).to eq("\nkeyboard:\n  t: 180\n")
+      expect(Psych.safe_load(edited("--- ~ # c\n", %w[keyboard t], 180, order: []))).to eq({ 'keyboard' => { 't' => 180 } })
+    end
+
+    it '並びの中の空の要素には足せない（ArgumentError）' do
+      expect { doc("a:\n  -\n  - x\nb: 1\n").insert(['a', 0, 'k'], 'v') }.to raise_error(ArgumentError)
+    end
+
+    it 'CR だけのファイルには CR で足す' do
+      expect(edited("row1:\r  caps: A\r", %w[row1 A], 'A', order: group_order)).to eq("row1:\r  caps: A\r  A: A\r")
     end
 
     it 'CRLF のファイルには CRLF で足す' do

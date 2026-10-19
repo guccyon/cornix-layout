@@ -58,8 +58,8 @@ module Cornix
         # テキストの末尾の位置
         def end_position = position(@text.size)
 
-        # 文書で使っている改行（\r\n が 1 つでもあれば \r\n）
-        def newline = @text.include?("\r\n") ? "\r\n" : "\n"
+        # 文書で使っている改行（最初の改行。なければ \n）
+        def newline = @text[BREAK] || "\n"
       end
     end
   end

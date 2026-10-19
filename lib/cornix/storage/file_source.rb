@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'pathname'
 require_relative 'config_files'
 
 module Cornix
@@ -32,23 +33,27 @@ module Cornix
         def directory? = File.directory?(@dir)
       end
 
-      # base の上に、いくつかのファイルの中身を差し替えて見せる
+      # base の上に、いくつかのファイルの中身を差し替えて見せる。
+      # 相対パスは "./layers/x.yaml" と "layers/x.yaml" を同じものにそろえ、中身は UTF-8 として扱う（Disk と同じ）
       class Overlay
         def initialize(base, files)
           @base = base
-          @files = files.to_h { |rel, text| [rel.to_s, text&.to_s] }.freeze
+          @files = files.to_h { |rel, text| [normalize(rel), text && utf8(text)] }.freeze
         end
 
         def dir = @base.dir
 
         def read(rel)
-          rel = rel.to_s
+          rel = normalize(rel)
           return @base.read(rel) unless @files.key?(rel)
 
           @files[rel] or raise Errno::ENOENT, File.join(dir, rel)
         end
 
-        def exist?(rel) = @files.key?(rel.to_s) ? !@files[rel.to_s].nil? : @base.exist?(rel)
+        def exist?(rel)
+          rel = normalize(rel)
+          @files.key?(rel) ? !@files[rel].nil? : @base.exist?(rel)
+        end
 
         def list(kind)
           added = @files.filter_map { |rel, text| rel if text && ConfigFiles.kind_file?(rel, kind) }
@@ -56,6 +61,12 @@ module Cornix
         end
 
         def directory? = @base.directory?
+
+        private
+
+        def normalize(rel) = Pathname.new(rel.to_s).cleanpath.to_s
+
+        def utf8(text) = text.to_s.dup.force_encoding(Encoding::UTF_8).freeze
       end
     end
   end

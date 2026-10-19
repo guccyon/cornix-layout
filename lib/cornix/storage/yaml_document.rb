@@ -3,8 +3,9 @@
 require 'yaml'
 require_relative 'yaml_file'
 require_relative 'yaml_document/line_index'
-require_relative 'yaml_document/text_edit'
-require_relative 'yaml_document/edit_not_local'
+require_relative 'text_range'
+require_relative 'text_edit'
+require_relative 'edit_not_local'
 require_relative 'yaml_document/scalar_format'
 
 module Cornix
@@ -35,6 +36,7 @@ module Cornix
 
       def initialize(text)
         text = text.to_s
+        text = text.dup.force_encoding(Encoding::UTF_8) unless text.encoding == Encoding::UTF_8
         raise YamlFile::Unreadable, 'UTF-8 として読めません' unless text.valid_encoding?
 
         @text = text.delete_prefix(YamlFile::BOM)
@@ -74,13 +76,14 @@ module Cornix
 
         node = steps.last.node
         container = steps.last.parent
-        if (key_node = assignment_key(node))
+        name = steps.last.key
+        if (pair = assignment_pair(node))
           container = node
-          node = key_node
+          name, node = pair
         end
         raise EditNotLocal.new(reason: :multiline, path: path) unless node.is_a?(Nodes::Scalar)
 
-        return fill_empty(steps.last.key, value, path, flow: flow?(steps, container)) if empty_null?(node)
+        return fill_empty(name, value, path, flow: flow?(steps, container)) if empty_null?(node)
 
         check_single_line!(node, path)
         return [] if same?(node, value)
@@ -146,13 +149,20 @@ module Cornix
         end
       end
 
-      # 注記付きの形（{ key:, note: }）なら key の値のノード
-      def assignment_key(node)
+      # 注記付きの形（キーが key と note だけで key がある。KeycodeField::ASSIGNMENT_KEYS と同じ）なら
+      # [key の名前のノード, key の値のノード]
+      def assignment_pair(node)
         return nil unless node.is_a?(Nodes::Mapping)
 
-        node.children.each_slice(2) { |key, value| return value if key.is_a?(Nodes::Scalar) && key.value == 'key' }
-        nil
+        pairs = node.children.each_slice(2).to_a
+        names = pairs.map { |key, _| key.is_a?(Nodes::Scalar) ? key.value : nil }
+        return nil unless names.include?('key') && (names - Schema::KeycodeField::ASSIGNMENT_KEYS).empty?
+
+        pairs.find { |key, _| key.value == 'key' }
       end
+
+      # 注記付きの形なら key の値のノード
+      def assignment_key(node) = assignment_pair(node)&.last
 
       def assignment(node) = assignment_key(node) || node
 
@@ -287,6 +297,21 @@ module Cornix
         [TextEdit.new(range: TextRange.at(line, character), new_text: text)]
       end
 
+      # 文書全体が null（--- だけ、~、null）のとき: ~ や null を（前の空白ごと）消して、文書の終わりに足す
+      def insert_into_null_root(node, lines)
+        return insert_at_end(lines) if node.value.empty?
+
+        range = node_range(node)
+        line = @lines.line(range.start_line)
+        column = node.start_column
+        column -= 1 while column.positive? && [' ', "\t"].include?(line[column - 1])
+        removal = TextEdit.new(range: TextRange.new(start_line: range.start_line,
+                                                    start_character: @lines.utf16(range.start_line, column),
+                                                    end_line: range.end_line, end_character: range.end_character),
+                               new_text: '')
+        [removal, *insert_at_end(lines)]
+      end
+
       # ブロック形式のマッピングに、並びの順の場所でキー（と見出し）を足す
       def insert_into_mapping(mapping, path, depth, value, order)
         raise EditNotLocal.new(reason: :flow_insert, path: path) if mapping.style == Nodes::Mapping::FLOW
@@ -319,6 +344,8 @@ module Cornix
         [TextEdit.new(range: TextRange.at(line, @lines.utf16_length(line)), new_text: nl + lines.join(nl))]
       end
 
+      # 最初のキーの前に字下げ以外がある（"- k: 1" や "--- k: 1"）ときも、同じ行には足せないので :flow_insert にする
+      # （ブロック形式でも、前の内容と同じ行に書いた形をフロー表記と同じく扱う）
       def insert_before_entry(key, lines, path)
         prefix = @lines.line(key.start_line)[0, key.start_column]
         raise EditNotLocal.new(reason: :flow_insert, path: path) unless prefix.strip.empty?
@@ -329,7 +356,11 @@ module Cornix
       # 値なしの見出し（"row2:"）の下に字下げして足す。~ や null と書いてあればそれを消す
       def insert_under_empty(step, missing, value, path)
         key = step.key
-        return insert_at_end(new_lines(missing, value, 0)) unless key
+        unless key
+          raise ArgumentError, "並びの中には足せません: #{path.join('.')}" if step.parent
+
+          return insert_into_null_root(step.node, new_lines(missing, value, 0))
+        end
         raise EditNotLocal.new(reason: :flow_insert, path: path) if step.parent.style == Nodes::Mapping::FLOW
 
         lines = new_lines(missing, value, key.start_column + indent_step)

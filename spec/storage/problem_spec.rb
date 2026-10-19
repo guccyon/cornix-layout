@@ -10,4 +10,9 @@ RSpec.describe Cornix::Storage::Problem do
       .to eq(%w[mapping left_hand row0 tab key])
     expect(described_class.new(file: 'metadata.yaml', message: 'ファイルがありません').path).to eq([])
   end
+
+  it '文字列から戻すので、キーに . や [ ] を含むと別の道筋になる（shortcuts.yaml の名前。H は道筋を信じない）' do
+    expect(described_class.new(file: 'shortcuts.yaml', location: 'shortcuts.Ver.2', message: 'x').path)
+      .to eq(%w[shortcuts Ver 2])
+  end
 end

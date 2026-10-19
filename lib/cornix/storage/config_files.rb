@@ -46,9 +46,12 @@ module Cornix
 
       def directory(kind) = KINDS.fetch(kind).first
 
-      # rel（設定ディレクトリからの相対パス）が種類のディレクトリの YAML ファイルか（list に並ぶものと同じ条件）
+      # rel（設定ディレクトリからの相対パス）が種類のディレクトリの YAML ファイルか（list に並ぶものと同じ条件。
+      # Dir.glob と同じく . で始まるファイルは含めない）
       def kind_file?(rel, kind)
-        File.dirname(rel.to_s) == directory(kind) && EXTENSIONS.include?(File.extname(rel.to_s))
+        rel = rel.to_s
+        File.dirname(rel) == directory(kind) && EXTENSIONS.include?(File.extname(rel)) &&
+          !File.basename(rel).start_with?('.')
       end
 
       # 設定がすでにある（layers/ か macros/ に何かある）か。decompile が上書きを拒む条件（旧 check_config_lock と同じ）

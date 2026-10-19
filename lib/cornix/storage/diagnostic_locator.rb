@@ -31,8 +31,8 @@ module Cornix
       MACRO_STEP = /\Asteps\[(\d+)\](.*)\z/
       MACRO_KEY = /\A\.keys\[\d+\]\z/
 
+      # dir は既定の source（ディスク）を作るためだけに使う。ファイルはすべて source から読む
       def initialize(dir, source: FileSource::Disk.new(dir))
-        @dir = dir
         @source = source
         @files = {}
         @contents = {}

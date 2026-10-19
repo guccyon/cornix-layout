@@ -21,7 +21,7 @@
 
 触るファイル: `lib/cornix/interface/editor_server/**`、`lib/cornix/interface/cli/commands/serve.rb`、`lib/cornix/interface/cli/main.rb`（COMMANDS に 1 つ足すだけ）、
 `lib/cornix/application/editor/workbench.rb`・`list_profiles.rb`、`spec/interface/editor_server/**`、`spec/application/editor/{workbench,list_profiles}_spec.rb`、
-`spec/support/protocol_fixtures.rb`、`spec/fixtures/protocol/lifecycle/**`・`profile_list/**`
+`spec/support/protocol_fixtures.rb`（`spec/spec_helper.rb` で読み込む）、`spec/fixtures/protocol/lifecycle/**`・`profile_list/**`
 
 ```ruby
 # Interface 層

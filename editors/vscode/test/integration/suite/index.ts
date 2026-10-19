@@ -144,10 +144,13 @@ class FakePrompts implements ProfilePrompts {
   /** 画面の値を残す項目の添字（undefined なら閉じた扱い） */
   conflicts: number[] | undefined = [];
   lost: 'discard' | 'external' | undefined = 'discard';
+  /** あれば chooseSide はこれが解決するまで答えない（聞いている途中を作る） */
+  gate: Promise<void> | undefined;
 
-  chooseSide(...args: unknown[]) {
+  async chooseSide(...args: unknown[]) {
     this.calls.push({ method: 'chooseSide', args });
-    return Promise.resolve(this.side);
+    await this.gate;
+    return this.side;
   }
   resolveConflicts(...args: unknown[]) {
     this.calls.push({ method: 'resolveConflicts', args });
@@ -582,6 +585,142 @@ test('サーバーが落ちている間に外で変わっていれば、再起�
   assert.deepEqual(prompts.of('resolveConflicts')[0]?.args[1], [{ label: 'レイヤー 0 Base の右手 row0 Y', screen: 'Tab', external: 'Enter' }]);
   assert.deepEqual(document.changes.list(), [{ address: rightKey('row0', 'Y'), value: 'Tab' }]);
   await revertProfile(document);
+});
+
+test('保存の途中に、保存している変更を undo で戻すと、保存のあとも dirty で画面の値は戻した値のまま', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  await document.settled();
+  prompts.calls.length = 0;
+  const address = rightKey('row2', 'M');
+  const edits: vscode.CustomDocumentEditEvent<ProfileDocument>[] = [];
+  const subscription = api.profileEditor.onDidChangeCustomDocument((edit) => edits.push(edit));
+  document.applyChange({ address, value: 'Tab' });
+  subscription.dispose();
+  configureFake({ delays: { 'profile/saved': 1500 } });
+  try {
+    await vscode.commands.executeCommand('vscode.openWith', document.uri, 'cornix.profileEditor');
+    const saving = vscode.commands.executeCommand('workbench.action.files.save');
+    await waitFor('保存の途中', async () => document.isSaving);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await edits.at(-1)?.undo();
+    await saving;
+    await document.settled();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  } finally {
+    configureFake({ delays: {} });
+  }
+  assert.match(readWorkspaceFile(BASE), /\n {6}M: Tab\n/);
+  assert.deepEqual(document.changes.list(), [{ address, value: 'M' }]);
+  assert.equal(document.currentValue(address), 'M');
+  await waitFor('保存のあとも dirty', async () => profileTab()?.isDirty === true);
+  // 保存すると戻した値が書かれる
+  await saveProfile(document);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  assert.match(readWorkspaceFile(BASE), /\n {6}M: M\n/);
+});
+
+test('当てる直前（TextDocument を待ったあと）に外で書かれたら、古い書き換えを当てずに止める', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  const hold = document.watcher.hold();
+  document.onBeforeApply = () => writeOutside(BASE, '      comma: ","\n', '      comma: Enter\n');
+  try {
+    document.applyChange({ address: rightKey('row2', 'dot'), value: 'Tab' });
+    await saveProfile(document);
+    assert.match(String(prompts.of('saveFailed').at(-1)?.args[0]), /外で変わったので保存しませんでした/);
+    assert.match(readWorkspaceFile(BASE), /\n {6}comma: Enter\n {6}dot: \.\n/);
+    await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
+    await document.settled();
+  } finally {
+    document.onBeforeApply = undefined;
+    hold.dispose();
+  }
+  assert.deepEqual(document.changes.list(), [{ address: rightKey('row2', 'dot'), value: 'Tab' }]);
+  await revertProfile(document);
+});
+
+test('改行がそろっていないなど TextDocument とディスクが一致しないファイルは、理由を出して止める', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  await vscode.workspace.openTextDocument(vscode.Uri.joinPath(workspaceRoot(), BASE));
+  await writeOutside(BASE, '      I: I\n', '      I: I\r\n');
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await document.settled();
+  try {
+    document.applyChange({ address: rightKey('row0', 'O'), value: 'Tab' });
+    await saveProfile(document);
+    assert.match(String(prompts.of('saveFailed').at(-1)?.args[0]), /改行の LF と CRLF の混在/);
+    assert.equal(prompts.of('saveFailed').at(-1)?.args[1], true);
+    await revertProfile(document);
+  } finally {
+    await writeOutside(BASE, '      I: I\r\n', '      I: I\n');
+  }
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await document.settled();
+});
+
+test('読めるのを待っている間にもう一度バックアップして戻しても、閉じている間の外での変更を聞く', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  const address = rightKey('row1', 'enter');
+  document.applyChange({ address, value: 'Tab' });
+  const first = await api.profileEditor.backupCustomDocument(document, { destination: vscode.Uri.joinPath(workspaceRoot(), '.backup-1.json') });
+  await revertProfile(document);
+  // 閉じている間に、変えた場所が外で変わり、ほかのところが書きかけで読めなくなった
+  configureFake({ scenario: 'invalid' });
+  await writeOutside(BASE, '      enter: Enter\n', '      enter: Escape\n');
+  const token = new vscode.CancellationTokenSource().token;
+  const once = await api.profileEditor.openCustomDocument(document.uri, { backupId: first.id, untitledDocumentData: undefined }, token);
+  const second = await api.profileEditor.backupCustomDocument(once, { destination: vscode.Uri.joinPath(workspaceRoot(), '.backup-2.json') });
+  once.dispose();
+  first.delete();
+  const twice = await api.profileEditor.openCustomDocument(document.uri, { backupId: second.id, untitledDocumentData: undefined }, token);
+  try {
+    assert.equal(twice.snapshot.status, 'invalid');
+    configureFake({ scenario: 'default' });
+    prompts.side = 'screen';
+    prompts.conflicts = [0];
+    await writeOutside(BASE, '      I: I\n', '      I: Enter\n');
+    await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
+    await twice.settled();
+    assert.deepEqual(prompts.of('chooseSide')[0]?.args, ['default', 1, 'backup']);
+    assert.deepEqual(prompts.of('resolveConflicts')[0]?.args[1], [{ label: 'レイヤー 0 Base の右手 row1 enter', screen: 'Tab', external: 'Escape' }]);
+  } finally {
+    configureFake({ scenario: 'default' });
+    twice.dispose();
+    second.delete();
+  }
+});
+
+test('どちらを残すか聞いている間にサーバーが再起動しても、答えたあと新しいサーバーで保存できる', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  await document.settled();
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  let open: () => void = () => undefined;
+  prompts.gate = new Promise((resolve) => (open = resolve));
+  try {
+    document.applyChange({ address: rightKey('row0', 'P'), value: 'Tab' });
+    // 変更のないファイル（1_symbols.yml）が外で変わった
+    await writeOutside('profiles/default/layers/1_symbols.yml', '      Q: Question\n', '      Q: Tab\n');
+    await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
+    await api.server.restart();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  } finally {
+    open();
+    prompts.gate = undefined;
+  }
+  await document.settled();
+  assert.deepEqual(document.changes.list(), [{ address: rightKey('row0', 'P'), value: 'Tab' }]);
+  await saveProfile(document);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  assert.match(readWorkspaceFile(BASE), /\n {6}P: Tab\n/);
 });
 
 test('開いたままサーバーが落ちても、再起動すると profile/open からやり直す', async () => {

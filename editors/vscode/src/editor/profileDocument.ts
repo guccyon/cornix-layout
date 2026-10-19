@@ -76,6 +76,10 @@ export class ProfileDocument implements vscode.CustomDocument {
   /** 保存の途中（その間の profile/didChange は deferred に溜め、終わってから扱う） */
   private saving: Promise<void> | undefined;
   private deferred: ProfileSnapshot | undefined;
+  /** 保存が終わってから行うこと（保存の中からは revert を通せないため） */
+  private afterSave: (() => Promise<void>) | undefined;
+  /** テスト用: 当てる直前（TextDocument を待ったあと、版を確かめ直す前）に呼ぶ */
+  onBeforeApply: (() => Promise<void>) | undefined;
   /** どちらを残すか聞いている外での変更と、聞いている流れ */
   private external: ExternalChange | undefined;
   private resolving: Promise<void> | undefined;
@@ -240,6 +244,9 @@ export class ProfileDocument implements vscode.CustomDocument {
       if (this.saving === run) {
         this.saving = undefined;
         this.flushDeferred();
+        const after = this.afterSave;
+        this.afterSave = undefined;
+        if (after) void after();
       }
       // VS Code は保存の Promise が解決したあとに、そのときの編集の位置を保存点にする。保存の間に画面で足した変更（と undo・redo）も
       // 保存点の手前に入るので、変更が残っていれば保存点を置いたあと（次のタスク）に編集を 1 つ足して dirty に戻す
@@ -247,24 +254,24 @@ export class ProfileDocument implements vscode.CustomDocument {
     }
   }
 
-  /** 保存のあとに残った未保存の変更を、1 つの編集として VS Code の履歴に載せる（undo で外し、redo で戻す） */
+  /**
+   * 保存のあとに残った未保存の変更を、1 つの編集として VS Code の履歴に載せる。
+   * undo はそのときの保存済みの値に戻し（applyChange と同じく、もう一度保存したあとならディスクの値に対する変更として残る）、redo で戻す
+   */
   private markRemainingDirty(): void {
     const remaining = this.changes.list();
     if (this.closed || remaining.length === 0 || this.saving) return;
-    const apply = (values: ReadonlyMap<string, Change>, restore: boolean) => {
-      for (const change of remaining) {
-        if (values.get(addressKey(change.address)) === undefined) continue;
-        this.changes.assign(change.address, restore ? change.value : null, snapshotValueAt(this.snapshotValue, change.address));
-      }
+    const saved = remaining.map((change) => [change.address, snapshotValueAt(this.snapshotValue, change.address) ?? null] as const);
+    const apply = (values: readonly (readonly [Address, ChangeValue | null])[]) => {
+      for (const [address, value] of values) this.changes.assign(address, value, snapshotValueAt(this.snapshotValue, address));
       this.fire();
       this.validate();
     };
-    const byKey = new Map(remaining.map((change) => [addressKey(change.address), change]));
     this.onDidEditEmitter.fire({
       document: this,
       label: '保存の間の変更',
-      undo: () => apply(byKey, false),
-      redo: () => apply(byKey, true),
+      undo: () => apply(saved),
+      redo: () => apply(remaining.map((change) => [change.address, change.value] as const)),
     });
   }
 
@@ -277,6 +284,12 @@ export class ProfileDocument implements vscode.CustomDocument {
     const lost = this.changes.list().filter((change) => snapshotValueAt(this.snapshotValue, change.address) === undefined);
     if (lost.length > 0) {
       const answer = await this.env.prompts().confirmLost(this.snapshotValue.name, this.lostItems(lost, this.snapshotValue));
+      if (answer === 'external') {
+        // 画面の変更をすべて捨てる。revert は保存が終わるのを待つので、保存を止めたあとに通す
+        const snapshot = this.snapshotValue;
+        this.afterSave = () => this.keepExternal(snapshot);
+        throw new vscode.CancellationError();
+      }
       if (answer !== 'discard') {
         this.stop('場所が見つからない未保存の変更があるので保存しませんでした。捨てるか、テキストで直してください。');
       }
@@ -317,7 +330,7 @@ export class ProfileDocument implements vscode.CustomDocument {
     if (plan.files.length > 0) {
       const hold = this.watcher.hold();
       try {
-        const versions = await this.applyPlan(plan.files);
+        const versions = await this.applyPlan(plan.files, cancellation);
         snapshot = await this.server.request('profile/saved', { profileId: this.profileId, files: versions });
       } catch (error) {
         if (error instanceof vscode.CancellationError) throw error;
@@ -327,11 +340,11 @@ export class ProfileDocument implements vscode.CustomDocument {
       }
     }
 
-    // 保存した変更を外す（保存の間に足した変更は、新しい snapshot に対する変更として残す）
+    // 保存した場所は、今の画面の値（保存の間の変更や undo を含む。古い snapshot で取る）を新しい snapshot に当て直す。
+    // 保存した値と同じなら外れ、違えば（保存の間に変えた・戻した）新しい snapshot に対する変更として残る
+    const screen = changes.map((change) => [change.address, this.currentValue(change.address)] as const);
     if (snapshot) this.snapshotValue = snapshot;
-    for (const change of changes) {
-      if (this.changes.get(change.address)?.value === change.value) this.changes.delete(change.address);
-    }
+    for (const [address, value] of screen) this.changes.assign(address, value, snapshotValueAt(this.snapshotValue, address));
     for (const change of this.changes.list()) this.changes.assign(change.address, change.value, snapshotValueAt(this.snapshotValue, change.address));
     this.draftDiagnostics = undefined;
     this.backupFiles = undefined;
@@ -339,30 +352,34 @@ export class ProfileDocument implements vscode.CustomDocument {
     this.validate();
   }
 
-  /** WorkspaceEdit にして当て、TextDocument を保存する。保存したあとのファイルの版を返す */
-  private async applyPlan(files: FileEdits[]): Promise<Record<string, FileVersion>> {
-    const edit = new vscode.WorkspaceEdit();
+  /**
+   * WorkspaceEdit にして当て、TextDocument を保存する。保存したあとのファイルの版を返す。
+   * 当てる前に、ディスクの版が baseVersion と同じか確かめ、開いている TextDocument が外の変更を読み直すのを待ってから、
+   * 当てる直前にもう一度、ディスクと TextDocument の中身の両方の版が baseVersion と同じかを確かめる（待っている間に外で書かれても古い書き換えを当てない）
+   */
+  private async applyPlan(files: FileEdits[], cancellation: vscode.CancellationToken): Promise<Record<string, FileVersion>> {
     const uris = new Map<string, vscode.Uri>();
     for (const file of files) {
       const uri = profileFileUri(this.dir, file.file);
       if (!uri) this.stop(`設定ディレクトリの外のファイルは書き換えません: ${file.file}`);
       uris.set(file.file, uri);
-      // サーバーが書き換えを作ったあとに外で変わった（作るはずのファイルが外でできた場合も）
-      if ((await readVersion(uri)) !== file.baseVersion) {
-        this.reportExternal([file.file]);
-        this.stop(`${file.file} が外で変わったので保存しませんでした。外の変更の扱いを選んでから、もう一度保存してください。`);
-      }
-      // 開いている TextDocument がまだ外の変更を読み込んでいなければ（VS Code の読み直しは少し遅れる）、待ってから当てる。
-      // 古い中身に当てると、保存が「ファイルが変更されています」で失敗する
-      if (!file.create && !(await this.waitTextInSync(uri))) {
-        this.stop(`${file.file} をテキストエディタが読み直していないので保存しませんでした。少し待ってから、もう一度保存してください。`, file.file);
-      }
+      this.checkDiskVersion(file, await readVersion(uri));
+      // 開いている TextDocument がまだ外の変更を読み込んでいなければ（VS Code の読み直しは少し遅れる）、待ってから当てる
+      if (!file.create) await this.waitTextInSync(file.file, uri, cancellation);
+    }
+    await this.onBeforeApply?.();
+    const edit = new vscode.WorkspaceEdit();
+    for (const file of files) {
+      const uri = uris.get(file.file)!;
+      this.checkDiskVersion(file, await readVersion(uri));
+      if (!file.create && (await textVersion(uri)) !== file.baseVersion) this.changedOutside(file.file);
       if (file.create) edit.createFile(uri, { ignoreIfExists: true });
       for (const text of file.edits) {
         const { start, end } = text.range;
         edit.replace(uri, new vscode.Range(start.line, start.character, end.line, end.character), text.newText);
       }
     }
+    if (cancellation.isCancellationRequested) throw new vscode.CancellationError();
     if (!(await vscode.workspace.applyEdit(edit))) throw new Error('書き換えを当てられませんでした');
     const versions: Record<string, FileVersion> = {};
     for (const [file, uri] of uris) {
@@ -375,15 +392,40 @@ export class ProfileDocument implements vscode.CustomDocument {
     return versions;
   }
 
-  /** 開いている TextDocument の中身がディスクと同じになるまで待つ（開いていなければすぐ true。dirty は手前で止めている） */
-  private async waitTextInSync(uri: vscode.Uri, timeoutMs = 2000): Promise<boolean> {
+  /** ディスクの版が書き換えを作ったときの版と違えば（作るはずのファイルが外でできた場合も）止めて、外での変更の扱いへ */
+  private checkDiskVersion(file: FileEdits, version: FileVersion): void {
+    if (version !== file.baseVersion) this.changedOutside(file.file);
+  }
+
+  private changedOutside(file: string): never {
+    this.reportExternal([file]);
+    this.stop(`${file} が外で変わったので保存しませんでした。外の変更の扱いを選んでから、もう一度保存してください。`);
+  }
+
+  /**
+   * 開いている TextDocument の中身がディスクと同じになるまで待つ（開いていなければすぐ戻る。dirty は手前で止めている）。
+   * 待っても同じにならなければ止める。読み直し（document.version が増える）もないまま違うのは、改行の LF と CRLF の混在や
+   * UTF-8 でないエンコーディングで、VS Code が読んだ中身がディスクと一致しないファイル（値の部分だけを書き換えられない）
+   */
+  private async waitTextInSync(file: string, uri: vscode.Uri, cancellation: vscode.CancellationToken, timeoutMs = 2000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
+    const find = () => vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+    const first = find()?.version;
     for (;;) {
-      const document = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
-      if (!document) return true;
+      if (cancellation.isCancellationRequested) throw new vscode.CancellationError();
+      const document = find();
+      if (!document) return;
       const disk = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri)); // TextDecoder は BOM を除く
-      if (document.getText() === disk) return true;
-      if (Date.now() > deadline) return false;
+      if (document.getText() === disk) return;
+      if (Date.now() > deadline) {
+        if (document.version === first) {
+          this.stop(
+            `${file} はテキストエディタが読んだ中身とディスクの中身が一致しないので保存しませんでした（改行の LF と CRLF の混在や、UTF-8 でないエンコーディングなど）。テキストエディタで開いて改行やエンコーディングをそろえて保存してから、もう一度保存してください。`,
+            file,
+          );
+        }
+        this.stop(`${file} をテキストエディタが読み直していないので保存しませんでした。少し待ってから、もう一度保存してください。`, file);
+      }
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
@@ -484,13 +526,16 @@ export class ProfileDocument implements vscode.CustomDocument {
   async backup(destination: vscode.Uri): Promise<vscode.CustomDocumentBackup> {
     const base = this.changeBase ?? this.snapshotValue;
     const changes = this.changes.list();
-    const backup: Backup = {
-      version: 1,
-      dir: this.dir,
-      files: base.files,
-      changes,
-      saved: Object.fromEntries(changes.map((change) => [addressKey(change.address), snapshotValueAt(base, change.address) ?? null])),
-    };
+    // ホットエグジットから戻して読めるのを待っている間は、戻したバックアップの基準（変更を作ったときの版と値）を受け継ぐ
+    const backup: Backup = this.waitingBackup
+      ? { version: 1, dir: this.dir, files: this.waitingBackup.files, changes, ...(this.waitingBackup.saved ? { saved: this.waitingBackup.saved } : {}) }
+      : {
+          version: 1,
+          dir: this.dir,
+          files: base.files,
+          changes,
+          saved: Object.fromEntries(changes.map((change) => [addressKey(change.address), snapshotValueAt(base, change.address) ?? null])),
+        };
     await vscode.workspace.fs.writeFile(destination, new TextEncoder().encode(JSON.stringify(backup)));
     return {
       id: destination.toString(),
@@ -731,7 +776,10 @@ export class ProfileDocument implements vscode.CustomDocument {
       return;
     }
     const base = this.changeBase ?? old;
-    if (this.changes.size > 0 && (fresh.status !== 'ok' || changedFiles(this.changes.list(), base.files, fresh.files).length > 0)) {
+    // 読めるのを待っている・聞いている途中なら、版を比べずに外での変更の扱いに回す（基準は待っている・聞いているものが持つ。
+    // 聞いている snapshot も新しいサーバーの profileId のものに差し替わる）
+    const pending = this.waitingBackup !== undefined || this.changeBase !== undefined || this.external !== undefined || this.resolving !== undefined;
+    if (this.changes.size > 0 && (pending || fresh.status !== 'ok' || changedFiles(this.changes.list(), base.files, fresh.files).length > 0)) {
       // 前の snapshot の profileId は新しいサーバーにはないので、聞いている間の検証は失敗する（当て直したあとに検証し直す）
       this.acceptExternal(fresh);
       return;
@@ -774,6 +822,27 @@ async function readVersion(uri: vscode.Uri): Promise<FileVersion> {
   } catch {
     return null;
   }
+}
+
+/**
+ * 開いている TextDocument の中身の版（BOM はディスクの先頭にあれば補う）。開いていなければディスクの版。
+ * 書き換えは TextDocument に当たるので、当てる直前にこれが baseVersion と同じかを確かめる
+ */
+async function textVersion(uri: vscode.Uri): Promise<FileVersion> {
+  const document = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+  if (!document) return readVersion(uri);
+  let disk: Uint8Array;
+  try {
+    disk = await vscode.workspace.fs.readFile(uri);
+  } catch {
+    return null;
+  }
+  const bom = disk[0] === 0xef && disk[1] === 0xbb && disk[2] === 0xbf ? new Uint8Array([0xef, 0xbb, 0xbf]) : new Uint8Array();
+  const text = new TextEncoder().encode(document.getText());
+  const bytes = new Uint8Array(bom.length + text.length);
+  bytes.set(bom);
+  bytes.set(text, bom.length);
+  return fileVersionOf(bytes);
 }
 
 /** バックアップを読む。形が違う（版が違う・壊れている）ときは undefined（変更なしで開く） */

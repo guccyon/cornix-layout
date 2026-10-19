@@ -26,8 +26,7 @@ RSpec.describe Cornix::Mapping::CandidateCatalog do
   end
 
   # spec/fixtures/candidates/*.yaml: 「この入力ならこの候補」（ADR 004。TypeScript 版も同じデータを読む）。
-  # 各項目は { context:, query:, expect: [insertText, ...] } で、結果の先頭から順に一致すること。省略できるもの:
-  #   absent: [insertText]（出てはいけない）、warning: { insertText => 理由 }、references:（profile/open の references の形）、limit:
+  # 形と判定の規則は spec/fixtures/candidates/README.md
   describe 'spec/fixtures/candidates' do
     Dir[File.join(__dir__, '..', 'fixtures', 'candidates', '*.yaml')].sort.each do |path|
       YAML.safe_load_file(path, aliases: true).each do |item|
@@ -37,10 +36,15 @@ RSpec.describe Cornix::Mapping::CandidateCatalog do
                                          limit: item.fetch('limit', 50))
           texts = result.items.map(&:insert_text)
           expect(texts.first(item['expect'].size)).to eq(item['expect'])
-          expect(texts).to be_empty if item['expect'].empty? && !item.key?('absent')
+          expect(texts).to be_empty if item['expect'].empty?
           expect(texts & Array(item['absent'])).to be_empty
           (item['warning'] || {}).each do |text, reason|
             expect(result.items.find { |c| c.insert_text == text }&.warning).to eq(reason)
+          end
+          (item['category'] || {}).each do |text, category|
+            categories = result.items.select { |c| c.insert_text == text }.map(&:category)
+            expect(categories).not_to be_empty
+            expect(categories).to all(eq(category))
           end
         end
       end
@@ -56,7 +60,8 @@ RSpec.describe Cornix::Mapping::CandidateCatalog do
 
     it '同梱のショートカットは名前の形で、detail にアプリ・カテゴリ・表記、icon に icon_for の結果' do
       catalog = described_class.new(icon_for: ->(app) { "test:#{app}" })
-      item = catalog.search(query: 'コマンドパレット', context: 'layerKey').items.first
+      references, = profile_references(nil)
+      item = catalog.search(query: 'コマンドパレット', context: 'layerKey', references: references).items.first
       expect(item).to have_attributes(
         insert_text: "Shortcut('VS Code:基本操作:コマンドパレット')", label: 'コマンドパレット',
         detail: 'VS Code › 基本操作 · Shift + Command + P', category: 'presetShortcut', icon: 'test:VS Code'
@@ -101,6 +106,46 @@ RSpec.describe Cornix::Mapping::CandidateCatalog do
 
         expect(notation.format(keycode)).to eq(item.insert_text)
       end
+    end
+
+    it 'Shortcut(...) を使えない references（既定の NONE）では shortcut / presetShortcut を出さない' do
+      none = search('コマンドパレット').items
+      expect(none).to be_empty
+      references, = profile_references('shortcuts' => [{ 'name' => 'コピー', 'text' => 'Command + C' }])
+      usable = search('コ', references: references, limit: 10_000).items.map(&:category).uniq
+      expect(usable).to include('shortcut', 'presetShortcut')
+    end
+
+    it "名前に ' や \" を含むショートカットも、insert_text を読むと同じ定義になる" do
+      names = ["Don't", 'Say "Hi"', %q(It's "ok")]
+      references = Cornix::Mapping::References.new(shortcuts: names.to_h { |n| [n, notation.parse('Command + C')] })
+      names.each do |name|
+        item = search(name, references: references).items.find { |c| c.label == name }
+        expect(notation.parse(item.insert_text, references: references)).to eq(notation.parse('Command + C'))
+      end
+    end
+
+    it 'warning は data/unsupported_keycodes.yaml の reason（範囲内のすべての名前のある値で）' do
+      catalog = Cornix::Mapping::KeycodeCatalog.default
+      ranges = YAML.safe_load_file(File.join(Cornix::DATA_DIR, 'unsupported_keycodes.yaml'))['ranges']
+      items = search('', limit: 10_000).items.to_h { |c| [c.insert_text, c] }
+      ranges.each do |range|
+        (range['from']..range['to']).each do |code|
+          next unless catalog.name(code)
+
+          text = notation.format(notation.codec.decode(code))
+          expect(items.fetch(text).warning).to eq(range['reason'])
+        end
+      end
+    end
+
+    it 'detail の別名は 3 個まで + QMK 名' do
+      expect(search('Cmd').items.first.detail).to eq('LCmd · LWin · LCommand · KC_LGUI')
+    end
+
+    it 'limit は 1 未満なら 1' do
+      expect(search('', limit: 0).items.size).to eq(1)
+      expect(search('', limit: -1).items.size).to eq(1)
     end
 
     it 'limit で切ったら truncated' do

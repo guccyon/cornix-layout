@@ -16,7 +16,11 @@ module Cornix
     #   layer       layer_names のレイヤーごとの MO / TG / TO / OSL / TT / DF / PDF。detail にレイヤーの名前
     #   macro / tapDance / shortcut  references の名前（Macro('名前') / TapDance('名前') / Shortcut('名前')）
     #   presetShortcut  data/shortcuts/ の 1 シーケンスの定義（Shortcut('アプリ:カテゴリ:ラベル')）。macro: の定義は出さない
-    #   raw         query が 0x で始まり 16 進として読めるときだけ、その値（先頭に出す）
+    #   raw         query が 0x で始まり 16 進として読めるときだけ、その値（先頭に出す）。insert_text は references 付きの
+    #               decompile の正規形（名前付きのマクロ 0 があれば 0x7700 → Macro('名前')）
+    #
+    # キーの表の候補は references によらない表記（選んだ名前をそのまま書く）。利用者のショートカットと同じ値のキー（"!" など）を
+    # 選んでも Shortcut('名前') にはしない（decompile ならそう書くが、選んだ表記を残す。spec.md の「手で打った表記は残す」と同じ扱い）
     #
     # 並べ方: 対応していないキー（unsupported_keycodes.yaml。warning に理由）を最後に、その前は
     # 「完全一致 → 前方一致 → 部分一致」（大文字小文字は区別しない）、同じなら context の上に出すもの（keycode_categories.yaml の contexts）、
@@ -28,7 +32,9 @@ module Cornix
 
       # 表から作る分類のあとに並べる分類
       GROUPS = %w[layer macro tapDance shortcut presetShortcut].freeze
+      # 候補に出すレイヤー操作の並び（よく使う順。KeyDisplay::LAYER_OPS は表記の対応で、並びは意図して別）
       LAYER_OPS = %i[momentary toggle to one_shot tap_toggle default persistent_default].freeze
+      DETAIL_ALIASES = 3
       RAW = /\A0x(\h{1,4})\z/i
       RAW_PREFIX = /\A0x/i
       DETAIL_SEPARATOR = ' · '
@@ -62,8 +68,12 @@ module Cornix
       # context の名前（data/keycode_categories.yaml の contexts）
       def contexts = @categories.contexts
 
+      # references が Shortcut(...) を使えない場面（shortcuts_available? が false。既定の NONE も）なら、
+      # 選んでも読めないので shortcut / presetShortcut の候補は出さない。limit は 1 未満なら 1 にする
       def search(query:, context:, references: References::NONE, layer_names: {}, limit: DEFAULT_LIMIT)
         raise ArgumentError, "知らない context です: #{context.inspect}" unless @categories.context?(context)
+
+        limit = [limit.to_i, 1].max
 
         query = query.to_s.strip
         needle = query.downcase
@@ -73,7 +83,7 @@ module Cornix
           rank && [entry, sort_key(entry, rank, context)]
         end
         items = ranked.sort_by(&:last).map { |entry, _| entry.candidate }
-        items.unshift(*raw_candidates(query))
+        items.unshift(*raw_candidates(query, references))
         Result.new(items: items.first(limit).freeze, truncated: items.size > limit)
       end
 
@@ -129,7 +139,7 @@ module Cornix
         category = @categories.category(name, section(code))
         aliases = @catalog.aliases_for(code)
         qmk_names = names - aliases
-        detail = (aliases + [name || qmk_names.first]).compact.uniq - [text]
+        detail = ((aliases - [text]).first(DETAIL_ALIASES) + [name || qmk_names.first]).compact.uniq - [text]
         terms = (names + [@display.display(keycode)[:label]]).reject(&:empty?)
         position = [@categories.position(name) || Float::INFINITY, code]
         Entry.new(candidate: Candidate.new(insert_text: text, label: text, detail: join(detail), category: category,
@@ -147,6 +157,8 @@ module Cornix
       end
 
       # "QK_REPEAT_KEY: Cornix は Repeat Key に対応していません" → 理由だけ
+      # KeycodeCatalog#unsupported_keycodes の文の形（"名前: 理由"、名前がなければ "0xHHHH: 理由"）に頼っている。
+      # 形が変わったら spec（範囲内のすべての値で data/unsupported_keycodes.yaml の reason と一致すること）が落ちる
       def unsupported_reason(code, message)
         message.delete_prefix("#{@catalog.name(code) || hex(code)}: ")
       end
@@ -184,6 +196,8 @@ module Cornix
       end
 
       def shortcut_entries(references)
+        return [] unless references.shortcuts_available?
+
         references.shortcut_names.each_with_index.map do |name, i|
           detail = @notation.format(references.shortcut(name))
           reference_entry(shortcut_text(name), name, detail, 'shortcut', [i], [name])
@@ -200,7 +214,9 @@ module Cornix
 
       # 利用者のショートカットに同じ名前があれば、そちらが使われるので同梱の候補は出さない
       def preset_entries(references)
-        user = references.shortcut_names
+        return [] unless references.shortcuts_available?
+
+        user = references.shortcut_names.to_set
         return @preset_entries if user.empty?
 
         @preset_entries.reject { |entry| user.include?(entry.shortcut) }
@@ -245,7 +261,7 @@ module Cornix
 
       # ---- 直接の値
 
-      def raw_candidates(query)
+      def raw_candidates(query, references)
         return [] unless query.match?(RAW_PREFIX)
 
         match = query.match(RAW) or return []
@@ -253,7 +269,7 @@ module Cornix
         return [] if @catalog.dangerous?(code)
 
         keycode = @codec.decode(code)
-        text = @notation.format(keycode)
+        text = @notation.format(keycode, references: references)
         label = hex(code)
         [Candidate.new(insert_text: text, label: label, detail: text == label ? nil : text, category: 'raw', icon: nil,
                        warning: @unsupported[code])]

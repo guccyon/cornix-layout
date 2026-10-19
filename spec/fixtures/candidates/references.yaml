@@ -32,4 +32,5 @@
   query: コマンドパレット
   references: *profile
   expect: ["Shortcut('VS Code:基本操作:コマンドパレット')"]
-  absent: []
+  category:
+    "Shortcut('VS Code:基本操作:コマンドパレット')": shortcut

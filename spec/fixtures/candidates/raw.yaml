@@ -20,3 +20,19 @@
 - context: layerKey
   query: '0xZZ'
   expect: []
+# insertText は references 付きの decompile の正規形
+- context: layerKey
+  query: '0x7700'
+  references:
+    macros: [{ index: 0, name: Bracket Pair }]
+  expect: ["Macro('Bracket Pair')"]
+- context: layerKey
+  query: '0x7701'
+  references:
+    macros: [{ index: 0, name: Bracket Pair }]
+  expect: [M1]
+- context: layerKey
+  query: '0x0806'
+  references:
+    shortcuts: [{ name: コピー, text: Command + C }]
+  expect: ["Shortcut('コピー')"]

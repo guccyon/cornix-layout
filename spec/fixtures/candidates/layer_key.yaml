@@ -39,11 +39,13 @@
 - context: layerKey
   query: boot
   expect: []
-  absent: [Reset]
 - context: layerKey
   query: EEPROM
   expect: []
-  absent: [ClearEEPROM]
+- context: layerKey
+  query: reset
+  expect: [ClickyReset, HapticReset]
+  absent: [Reset]
 # 対応していないキーは理由を付けて下に
 - context: layerKey
   query: repeat

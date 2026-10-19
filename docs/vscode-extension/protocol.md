@@ -86,7 +86,7 @@ type FileVersion = string | null;   // ディスク上のバイト列そのも�
 ```
 
 拡張とサーバーが同じ中身を見ているかを確かめるのに使う（mtime は使わない）。改行や BOM は正規化しない。
-拡張は保存した `TextDocument` の中身を UTF-8 のバイト列にして同じ値を作る。
+拡張は保存したあとのディスクのバイト列から同じ値を作る（BOM などでサーバーの読むバイト列とずれないように）。
 
 ### Diagnostic（検証の結果 1 件）
 
@@ -521,7 +521,7 @@ type CandidateCategory =
 1. 拡張は、書き換える対象のファイルがテキストエディタで未保存（dirty）のまま開いていれば保存を止め、「テキストの変更を先に保存するか戻してください」と知らせる
 2. `profile/planEdits` を呼ぶ。`diagnostics` に構造の error があれば保存しない（保存するとプロファイル全体が `invalid` になり、画面で直せなくなるため）。
    意味検証の error と warning は保存を止めない
-3. 拡張は当てる前に、対象の `TextDocument` の中身の版（UTF-8 のバイト列の `sha256:`）が `files` の `baseVersion` と同じか確かめる
+3. 拡張は当てる前に、対象のファイルのディスクのバイト列の版（[2.](#fileversion) の FileVersion）が `files` の `baseVersion` と同じか確かめる
    （`create: true` ならファイルがないこと）。違えば（2 のあとに外で変わった）当てずに、[7.3](#73-拡張の扱い) の扱いをしてから 2 からやり直す
    （サーバーは planEdits の時点のディスクと比べるだけなので、古い位置の書き換えが新しい中身に当たって外の変更を壊さないように）。
    同じなら `files` を 1 つの `WorkspaceEdit` にして `vscode.workspace.applyEdit` で当て、対象の `TextDocument` を `save()` する。

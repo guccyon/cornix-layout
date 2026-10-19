@@ -1,0 +1,6 @@
+{
+  "description": "context がなければ -32602",
+  "setup": { "profile": "test_config" },
+  "request": { "id": 1, "method": "keycode/candidates", "params": { "profileId": "p1", "query": "A" } },
+  "response": { "id": 1, "error": { "code": -32602, "data": { "field": "context" } } }
+}

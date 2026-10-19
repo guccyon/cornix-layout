@@ -1,6 +1,7 @@
 // 約束の適合テスト（protocol.md の 8.2）のデータ spec/fixtures/protocol/ を、Ruby の RSpec と同じ読み方で偽のサーバーに流す。
 // 読み方と比べ方は spec/support/protocol_fixtures.rb に合わせる（書いた項目だけを比べ、配列は長さと順序ごと）。
-// 偽のサーバーが答えるメソッドのディレクトリだけを流す。中身（profile/open の snapshot など）が固定のデータのものは対象外
+// 偽のサーバーが答えるメソッドのディレクトリだけを流す。中身（profile/open の snapshot、候補の並びなど）が固定のデータのメソッドは、
+// 応答が error のデータ（params の誤り・知らないプロファイルなど）だけを流す（ERRORS_ONLY）
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -10,7 +11,9 @@ import { readMessages, runFakeServer } from '../fake-server/server';
 
 const REPO = path.resolve(__dirname, '../../../..');
 const DIR = path.join(REPO, 'spec/fixtures/protocol');
-const SUPPORTED = ['lifecycle', 'profile_list'];
+const SUPPORTED = ['lifecycle', 'profile_list', 'profile_open', 'keycode_candidates', 'keycode_inspect'];
+/** 応答が error のデータだけを流すディレクトリ（keycode_shortcut_tree は error のデータがないので流さない） */
+const ERRORS_ONLY = new Set(['profile_open', 'keycode_candidates', 'keycode_inspect']);
 /** 偽のサーバーでは比べない項目（偽のサーバーの implementation は "fake"） */
 const IGNORED = new Set(['$.result.serverInfo.implementation']);
 
@@ -101,7 +104,9 @@ function mismatches(expected: Json | undefined, actual: Json | undefined, at = '
 
 for (const group of SUPPORTED) {
   const dir = path.join(DIR, group);
-  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort() : [];
+  const files = (fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort() : []).filter(
+    (file) => !ERRORS_ONLY.has(group) || 'error' in ((JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8')) as Fixture).response ?? {}),
+  );
   describe(`適合テスト ${group}（偽のサーバー）`, () => {
     it('データがある', () => expect(files.length).toBeGreaterThan(0));
     for (const file of files) {

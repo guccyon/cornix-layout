@@ -1,0 +1,16 @@
+{
+  "description": "別名（Cmd）で修飾キーが当たり、正規形の LGui を入れる。query を表記として読めれば typed にその解釈",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/candidates", "params": { "profileId": "p1", "context": "layerKey", "query": "Cmd", "limit": 3 } },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        { "insertText": "LGui", "label": "LGui", "detail": "LCmd · LWin · LCommand · KC_LGUI", "category": "modifier" },
+        { "insertText": "RGui", "label": "RGui", "detail": "RCmd · RWin · RCommand · KC_RGUI", "category": "modifier" }
+      ],
+      "typed": { "text": "Cmd", "canonical": "LGui", "code": 227, "kind": "basic", "display": { "label": "⌘" } },
+      "truncated": false
+    }
+  }
+}

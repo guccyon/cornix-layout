@@ -1,0 +1,8 @@
+{
+  "description": "プロファイルを開いていなくても、params を省いても返す",
+  "request": { "id": 1, "method": "keycode/shortcutTree" },
+  "response": {
+    "id": 1,
+    "result": { "apps": [{ "name": "Android Studio" }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}] }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "description": "実データ（作者のプロファイル）を問題なく読める",
+  "setup": { "profile": "authors_config", "open": false },
+  "request": { "id": 1, "method": "profile/open", "params": { "dir": "profiles/default" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "status": "ok",
+      "layers": [
+        { "index": 0, "name": "Base", "file": "layers/0_base.yml" }, { "index": 1, "name": "Symbols" }, { "index": 2, "name": "Numbers" },
+        { "index": 3, "name": "Function Keys" }, { "index": 4, "name": "iPad Base" }, {}, {}, {}, {}, {}
+      ],
+      "references": {
+        "macros": [{ "index": 0, "name": "Bracket Pair", "icon": null }, {}, {}, {}, {}, {}, {}, {}, {}, {}],
+        "tapDances": [{}, {}, {}, {}, { "index": 4, "name": "Tab Escape" }]
+      },
+      "diagnostics": []
+    }
+  }
+}

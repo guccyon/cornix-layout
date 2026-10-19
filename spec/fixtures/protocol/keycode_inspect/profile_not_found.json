@@ -1,0 +1,6 @@
+{
+  "description": "開いていない profileId は -32050",
+  "setup": { "profile": "test_config" },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p2", "context": "layerKey", "text": "A" } },
+  "response": { "id": 1, "error": { "code": -32050, "data": { "profileId": "p2" } } }
+}

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'fileutils'
+require 'tmpdir'
 require_relative 'support/storage_helpers'
 
 RSpec.describe Cornix::Storage::FileSource do
@@ -16,6 +18,44 @@ RSpec.describe Cornix::Storage::FileSource do
       expect(source.list(:layers).first).to eq('layers/0_base.yml')
       expect(source.directory?).to be(true)
       expect { source.read('shortcuts.yaml') }.to raise_error(Errno::ENOENT)
+    end
+  end
+
+  describe Cornix::Storage::FileSource::Memory do
+    around do |example|
+      Dir.mktmpdir('cornix-memory') do |dir|
+        @dir = dir
+        FileUtils.cp_r(File.join(StorageHelpers::AUTHORS_CONFIG, '.'), dir)
+        File.write(File.join(dir, 'notes.txt'), 'x')
+        example.run
+      end
+    end
+
+    it 'capture は設定ファイルの構成のファイルだけを読み、以降はディスクを見ない' do
+      source = described_class.capture(@dir)
+      expect(source.files.keys).to include('metadata.yaml', 'position_map.yaml', 'settings/qmk_settings.yaml',
+                                           'layers/0_base.yml', 'macros/00_bracket_pair.yml', 'combos/00_bracket_pair.yml')
+      expect(source.files.keys).not_to include('notes.txt')
+      expect(source.files['metadata.yaml']).to eq(File.binread(File.join(@dir, 'metadata.yaml')))
+      original = source.read('layers/0_base.yml')
+
+      File.write(File.join(@dir, 'layers/0_base.yml'), "changed\n")
+      File.write(File.join(@dir, 'layers/10_new.yaml'), "new\n")
+      File.delete(File.join(@dir, 'layers/9_empty.yml'))
+      expect(source.read('layers/0_base.yml')).to eq(original)
+      expect(source.read('layers/0_base.yml').encoding).to eq(Encoding::UTF_8)
+      expect(source.list(:layers)).to include('layers/9_empty.yml')
+      expect(source.list(:layers)).not_to include('layers/10_new.yaml')
+      expect(source.exist?('./layers/9_empty.yml')).to be(true)
+      expect(source.exist?('shortcuts.yaml')).to be(false)
+      expect { source.read('shortcuts.yaml') }.to raise_error(Errno::ENOENT)
+      expect(source.directory?).to be(true)
+    end
+
+    it 'ないディレクトリは中身なしで directory? が false' do
+      source = described_class.capture(File.join(@dir, 'none'))
+      expect(source.files).to eq({})
+      expect(source.directory?).to be(false)
     end
   end
 

@@ -118,11 +118,18 @@ Mapping::QmkSettingCatalog::Definition#description / #default   # data/qmk_setti
 ### F. 読む・候補・解釈のユースケース（`vscode/read-api`、roadmap の 3・4 のつなぎ）
 
 `profile/open`・`keycode/candidates`・`keycode/shortcutTree`・`keycode/inspect` の Application のユースケースとハンドラ、適合テストのデータ。
-触るファイル: `lib/cornix/application/editor/{snapshot,candidates,inspect}*.rb`、`lib/cornix/interface/editor_server/handlers/{profile_open,keycode_*}.rb`、
-対応する spec、`spec/fixtures/protocol/{profile_open,keycode_*}/**`
+触るファイル: `lib/cornix/application/editor/{snapshot,candidates,inspect,profile_reading,key_values,diagnostics,unknown_context}*.rb`、
+`lib/cornix/interface/editor_server/handlers/{profile_open,keycode_*}.rb`、対応する spec、`spec/fixtures/protocol/{profile_open,keycode_*}/**`
+（レビューで、Shortcut(...) の見分けに `Mapping::KeycodeNotation#shortcut_name`、版と読み込みをそろえるのに `Storage::FileSource::Memory` を足した）
 
 ```ruby
 Application::Editor::Snapshot.new(workbench).call(id) #=> Hash（ProfileSnapshot）。workbench.versions(id) を更新する
+Application::Editor::ProfileReading.read(env)         # 設定ファイルを 1 回読んだもの（#files 版、#profile、#problems、#repository、#document(rel)）
+Application::Editor::KeyValues.new(env:, profile:)    # #build(keycode, text:, note:) → KeyValue、#parse(text)
+Application::Editor::Diagnostics.new(reading, capabilities).call   # → [Diagnostic]（Address と range 付き）
+Application::Editor::UnknownContext.check!(context)   # 知らない context（Interface が -32602 にする）
+Storage::FileSource::Memory.capture(dir)              # ある時点の設定ファイルの中身だけを見せる（#files は { rel => バイト列 }）
+Mapping::KeycodeNotation#shortcut_name(text)          # Shortcut('名前') の形なら名前（parse と同じ読み方）
 ```
 
 - E からの申し送り: `editors/vscode/src/protocol.ts` は protocol.md の JSON の例から型を決めた。次の点は protocol.md の 5.2〜5.5 に書き足して Ruby と合わせる
@@ -145,6 +152,10 @@ Application::Editor::Snapshot.new(workbench).call(id) #=> Hash（ProfileSnapshot
 
 - B からの申し送り: QMK 設定の値は `data/qmk_settings.yaml` の型に直してから `YamlDocument#replace` / `#insert` に渡す（文字列だと `"180"` と書かれる）。ファイルへの変更が 1 つならその結果をそのまま、複数なら 1 つずつ当てて読み直し `TextEdit.diff` で元のテキストに対する書き換えにする
 - `Storage::Problem#path` は位置の文字列から作るので、キーに `.` `[` `]` を含みうる `shortcuts.yaml` の問題では道筋を信じず Address と range を付けない
+- F からの申し送り: 保存前の中身での検証は `ProfileReading` の読み方（`FileSource::Memory` に変更を `Overlay` で重ねる）と `Diagnostics` を使える。
+  `keycode/inspect` の意味検証は、値をコンボの出力に置いて `Profile#diagnostics` を回している（規則がキーの場所によらないことに頼る）。
+  Domain に 1 つのキーコードだけを確かめる公開メソッド（`Profile#keycode_diagnostics(keycode, capabilities)` など）を足したら置き換える
+  （`spec/application/editor/inspect_spec.rb` がレイヤーのキーに置いたときの結果と比べている）
 
 ### I. 拡張の保存と外での変更（`vscode/extension-save`、roadmap の 9）
 

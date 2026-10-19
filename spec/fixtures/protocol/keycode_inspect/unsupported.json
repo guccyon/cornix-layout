@@ -1,0 +1,13 @@
+{
+  "description": "Cornix が対応していないキーは意味検証の warning",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey", "text": "Repeat" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "value": { "text": "Repeat", "canonical": "Repeat", "code": 31865, "kind": "quantum", "display": { "label": "Repeat" } },
+      "diagnostics": [{ "severity": "warning", "source": "semantic", "message": "QK_REPEAT_KEY: Cornix は Repeat Key に対応していません（書き込みますが、押しても動かない可能性があります）" }],
+      "description": { "title": "Repeat", "lines": ["16bit 値: 0x7C79"] }
+    }
+  }
+}

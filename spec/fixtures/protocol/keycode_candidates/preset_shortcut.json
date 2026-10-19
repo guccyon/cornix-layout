@@ -1,0 +1,21 @@
+{
+  "description": "同梱のショートカットは日本語のラベルで当たり、アプリのアイコンを付ける",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/candidates", "params": { "profileId": "p1", "context": "layerKey", "query": "コマンドパレット" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        {
+          "insertText": "Shortcut('VS Code:基本操作:コマンドパレット')",
+          "label": "コマンドパレット",
+          "detail": "VS Code › 基本操作 · Shift + Command + P",
+          "category": "presetShortcut",
+          "icon": "material-icon-theme:vscode"
+        }
+      ],
+      "typed": null,
+      "truncated": false
+    }
+  }
+}

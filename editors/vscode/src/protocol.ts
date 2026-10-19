@@ -74,7 +74,7 @@ export type KeyValue = {
   /** 16bit 値。capabilities.keycodeCode が false のサーバーでは null */
   code: number | null;
   kind: KeyKind;
-  /** Shortcut(...) で書いたもの、preset: のマクロを指すもの */
+  /** Shortcut(...) で書いたもの、preset: のマクロを指すもの。どちらでもなければ項目ごと省く（icon・note も同じ） */
   origin?: 'shortcut' | 'presetShortcut' | 'presetMacro';
   display: KeyDisplay;
   /** アイコン ID（"simple-icons:figma"）。同梱のショートカットと preset: のマクロだけ */
@@ -249,9 +249,11 @@ export type Candidate = {
 
 export type CandidatesParams = {
   profileId: string;
+  /** 知らない context は -32602（data: { field: "context" }） */
   context: CandidateContext;
-  /** 入力中の文字。空なら「上に出すもの」から並べる */
-  query: string;
+  /** 入力中の文字。空なら「上に出すもの」から並べる（省くと ""） */
+  query?: string;
+  /** 省くと 50。1 未満は 1 */
   limit?: number;
 };
 
@@ -279,7 +281,8 @@ export type ShortcutTreeItem = {
 export type ShortcutTreeResult = {
   apps: {
     name: string;
-    icon?: string | null;
+    /** アイコンの表になければ null（v0.1 の同梱のアプリはすべてある） */
+    icon: string | null;
     categories: { name: string; items: ShortcutTreeItem[] }[];
   }[];
 };
@@ -293,9 +296,9 @@ export type InspectParams = {
 export type InspectResult = {
   /** 読めなければ null */
   value: KeyValue | null;
-  /** この欄だけで分かる問題（address は省く） */
+  /** この欄だけで分かる問題（address は省く）。読めない表記は構造の error が 1 件 */
   diagnostics: Diagnostic[];
-  /** マウスを載せたときの説明 */
+  /** マウスを載せたときの説明。lines の最後は 16bit 値。読めなければ null */
   description: { title: string; lines: string[] } | null;
 };
 

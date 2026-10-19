@@ -54,6 +54,21 @@ module Cornix
           raise UnknownKeycode, "キーコード「#{input}」を解釈できません: #{e.message}"
         end
 
+        # 表記が Shortcut('名前') の形なら名前（parse と同じ読み方。前後の空白を除く）。そうでなければ nil。
+        # 名前の定義があるか（parse で読めるか）は見ない
+        def shortcut_name(input)
+          return nil unless input.is_a?(String)
+
+          text = input.strip
+          return nil if @catalog.lookup(text)
+
+          m = REFERENCE.match(text)
+          return nil unless m && m[1] == 'Shortcut'
+
+          quoted = QUOTED.match(m[2].strip)
+          quoted && unquote(quoted).strip
+        end
+
         private
 
         # YAML に数値で書かれた値は 16bit のキーコードそのもの（旧 KeycodeConverter と同じ）
@@ -84,8 +99,7 @@ module Cornix
           fail!("#{function}(...) はキーに割り当てられません（.vil で表せません）") if function == 'Combo'
 
           if (m = QUOTED.match(arg))
-            name = m[1] == "'" ? m[2].gsub("\\'", "'") : m[2]
-            reference_by_name(function, name, refs)
+            reference_by_name(function, unquote(m), refs)
           elsif function == 'Shortcut'
             fail!("Shortcut(...) の引数は '名前' です: #{arg}")
           elsif INTEGER.match?(arg)
@@ -120,6 +134,9 @@ module Cornix
           end
           fail!("ショートカット「#{name}」は shortcuts.yaml にも同梱のショートカット（data/shortcuts/）にも定義されていません")
         end
+
+        # QUOTED の一致 → 名前（'...' の中の \' は '）
+        def unquote(match) = match[1] == "'" ? match[2].gsub("\\'", "'") : match[2]
 
         def reference_class(function) = function == 'Macro' ? K::MacroCall : K::TapDanceCall
 

@@ -1,0 +1,27 @@
+{
+  "description": "Cornix が対応していないキーは warning に理由を入れる",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/candidates", "params": { "profileId": "p1", "context": "layerKey", "query": "repeat" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        {
+          "insertText": "Repeat",
+          "label": "Repeat",
+          "detail": "RepeatKey · QK_REPEAT_KEY",
+          "category": "special",
+          "warning": "Cornix は Repeat Key に対応していません"
+        },
+        {
+          "insertText": "AltRepeat",
+          "label": "AltRepeat",
+          "detail": "AltRepeatKey · QK_ALT_REPEAT_KEY",
+          "category": "special",
+          "warning": "Cornix は Repeat Key に対応していません"
+        }
+      ],
+      "truncated": false
+    }
+  }
+}

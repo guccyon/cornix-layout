@@ -431,7 +431,10 @@ export function describe(value: KeyValue): { title: string; lines: string[] } {
     return { title: 'マクロ Bracket Pair（M0）', lines: ['角括弧ペア [] を挿入してカーソルを内側に配置', 'tap: [ ] ←', ...code] };
   }
   if (value.origin === 'presetShortcut' || value.origin === 'shortcut') {
-    return { title: `ショートカット ${value.text}`, lines: [value.canonical, ...code] };
+    // title は Shortcut('名前') の名前（protocol.md の 5.5。同梱は「同梱のショートカット」）。lines は中身の表記
+    const name = /^Shortcut\s*\(\s*(['"])(.+)\1\s*\)$/s.exec(value.text.trim())?.[2]?.trim() ?? value.text;
+    const kind = value.origin === 'shortcut' ? 'ショートカット' : '同梱のショートカット';
+    return { title: `${kind} ${name}`, lines: [value.canonical, ...code] };
   }
   return { title: value.canonical, lines: code };
 }

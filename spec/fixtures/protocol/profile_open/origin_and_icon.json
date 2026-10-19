@@ -1,0 +1,68 @@
+{
+  "description": "Shortcut(...) で書いたものは origin。自分のショートカットはアイコンなし、同梱のショートカットと preset: のマクロは元のアプリのアイコン。Shortcut(...) で書いていなければ origin なし（canonical は decompile の正規形）",
+  "setup": {
+    "profile": "test_config",
+    "open": false,
+    "files": {
+      "profiles/default/shortcuts.yaml": "shortcuts:\n  前のタブへ: Command + Shift + [\n",
+      "profiles/default/macros/12_figma_frame.yaml": "index: 12\npreset: 'Figma:ツール:フレームツール'\n",
+      "profiles/default/layers/0_layer_0.yaml": "name: Base\nindex: 0\nmapping:\n  left_hand:\n    row0:\n      tab: Shortcut('前のタブへ')\n      Q: Shortcut('Figma:ツール:移動ツール')\n      W: Macro('Figma:ツール:フレームツール')\n      E: Command + Shift + [\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n"
+    }
+  },
+  "request": { "id": 1, "method": "profile/open", "params": { "dir": "profiles/default" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "status": "ok",
+      "layers": [
+        {
+          "keys": [
+            {
+              "value": {
+                "text": "Shortcut('前のタブへ')",
+                "canonical": "Shortcut('前のタブへ')",
+                "code": 2607,
+                "kind": "modified",
+                "origin": "shortcut",
+                "display": { "label": "⇧⌘[" }
+              }
+            },
+            {
+              "value": {
+                "text": "Shortcut('Figma:ツール:移動ツール')",
+                "canonical": "V",
+                "code": 25,
+                "kind": "basic",
+                "origin": "presetShortcut",
+                "display": { "label": "V" },
+                "icon": "simple-icons:figma"
+              }
+            },
+            {
+              "value": {
+                "text": "Macro('Figma:ツール:フレームツール')",
+                "canonical": "Macro('Figma:ツール:フレームツール')",
+                "code": 30476,
+                "kind": "macro",
+                "origin": "presetMacro",
+                "display": { "label": "Figma:ツール:フレームツール" },
+                "icon": "simple-icons:figma"
+              }
+            },
+            {
+              "value": { "text": "Command + Shift + [", "canonical": "Shortcut('前のタブへ')", "code": 2607, "kind": "modified", "display": { "label": "⇧⌘[" } }
+            },
+            {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+            {}, {}, {}, {}, {}, {}, {}, {}, {}
+          ]
+        },
+        {}, {}, {}, {}, {}, {}, {}, {}, {}
+      ],
+      "references": {
+        "macros": [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, { "index": 12, "name": "Figma:ツール:フレームツール", "icon": "simple-icons:figma" }],
+        "shortcuts": [{ "name": "前のタブへ", "text": "Command + Shift + [" }]
+      },
+      "diagnostics": []
+    }
+  }
+}

@@ -70,7 +70,10 @@ cd cornix-layout
 ```bash
 mkdir -p ~/.local/bin && ln -s "$PWD/bin/cornix" ~/.local/bin/cornix   # ~/.local/bin が PATH にない場合は PATH に足す
 cornix help             # コマンドの一覧（cornix help <コマンド> で詳しく）
+cornix --version        # ツールのバージョン
 ```
+
+リリースには `vX.Y.Z` のタグを付けています（例: `git checkout v1.0.0`）。バージョンごとの変更は [CHANGELOG.md](CHANGELOG.md) にあります。
 
 ### 2. 設定を作る（`init`）
 

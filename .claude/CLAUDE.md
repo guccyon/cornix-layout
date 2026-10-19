@@ -166,6 +166,9 @@ ruby bin/diff_layouts       # tmp/layout.vil と tmp/build/layout.vil を 16bit 
   `config/` は読むほうだけ後方互換で残す（新しく作るのは profiles/ の下）。`.cornix.yml` がなく中身のある `config/` があるところでは、
   指定なしの init は使う設定が黙って変わらないように止める。
 
+- **バージョンとリリース**: バージョンは `lib/cornix/version.rb` の `Cornix::VERSION`（`cornix --version` と MCP の serverInfo が使う）。
+  利用者に見える変更は `CHANGELOG.md` の `[Unreleased]` に足し、リリースのときに版の項へ移して `vX.Y.Z` のタグと GitHub Release を作る
+
 ## Troubleshooting
 
 - **decompile が止まる**: `config/layers/` か `config/macros/` にファイルがある。退避するか `cornix cleanup`（ロックがあれば `-f`）

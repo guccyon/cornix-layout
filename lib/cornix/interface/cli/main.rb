@@ -42,6 +42,7 @@ module Cornix
         DEFAULT_WORKSPACE = ->(**opts) { Application::Workspace.resolve(**opts) }
         DEFAULT_MCP_SERVER = ->(env) { Interface::Mcp::Server.new(env) }
         HELP_NAMES = %w[help -h --help].freeze
+        VERSION_NAMES = %w[version -v --version].freeze
         # 既定（<root>/config）以外の設定ディレクトリを使うとき、最初にどの設定かを表示するコマンド
         SHOW_CONFIG = %w[compile decompile validate pull status apply restore rename cleanup].freeze
 
@@ -60,6 +61,7 @@ module Cornix
           global, args = GlobalOptions.extract(argv)
           name = args.shift
           return help(args.first) if name.nil? || HELP_NAMES.include?(name)
+          return version if VERSION_NAMES.include?(name)
 
           command_class = @commands[name] or raise UsageError, "知らないコマンドです: #{name}"
           runtime = runtime(global)
@@ -96,8 +98,13 @@ module Cornix
           Command::SUCCESS
         end
 
+        def version
+          @out.puts("cornix #{Cornix::VERSION}")
+          Command::SUCCESS
+        end
+
         def overview
-          width = [*@commands.keys, 'help'].map(&:size).max
+          width = [*@commands.keys, 'help', 'version'].map(&:size).max
           lines = @commands.map { |name, c| "  #{name.ljust(width)}  #{c.summary}" }
           <<~TEXT
             Cornix Keyboard Layout Manager
@@ -107,6 +114,7 @@ module Cornix
             コマンド:
             #{lines.join("\n")}
               #{'help'.ljust(width)}  使い方を表示する（cornix help <コマンド> で詳しく）
+              #{'version'.ljust(width)}  バージョンを表示する（--version / -v でも）
 
             終了コード: 0 = 成功、1 = エラー、2 = 差分あり（status）
 

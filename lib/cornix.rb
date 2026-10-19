@@ -9,6 +9,7 @@ module Cornix
   LAYERS = %w[domain image mapping planning storage device application interface].freeze
 end
 
+require_relative 'cornix/version'
 require_relative 'cornix/errors'
 
 Cornix::LAYERS.each do |layer|

@@ -8,7 +8,7 @@ module Cornix
       # MCP（JSON-RPC 2.0、stdio で 1 行 1 メッセージ）の定数と書き出し
       module Protocol
         PROTOCOL_VERSION = '2025-06-18'
-        SERVER_INFO = { name: 'cornix-device', version: '0.1.0' }.freeze
+        SERVER_INFO = { name: 'cornix-device', version: Cornix::VERSION }.freeze
 
         PARSE_ERROR = -32_700
         METHOD_NOT_FOUND = -32_601

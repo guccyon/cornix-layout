@@ -3,6 +3,7 @@
 require_relative 'problems'
 require_relative 'yaml_file'
 require_relative 'config_files'
+require_relative 'file_source'
 
 module Cornix
   module Storage
@@ -12,10 +13,12 @@ module Cornix
     # Shortcut('名前') の対応表 Mapping::References を作る。Shortcut('名前') は shortcuts.yaml になければ同梱の
     # ショートカット（Mapping::ShortcutCatalog）を引く）→ settings → layers → combos。
     # キーコードの文字列は KeycodeNotation#parse で 1 回だけ解析する。
-    # 問題はすべて集めて最後に 1 つの InvalidConfig にする（「ファイル: キーの位置: 内容」）
+    # 問題はすべて集めて最後に 1 つの InvalidConfig にする（「ファイル: キーの位置: 内容」）。
+    # ファイルは source（FileSource）から読む。既定はディスクの dir で、FileSource::Overlay を渡すと保存前の中身で読む
     class ConfigLoader
-      def initialize(dir, notation:, settings_catalog:, shortcut_catalog:)
+      def initialize(dir, notation:, settings_catalog:, shortcut_catalog:, source: FileSource::Disk.new(dir))
         @dir = dir
+        @source = source
         @notation = notation
         @settings_catalog = settings_catalog
         @shortcut_catalog = shortcut_catalog
@@ -23,7 +26,7 @@ module Cornix
       end
 
       def load
-        raise ConfigError.new('設定ディレクトリがありません', path: @dir) unless File.directory?(@dir)
+        raise ConfigError.new('設定ディレクトリがありません', path: @dir) unless @source.directory?
 
         metadata = load_single(ConfigFiles::METADATA) { |data, ctx| Schema::MetadataFile.read(data, ctx) }
         position_map = load_single(ConfigFiles::POSITION_MAP) { |data, ctx| Schema::PositionMapFile.read(data, ctx) }
@@ -67,7 +70,7 @@ module Cornix
       end
 
       def single_file(base)
-        found = ConfigFiles::EXTENSIONS.map { |ext| "#{base}#{ext}" }.select { |rel| File.file?(path(rel)) }
+        found = ConfigFiles::EXTENSIONS.map { |ext| "#{base}#{ext}" }.select { |rel| @source.exist?(rel) }
         if found.size > 1
           @problems.add(found.last, nil, "#{found.first} と同じ名前のファイルがあります。どちらか 1 つにしてください")
         end
@@ -91,7 +94,7 @@ module Cornix
 
       # [[相対パス, 内容], ...]（読めなかったファイルは問題を記録して除く）
       def read_files(kind)
-        ConfigFiles.list(@dir, kind).filter_map do |rel|
+        @source.list(kind).filter_map do |rel|
           data = read_yaml(rel)
           [rel, data] unless data == :unreadable
         end
@@ -140,12 +143,13 @@ module Cornix
 
       # ---- 共通 ----
 
-      def path(rel) = File.join(@dir, rel)
-
       def context(rel) = Schema::Context.new(rel, @problems)
 
       def read_yaml(rel)
-        YamlFile.read(path(rel))
+        YamlFile.parse(@source.read(rel))
+      rescue SystemCallError => e
+        @problems.add(rel, nil, "読めません: #{e.message}")
+        :unreadable
       rescue YamlFile::Unreadable => e
         @problems.add(rel, nil, e.message)
         :unreadable

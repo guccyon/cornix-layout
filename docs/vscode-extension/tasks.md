@@ -137,6 +137,9 @@ Application::Editor::Snapshot.new(workbench).call(id) #=> Hash（ProfileSnapshot
 触るファイル: `lib/cornix/application/editor/{validate_draft,plan_edits,saved,file_changes}*.rb`、`lib/cornix/interface/editor_server/handlers/{profile_validate,profile_plan_edits,profile_saved,workspace_did_change_files}.rb`、
 対応する spec と `spec/fixtures/protocol/**` のそのメソッドの分
 
+- B からの申し送り: QMK 設定の値は `data/qmk_settings.yaml` の型に直してから `YamlDocument#replace` / `#insert` に渡す（文字列だと `"180"` と書かれる）。ファイルへの変更が 1 つならその結果をそのまま、複数なら 1 つずつ当てて読み直し `TextEdit.diff` で元のテキストに対する書き換えにする
+- `Storage::Problem#path` は位置の文字列から作るので、キーに `.` `[` `]` を含みうる `shortcuts.yaml` の問題では道筋を信じず Address と range を付けない
+
 ### I. 拡張の保存と外での変更（`vscode/extension-save`、roadmap の 9）
 
 dirty と Ctrl+S（protocol.md の 6.2）、外での変更の扱い（7.3）、QMK 設定とメタデータの表示。

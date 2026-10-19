@@ -2,6 +2,8 @@
 
 require_relative 'yaml_file'
 require_relative 'config_files'
+require_relative 'file_source'
+require_relative 'problem'
 
 module Cornix
   module Storage
@@ -16,7 +18,11 @@ module Cornix
     #   macros                                → macros/
     #
     # layers[i] などの i は Profile の配列の位置で、ConfigLoader は各ディレクトリのファイルを名前順に読むので
-    # i 番目のファイルに対応する。ファイルの中身（actions: の有無、keys が 1 つだけの文字列か）も見て位置を決める
+    # i 番目のファイルに対応する。ファイルの中身（actions: の有無、keys が 1 つだけの文字列か）も見て位置を決める。
+    # ファイルは source（FileSource。既定はディスクの dir）から読むので、保存前の中身でも位置を決められる。
+    #
+    #   locator.address('layers[0].left_hand.row0.tab')   # => ["layers/0_base.yml", ["mapping", "left_hand", "row0", "tab"]]
+    #   locator.address('combos[0].output_key')            # => ["combos/00_x.yml", ["output_key"]]（注記付きでも .key を付けない）
     class DiagnosticLocator
       KINDS = { 'layers' => :layers, 'macros' => :macros, 'tap_dances' => :tap_dances, 'combos' => :combos }.freeze
       ITEM = /\A(#{KINDS.keys.join('|')})\[(\d+)\](?:\.(.+))?\z/
@@ -25,8 +31,9 @@ module Cornix
       MACRO_STEP = /\Asteps\[(\d+)\](.*)\z/
       MACRO_KEY = /\A\.keys\[\d+\]\z/
 
-      def initialize(dir)
-        @dir = dir
+      # dir は既定の source（ディスク）を作るためだけに使う。ファイルはすべて source から読む
+      def initialize(dir, source: FileSource::Disk.new(dir))
+        @source = source
         @files = {}
         @contents = {}
       end
@@ -49,6 +56,18 @@ module Cornix
         end
       end
 
+      # モデル内のパス → [ファイル, キーの道筋]（protocol.md の Address の形）。注記付きの形でも .key を付けない。
+      # ファイル全体のパス（layers[0]）は道筋が []。一覧全体・ファイルがない番号・知らないパスは nil
+      def address(model_path)
+        m = ITEM.match(model_path.to_s) or return nil
+        kind = KINDS.fetch(m[1])
+        rel = files(kind)[Integer(m[2], 10)] or return nil
+        rest = m[3]
+        return [rel, []] if rest.nil? || rest.empty?
+
+        [rel, Problem.path_of(location(kind, rel, rest))]
+      end
+
       private
 
       def item(kind, position, rest)
@@ -56,8 +75,10 @@ module Cornix
         return "#{ConfigFiles.directory(kind)}/（#{position + 1} 番目のファイル）#{rest && ": #{rest}"}" unless rel
         return rel if rest.nil? || rest.empty?
 
-        "#{rel}: #{assignment_key(rel, send(:"#{kind}_location", rel, rest))}"
+        "#{rel}: #{assignment_key(rel, location(kind, rel, rest))}"
       end
+
+      def location(kind, rel, rest) = send(:"#{kind}_location", rel, rest)
 
       def layers_location(_rel, rest) = rest.match?(LAYER_MAPPING) ? "mapping.#{rest}" : rest
 
@@ -89,14 +110,14 @@ module Cornix
         value.is_a?(Hash) && value.key?('key') ? "#{location}.key" : location
       end
 
-      def files(kind) = @files[kind] ||= ConfigFiles.list(@dir, kind)
+      def files(kind) = @files[kind] ||= @source.list(kind)
 
       def content(rel)
         return @contents[rel] if @contents.key?(rel)
 
         @contents[rel] = begin
-          YamlFile.read(File.join(@dir, rel))
-        rescue YamlFile::Unreadable
+          YamlFile.parse(@source.read(rel))
+        rescue YamlFile::Unreadable, SystemCallError
           nil
         end
       end

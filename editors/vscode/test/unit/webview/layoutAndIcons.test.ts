@@ -8,7 +8,7 @@ import { ICON_ASSETS } from '../../../src/webview/icons/manifest';
 import { MessageHostClient } from '../../../src/webview/hostClient';
 import { Inspector } from '../../../src/webview/inspector';
 import { KeyboardView, keyFace } from '../../../src/webview/keyboardView';
-import { keyAccessibleName, keyFaceNote, keyMark, layerSlots } from '../../../src/webview/model';
+import { keyAccessibleName, keyFaceNote, keyMark, layerSlots, windowLabels } from '../../../src/webview/model';
 import { describeContent } from '../../../src/webview/tooltip';
 import type { KeyValue } from '../../../src/protocol';
 import type { WebviewMessage } from '../../../src/webviewMessages';
@@ -178,14 +178,40 @@ describe('キーの面の印・窓・帯', () => {
       expect(element.querySelectorAll('.td-window')).toHaveLength(count);
       expect(element.querySelector('.key-mark')).toBeNull();
     }
-    expect([...faceOf(four).querySelectorAll('.td-window')].map((w) => [w.getAttribute('data-action'), w.textContent])).toEqual([
-      ['tap', '⌘V'],
-      ['hold', 'Copy Selected'],
-      ['doubleTap', 'Copy Word'],
-      ['tapHold', 'Copy Line'],
-    ]);
+    expect([...faceOf(four).querySelectorAll('.td-window')].map((w) => w.getAttribute('data-action'))).toEqual(['tap', 'hold', 'doubleTap', 'tapHold']);
     expect(faceOf(four).querySelector('.td-more')?.textContent).toBe('+3');
     expect(face("TapDance('Tab Escape')").querySelector('.td-window-1')?.textContent).toBe('Tab');
+  });
+
+  it('窓の文字は、ほかの窓と重なる先頭の語を落とす（説明と読み上げは元の文字）', () => {
+    const paste = tapDance([
+      { action: 'tap', label: '⌘V' },
+      { action: 'hold', label: 'Copy Selected' },
+      { action: 'doubleTap', label: 'Copy Current Word' },
+      { action: 'tapHold', label: 'Copy Current Line' },
+    ]);
+    expect([...faceOf(paste).querySelectorAll('.td-window')].map((w) => w.textContent)).toEqual(['⌘V', 'Selected', 'Word', 'Line']);
+    expect(keyFaceNote(paste)).toContain('ダブルタップ Copy Current Word');
+    expect(windowLabels(four.display.actions!)).toEqual(['⌘V', 'Selected', 'Word', 'Line']);
+    // 重ならない・落とすと空になる・1 つだけなら元のまま
+    expect(windowLabels([
+      { action: 'tap', label: 'Tab' },
+      { action: 'hold', label: 'Escape' },
+    ])).toEqual(['Tab', 'Escape']);
+    expect(windowLabels([
+      { action: 'tap', label: 'Copy' },
+      { action: 'hold', label: 'Copy Line' },
+    ])).toEqual(['Copy', 'Line']);
+    expect(windowLabels([{ action: 'tap', label: 'Copy Line' }])).toEqual(['Copy Line']);
+  });
+
+  it('窓の文字は、1 語なら 1 行（語の途中で折らない）、2 語以上なら語の切れ目で折り返す', () => {
+    const labels = [...faceOf(tapDance([
+      { action: 'tap', label: 'Escape' },
+      { action: 'hold', label: 'Bracket Pair' },
+    ])).querySelectorAll('.td-label')];
+    expect(labels[0]!.classList.contains('multi')).toBe(false);
+    expect(labels[1]!.classList.contains('multi')).toBe(true);
   });
 
   it('動作の分からない（actions のない）タップダンスだけ、ふつうのキーに TD の印', () => {
@@ -212,6 +238,7 @@ describe('キーの面の印・窓・帯', () => {
     expect(tg.querySelector('.key-hold')?.textContent).toBe('L3');
     const thumb = slots().find((slot) => slot.label === 'fn')!;
     expect(keyAccessibleName(thumb, 'MO(3)', value('MO(3)'), [])).toBe('左手 fn: MO(3)');
+    expect(keyAccessibleName(thumb, 'MO(3)', value('MO(3)'), [], new Map([[3, 'Function Keys']]))).toBe('左手 fn: MO(3)（Function Keys）');
   });
 
   it('エンコーダの帯では窓にせず、タップの札と「+残りの数」の札', () => {

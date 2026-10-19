@@ -7,7 +7,7 @@ import type { Diagnostic, Hand, KeyValue } from '../protocol';
 import { BOARD, ENCODERS, keyRect } from './cornixLayout';
 import { h } from './dom';
 import { iconElement } from './icons';
-import { ENCODER_OPS, HAND_LABEL, keyAccessibleName, keyMark, severityOf, tapDanceWindows, type Slot } from './model';
+import { ENCODER_OPS, HAND_LABEL, keyAccessibleName, keyMark, severityOf, tapDanceWindows, windowLabels, type Slot } from './model';
 
 /** 1 つの欄の描き方 */
 export type SlotView = {
@@ -33,10 +33,17 @@ export class KeyboardView {
   private readonly elements = new Map<string, HTMLElement>();
   private slots = new Map<string, Slot>();
   private selected: string | undefined;
+  /** 読み上げに添えるレイヤーの名前（図には番号だけを描く） */
+  private layerNames: ReadonlyMap<number, string> = new Map();
 
   constructor(private readonly options: KeyboardViewOptions) {
     this.board = h('div', { class: 'board', style: `aspect-ratio: ${BOARD.width} / ${BOARD.height}` });
     this.element = h('div', { class: 'keyboard', role: 'group', 'aria-label': 'キーボード図' }, this.board);
+  }
+
+  /** レイヤーの番号 → 名前（setSlots / update の前に入れる） */
+  setLayerNames(names: ReadonlyMap<number, string>): void {
+    this.layerNames = names;
   }
 
   /** レイヤーの欄で作り直す */
@@ -94,7 +101,7 @@ export class KeyboardView {
   }
 
   private add(element: HTMLElement, slot: Slot, parent: HTMLElement = this.board): void {
-    element.setAttribute('aria-label', keyAccessibleName(slot, slot.saved?.text ?? '', slot.saved, []));
+    element.setAttribute('aria-label', keyAccessibleName(slot, slot.saved?.text ?? '', slot.saved, [], this.layerNames));
     element.addEventListener('click', () => this.options.onSelect(slot.id));
     this.options.decorate?.(element, slot.id);
     this.elements.set(slot.id, element);
@@ -108,7 +115,7 @@ export class KeyboardView {
     if (!element || !slot) return;
     const severity = severityOf(view.diagnostics);
     element.replaceChildren(...keyFace(view));
-    element.setAttribute('aria-label', keyAccessibleName(slot, view.text, view.value, view.diagnostics));
+    element.setAttribute('aria-label', keyAccessibleName(slot, view.text, view.value, view.diagnostics, this.layerNames));
     element.classList.toggle('unassigned', view.text === '');
     element.classList.toggle('changed', view.changed);
     element.classList.toggle('error', severity === 'error');
@@ -155,8 +162,13 @@ export function keyFace(view: Pick<SlotView, 'text' | 'value'>): Node[] {
       h(
         'span',
         { class: `td-windows td-${windows.length}`, 'aria-hidden': 'true' },
-        ...windows.map((action, i) =>
-          h('span', { class: `td-window td-window-${i + 1}`, 'data-action': action.action }, h('span', { class: 'td-label' }, action.label)),
+        ...windowLabels(windows).map((label, i) =>
+          h(
+            'span',
+            { class: `td-window td-window-${i + 1}`, 'data-action': windows[i]!.action },
+            // 1 語なら 1 行で省略（語の途中で折らない）、2 語以上なら語の切れ目で 2 行まで
+            h('span', { class: `td-label${label.includes(' ') ? ' multi' : ''}` }, label),
+          ),
         ),
         // エンコーダの帯ではタップの札とこの「+残りの数」だけを見せる（キーでは隠す。media/webview.css）
         windows.length > 1 ? h('span', { class: 'td-more' }, `+${windows.length - 1}`) : null,

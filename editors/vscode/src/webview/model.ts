@@ -153,6 +153,25 @@ export function tapDanceWindows(value: KeyValue | null | undefined): TapDanceAct
 }
 
 /**
+ * 窓に描く文字。ほかの窓と同じ語（空白区切り）で始まる文字は、ほかの窓といちばん長く重なる先頭の語を落とす
+ * （「⌘V」「Copy Selected」「Copy Current Word」「Copy Current Line」→「⌘V」「Selected」「Word」「Line」）。
+ * 落とすと空になるときと、ほかの窓と重ならないときは元のまま。説明と読み上げは元の文字を使う
+ */
+export function windowLabels(actions: readonly TapDanceAction[]): string[] {
+  const words = actions.map((a) => a.label.split(' '));
+  return words.map((own, i) => {
+    let shared = 0;
+    words.forEach((other, j) => {
+      if (i === j) return;
+      let n = 0;
+      while (n < own.length && n < other.length && own[n] === other[n]) n++;
+      shared = Math.max(shared, n);
+    });
+    return shared > 0 && shared < own.length ? own.slice(shared).join(' ') : actions[i]!.label;
+  });
+}
+
+/**
  * 値に付ける印（なければ null）。自分のショートカット（Shortcut(...)）は中身の種類より先に ★。
  * アイコンのあるもの（同梱のショートカット・preset: のマクロ）はアイコンで、窓に分けて描くタップダンスは窓で分かるので印を付けない
  * （TD の印は、定義が見つからず動作の分からないタップダンスだけ）
@@ -179,13 +198,18 @@ export function keyAccessibleName(
   text: string,
   value: KeyValue | null | undefined,
   diagnostics: readonly Diagnostic[],
+  layerNames: ReadonlyMap<number, string> = new Map(),
 ): string {
   let content: string;
   if (text === '') content = '割り当てなし';
   else if (value?.display.tap && value.display.hold && (value.kind === 'layerTap' || value.kind === 'modTap'))
     content = `タップ ${value.display.tap}、ホールド ${value.display.hold}`;
-  // レイヤー操作は図では帯に番号だけなので、読み上げは表記の形（MO(1)）で
-  else if (value?.kind === 'layerAction' || value?.kind === 'layerMod') content = value.canonical;
+  // レイヤー操作は図では帯に番号だけなので、読み上げは表記の形とレイヤーの名前で（MO(3)（Function Keys））
+  else if (value?.kind === 'layerAction' || value?.kind === 'layerMod') {
+    const index = /^L(\d+)$/.exec(value.display.hold ?? '')?.[1];
+    const name = index === undefined ? undefined : layerNames.get(Number(index));
+    content = name ? `${value.canonical}（${name}）` : value.canonical;
+  }
   else content = value?.display.label || text;
   const mark = keyMark(value);
   if (mark) content = `${mark.meaning} ${content}`;

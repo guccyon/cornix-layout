@@ -341,17 +341,23 @@ button {
   border-left-width: 1px;
 }
 
-/* 窓の文字は 2 行まで折り返し（語の切れ目を優先）、入りきらない分は「…」（全部は説明で見せる） */
+/* 窓の文字: 1 語なら 1 行で、入りきらない分は「…」（語の途中で折らない）。2 語以上なら語の切れ目で 2 行まで折り返し、
+   それでも入らない分は「…」（全部は説明で見せる） */
 .td-label {
+  display: block;
   max-width: 100%;
   overflow: hidden;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   text-align: center;
+}
+
+.td-label.multi {
+  white-space: normal;
+  overflow-wrap: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  text-overflow: ellipsis;
 }
 
 /* 「+残りの数」はエンコーダの帯でだけ見せる */
@@ -395,9 +401,8 @@ button {
 
   .key .td-4 .td-label,
   .key .td-3 .td-label {
-    -webkit-line-clamp: 1;
-    overflow-wrap: normal;
-    word-break: break-all;
+    display: block;
+    white-space: nowrap;
   }
 }
 

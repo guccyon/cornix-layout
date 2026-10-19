@@ -133,6 +133,7 @@ export class App {
       this.renderProblems();
       this.renderLayerInfo();
       this.slots = this.currentSlots();
+      this.keyboard.setLayerNames(this.layerNames());
       this.keyboard.replaceSlots(this.slots);
       this.updateSlots();
       this.rendered();
@@ -184,6 +185,10 @@ export class App {
   private currentSlots(): Slot[] {
     const layer = this.snapshot?.layers.find((l) => l.index === this.layerIndex);
     return layer && this.snapshot ? layerSlots(layer, this.snapshot.positionMap) : [];
+  }
+
+  private layerNames(): Map<number, string> {
+    return new Map((this.snapshot?.layers ?? []).map((layer) => [layer.index, layer.name]));
   }
 
   private captureDraft(): Draft {
@@ -261,6 +266,7 @@ export class App {
     this.renderTabs();
     this.renderLayerInfo();
     this.slots = this.currentSlots();
+    this.keyboard.setLayerNames(this.layerNames());
     this.keyboard.setSlots(this.slots);
     this.editor.setSlots(this.slots);
     if (this.selected && !this.slots.some((slot) => slot.id === this.selected)) this.selected = undefined;

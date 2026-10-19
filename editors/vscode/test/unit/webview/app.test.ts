@@ -277,6 +277,8 @@ describe('App の読み上げと説明', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     expect(keyElement(slotOf('left_hand', 'thumb_keys', 'middle')).getAttribute('aria-label')).toBe('左手 middle: タップ Space、ホールド L1');
     expect(keyElement(slotOf('left_hand', 'row0', 'W')).getAttribute('aria-label')).toBe('左手 W: W');
+    // レイヤー操作は図では番号だけなので、読み上げにレイヤーの名前を添える
+    expect(keyElement(slotOf('right_hand', 'thumb_keys', 'middle')).getAttribute('aria-label')).toBe('右手 middle: MO(1)（Symbols）');
     const encoder = root.querySelector<HTMLElement>('.encoder-push');
     expect(encoder?.getAttribute('aria-label')).toBe('左手 エンコーダの押し込み: Mute');
     expect(root.querySelector('.field input[aria-label="左手 エンコーダの押し込み"]')).not.toBeNull();

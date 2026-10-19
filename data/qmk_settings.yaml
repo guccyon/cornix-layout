@@ -3,12 +3,12 @@
 # - name:        config/settings/qmk_settings.yaml で使う名前
 # - group:       config/settings/qmk_settings.yaml の入れ子（keyboard / vial）
 # - width:       値のバイト数（vial-gui の qmk_settings.json と同じ）
-# - type:        integer か boolean（boolean は 0 / 1 で書き込む）
-# - description: 設定の意味（任意。エディタの説明に出す。QMK の公式ドキュメント https://docs.qmk.fm/ の意味に沿う）
-# - default:     既定値（任意。確かめられないものは書かない）。vial-qmk（https://github.com/vial-kb/vial-qmk の
-#                vial ブランチ）の quantum/qmk_settings.c の qmk_settings_reset が入れる値で、
-#                マクロの値は QMK（quantum/action_tapping.h・process_keycode/process_combo.h）と
-#                vial-qmk の quantum/qmk_settings.h の既定。ファームウェアの設定で変わることがある
+# - type:        integer か boolean（boolean はデバイスには 0 / 1 で書き込む）
+# - description: 設定の意味（任意。エディタの説明に出す）。QMK の公式ドキュメント https://docs.qmk.fm/ の意味に沿い、
+#                Cornix のファームウェア（RMK 0.8 系）の振る舞いと違うところは RMK に合わせる
+# - default:     既定値（任意。確かめられないものは書かない）。プロファイルのファイルと同じ形（boolean は true / false）。
+#                RMK（https://github.com/HaoboGu/rmk の tag rmk-v0.8.3）の rmk/src/config/mod.rs の Default の値で、
+#                QSID との対応は rmk/src/host/via/vial.rs の GetBehaviorSetting。キーボードの keyboard.toml で変わることがある
 settings:
   - qsid: 2
     name: combo_timing_window
@@ -16,60 +16,60 @@ settings:
     width: 2
     type: integer
     description: コンボのキーを同時押しとみなす時間（ミリ秒）。最初のキーを押してからこの時間内に組み合わせのキーがすべて押されるとコンボになる。
-    default: 50 # COMBO_TERM
+    default: 50 # combo.timeout
   - qsid: 6
     name: oneshot_timeout
     group: keyboard
     width: 2
     type: integer
     description: ワンショットキー（OSM・OSL）を押したあと、次のキーを待つ時間（ミリ秒）。この時間を過ぎるとワンショットの状態が取り消される。
-    default: 5000 # ONESHOT_TIMEOUT（vial-qmk の qmk_settings.h）
+    default: 1000 # one_shot.timeout
   - qsid: 7
     name: tapping_term
     group: keyboard
     width: 2
     type: integer
     description: タップとホールドを分ける時間（ミリ秒）。Mod-Tap・Layer-Tap などのキーをこの時間内に離すとタップ、押し続けるとホールドになる。
-    default: 200 # TAPPING_TERM
+    default: 250 # morse.default_profile の hold_timeout
   - qsid: 18
     name: tap_code_delay
     group: keyboard
     width: 2
     type: integer
     description: キーを送るときに押してから離すまでに置く時間（ミリ秒）。マクロなどで送ったキーをアプリが取りこぼすときに長くする。
-    default: 10 # TAP_CODE_DELAY（vial-qmk の qmk_settings.h。QMK だけなら 0）
+    default: 20 # tap.tap_interval
   - qsid: 19
     name: tap_hold_caps_delay
     group: keyboard
     width: 2
     type: integer
     description: タップが Caps Lock の Mod-Tap・Layer-Tap で、押してから離すまでに置く時間（ミリ秒）。macOS は短い Caps Lock の押下を無視するため。
-    default: 80 # TAP_HOLD_CAPS_DELAY
+    default: 20 # tap.tap_capslock_interval
   - qsid: 22
     name: permissive_hold
     group: keyboard
     width: 1
     type: boolean
-    description: タップホールドのキーを押している間に別のキーを押して離すと、tapping_term の前でもホールドとみなす。
-    default: false # tapping_v2 = 0
+    description: タップホールドのキーを押している間に別のキーを押して離すと、tapping_term の前でもホールドとみなす。hold_on_other_key_press も true なら、そちらが優先される。
+    default: false # morse.default_profile の mode が Normal
   - qsid: 23
     name: hold_on_other_key_press
     group: keyboard
     width: 1
     type: boolean
     description: タップホールドのキーを押している間に別のキーを押した時点で、すぐにホールドとみなす。
-    default: false # tapping_v2 = 0
+    default: false # morse.default_profile の mode が Normal
   - qsid: 26
     name: chordal_hold
     group: keyboard
     width: 1
     type: boolean
-    description: タップホールドのキーを押している間に同じ側の手のキーを押したときは、ホールドにせずタップとみなす（反対の手のキーとの組み合わせだけホールドにする）。permissive_hold か hold_on_other_key_press と合わせて使う。
-    default: false # tapping_v2 = 0
+    description: タップホールドのキーを押している間に同じ側の手のキーを押したときは、ホールドにせずタップとみなす（反対の手のキーのときはふつうの判定のまま）。
+    default: false # morse.default_profile の unilateral_tap
   - qsid: 27
     name: flow_tap
     group: keyboard
     width: 2
     type: integer
-    description: 文字キーを打っている途中、直前のキーからこの時間（ミリ秒）内に押したタップホールドのキーは、すぐにタップとみなす（速く打っているときの誤ったホールドを防ぐ）。0 で無効。
-    default: 0 # flow_tap_term = 0
+    description: 直前のキーを押してからこの時間（ミリ秒）内に押したタップホールドのキーは、すぐにタップとみなす（速く打っているときの誤ったホールドを防ぐ）。ファームウェアで flow tap が有効なときだけ効く。
+    default: 120 # morse.prior_idle_time

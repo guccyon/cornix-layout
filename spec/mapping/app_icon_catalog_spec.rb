@@ -27,7 +27,6 @@ RSpec.describe Cornix::Mapping::AppIconCatalog do
 
     it 'data/shortcuts/ にないアプリ名はない' do
       expect(catalog.app_names - app_names).to be_empty
-      expect(catalog.app_names.size).to eq(27)
     end
 
     it '素材ごとの数は spec.md の「アイコン」のとおり（Simple Icons 15・Material Icon Theme 3・バッジ 9）' do
@@ -39,6 +38,11 @@ RSpec.describe Cornix::Mapping::AppIconCatalog do
       expect(catalog.icon('Figma')).to eq('simple-icons:figma')
       expect(catalog.icon('VS Code')).to eq('material-icon-theme:vscode')
       expect(catalog.icon('CleanShot X')).to eq('badge:CS')
+    end
+
+    it '表の中身は書き換えられない' do
+      expect(catalog.icon('Figma')).to be_frozen
+      expect(catalog.app_names).to all(be_frozen)
     end
 
     it '表にないアプリ（自分のショートカットなど）は nil' do
@@ -68,6 +72,7 @@ RSpec.describe Cornix::Mapping::AppIconCatalog do
       expect { catalog_from("icons:\n  Figma: simple-icons:Figma\n") }.to raise_error(Cornix::ConfigError, /「Figma」/)
       expect { catalog_from("icons:\n  Slack: badge:SLACK\n") }.to raise_error(Cornix::ConfigError, /「Slack」/)
       expect { catalog_from("icons:\n  Slack:\n") }.to raise_error(Cornix::ConfigError, /「Slack」/)
+      expect { catalog_from("icons:\n  Figma: unknown:figma\n") }.to raise_error(Cornix::ConfigError, /「Figma」/)
     end
 
     it 'ファイルがない・YAML が壊れていれば ConfigError' do

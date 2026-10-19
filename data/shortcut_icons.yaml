@@ -21,7 +21,7 @@ icons:
   Figma: simple-icons:figma
   KiCad: simple-icons:kicad
   Linux: simple-icons:linux
-  macOS: simple-icons:macos
+  macOS: simple-icons:macos # 「macOS」の文字のロゴ（横長）。小さく出して読みにくければ拡張の側で見直す
   note: simple-icons:note
   Notion: simple-icons:notion
   Raycast: simple-icons:raycast

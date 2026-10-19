@@ -29,11 +29,11 @@ RSpec.describe Cornix::Mapping::QmkSettingCatalog do
       end
     end
 
-    it '既定値は vial-qmk の qmk_settings_reset の値で、型と幅に合う' do
+    it '既定値は RMK（v0.8.3）の rmk/src/config/mod.rs の Default の値で、型と幅に合う' do
       defaults = catalog.all.to_h { |d| [d.name, d.default] }
-      expect(defaults).to eq('combo_timing_window' => 50, 'oneshot_timeout' => 5000, 'tapping_term' => 200,
-                             'tap_code_delay' => 10, 'tap_hold_caps_delay' => 80, 'permissive_hold' => false,
-                             'hold_on_other_key_press' => false, 'chordal_hold' => false, 'flow_tap' => 0)
+      expect(defaults).to eq('combo_timing_window' => 50, 'oneshot_timeout' => 1000, 'tapping_term' => 250,
+                             'tap_code_delay' => 20, 'tap_hold_caps_delay' => 20, 'permissive_hold' => false,
+                             'hold_on_other_key_press' => false, 'chordal_hold' => false, 'flow_tap' => 120)
       catalog.all.each do |definition|
         if definition.boolean?
           expect(definition.default).to be(true).or(be(false)), definition.name
@@ -55,6 +55,29 @@ RSpec.describe Cornix::Mapping::QmkSettingCatalog do
         .to raise_error(Cornix::ConfigError)
       expect { catalog_from("settings:\n  - { qsid: 7, name: a, group: keyboard, width: 2 }\n") }
         .to raise_error(Cornix::ConfigError)
+    end
+
+    it 'description が文字列でなければ ConfigError' do
+      text = "settings:\n  - { qsid: 7, name: a, group: keyboard, width: 2, type: integer, description: 1 }\n"
+      expect { catalog_from(text) }.to raise_error(Cornix::ConfigError, /a の description/)
+    end
+
+    it 'default が型と幅に合わなければ ConfigError' do
+      [
+        '{ qsid: 22, name: a, group: keyboard, width: 1, type: boolean, default: 1 }',
+        '{ qsid: 7, name: a, group: keyboard, width: 2, type: integer, default: 70000 }',
+        '{ qsid: 7, name: a, group: keyboard, width: 2, type: integer, default: -1 }',
+        '{ qsid: 7, name: a, group: keyboard, width: 2, type: integer, default: "200" }',
+        '{ qsid: 7, name: a, group: keyboard, width: 2, type: integer, default: true }'
+      ].each do |line|
+        expect { catalog_from("settings:\n  - #{line}\n") }.to raise_error(Cornix::ConfigError, /a の default/), line
+      end
+    end
+
+    it 'default は型と幅に合えば読める' do
+      text = "settings:\n  - { qsid: 22, name: a, group: keyboard, width: 1, type: boolean, default: true }\n" \
+             "  - { qsid: 7, name: b, group: keyboard, width: 2, type: integer, default: 65535 }\n"
+      expect(catalog_from(text).all.map(&:default)).to eq([true, 65_535])
     end
 
     it 'QSID が重複していれば ConfigError' do

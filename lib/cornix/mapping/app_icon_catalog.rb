@@ -14,7 +14,12 @@ module Cornix
     # 表の誤り（形・ID の書き方）は ConfigError
     class AppIconCatalog
       PATH = File.join(Cornix::DATA_DIR, 'shortcut_icons.yaml')
-      ID_PATTERN = /\A(?:simple-icons:[a-z0-9_]+|material-icon-theme:[a-z0-9_-]+|badge:[A-Za-z0-9]{1,3})\z/
+      # 素材の名前（ID の ':' の前。拡張が同梱する SVG の置き場所と合わせる）→ ':' のあとの書き方
+      SOURCES = {
+        'simple-icons' => /\A[a-z0-9_]+\z/,          # Simple Icons の slug
+        'material-icon-theme' => /\A[a-z0-9_-]+\z/,  # Material Icon Theme の icons/<name>.svg
+        'badge' => /\A[A-Za-z0-9]{1,3}\z/            # 自前のバッジに載せる文字
+      }.freeze
 
       def self.default = @default ||= load
 
@@ -24,7 +29,7 @@ module Cornix
         raise ConfigError.new('icons: にアプリ名 → アイコン ID の Hash を書いてください', path: path) unless icons.is_a?(Hash)
 
         icons.each do |name, id|
-          next if name.is_a?(String) && id.is_a?(String) && ID_PATTERN.match?(id)
+          next if name.is_a?(String) && valid_id?(id)
 
           raise ConfigError.new("「#{name}」のアイコン ID が正しくありません: #{id.inspect}", path: path)
         end
@@ -33,8 +38,14 @@ module Cornix
         raise ConfigError.new(e.message, path: path)
       end
 
+      def self.valid_id?(id)
+        source, rest = id.split(':', 2) if id.is_a?(String)
+        SOURCES.key?(source) && SOURCES[source].match?(rest.to_s)
+      end
+      private_class_method :valid_id?
+
       def initialize(icons)
-        @icons = icons.dup.freeze
+        @icons = icons.to_h { |name, id| [name.dup.freeze, id.dup.freeze] }.freeze
         freeze
       end
 

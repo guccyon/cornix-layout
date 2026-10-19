@@ -53,6 +53,9 @@ vial = Mapping::VialNotation.new(catalog:, codec:)
 vial.parse(text)    #=> Domain::Keycode（.vil の文字列。旧 Device::Keycodes#encode が受け付けたものすべて）
 vial.format(keycode) #=> String（vial-gui 0.7.5 が Cornix の .vil に保存する表記。旧 Device::Keycodes#decode とは LAG(kc)・M32〜 などが 16 進になる点だけ違う）
 vial.parse_code(text) #=> Integer / vial.format_code(Integer) #=> String
+
+qmk = Mapping::QmkNotation.new(catalog:, codec:)
+qmk.format(keycode) #=> String | nil（最新の QMK の keymap.c の名前。LT(1, KC_SPACE)。名前にできない値は nil。読むほうはない）
 ```
 
 - `KeycodeNotation#parse` は旧コード（`KeycodeParser`, `KeycodeConverter`, `ModifierExpressionCompiler`, `ReferenceConverter`,

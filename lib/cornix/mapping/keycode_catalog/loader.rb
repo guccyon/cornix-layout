@@ -126,7 +126,8 @@ module Cornix
 
         def build(dangerous, unsupported)
           KeycodeCatalog.new(
-            qmk_names: @qmk_names, table_names: @table_names.transform_values(&:freeze).to_h, names_by_code: @names_by_code, vial_names: @vial_names, aliases: @aliases,
+            qmk_names: @qmk_names, table_names: @table_names.transform_values(&:freeze).to_h,
+            names_by_code: @names_by_code, vial_names: @vial_names, aliases: @aliases,
             aliases_by_code: @aliases_by_code.transform_values(&:freeze).to_h,
             preferred: @aliases_by_code.transform_values(&:first).to_h,
             basic: @basic.to_set, quantum: @quantum.to_set,

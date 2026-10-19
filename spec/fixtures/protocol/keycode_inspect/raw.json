@@ -1,13 +1,13 @@
 {
-  "description": "QMK の名前にできない値（Raw）は、説明の最後の行が 16bit 値だけ",
+  "description": "Cornix の表にない値（Raw）は、QMK に名前があっても説明の最後の行が 16bit 値だけ（v0.1）。0x5C00 は QMK にも名前がない",
   "setup": { "profile": "authors_config" },
-  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey", "text": "0x7E40" } },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey", "text": "0x5C00" } },
   "response": {
     "id": 1,
     "result": {
-      "value": { "text": "0x7E40", "canonical": "0x7E40", "code": 32320, "kind": "raw", "display": { "label": "0x7E40" } },
+      "value": { "text": "0x5C00", "canonical": "0x5C00", "code": 23552, "kind": "raw", "display": { "label": "0x5C00" } },
       "diagnostics": [],
-      "description": { "title": "0x7E40", "lines": ["16bit 値: 0x7E40"] }
+      "description": { "title": "0x5C00", "lines": ["16bit 値: 0x5C00"] }
     }
   }
 }

@@ -7,7 +7,7 @@
     "result": {
       "value": { "canonical": "TapDance('Tab Escape')", "code": 22276, "kind": "tapDance", "display": { "label": "Tab Escape" } },
       "diagnostics": [],
-      "description": { "title": "タップダンス Tab Escape（TD(4)）", "lines": ["タップで Tab、長押しで Escape", "タップ: Tab", "ホールド: Escape", "tapping_term: 200ms", "QMK: TD(4)（0x5704）"] }
+      "description": { "title": "タップダンス Tab Escape（TD(4)）", "lines": ["タップ: Tab", "ホールド: Escape", "tapping_term: 200ms", "QMK: TD(4)（0x5704）"] }
     }
   }
 }

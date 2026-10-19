@@ -95,9 +95,18 @@ RSpec.describe Cornix::Application::Editor::Inspect do
     expect(inspect_text('MO(1)')[:description][:lines]).to eq(['レイヤー 1（Layer 1）', 'QMK: MO(1)（0x5221）'])
   end
 
-  it 'QMK の名前にできない値（Raw、QMK に名前のないマクロの番号）は最後の行が 16bit 値だけ' do
-    expect(inspect_text('0x7E40')[:description][:lines]).to eq(['16bit 値: 0x7E40'])
+  it '名前にできない値（Cornix の表にない Raw、QMK に名前のないマクロの番号）は最後の行が 16bit 値だけ' do
+    expect(inspect_text('0x5C00')[:description][:lines]).to eq(['16bit 値: 0x5C00'])
+    expect(inspect_text('0x7E40')[:description][:lines]).to eq(['16bit 値: 0x7E40']) # QMK では QK_USER_0 だが Cornix の表にない
     expect(inspect_text('M40')[:description][:lines].last).to eq('16bit 値: 0x7728')
+  end
+
+  it 'タップダンスの説明は動作ごとの行と tapping_term だけ（設定ファイルの description は動作の行と重なるので出さない）' do
+    write('tap_dance/03_tab_escape.yaml', "index: 3\nname: Tab Escape\ndescription: タップで Tab、長押しで Escape\non_tap: Tab\non_hold: Escape\ntapping_term: 200\n")
+    expect(inspect_text("TapDance('Tab Escape')")[:description]).to eq(
+      title: 'タップダンス Tab Escape（TD(3)）',
+      lines: ['タップ: Tab', 'ホールド: Escape', 'tapping_term: 200ms', 'QMK: TD(3)（0x5703）']
+    )
   end
 
   it '構造検証で読めないプロファイルでは意味検証をしない（キーの表記は読める）' do

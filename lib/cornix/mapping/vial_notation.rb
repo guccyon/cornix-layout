@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'qmk_notation'
+
 module Cornix
   module Mapping
     # layout.vil に書くキーコードの文字列 ⇄ Domain::Keycode。
@@ -38,12 +40,8 @@ module Cornix
                                  .merge(NAMED_LAYER_TAPS.to_h { |n| [KeycodeCodec::LAYER_TAP.begin | (n << 8), "LT#{n}"] })
                                  .freeze
 
-      LAYER_FUNCTIONS = {
-        to: 'TO', momentary: 'MO', default: 'DF', toggle: 'TG',
-        one_shot: 'OSL', tap_toggle: 'TT', persistent_default: 'PDF'
-      }.freeze
-
-      ONE_SHOT_MOD_ORDER = %i[ctrl shift alt gui].freeze
+      # レイヤー操作の関数名（QMK と同じ名前。QmkNotation と共通）
+      LAYER_FUNCTIONS = QmkNotation::LAYER_FUNCTIONS
 
       # 引数付きで名前を持つ値（値 → 名前）。TD は Vial GUI が枠の数によらず 0〜255 の名前を持つ
       NAMED = {}.tap do |named|
@@ -55,14 +53,7 @@ module Cornix
         [0x00, 0x10].each do |side|
           (0x01..0x0F).each do |mods|
             bits = side | mods
-            label = if bits == 0x07 then 'MOD_MEH'
-                    elsif bits == 0x0F then 'MOD_HYPR'
-                    else
-                      prefix = side.zero? ? 'MOD_L' : 'MOD_R'
-                      ONE_SHOT_MOD_ORDER.select { |m| bits.anybits?(Domain::ModifierSet::BITS[m]) }
-                                        .map { |m| prefix + { ctrl: 'CTL', shift: 'SFT', alt: 'ALT', gui: 'GUI' }[m] }
-                                        .join('|')
-                    end
+            label = QmkNotation.mod_constants(Domain::ModifierSet.from_bits(bits)).join('|')
             named[KeycodeCodec::ONE_SHOT_MOD.begin | bits] = "OSM(#{label})"
           end
         end

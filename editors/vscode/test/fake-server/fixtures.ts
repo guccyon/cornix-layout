@@ -484,6 +484,10 @@ export function describe(value: KeyValue): { title: string; lines: string[] } {
   if (value.kind === 'macro') {
     return { title: 'マクロ Bracket Pair（M0）', lines: ['角括弧ペア [] を挿入してカーソルを内側に配置', 'tap: [ ] ←', ...code] };
   }
+  if (value.kind === 'tapDance' && value.code === 0x5704) {
+    // タップダンスは動作ごとの行と tapping_term だけ（設定ファイルの description は動作の行と重なるので出さない。protocol.md の 5.5）
+    return { title: 'タップダンス Tab Escape（TD(4)）', lines: ['タップ: Tab', 'ホールド: Escape', 'tapping_term: 200ms', ...code] };
+  }
   if (value.origin === 'presetShortcut' || value.origin === 'shortcut') {
     // title は Shortcut('名前') の名前（protocol.md の 5.5。同梱は「同梱のショートカット」）。lines は中身の表記
     const name = /^Shortcut\s*\(\s*(['"])(.+)\1\s*\)$/s.exec(value.text.trim())?.[2]?.trim() ?? value.text;

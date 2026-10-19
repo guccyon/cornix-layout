@@ -422,15 +422,19 @@ type CandidateCategory =
 
 - 参照先（マクロの名前など）は保存済みのプロファイルで判断する。v0.1 には名前を変える操作がないので未保存の変更は渡さない
   （名前の変更が入る v0.2 で `baseVersions` と `changes` を足す）
-- 説明に出すもの: Shortcut の中身（`Shift + Command + P`）、マクロの手順、タップダンスの 4 つの動作（割り当てのあるものだけ）、レイヤー操作の行き先のレイヤー名、QMK のキーコード（16bit 値を添える）
+- 説明に出すもの: Shortcut の中身（`Shift + Command + P`）、マクロの手順、タップダンスの 4 つの動作（割り当てのあるものだけ。設定ファイルの description は動作の行と重なるので出さない）と tapping_term、レイヤー操作の行き先のレイヤー名、QMK のキーコード（16bit 値を添える）
 - 読めない表記では `value` と `description` が `null` で、`diagnostics` に構造の error が 1 件（`source: "structure"`、message は読み込みのときと同じ文）
 - 読めれば、`diagnostics` は意味検証の規則（参照先の定義がない、レイヤーの番号がレイヤー数を超える・定義されていない、Cornix が対応していないキー）でその値だけを確かめた結果。
   プロファイル全体の問題（件数の上限など）は混ぜない。保存済みのプロファイルが構造検証で読めないときは意味検証をしない（5.3 と同じく、キーの表と同梱のショートカットだけで読む）
 - `description` は `{ title, lines }`。`lines` の最後はいつも QMK の keymap.c に書く名前と 16bit 値（`QMK: LT(1, KC_SPACE)（0x412C）`）。
-  QMK の名前にできない値（Raw、`QK_MACRO_31` より後のマクロ、Vial GUI だけの `USER32` 以降）は 16bit 値だけ（`16bit 値: 0x7E40`）。
+  名前にできない値は 16bit 値だけ（`16bit 値: 0x5C00`）。v0.1 では Cornix の表（`data/keycodes.yaml`）にある値だけに名前を付け、
+  表にない値（Raw）は QMK に名前があっても 16 進だけ（`0x7E40` は QMK の `QK_USER_0` だが `16bit 値: 0x7E40`）。
+  ほかに `QK_MACRO_31` より後のマクロと、Vial GUI だけの名前 `USER32` 以降も 16 進だけ。
+  名前の基準は最新の QMK（qmk_firmware の `data/constants/keycodes` の 0.0.9 時点）。値は vial-qmk と同じだが、vial-qmk や古い QMK では名前が違うものがある
+  （`QK_MOUSE_CURSOR_UP` は古くは `KC_MS_UP`、`QK_UNDERGLOW_TOGGLE` は `RGB_TOG`）。
   名前は QMK の公式の表（https://docs.qmk.fm/keycodes ）の「Key」の列の長い名前（`KC_SPC` ではなく `KC_SPACE`、`KC_BSPACE` ではなく `KC_BACKSPACE`、
   `KC_TRNS` は `KC_TRANSPARENT`、`QK_BOOT` は `QK_BOOTLOADER`、`LSFT(KC_1)` は `KC_EXCLAIM`）。引数付きは
-  修飾付き `LSFT(KC_P)` / `LSG(KC_P)` / `MEH(kc)` / `HYPR(kc)`（QMK に名前のない右の Ctrl+Shift+Alt と 4 つ全部は `RCTL(RSFT(RALT(kc)))` の入れ子）、
+  修飾付き `LSFT(KC_P)` / `LSG(KC_P)` / `MEH(kc)` / `HYPR(kc)`（QMK に名前のない右の Ctrl+Shift+Alt と右の 4 つは `RCTL(RSFT(RALT(kc)))` の入れ子）、
   Mod-Tap `LGUI_T(kc)` / `MEH_T(kc)` / `HYPR_T(kc)`（名前のない組は `MT(MOD_RCTL | MOD_RSFT | MOD_RALT, kc)`）、`LT(1, KC_SPACE)`、`LM(1, MOD_LSFT)`、
   `MO(1)` などのレイヤー操作、`OSM(MOD_LCTL | MOD_LSFT)`（左の 3 つ・4 つは `MOD_MEH` / `MOD_HYPR`）、`TD(4)`、マクロは `QK_MACRO_0`。title は、ショートカットは「ショートカット 名前」（同梱は「同梱のショートカット 名前」）、
   マクロは「マクロ 名前（M0）」、タップダンスは「タップダンス 名前（TD(4)）」、そのほかは正規形。定義のないマクロ・タップダンスは lines に「定義されていません」

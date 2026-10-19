@@ -2,15 +2,16 @@
 
 require 'spec_helper'
 
-# 期待値は QMK の公式の表（https://docs.qmk.fm/keycodes の「Key」の列と data/constants/keycodes/*.hjson の key）の名前
-RSpec.describe Cornix::Application::Editor::Inspect::QmkName do
+# 期待値は QMK の公式の表（https://docs.qmk.fm/keycodes の「Key」の列。qmk_firmware の data/constants/keycodes 0.0.9 時点）の名前。
+# US の Shift 付きの記号は docs の Key の列（KC_EXCLAIM）に合わせ、hjson の key（KC_EXLM）ではない
+RSpec.describe Cornix::Mapping::QmkNotation do
   let(:catalog) { Cornix::Mapping::KeycodeCatalog.default }
   let(:codec) { Cornix::Mapping::KeycodeCodec.new(catalog) }
   let(:notation) { Cornix::Mapping::VialNotation.new(catalog: catalog, codec: codec) }
 
   subject(:qmk) { described_class.new(catalog: catalog, codec: codec) }
 
-  def name_of(text) = qmk.call(notation.parse(text))
+  def name_of(text) = qmk.format(notation.parse(text))
 
   def expect_names(table)
     table.each { |text, expected| expect(name_of(text)).to eq(expected), "#{text} → #{expected.inspect}" }
@@ -70,12 +71,25 @@ RSpec.describe Cornix::Application::Editor::Inspect::QmkName do
   end
 
   it 'QMK に名前のない値（Raw、Vial GUI だけの USER32〜）は nil' do
-    expect_names('0x7E40' => nil, '0x5C00' => nil, 'USER40' => nil)
+    expect_names('0x5C00' => nil, 'USER32' => nil, 'USER63' => nil)
+  end
+
+  it 'Cornix の表にない値（Raw）は、QMK に名前があっても nil（v0.1 では表にある値だけ）' do
+    expect_names('0x7E40' => nil, '0x0700' => nil) # QMK の QK_USER_0 と KC_MEH
+  end
+
+  # 表（data/keycodes.yaml）に別名を足して、選ばれる名前が黙って変わったら落ちる。
+  # 期待値の表は QMK の公式の名前と突き合わせて作った（PR #45）。表を変えて名前が変わるときは、QMK の名前と比べてから期待値を直す
+  it '名前付きのすべての値で、選ぶ名前は spec/fixtures/expected/qmk_names.yaml と同じ' do
+    expected = YAML.safe_load_file(File.join(__dir__, '../fixtures/expected/qmk_names.yaml'))
+    actual = (0..0xFFFF).reject { |code| catalog.names_for(code).empty? }
+                        .to_h { |code| [format('0x%04X', code), qmk.format(codec.decode(code))] }
+    expect(actual).to eq(expected)
   end
 
   it 'customKeycodes の名前（BT0 など）は使わない' do
     custom = Cornix::Mapping::KeycodeCatalog.load(custom_keycodes: [{ 'name' => 'BT0' }])
     named = described_class.new(catalog: custom, codec: Cornix::Mapping::KeycodeCodec.new(custom))
-    expect(named.call(Cornix::Domain::Keycode::Quantum.new(code: 0x7E00))).to eq('QK_KB_0')
+    expect(named.format(Cornix::Domain::Keycode::Quantum.new(code: 0x7E00))).to eq('QK_KB_0')
   end
 end

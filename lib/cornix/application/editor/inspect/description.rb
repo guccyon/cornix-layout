@@ -11,7 +11,7 @@ module Cornix
         # 出すもの（どれも最後に 16bit 値の行）
         #   Shortcut('名前')   title「ショートカット 名前」、中身の表記（Shift + Command + P）
         #   マクロ             title「マクロ 名前（M0）」、説明・preset の名前・手順（tap: [ ] ← のように 1 手順 1 行）
-        #   タップダンス       title「タップダンス 名前（TD(4)）」、説明・4 つの動作・tapping_term
+        #   タップダンス       title「タップダンス 名前（TD(4)）」、説明・4 つの動作（割り当てのあるものだけ）・tapping_term
         #   レイヤー操作       title は正規形、行き先のレイヤー（番号と名前。定義がなければそう書く）。LT はタップ側のキーも
         #   Mod-Tap           title は正規形、タップ側とホールド側
         #   そのほか          title は正規形

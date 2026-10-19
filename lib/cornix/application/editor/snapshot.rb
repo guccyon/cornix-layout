@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative 'snapshot/reading'
-require_relative 'snapshot/key_values'
-require_relative 'snapshot/diagnostics'
+require_relative 'profile_reading'
+require_relative 'key_values'
+require_relative 'diagnostics'
 
 module Cornix
   module Application
@@ -32,7 +32,7 @@ module Cornix
         def call(id)
           opened = @workbench.fetch(id)
           env = opened.env
-          reading = Reading.read(env)
+          reading = ProfileReading.read(env)
           versions = @workbench.versions(id)
           versions.replace(reading.files)
           head = { profileId: opened.id, name: opened.name, dir: opened.dir, status: reading.ok? ? 'ok' : 'invalid',
@@ -99,7 +99,7 @@ module Cornix
         def written(doc, path) = doc&.scalar(path)
 
         def settings(catalog, values, reading)
-          file = reading.settings_file || Reading::SETTINGS_FILE
+          file = reading.settings_file || ProfileReading::SETTINGS_FILE
           doc = reading.document(file)
           catalog.all.map do |definition|
             raw = values[definition.qsid]

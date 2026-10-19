@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-require_relative 'snapshot'
-require_relative 'candidates'
+require_relative 'profile_reading'
+require_relative 'key_values'
+require_relative 'unknown_context'
 require_relative 'inspect/description'
 
 module Cornix
@@ -12,11 +13,13 @@ module Cornix
       #   Inspect.new(workbench).call('p1', context: 'layerKey', text: "Macro('Bracket Pair')")
       #   #=> { value: KeyValue | nil, diagnostics: [Diagnostic（address なし）], description: { title:, lines: } | nil }
       #
-      # 参照先は保存済みのプロファイルで判断する（構造検証で読めなければ、マクロ・タップダンスの名前なしで読み、意味検証はしない）。
+      # 参照先は保存済みのプロファイルで判断する（構造検証で読めなければ、キーの表と同梱のショートカットだけで読み、意味検証はしない）。
       # 読めない表記は value と description が nil で、構造の error を 1 件返す。
       # 読めれば Profile#diagnostics と同じ規則（参照先がない・レイヤーの範囲・Cornix が対応していないキー）の問題を返す。
       # 規則を Domain から写さないよう、その値を出力に持つコンボを 1 件足したプロファイルを検証し、その場所の結果だけを取る。
-      # 知らない context は Candidates::UnknownContext（v0.1 の context による違いはない）
+      # これは今の規則（ProfileDiagnostics#check_keycode）がキーコードの場所によらないことに頼っている。Domain に 1 つのキーコードだけを
+      # 確かめる公開メソッド（Profile#keycode_diagnostics など）ができたら置き換える（spec でレイヤーのキーに置いたときの結果と比べている）。
+      # 知らない context は UnknownContext（v0.1 の context による違いはない）
       class Inspect
         PROBE_NAME = 'keycode/inspect'
 
@@ -27,10 +30,9 @@ module Cornix
 
         def call(id, context:, text:)
           env = @workbench.fetch(id).env
-          raise Candidates::UnknownContext, context unless Mapping::CandidateCatalog.default_categories.context?(context)
-
-          reading = Snapshot::Reading.read(env)
-          values = Snapshot::KeyValues.new(env: env, profile: reading.profile, icons: @icons)
+          UnknownContext.check!(context)
+          reading = ProfileReading.read(env)
+          values = KeyValues.new(env: env, profile: reading.profile, icons: @icons)
           keycode = values.parse(text)
           value = values.build(keycode, text: text)
           { value: value, diagnostics: semantic(reading.profile, keycode, env.capabilities),

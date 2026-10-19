@@ -18,7 +18,7 @@ module Cornix
               query: param(params, 'query', String, optional: true) || '',
               limit: param(params, 'limit', Integer, optional: true)
             )
-          rescue Application::Editor::Candidates::UnknownContext => e
+          rescue Application::Editor::UnknownContext => e
             raise RpcError.new(ErrorCodes::INVALID_PARAMS, e.message, { field: 'context' })
           end
         end

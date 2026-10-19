@@ -17,7 +17,7 @@ module Cornix
               context: param(params, 'context', String),
               text: param(params, 'text', String)
             )
-          rescue Application::Editor::Candidates::UnknownContext => e
+          rescue Application::Editor::UnknownContext => e
             raise RpcError.new(ErrorCodes::INVALID_PARAMS, e.message, { field: 'context' })
           end
         end

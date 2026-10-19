@@ -14,6 +14,10 @@ module Cornix
     #
     #   # 保存前の中身で読む（{ rel => 中身 }。nil はファイルがないものとして扱う）
     #   FileSource::Overlay.new(source, { 'layers/0_base.yml' => edited_text })
+    #
+    #   # ある時点の設定ファイル（ConfigFiles の構成のもの）をすべて読んで持つ。以降はディスクを見ない
+    #   memory = FileSource::Memory.capture('profiles/default')
+    #   memory.files                        # => { "metadata.yaml" => バイト列, ... }（読んだ順）
     module FileSource
       # ディスクの設定ディレクトリ（今までの読み方）
       class Disk
@@ -31,6 +35,53 @@ module Cornix
 
         # 設定ディレクトリがあるか
         def directory? = File.directory?(@dir)
+      end
+
+      # 読んだ時点のファイルの中身だけを見せる（一覧も読んだ時点のもの）。版（FileVersion）と読み込みを同じバイト列にそろえるため。
+      # files は { rel => バイト列 }。read は UTF-8 の文字列にして返す（Disk と同じ）
+      class Memory
+        # 設定ディレクトリのファイルの構成（1 つだけのファイルの .yaml / .yml と、種類のディレクトリの YAML）
+        SINGLE_FILES = [ConfigFiles::METADATA, ConfigFiles::POSITION_MAP, ConfigFiles::SETTINGS, ConfigFiles::SHORTCUTS].freeze
+
+        attr_reader :dir, :files
+
+        # dir の設定ファイルをディスクから読む。読めなかったファイル（読む前に消えたなど）は含めない
+        def self.capture(dir)
+          dir = dir.to_s
+          return new(dir, {}, directory: false) unless File.directory?(dir)
+
+          singles = SINGLE_FILES.flat_map do |base|
+            ConfigFiles::EXTENSIONS.map { |ext| "#{base}#{ext}" }.select { |rel| File.file?(File.join(dir, rel)) }
+          end
+          rels = singles + ConfigFiles::KINDS.keys.flat_map { |kind| ConfigFiles.list(dir, kind) }
+          files = rels.each_with_object({}) do |rel, h|
+            h[rel] = File.binread(File.join(dir, rel))
+          rescue SystemCallError
+            next
+          end
+          new(dir, files)
+        end
+
+        def initialize(dir, files, directory: true)
+          @dir = dir.to_s
+          @files = files.to_h { |rel, bytes| [Pathname.new(rel.to_s).cleanpath.to_s, bytes.to_s.b.freeze] }.freeze
+          @directory = directory
+        end
+
+        def read(rel)
+          bytes = @files[normalize(rel)] or raise Errno::ENOENT, File.join(@dir, rel.to_s)
+          bytes.dup.force_encoding(Encoding::UTF_8)
+        end
+
+        def exist?(rel) = @files.key?(normalize(rel))
+
+        def list(kind) = @files.keys.select { |rel| ConfigFiles.kind_file?(rel, kind) }.sort
+
+        def directory? = @directory
+
+        private
+
+        def normalize(rel) = Pathname.new(rel.to_s).cleanpath.to_s
       end
 
       # base の上に、いくつかのファイルの中身を差し替えて見せる。

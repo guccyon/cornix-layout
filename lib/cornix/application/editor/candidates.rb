@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
-require_relative 'snapshot'
+require_relative 'profile_reading'
+require_relative 'key_values'
+require_relative 'unknown_context'
 
 module Cornix
   module Application
@@ -18,19 +20,11 @@ module Cornix
       # 同梱のショートカットとアプリには Mapping::AppIconCatalog のアイコン、preset: のマクロの候補には元のアプリのアイコンを付ける。
       # 候補の nil の項目（detail / icon / warning）は省く。limit を省いたら DEFAULT_LIMIT、1 未満は 1。
       # typed は query をそのまま表記として読めたときの解釈（空や読めないときは nil）。
-      # 知らない context は UnknownContext
+      # 知らない context は UnknownContext。shortcut_tree は同梱のデータだけから作るので、アイコンの表ごとに 1 回だけ作って持つ
       class Candidates
         DEFAULT_LIMIT = Mapping::CandidateCatalog::DEFAULT_LIMIT
-
-        # 知らない context（data/keycode_categories.yaml の contexts にない）。Interface が -32602 にする
-        class UnknownContext < Cornix::Error
-          attr_reader :context
-
-          def initialize(context)
-            @context = context
-            super("知らない context です: #{context.inspect}")
-          end
-        end
+        SHORTCUT_TREES = {}.compare_by_identity # アイコンの表 => shortcut_tree の結果
+        private_constant :SHORTCUT_TREES
 
         def initialize(workbench, icons: Mapping::AppIconCatalog.default)
           @workbench = workbench
@@ -39,11 +33,10 @@ module Cornix
 
         def call(id, context:, query:, limit: nil)
           env = @workbench.fetch(id).env
+          UnknownContext.check!(context)
           catalog = catalog(env)
-          raise UnknownContext, context unless catalog.contexts.include?(context)
-
-          reading = Snapshot::Reading.read(env)
-          values = Snapshot::KeyValues.new(env: env, profile: reading.profile, icons: @icons)
+          reading = ProfileReading.read(env)
+          values = KeyValues.new(env: env, profile: reading.profile, icons: @icons)
           result = catalog.search(query: query.to_s, context: context, references: values.references,
                                   layer_names: values.layer_names, limit: limit || DEFAULT_LIMIT)
           macro_icons = macro_icons(reading.profile, values)
@@ -55,8 +48,7 @@ module Cornix
         end
 
         def shortcut_tree
-          tree = catalog(Environment.new).shortcut_tree
-          { apps: tree.map { |app| shortcut_app(app) } }
+          SHORTCUT_TREES[@icons] ||= { apps: catalog(Environment.new).shortcut_tree.map { |app| shortcut_app(app) } }.freeze
         end
 
         private

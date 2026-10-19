@@ -71,7 +71,7 @@ RSpec.describe Cornix::Application::Editor::Candidates do
 
   it '知らない context は UnknownContext' do
     expect { search('A', context: 'macroKey') }
-      .to raise_error(described_class::UnknownContext) { |e| expect(e.context).to eq('macroKey') }
+      .to raise_error(Cornix::Application::Editor::UnknownContext) { |e| expect(e.context).to eq('macroKey') }
   end
 
   it '開いていない id は ProfileNotFound' do

@@ -50,6 +50,23 @@ RSpec.describe Cornix::Application::Editor::Inspect do
     expect(inspect_text('Macro(0)')[:diagnostics]).to eq([])
   end
 
+  # inspect はコンボの出力に置いて検証する。規則がキーの場所によって変わったら（Domain にコンボの出力だけの規則が足されたなど）ここで気づく
+  it '意味検証の結果は、同じ値をレイヤーのキーに置いたときの Profile#diagnostics と同じ' do
+    File.delete(File.join(@root, 'profile', 'layers/9_layer_9.yaml'))
+    env = workbench.fetch(id).env
+    profile = env.repository.load
+    position = profile.position_map.positions.first
+    path = "layers[0].#{profile.position_map.path(position)}"
+    ['A', 'Macro(0)', 'M20', 'TD(1)', 'TD(9)', 'MO(1)', 'TG(9)', 'MO(12)', 'LT9(A)', 'LM(11, MOD_LSFT)', 'Repeat', 'QK_BOOT', '0x7E40'].each do |text|
+      keycode = env.notation.parse(text)
+      layer = profile.layers.first
+      placed = profile.with(layers: [layer.with(keys: layer.keys.merge(position => keycode))] + profile.layers.drop(1))
+      expected = placed.diagnostics(env.capabilities).select { |d| d.path == path }
+                       .map { |d| { severity: d.severity.to_s, message: d.message, source: 'semantic' } }
+      expect(inspect_text(text)[:diagnostics]).to eq(expected), text
+    end
+  end
+
   it 'コンボの件数の上限などプロファイル全体の問題は混ぜない' do
     32.times { |i| write(format('combos/%02d_extra.yaml', 10 + i), "index: #{10 + i}\nname: Extra #{i}\ntrigger_keys: [A, B]\noutput_key: C\n") }
     expect(inspect_text('A')[:diagnostics]).to eq([])
@@ -85,7 +102,7 @@ RSpec.describe Cornix::Application::Editor::Inspect do
     expect(result[:diagnostics]).to eq([])
   end
 
-  it '知らない context は Candidates::UnknownContext' do
-    expect { inspect_text('A', context: 'comboTrigger') }.to raise_error(Cornix::Application::Editor::Candidates::UnknownContext)
+  it '知らない context は UnknownContext' do
+    expect { inspect_text('A', context: 'comboTrigger') }.to raise_error(Cornix::Application::Editor::UnknownContext)
   end
 end

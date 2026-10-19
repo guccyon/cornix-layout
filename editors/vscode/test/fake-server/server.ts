@@ -17,6 +17,7 @@ import {
   type DraftParams,
   type FileEdits,
   type FileVersion,
+  type KeyValue,
   type ProfileListResult,
   type ProfileSnapshot,
   type TextEdit,
@@ -355,18 +356,26 @@ class FakeServer {
     };
   }
 
-  /** 設定ディレクトリがディスクにあればその YAML の版、なければ fixtures の名前と仮の版 */
+  /**
+   * 設定ディレクトリがディスクにあればその設定ファイルの版、なければ fixtures の名前と仮の版（protocol.md の 5.2 の files）。
+   * 設定ファイルは metadata / position_map / settings/qmk_settings / shortcuts（.yaml / .yml）と layers/ macros/ tap_dance/ combos/ の YAML。
+   * settings/qmk_settings がなければ settings/qmk_settings.yaml を null で入れる
+   */
   private files(dir: string): Record<string, FileVersion> {
     const base = path.resolve(this.options.root, dir);
     if (!fs.existsSync(base)) {
       return Object.fromEntries(data.FALLBACK_FILES.map((file) => [file, `sha256:${'0'.repeat(64)}`]));
     }
     const result: Record<string, FileVersion> = {};
-    for (const rel of walk(base)) result[rel] = versionOf(fs.readFileSync(path.join(base, rel)));
+    for (const rel of configFiles(base)) result[rel] = versionOf(fs.readFileSync(path.join(base, rel)));
+    if (!('settings/qmk_settings.yaml' in result) && !('settings/qmk_settings.yml' in result)) result['settings/qmk_settings.yaml'] = null;
     return result;
   }
 
-  private candidates(context: string, query: string, limit: number) {
+  /** limit は 1 未満なら 1。query は前後の空白を除いて当てる（protocol.md の 5.3） */
+  private candidates(context: string, rawQuery: string, rawLimit: number) {
+    const query = rawQuery.trim();
+    const limit = Math.max(1, Math.trunc(rawLimit));
     const q = query.toLowerCase();
     let items = data.CANDIDATES.filter((item) => item.category !== 'raw');
     if (q) {
@@ -390,7 +399,7 @@ class FakeServer {
       })
       .map(({ item }) => item);
     if (q.startsWith('0x')) items = [{ insertText: query, label: query, detail: '直接の値', category: 'raw' }, ...items];
-    return { items: items.slice(0, limit), typed: query ? data.interpret(query) : null, truncated: items.length > limit };
+    return { items: items.slice(0, limit), typed: typed(query, rawQuery), truncated: items.length > limit };
   }
 
   private checkDraft(params: DraftParams): void {
@@ -510,12 +519,30 @@ export function versionOf(bytes: Uint8Array): string {
   return `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
 }
 
-function walk(base: string, rel = ''): string[] {
-  return fs.readdirSync(path.join(base, rel), { withFileTypes: true }).flatMap((entry) => {
-    const child = rel ? `${rel}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) return walk(base, child);
-    return /\.ya?ml$/.test(entry.name) ? [child] : [];
+/** query（前後の空白を除いたもの）を表記として読めたときの解釈。text は送られた query のまま */
+function typed(query: string, rawQuery: string): KeyValue | null {
+  const value = query ? data.interpret(query) : null;
+  return value ? { ...value, text: rawQuery } : null;
+}
+
+const SINGLE_FILES = ['metadata', 'position_map', 'settings/qmk_settings', 'shortcuts'];
+const KIND_DIRS = ['layers', 'macros', 'tap_dance', 'combos'];
+
+/** 設定ファイルの構成のファイル（Ruby の Storage::FileSource::Memory.capture と同じ並び） */
+function configFiles(base: string): string[] {
+  const singles = SINGLE_FILES.flatMap((name) => ['.yaml', '.yml'].map((ext) => `${name}${ext}`)).filter((rel) =>
+    fs.existsSync(path.join(base, rel)),
+  );
+  const kinds = KIND_DIRS.flatMap((dir) => {
+    const full = path.join(base, dir);
+    if (!fs.existsSync(full)) return [];
+    return fs
+      .readdirSync(full, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && /\.ya?ml$/.test(entry.name) && !entry.name.startsWith('.'))
+      .map((entry) => `${dir}/${entry.name}`)
+      .sort();
   });
+  return [...singles, ...kinds];
 }
 
 function findValue(lines: string[], keyPath: (string | number)[]) {

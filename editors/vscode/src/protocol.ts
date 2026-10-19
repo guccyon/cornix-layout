@@ -252,7 +252,7 @@ export type CandidatesParams = {
   /** 知らない context は -32602（data: { field: "context" }） */
   context: CandidateContext;
   /** 入力中の文字。空なら「上に出すもの」から並べる（省くと ""） */
-  query: string;
+  query?: string;
   /** 省くと 50。1 未満は 1 */
   limit?: number;
 };

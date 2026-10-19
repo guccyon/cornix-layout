@@ -1,0 +1,23 @@
+{
+  "description": "知らない profileId は -32050",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/saved",
+    "params": {
+      "profileId": "p9",
+      "files": {}
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32050,
+      "data": {
+        "profileId": "p9"
+      }
+    }
+  }
+}

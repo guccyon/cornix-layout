@@ -1,0 +1,50 @@
+{
+  "description": "値が今のファイルの値と同じなら書き換えを作らない（files は空）",
+  "setup": {
+    "files": {
+      "profiles/default/metadata.yaml": "keyboard: cornix\nversion: 1\n",
+      "profiles/default/position_map.yaml": "left_hand:\n  row0: [tab, Q, W, E, R, T]\n  row1: [caps, A, S, D, F, G]\n  row2: [lshift, Z, X, C, V, B]\n  row3: [lctrl, command, option]\n  thumb_keys: [left, middle, right]\nright_hand:\n  row0: [Y, U, I, O, P, backspace]\n  row1: [H, J, K, L, colon, enter]\n  row2: [N, M, comma, dot, up, rshift]\n  row3: [left, down, right]\n  thumb_keys: [left, middle, right]\nencoders:\n  left: { push: push, ccw: ccw, cw: cw }\n  right: { push: push, ccw: ccw, cw: cw }\n",
+      "profiles/default/layers/0_base.yaml": "name: Base\nindex: 0\nmapping:\n  left_hand:\n    row0:\n      tab: Tab\n      Q: { key: Q, note: 注記 }\n    row1: { caps: LCtrl }\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n"
+    },
+    "before": [
+      {
+        "id": "b1",
+        "method": "profile/open",
+        "params": {
+          "dir": "profiles/default"
+        }
+      }
+    ]
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/0_base.yaml": "sha256:043339c49b7a769c67ab03a5d9389dd1e74647c9b9cfa936b5f2a8dca51dfb21"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "layers/0_base.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "value": "Tab"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [],
+      "diagnostics": []
+    }
+  }
+}

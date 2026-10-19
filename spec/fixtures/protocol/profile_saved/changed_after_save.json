@@ -1,0 +1,44 @@
+{
+  "description": "知らされた版と読み直した版が違えば（保存の直後にさらに外で変わった）、応答の前に profile/didChange を送る",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/saved",
+    "params": {
+      "profileId": "p1",
+      "files": {
+        "layers/0_layer_0.yaml": "sha256:0000"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "profileId": "p1",
+      "status": "ok",
+      "files": {
+        "layers/0_layer_0.yaml": "sha256:9faa12c6c209ea8cb5e6ec37f158d05bf97a29200c5b2c278601d0e0b204fee0"
+      }
+    }
+  },
+  "notifications": [
+    {
+      "method": "profile/didChange",
+      "params": {
+        "profileId": "p1",
+        "files": {
+          "layers/0_layer_0.yaml": "sha256:9faa12c6c209ea8cb5e6ec37f158d05bf97a29200c5b2c278601d0e0b204fee0"
+        },
+        "snapshot": {
+          "profileId": "p1",
+          "status": "ok",
+          "files": {
+            "layers/0_layer_0.yaml": "sha256:9faa12c6c209ea8cb5e6ec37f158d05bf97a29200c5b2c278601d0e0b204fee0"
+          }
+        }
+      }
+    }
+  ]
+}

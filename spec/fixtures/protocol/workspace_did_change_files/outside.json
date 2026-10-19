@@ -1,0 +1,21 @@
+{
+  "description": "開いているプロファイルの設定ディレクトリの外のファイルは見ない",
+  "setup": {
+    "profile": "test_config",
+    "files": {
+      "notes.txt": "メモ\n"
+    }
+  },
+  "request": {
+    "method": "workspace/didChangeFiles",
+    "params": {
+      "changes": [
+        {
+          "path": "notes.txt",
+          "type": "created"
+        }
+      ]
+    }
+  },
+  "notifications": []
+}

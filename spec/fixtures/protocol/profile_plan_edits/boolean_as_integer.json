@@ -1,0 +1,64 @@
+{
+  "description": "真偽値の設定をファイルが 0 / 1 で書いていれば 0 / 1 で書き、同じ値なら書き換えない",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "settings/qmk_settings.yaml": "sha256:1e1b2dea5656828a874f72f334a90a925c227164c1b25c8705096d9cfa8f0762"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "settings/qmk_settings.yaml",
+            "path": [
+              "22"
+            ]
+          },
+          "value": false
+        },
+        {
+          "address": {
+            "file": "settings/qmk_settings.yaml",
+            "path": [
+              "26"
+            ]
+          },
+          "value": true
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "settings/qmk_settings.yaml",
+          "baseVersion": "sha256:1e1b2dea5656828a874f72f334a90a925c227164c1b25c8705096d9cfa8f0762",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 6,
+                  "character": 6
+                },
+                "end": {
+                  "line": 6,
+                  "character": 7
+                }
+              },
+              "newText": "0"
+            }
+          ]
+        }
+      ],
+      "diagnostics": []
+    }
+  }
+}

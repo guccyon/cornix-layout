@@ -1,0 +1,139 @@
+{
+  "description": "同じファイルへの複数の変更は 1 つずつ当て、元のテキストに対する書き換えにまとめる。ファイルは changes に出てきた順",
+  "setup": {
+    "files": {
+      "profiles/default/metadata.yaml": "keyboard: cornix\nversion: 1\n",
+      "profiles/default/position_map.yaml": "left_hand:\n  row0: [tab, Q, W, E, R, T]\n  row1: [caps, A, S, D, F, G]\n  row2: [lshift, Z, X, C, V, B]\n  row3: [lctrl, command, option]\n  thumb_keys: [left, middle, right]\nright_hand:\n  row0: [Y, U, I, O, P, backspace]\n  row1: [H, J, K, L, colon, enter]\n  row2: [N, M, comma, dot, up, rshift]\n  row3: [left, down, right]\n  thumb_keys: [left, middle, right]\nencoders:\n  left: { push: push, ccw: ccw, cw: cw }\n  right: { push: push, ccw: ccw, cw: cw }\n",
+      "profiles/default/layers/0_base.yaml": "name: Base\nindex: 0\nmapping:\n  left_hand:\n    row0:\n      tab: Tab\n      Q: { key: Q, note: 注記 }\n    row1: { caps: LCtrl }\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n"
+    },
+    "before": [
+      {
+        "id": "b1",
+        "method": "profile/open",
+        "params": {
+          "dir": "profiles/default"
+        }
+      }
+    ]
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/0_base.yaml": "sha256:043339c49b7a769c67ab03a5d9389dd1e74647c9b9cfa936b5f2a8dca51dfb21",
+        "settings/qmk_settings.yaml": null
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "layers/0_base.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row2",
+              "X"
+            ]
+          },
+          "value": "X"
+        },
+        {
+          "address": {
+            "file": "settings/qmk_settings.yaml",
+            "path": [
+              "vial",
+              "combo_timing_window"
+            ]
+          },
+          "value": 40
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row2",
+              "Z"
+            ]
+          },
+          "value": "Z"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "value": "Escape"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "layers/0_base.yaml",
+          "baseVersion": "sha256:043339c49b7a769c67ab03a5d9389dd1e74647c9b9cfa936b5f2a8dca51dfb21",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 5,
+                  "character": 11
+                },
+                "end": {
+                  "line": 5,
+                  "character": 14
+                }
+              },
+              "newText": "Escape"
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 9,
+                  "character": 0
+                },
+                "end": {
+                  "line": 9,
+                  "character": 0
+                }
+              },
+              "newText": "      Z: Z\n      X: X\n"
+            }
+          ]
+        },
+        {
+          "file": "settings/qmk_settings.yaml",
+          "baseVersion": null,
+          "create": true,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 0
+                }
+              },
+              "newText": "vial:\n  combo_timing_window: 40\n"
+            }
+          ]
+        }
+      ],
+      "diagnostics": []
+    }
+  }
+}

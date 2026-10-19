@@ -1,0 +1,45 @@
+# 同梱のショートカット（data/shortcuts/）のアプリ名 → アイコン ID。
+# アプリ名は data/shortcuts/*.yaml のいちばん上のキー（Shortcut('VS Code:...') の先頭）と同じにする。
+# 全アプリに対応があること・余計なアプリ名がないことは spec/mapping/app_icon_catalog_spec.rb で確かめる。
+# ここに持つのは ID だけで、SVG の画像とライセンス表記は拡張（editors/vscode/）に同梱する（ADR 011）。
+#
+# ID の形と素材（この優先順で選ぶ）:
+# - simple-icons:<slug>          Simple Icons https://simpleicons.org/ （CC0 1.0。
+#                                https://github.com/simple-icons/simple-icons の slugs.md で slug を確かめる。
+#                                ロゴそのものは各社の商標）
+# - material-icon-theme:<name>   Material Icon Theme https://github.com/material-extensions/vscode-material-icon-theme
+#                                （MIT。<name> は icons/<name>.svg のファイル名）
+# - badge:<文字>                  上の 2 つにないアプリ。文字を色付きの四角に載せたバッジを拡張で作る（自前）。
+#                                文字はそのアプリのアイコンにある略称（Adobe の Ai / Ps / Pr、Excel の X）、
+#                                なければ名前の頭文字
+icons:
+  # Simple Icons（15。slug は simple-icons 16.35.0 の slugs.md で確かめた）
+  Android Studio: simple-icons:androidstudio
+  Blender: simple-icons:blender
+  DaVinci Resolve: simple-icons:davinciresolve
+  Discord: simple-icons:discord
+  Figma: simple-icons:figma
+  KiCad: simple-icons:kicad
+  Linux: simple-icons:linux
+  macOS: simple-icons:macos # 「macOS」の文字のロゴ（横長）。小さく出して読みにくければ拡張の側で見直す
+  note: simple-icons:note
+  Notion: simple-icons:notion
+  Raycast: simple-icons:raycast
+  Spotify: simple-icons:spotify
+  Unity: simple-icons:unity
+  Xcode: simple-icons:xcode
+  Zoom: simple-icons:zoom
+  # Material Icon Theme（3）
+  VS Code: material-icon-theme:vscode
+  Microsoft Word: material-icon-theme:word
+  Microsoft PowerPoint: material-icon-theme:powerpoint
+  # 頭文字のバッジ（9）
+  CleanShot X: badge:CS
+  CLIP STUDIO PAINT: badge:CSP
+  Microsoft Excel: badge:X
+  Fusion 360: badge:F
+  Illustrator: badge:Ai
+  Photoshop: badge:Ps
+  Premiere Pro: badge:Pr
+  Slack: badge:S
+  Windows: badge:W

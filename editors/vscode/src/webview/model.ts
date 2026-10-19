@@ -128,6 +128,32 @@ export function slotLabel(slot: Slot): string {
   return `${HAND_LABEL[slot.hand]} ${slot.encoder ? `エンコーダの${slot.label}` : slot.label}`;
 }
 
+/** 図のキーの右上の印。マクロ・タップダンス・自分のショートカットを、ほかのキーと見分けるため */
+export type KeyMark = { kind: 'macro' | 'tapDance' | 'shortcut'; text: string; meaning: string };
+
+const MARKS: Record<KeyMark['kind'], KeyMark> = {
+  macro: { kind: 'macro', text: 'M', meaning: 'マクロ' },
+  tapDance: { kind: 'tapDance', text: 'TD', meaning: 'タップダンス' },
+  shortcut: { kind: 'shortcut', text: '★', meaning: '自分のショートカット' },
+};
+
+/**
+ * 値に付ける印（なければ null）。自分のショートカット（Shortcut(...)）は中身の種類より先に ★。
+ * アイコンのあるもの（同梱のショートカット・preset: のマクロ）はアイコンで分かるので印を付けない
+ */
+export function keyMark(value: KeyValue | null | undefined): KeyMark | null {
+  if (!value || value.icon) return null;
+  if (value.origin === 'shortcut') return MARKS.shortcut;
+  if (value.kind === 'macro') return MARKS.macro;
+  if (value.kind === 'tapDance') return MARKS.tapDance;
+  return null;
+}
+
+/** 印の説明（説明の吹き出しに出す 1 行） */
+export function keyMarkNote(mark: KeyMark): string {
+  return `印「${mark.text}」: ${mark.meaning}`;
+}
+
 /** 図のキーの読み上げ（「左手 tab: タップ Space、ホールド L1」。未割り当て・エラー・警告も入れる） */
 export function keyAccessibleName(
   slot: Slot,
@@ -139,6 +165,8 @@ export function keyAccessibleName(
   if (text === '') content = '割り当てなし';
   else if (value?.display.tap && value.display.hold) content = `タップ ${value.display.tap}、ホールド ${value.display.hold}`;
   else content = value?.display.label || text;
+  const mark = keyMark(value);
+  if (mark) content = `${mark.meaning} ${content}`;
   const problems = diagnostics.map((d) => `${d.severity === 'error' ? 'エラー' : '警告'} ${d.message}`);
   return [`${slotLabel(slot)}: ${content}`, ...problems].join('。');
 }

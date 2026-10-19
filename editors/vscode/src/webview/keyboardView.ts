@@ -1,10 +1,11 @@
 // 上のペイン: Cornix のキーボード図。選んでいるレイヤーの割り当てを描き、キーを押すと onSelect（下の欄へ移る）。
 // 2 役のキー（display の tap / hold）は上下に分けて描く。割り当て済みのキーにアイコン（同梱のショートカットと preset: のマクロ）。
+// マクロ・タップダンス・自分のショートカットは右上に小さな印（M・TD・★。model.ts の keyMark）。NoKey は何も描かない（空白）。
 import type { Diagnostic, Hand, KeyValue } from '../protocol';
 import { BOARD, ENCODERS, keyRect } from './cornixLayout';
 import { h } from './dom';
 import { iconElement } from './icons';
-import { ENCODER_OPS, HAND_LABEL, keyAccessibleName, severityOf, type Slot } from './model';
+import { ENCODER_OPS, HAND_LABEL, keyAccessibleName, keyMark, severityOf, type Slot } from './model';
 
 /** 1 つの欄の描き方 */
 export type SlotView = {
@@ -112,6 +113,7 @@ export class KeyboardView {
     element.classList.toggle('warning', severity === 'warning');
     element.classList.toggle('dual', !!(view.value?.display.tap && view.value.display.hold));
     element.dataset.kind = view.value?.kind ?? '';
+    element.classList.toggle('marked', !!keyMark(view.value));
   }
 
   setSelected(slotId: string | undefined): void {
@@ -135,6 +137,9 @@ export function keyFace(view: Pick<SlotView, 'text' | 'value'>): Node[] {
   const icon = iconElement(value?.icon, 'key-icon');
   if (icon) nodes.push(icon);
   if (view.text === '') return nodes;
+  const mark = keyMark(value);
+  // 印の意味は説明（app.ts の describe）と読み上げ（keyAccessibleName）で伝える
+  if (mark) nodes.push(h('span', { class: `key-mark mark-${mark.kind}`, 'aria-hidden': 'true' }, mark.text));
   if (value === undefined || value === null) {
     // まだ解釈を聞いていない（未保存の値）か、読めない表記: 書いたとおりに出す
     nodes.push(h('span', { class: 'key-label raw' }, view.text));
@@ -146,7 +151,8 @@ export function keyFace(view: Pick<SlotView, 'text' | 'value'>): Node[] {
   } else if (value.kind === 'transparent') {
     nodes.push(h('span', { class: 'key-label faint' }, label || '▽'));
   } else if (value.kind === 'noKey') {
-    nodes.push(h('span', { class: 'key-label faint' }, label || '✕'));
+    // 何もしないキーは空白（✕ や x は文字のキーと見間違えるため）。label はサーバーが空で返す
+    if (label) nodes.push(h('span', { class: 'key-label faint' }, label));
   } else {
     nodes.push(h('span', { class: `key-label${label.length > 6 ? ' long' : ''}` }, label));
   }

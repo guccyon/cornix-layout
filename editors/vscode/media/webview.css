@@ -235,6 +235,42 @@ button {
   top: 2px;
 }
 
+/* マクロ・タップダンス・自分のショートカットの印（右上の小さな札。M・TD・★）。
+   色はテーマのグラフの色を文字の色と混ぜて使う（明るいテーマでは暗く、暗いテーマでは明るくなり、背景の上で読める） */
+.key-mark {
+  --mark-color: var(--vscode-foreground);
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 0 0.3em;
+  border: 1px solid color-mix(in srgb, var(--mark-color) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--mark-color) 16%, var(--vscode-keybindingLabel-background, var(--vscode-input-background)));
+  color: color-mix(in srgb, var(--mark-color) 72%, var(--vscode-foreground));
+  font-size: 0.68em;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+}
+
+.mark-macro {
+  --mark-color: var(--vscode-charts-purple, #b180d7);
+}
+
+.mark-tapDance {
+  --mark-color: var(--vscode-charts-orange, #d18616);
+}
+
+.mark-shortcut {
+  --mark-color: var(--vscode-charts-green, #89d185);
+}
+
+/* 印のあるキーの文字は印の下に入らないように少し下げる */
+.key.marked:not(.dual) .key-label {
+  margin-top: 0.7em;
+}
+
 /* エンコーダ: 丸いつまみ。円を上・中・下の帯に分け、左回し・押し込み・右回しの欄にする。
    文字はキーと同じ大きさで 1 行に描き、入りきらない分は省略する（全部は説明で見せる） */
 .encoder {
@@ -388,6 +424,18 @@ button {
   flex: none;
   width: 1.1em;
   height: 1.1em;
+}
+
+/* エンコーダの帯では印を文字の後ろに並べる */
+.encoder-part .key-mark {
+  position: static;
+  flex: none;
+  order: 1;
+  font-size: 0.75em;
+}
+
+.encoder-part.marked .key-label {
+  margin-top: 0;
 }
 
 /* ---- 下のペイン ---- */
@@ -775,6 +823,11 @@ button {
   white-space: pre-wrap;
 }
 
+.tooltip-mark {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
 .tooltip-note {
   margin-top: 3px;
   color: var(--vscode-descriptionForeground);
@@ -933,37 +986,60 @@ button {
   accent-color: var(--vscode-checkbox-background, var(--vscode-button-background));
 }
 
-.metadata-list {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 2px 16px;
-  margin: 0;
+/* metadata.yaml の表。入れ子の Hash・配列は欄の中にもう 1 つ表を置き、左の線で深さを見せる */
+.metadata-table {
+  border-collapse: collapse;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.95em;
 }
 
-.metadata-list dt {
-  font-family: var(--vscode-editor-font-family);
+.metadata-table th,
+.metadata-table td {
+  padding: 2px 10px 2px 6px;
+  vertical-align: top;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, #8883);
+}
+
+.metadata-table tr:last-child > th,
+.metadata-table tr:last-child > td {
+  border-bottom: none;
+}
+
+.metadata-table th {
+  font-weight: normal;
   color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
 }
 
-.metadata-list dd {
-  margin: 0;
-  font-family: var(--vscode-editor-font-family);
+.metadata-table td {
   overflow-wrap: anywhere;
 }
 
-.position-row {
-  display: grid;
-  grid-template-columns: minmax(14em, max-content) 1fr;
-  gap: 16px;
-  padding: 1px 0;
+.metadata-table .metadata-table {
+  margin: 1px 0;
+  border-left: 2px solid var(--vscode-editorWidget-border, #8885);
+  font-size: 1em;
 }
 
-.position-group {
+.metadata-table td:has(> .metadata-table) {
+  padding: 0;
+}
+
+.metadata-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.metadata-item {
+  padding: 0 5px;
+  border: 1px solid var(--vscode-editorWidget-border, #8885);
+  border-radius: 3px;
+}
+
+.metadata-empty {
   color: var(--vscode-descriptionForeground);
-}
-
-.position-symbols {
-  font-family: var(--vscode-editor-font-family);
 }
 
 @media (max-width: 640px) {

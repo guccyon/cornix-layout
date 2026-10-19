@@ -7,8 +7,9 @@ import { iconElement, setMediaBase } from '../../../src/webview/icons';
 import { ICON_ASSETS } from '../../../src/webview/icons/manifest';
 import { MessageHostClient } from '../../../src/webview/hostClient';
 import { Inspector } from '../../../src/webview/inspector';
-import { KeyboardView } from '../../../src/webview/keyboardView';
-import { layerSlots } from '../../../src/webview/model';
+import { KeyboardView, keyFace } from '../../../src/webview/keyboardView';
+import { keyAccessibleName, keyMark, layerSlots } from '../../../src/webview/model';
+import { describeContent } from '../../../src/webview/tooltip';
 import type { KeyValue } from '../../../src/protocol';
 import type { WebviewMessage } from '../../../src/webviewMessages';
 import * as data from '../../fake-server/fixtures';
@@ -102,6 +103,59 @@ describe('Cornix の物理配置', () => {
     expect(part.classList.contains('dual')).toBe(true);
     expect(part.querySelector('.key-tap')?.textContent).toBe('Space');
     expect(part.querySelector('.key-hold')?.textContent).toBe('L1');
+  });
+});
+
+describe('キーの面の印', () => {
+  const value = (text: string): KeyValue => data.interpret(text)!;
+  const face = (text: string) => {
+    const element = document.createElement('div');
+    element.append(...keyFace({ text, value: value(text) }));
+    return element;
+  };
+
+  it('NoKey は空白で、✕ や x を描かない', () => {
+    const element = face('NoKey');
+    expect(element.textContent).toBe('');
+    expect(element.querySelector('.key-label')).toBeNull();
+  });
+
+  it('マクロは M、タップダンスは TD、自分のショートカットは ★ の印を右上に付ける', () => {
+    const mark = (text: string) => face(text).querySelector('.key-mark');
+    expect(mark("Macro('Bracket Pair')")?.textContent).toBe('M');
+    expect(mark("Macro('Bracket Pair')")?.classList.contains('mark-macro')).toBe(true);
+    expect(mark("TapDance('Tab Escape')")?.textContent).toBe('TD');
+    expect(mark("Shortcut('前のタブへ')")?.textContent).toBe('★');
+    expect(face("Shortcut('前のタブへ')").querySelector('.key-label')?.textContent).toBe('⇧⌘[');
+  });
+
+  it('アイコンのある同梱のショートカット・普通のキー・Mod-Tap には印を付けない', () => {
+    for (const text of ["Shortcut('VS Code:基本操作:コマンドパレット')", 'Shift + Command + P', 'A', 'LGUI_T(KC_LANG2)']) {
+      expect(face(text).querySelector('.key-mark'), text).toBeNull();
+    }
+    expect(face("Shortcut('VS Code:基本操作:コマンドパレット')").querySelector('.key-icon')).not.toBeNull();
+  });
+
+  it('印の意味は読み上げと説明でも分かる', () => {
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+    const q = slots.find((slot) => slot.label === 'Q')!;
+    const macro = value("Macro('Bracket Pair')");
+    expect(keyAccessibleName(q, macro.text, macro, [])).toBe('左手 Q: マクロ Bracket Pair');
+    const tip = describeContent(macro.text, { value: macro, diagnostics: [], description: null }, { mark: '印「M」: マクロ' }) as HTMLElement;
+    expect(tip.querySelector('.tooltip-mark')?.textContent).toBe('印「M」: マクロ');
+    expect(keyMark(value("TapDance('Tab Escape')"))?.meaning).toBe('タップダンス');
+  });
+
+  it('エンコーダの帯にも同じ印を付ける', () => {
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+    const view = new KeyboardView({ onSelect: () => undefined });
+    view.setSlots(slots);
+    const push = slots.find((slot) => slot.hand === 'right' && slot.encoder === 'push')!;
+    const td = value("TapDance('Tab Escape')");
+    view.update(push.id, { text: td.text, value: td, diagnostics: [], changed: false });
+    const part = view.element.querySelectorAll('.encoder')[1]!.querySelector('.encoder-push')!;
+    expect(part.classList.contains('marked')).toBe(true);
+    expect(part.querySelector('.key-mark')?.textContent).toBe('TD');
   });
 });
 

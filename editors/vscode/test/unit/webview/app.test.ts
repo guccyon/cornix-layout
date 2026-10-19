@@ -79,7 +79,8 @@ describe('App の描画', () => {
     // 自分のショートカット（Symbols の Y）にはアイコンがない
     app.selectLayer(1);
     const own = root.querySelector<HTMLElement>(`.board [data-slot='${JSON.stringify(['layers/1_symbols.yml', 'mapping', 'right_hand', 'row0', 'Y'])}']`);
-    expect(own?.textContent).toBe('⇧⌘[');
+    expect(own?.querySelector('.key-label')?.textContent).toBe('⇧⌘[');
+    expect(own?.querySelector('.key-mark')?.textContent).toBe('★');
     expect(own?.querySelector('[data-icon]')).toBeNull();
   });
 

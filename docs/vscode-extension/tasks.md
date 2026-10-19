@@ -124,6 +124,11 @@ Mapping::QmkSettingCatalog::Definition#description / #default   # data/qmk_setti
 Application::Editor::Snapshot.new(workbench).call(id) #=> Hash（ProfileSnapshot）。workbench.versions(id) を更新する
 ```
 
+- E からの申し送り: `editors/vscode/src/protocol.ts` は protocol.md の JSON の例から型を決めた。次の点は protocol.md の 5.2〜5.5 に書き足して Ruby と合わせる
+  - レイヤーの `description` は書いていなければ `null`（`string | null`）。`encoders` は `left` / `right` とも必ずあり、各操作の `value` は割り当てがなければ `null`
+  - `keycode/inspect` の `description` は読めないとき `null`、`keycode/candidates` の `limit` は省ける（省いたときの数を決める。偽のサーバーは 50）、`keycode/shortcutTree` のアプリの `icon` はなければ `null`
+  - 偽のサーバー（`editors/vscode/test/fake-server/`）の vitest は `spec/fixtures/protocol/` の `lifecycle` と `profile_list` を流す。F で足すディレクトリも流せるなら `SUPPORTED` に足す
+
 ### G. 拡張の画面（`vscode/extension-ui`、roadmap の 8）
 
 キーボード図とレイヤーの編集画面、キー入力欄（候補・`typed`・警告）、マウスを載せたときの説明、アイコン（SVG とライセンス表記を同梱）。
@@ -144,6 +149,12 @@ Application::Editor::Snapshot.new(workbench).call(id) #=> Hash（ProfileSnapshot
 
 dirty と Ctrl+S（protocol.md の 6.2）、外での変更の扱い（7.3）、QMK 設定とメタデータの表示。
 触るファイル: `editors/vscode/src/`（`webview/` の QMK 設定・メタデータの部品を含む）。G の画面の部品は使うが書き換えない（要るときは相談）
+
+- E からの申し送り（`editors/vscode/src/editor/profileDocument.ts` の TODO）
+  - 保存: `ProfileDocument#save` に 6.2 の流れを入れる。3〜4 の間は `document.watcher.hold()` で見張りの知らせを溜める
+  - 元に戻す: 編集ごとに前の値と新しい値を持ち、snapshot の値と同じになれば変更から外す作りにしてある。保存のあとの undo はディスクの値に対する変更として残る
+  - 外での変更（7.3）: 「外の変更を残す」は `changes.clear()` ではなく revert を通す（CustomEditor の dirty は保存か revert でしか消えない）
+  - ホットエグジット: バックアップに変更を作ったときの `files` を入れてあり、戻すと `document.backupFiles` に入る。今の `snapshot.files` と違えば 7.3 と同じ扱いにする
 
 ## 段 4
 

@@ -1,0 +1,22 @@
+{
+  // editors/vscode をフォルダとして開いたときの F5（拡張開発用の VS Code を起動する）
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "拡張を動かす（偽のサーバー）",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}", "${workspaceFolder}/test/integration/workspace"],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "preLaunchTask": "npm: build"
+    },
+    {
+      "name": "拡張を動かす（このリポジトリの bin/cornix）",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}", "${workspaceFolder}/../.."],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "preLaunchTask": "npm: build"
+    }
+  ]
+}

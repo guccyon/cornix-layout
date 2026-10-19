@@ -1,0 +1,145 @@
+{
+  "name": "cornix-vscode",
+  "displayName": "Cornix Layout",
+  "description": "cornix-layout のプロファイル（設定ディレクトリ）を 1 画面で見て、候補から選びながら編集する",
+  "version": "0.1.0",
+  "publisher": "guccyon",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guccyon/cornix-layout.git",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.120.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "ワークスペースの bin/cornix（または設定 cornix.path のコマンド）を実行するため、信頼したワークスペースでだけ動きます。"
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "configuration": {
+      "title": "Cornix",
+      "properties": {
+        "cornix.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "`cornix` コマンドの場所。空ならワークスペースの `bin/cornix`、なければ `PATH` の `cornix` を使う。名前だけ（`cornix` など）なら `PATH` から探し、相対パス（`tools/cornix` など）はワークスペースのフォルダから。変えると、動いているサーバーは起動し直す。"
+        },
+        "cornix.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "enumDescriptions": [
+            "記録しない",
+            "リクエストと通知の名前を記録する",
+            "中身も記録する"
+          ],
+          "default": "off",
+          "description": "サーバーとのやりとりを出力パネル「Cornix」に記録する（開発用）。"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "cornix.openProfile",
+        "title": "プロファイルを開く",
+        "category": "Cornix"
+      },
+      {
+        "command": "cornix.refreshProfiles",
+        "title": "プロファイルの一覧を読み直す",
+        "category": "Cornix",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "cornix.restartServer",
+        "title": "サーバーを再起動",
+        "category": "Cornix"
+      },
+      {
+        "command": "cornix.showOutput",
+        "title": "出力を表示",
+        "category": "Cornix"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cornix",
+          "title": "Cornix",
+          "icon": "resources/cornix.svg"
+        }
+      ]
+    },
+    "views": {
+      "cornix": [
+        {
+          "id": "cornix.profiles",
+          "name": "プロファイル"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "cornix.profiles",
+        "contents": "プロファイルが見つかりません。\n[一覧を読み直す](command:cornix.refreshProfiles)\n[出力を表示](command:cornix.showOutput)",
+        "when": "cornix.profileList != loading"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "cornix.refreshProfiles",
+          "when": "view == cornix.profiles",
+          "group": "navigation"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "cornix.profileEditor",
+        "displayName": "Cornix プロファイル",
+        "selector": [
+          {
+            "filenamePattern": "cornix-profile:/**"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "test:integration": "node esbuild.mjs && node out/test/integration/runTest.js",
+    "fake-server": "node esbuild.mjs && node out/test/fake-server.js",
+    "package": "node esbuild.mjs --production && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "vscode-jsonrpc": "9.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.4",
+    "@types/vscode": "1.120.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

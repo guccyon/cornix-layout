@@ -31,3 +31,11 @@ spec/examples.txt
 Thumbs.db
 
 
+
+# VS Code 拡張（editors/vscode）
+editors/vscode/node_modules/
+editors/vscode/out/
+editors/vscode/.vscode-test/
+editors/vscode/*.vsix
+# 手元の全体の gitignore で package-lock.json を除いていても、拡張のものはコミットする
+!editors/vscode/package-lock.json

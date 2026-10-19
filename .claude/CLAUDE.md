@@ -16,6 +16,7 @@
   - [検証](../docs/validation.md) - 構造検証と意味検証
   - [rename](../docs/rename.md) - `cornix rename` と `bin/rename_file`
   - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp`、RMK 0.8 の挙動と安全設計
+  - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・ロードマップ・バックエンドとのリクエストの約束（作っている途中）
 - **Memories**: [memories/](memories/)
   - [domain_architecture_refactor](memories/domain_architecture_refactor.md) - 作り直しの知見・意図的に変えた振る舞い
   - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
@@ -118,7 +119,7 @@ lib/cornix/
   version.rb（Cornix::VERSION）, errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
 ext/cornix_hid/     raw HID ブリッジ（Swift、tmp/cornix-hid にビルド）
 spec/               lib と同じ層の構成 + end_to_end_spec.rb / architecture_spec.rb / fixtures/
-docs/               設計文書（README.md が一覧。architecture / domain-model / notation / validation / rename / device / tasks / background）
+docs/               設計文書（README.md が一覧。architecture / domain-model / notation / validation / rename / device / tasks / background、vscode-extension/）
 CHANGELOG.md        変更履歴（Keep a Changelog の形。リリースごとに項を作る）
 config/             利用者の設定（生成物。main ブランチにはない）
 ```

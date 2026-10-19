@@ -11,4 +11,5 @@ cornix-layout の内部の設計と仕組みの文書。使い方は [README.ja.
 | [validation.md](validation.md) | 構造検証と意味検証 |
 | [rename.md](rename.md) | `cornix rename` と `bin/rename_file` |
 | [device.md](device.md) | キーボードの直接操作（`cornix device`）と MCP サーバー、RMK 0.8 の挙動と安全設計 |
+| [vscode-extension/](vscode-extension/README.md) | VS Code 拡張の仕様・ADR・ロードマップと、バックエンドとのリクエストの約束（作っている途中） |
 | [tasks.md](tasks.md) | 主なクラスの公開メソッド（契約）とリファクタの経緯 |

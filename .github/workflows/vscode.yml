@@ -4,7 +4,7 @@ name: VS Code 拡張
 # rspec.yml と同じく、ワークフローはいつも動かしてチェック（node）を必ず報告し、関係するファイルが変わっていなければ手順を飛ばして成功で終える
 # （必須のチェックにしても、拡張に関係しない PR が待ちにならないように）。
 # 関係するファイル: editors/vscode/、拡張が読む data/、Ruby と共通の約束のテストのデータ（spec/fixtures/protocol/・candidates/）と、
-# そのデータが setup で写す spec/fixtures/ の設定、このファイル。main への push では毎回動かす。
+# そのデータが setup で写す spec/fixtures/ の設定、本物のサーバーでの統合テストが動かす lib/ と bin/cornix、このファイル。main への push では毎回動かす。
 on:
   push:
     branches: [main]
@@ -36,7 +36,7 @@ jobs:
           fi
           files=$(git diff --name-only "origin/$BASE_REF...HEAD")
           printf '%s\n' "$files"
-          if printf '%s\n' "$files" | grep -qE '^(editors/vscode/|data/|spec/fixtures/|\.github/workflows/vscode\.yml$)'; then
+          if printf '%s\n' "$files" | grep -qE '^(editors/vscode/|data/|lib/|bin/cornix$|spec/fixtures/|\.github/workflows/vscode\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -75,3 +75,11 @@ jobs:
       - name: 統合テスト（VS Code stable）
         if: steps.changes.outputs.run == 'true'
         run: xvfb-run -a npm run test:integration
+      # 本物のサーバー（bin/cornix serve）とつなぐ統合テスト（suite/realServer.ts）。gem は使わないので bundle install はしない
+      - uses: ruby/setup-ruby@v1
+        if: steps.changes.outputs.run == 'true'
+        with:
+          ruby-version: '4.0'
+      - name: 統合テスト（本物のサーバー、VS Code stable）
+        if: steps.changes.outputs.run == 'true'
+        run: xvfb-run -a npm run test:integration:ruby

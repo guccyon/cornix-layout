@@ -198,7 +198,8 @@ button {
 }
 
 /* 2 役のキー: 上にタップ、下にホールド */
-.key.dual {
+.key.dual,
+.encoder-part.dual {
   justify-content: stretch;
   padding: 0;
 }
@@ -234,70 +235,66 @@ button {
   top: 2px;
 }
 
-/* エンコーダ: 左回し（左半分）・右回し（右半分）・押し込み（まん中） */
+/* エンコーダ: 左回し・押し込み・右回しの欄を縦に並べる（実機のつまみの形ではなく、キーと同じ大きさの文字で読めるように） */
 .encoder {
   position: absolute;
-  border-radius: 50%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4%;
 }
 
 .encoder-part {
-  border-radius: 0;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 0 4px 0 26px;
+  border-radius: 8px;
 }
 
-.encoder-ccw,
-.encoder-cw {
-  top: 0;
-  width: 50%;
-  height: 100%;
-  padding-top: 0;
-  justify-content: flex-end;
-  padding-bottom: 18%;
-  font-size: clamp(8px, 0.9cqw, 12px);
-}
-
-.encoder-ccw {
-  left: 0;
-  border-radius: 999px 0 0 999px;
-  align-items: flex-start;
-  padding-left: 8%;
-}
-
-.encoder-cw {
-  right: 0;
-  border-radius: 0 999px 999px 0;
-  align-items: flex-end;
-  padding-right: 8%;
-}
-
-.encoder-ccw::before,
-.encoder-cw::before {
+/* 欄の左の印で、どの操作かを見分ける */
+.encoder-part::before {
   position: absolute;
-  top: 10%;
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--vscode-descriptionForeground);
+  font-size: 1.6em;
+  line-height: 1;
 }
 
 .encoder-ccw::before {
   content: '⟲';
-  left: 22%;
+}
+
+.encoder-push::before {
+  content: '●';
+  font-size: 0.8em;
 }
 
 .encoder-cw::before {
   content: '⟳';
-  right: 22%;
-}
-
-.encoder-push {
-  left: 27%;
-  top: 27%;
-  width: 46%;
-  height: 46%;
-  border-radius: 50%;
-  z-index: 1;
-  font-size: clamp(8px, 0.9cqw, 12px);
 }
 
 .encoder-part .key-label {
   max-width: 100%;
+}
+
+.encoder-part.dual {
+  padding-left: 26px;
+}
+
+/* アイコンは左の印と重ならないよう右上に */
+.encoder-part .key-icon {
+  left: auto;
+  right: 3px;
+  width: auto;
+  height: 32%;
+}
+
+/* アイコンのある欄は、2 行に折り返した文字とも重ならないよう右に余白を取る */
+.encoder-part:has(.key-icon) {
+  padding-right: 26px;
 }
 
 /* ---- 下のペイン ---- */
@@ -641,6 +638,11 @@ button {
   box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
   pointer-events: none;
   font-size: 0.95em;
+}
+
+.tooltip-context {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
 }
 
 .tooltip-title {

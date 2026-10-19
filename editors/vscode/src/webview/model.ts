@@ -30,9 +30,10 @@ export type Slot = {
   saved: KeyValue | null;
 };
 
+/** エンコーダの操作。図（上から）と下のレイヤーの欄の並びもこの順（回す向きを上下に分け、押し込みをまん中に） */
 export const ENCODER_OPS: { op: EncoderOp; label: string }[] = [
-  { op: 'push', label: '押し込み' },
   { op: 'ccw', label: '左回し' },
+  { op: 'push', label: '押し込み' },
   { op: 'cw', label: '右回し' },
 ];
 

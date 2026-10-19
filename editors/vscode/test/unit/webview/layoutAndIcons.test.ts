@@ -7,7 +7,9 @@ import { iconElement, setMediaBase } from '../../../src/webview/icons';
 import { ICON_ASSETS } from '../../../src/webview/icons/manifest';
 import { MessageHostClient } from '../../../src/webview/hostClient';
 import { Inspector } from '../../../src/webview/inspector';
+import { KeyboardView } from '../../../src/webview/keyboardView';
 import { layerSlots } from '../../../src/webview/model';
+import type { KeyValue } from '../../../src/protocol';
 import type { WebviewMessage } from '../../../src/webviewMessages';
 import * as data from '../../fake-server/fixtures';
 import { FakeHost } from './fakeHost';
@@ -48,10 +50,12 @@ describe('Cornix の物理配置', () => {
 
   it('エンコーダは両手の間にあり、キーと重ならない', () => {
     for (const place of Object.values(ENCODERS)) {
-      const box = { x: place.x - place.r, y: place.y - place.r, w: place.r * 2, h: place.r * 2, rotate: 0 };
+      const box = { ...place, rotate: 0 };
       for (const entry of data.POSITION_MAP) expect(overlaps(box, keyRect(entry.hand, entry.row, entry.col)!)).toBe(false);
     }
-    expect(ENCODERS.left.x).toBeLessThan(ENCODERS.right.x);
+    expect(ENCODERS.left.x + ENCODERS.left.w).toBeLessThan(ENCODERS.right.x);
+    // 文字が読めるように、エンコーダの欄はキーより幅がある
+    for (const place of Object.values(ENCODERS)) expect(place.w).toBeGreaterThan(keyRect('left', 0, 0)!.w * 1.5);
   });
 
   it('レイヤーの欄は position_map の順のキーとエンコーダ 6 つ', () => {
@@ -59,13 +63,31 @@ describe('Cornix の物理配置', () => {
     expect(slots).toHaveLength(54);
     expect(slots[0]).toMatchObject({ label: 'tab', context: 'layerKey', key: { row: 0, col: 0, group: 'row0' } });
     expect(slots.filter((slot) => slot.context === 'encoder').map((slot) => `${slot.hand}.${slot.encoder}`)).toEqual([
-      'left.push',
       'left.ccw',
+      'left.push',
       'left.cw',
-      'right.push',
       'right.ccw',
+      'right.push',
       'right.cw',
     ]);
+  });
+
+  it('図のエンコーダは上から左回し・押し込み・右回しの欄で、2 役の値はキーと同じく tap / hold を上下に描く', () => {
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+    const view = new KeyboardView({ onSelect: () => undefined });
+    view.setSlots(slots);
+    const encoders = [...view.element.querySelectorAll('.encoder')];
+    expect(encoders.map((encoder) => encoder.getAttribute('aria-label'))).toEqual(['左手のエンコーダ', '右手のエンコーダ']);
+    for (const encoder of encoders) {
+      expect([...encoder.querySelectorAll('.encoder-part')].map((part) => part.classList[1])).toEqual(['encoder-ccw', 'encoder-push', 'encoder-cw']);
+    }
+    const push = slots.find((slot) => slot.hand === 'left' && slot.encoder === 'push')!;
+    const dual: KeyValue = { text: 'LT1(Space)', canonical: 'LT1(Space)', code: 0x412c, kind: 'layerTap', display: { label: 'Space', tap: 'Space', hold: 'L1' } };
+    view.update(push.id, { text: dual.text, value: dual, diagnostics: [], changed: false });
+    const part = view.element.querySelector('.encoder-push')!;
+    expect(part.classList.contains('dual')).toBe(true);
+    expect(part.querySelector('.key-tap')?.textContent).toBe('Space');
+    expect(part.querySelector('.key-hold')?.textContent).toBe('L1');
   });
 });
 

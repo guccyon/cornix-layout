@@ -22,6 +22,7 @@ npm run watch             # 変わるたびにビルド
 npm run typecheck         # 型検査（tsc --noEmit）
 npm test                  # 単体テスト（vitest。VS Code なしで動く）
 npm run test:integration  # 統合テスト（VS Code をダウンロードして .vscode-test/ に置き、その中で動かす。VSCODE_TEST_VERSION=1.120.0 で版を選べる）
+npm run test:integration:ruby  # 統合テストを本物のサーバー（このリポジトリの bin/cornix serve）で（PATH に Ruby が要る。suite/realServer.ts）
 npm run package           # .vsix を作る（自分用。code --install-extension cornix-vscode-0.1.0.vsix で入れる）
 ```
 
@@ -33,6 +34,37 @@ npm run package           # .vsix を作る（自分用。code --install-extensi
 - コマンドラインからなら `npm run build && code --extensionDevelopmentPath="$PWD" test/integration/workspace`
 - 左のアクティビティバーの Cornix のアイコンでプロファイルの一覧、コマンドパレットの「Cornix: プロファイルを開く」で編集画面が開く。
   サーバーの標準エラー出力とやりとりの記録は出力パネルの「Cornix」
+
+### 手元で入れて使う（.vsix）
+
+Marketplace には出していないので、.vsix を作って自分の VS Code に入れる。
+
+1. .vsix を作る: `cd editors/vscode && npm ci && npm run package`（`editors/vscode/` の中に `cornix-vscode-0.1.0.vsix` ができる）
+2. 入れる: そのまま `editors/vscode/` の中で `code --install-extension cornix-vscode-0.1.0.vsix`（またはコマンドパレットの「Extensions: Install from VSIX...」）。
+   入れ直すときも同じ（版が同じなら上書き）。外すときは `code --uninstall-extension guccyon.cornix-vscode`
+3. プロファイルのあるフォルダを開く。たとえば authors-keymap の worktree（`.cornix.yml` に `profile: authors`）をフォルダとして開き、
+   ワークスペースを信頼する（Restricted Mode では動かない）
+4. 設定 `cornix.path` に、`cornix serve` のある `bin/cornix` の絶対パスを入れる。空なら開いたフォルダの `bin/cornix`、なければ `PATH` の `cornix` を使うが、
+   そのブランチに `cornix serve` がなければ起動できない（まだ main に入っていないうちは、`feature/vscode-extension` などの worktree の `bin/cornix` を指す）。
+   ワークスペースの `.vscode/settings.json` に書くと、そのフォルダだけに効く
+
+   ```jsonc
+   { "cornix.path": "/Users/<you>/src/github.com/guccyon/cornix-layout/feature/vscode-extension/bin/cornix" }
+   ```
+
+5. アクティビティバーの Cornix のアイコンか、コマンドパレットの「Cornix: プロファイルを開く」で開く。保存は Ctrl+S（Cmd+S）。
+   保存したら `bin/cornix validate` や `bin/cornix compile` は今までどおりターミナルで（拡張はキーボードに書き込まない）
+
+起動できないとき（「cornix のサーバーを起動できませんでした」）は出力パネル「Cornix」を見る。
+``undefined method `define' for Data:Class`` などが出ていれば、VS Code が古い Ruby（macOS の `/usr/bin/ruby` 2.6）で動かしている。
+Dock から起動した VS Code はログインシェルから環境を読むので、mise や rbenv の Ruby が PATH の後ろに回ることがある。
+そのときは使う Ruby を決めたスクリプトを作って `cornix.path` に指定する。
+
+```sh
+#!/bin/sh
+# ~/bin/cornix-vscode（chmod +x する）
+exec "$HOME/.local/share/mise/installs/ruby/latest/bin/ruby" /path/to/cornix-layout/feature/vscode-extension/bin/cornix "$@"
+```
 
 ### 設定
 
@@ -87,7 +119,7 @@ editors/vscode/
     webview/              編集画面（素の TypeScript。上にキーボード図、下にレイヤーの欄）
       main.ts             入口（ホストとのメッセージをつなぐ）
       app.ts              画面の全体（レイヤーの選択・欄の選択を上下で共有、Change をホストに渡す）
-      cornixLayout.ts     Cornix の物理配置（論理位置 hand / row / col → 図の座標。ADR 009）
+      cornixLayout.ts     Cornix の物理配置（論理位置 hand / row / col → 図の座標。ADR 009）。エンコーダは左回し・押し込み・右回しの欄を縦に並べる
       keyboardView.ts     キーボード図（2 役のキーは tap / hold を上下に、アイコン、印）
       layerEditor.ts      レイヤーの欄
       keyInput.ts         キー入力欄（候補・typed・警告。どこも同じ部品）
@@ -100,7 +132,8 @@ editors/vscode/
   test/
     unit/                 単体テスト（vitest）
     fake-server/          偽のサーバー
-    integration/          統合テスト（@vscode/test-electron）と、そのワークスペース（テストのときは一時ディレクトリに写して使う）
+    integration/          統合テスト（@vscode/test-electron）と、そのワークスペース（テストのときは一時ディレクトリに写して使う）。
+                          suite/index.ts は偽のサーバー、suite/realServer.ts は本物のサーバー（spec/fixtures/authors_config を写して使う）、道具は suite/support.ts
 ```
 
 ## 作りのメモ

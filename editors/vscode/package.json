@@ -127,6 +127,7 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "test:integration": "node esbuild.mjs && node out/test/integration/runTest.js",
+    "test:integration:ruby": "node esbuild.mjs && CORNIX_INTEGRATION_SERVER=ruby node out/test/integration/runTest.js",
     "fake-server": "node esbuild.mjs && node out/test/fake-server.js",
     "package": "node esbuild.mjs --production && vsce package --no-dependencies"
   },

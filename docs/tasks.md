@@ -24,7 +24,7 @@
 codec = Mapping::KeycodeCodec.new(catalog = Mapping::KeycodeCatalog.default)
 codec.decode(Integer) #=> Domain::Keycode（例外を出さない。最後は Raw）
 codec.encode(Domain::Keycode) #=> Integer（表せなければ UnknownKeycode）
-catalog.lookup(name) / code_for_name / code_for_alias / name(code) / vial_name(code) / preferred_alias(code) / aliases_for(code)
+catalog.lookup(name) / code_for_name / code_for_alias / name(code) / names_for(code) / vial_name(code) / preferred_alias(code) / aliases_for(code)
 catalog.basic?(code) / quantum?(code) / dangerous?(code) / dangerous_reason(code)
 catalog.unsupported_keycodes #=> { 値 => '名前: 理由' }（data/unsupported_keycodes.yaml。Domain::Capabilities#unsupported_keycodes に渡す）
 refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名前' => index }, shortcuts: { '名前' => keycode },
@@ -53,6 +53,9 @@ vial = Mapping::VialNotation.new(catalog:, codec:)
 vial.parse(text)    #=> Domain::Keycode（.vil の文字列。旧 Device::Keycodes#encode が受け付けたものすべて）
 vial.format(keycode) #=> String（vial-gui 0.7.5 が Cornix の .vil に保存する表記。旧 Device::Keycodes#decode とは LAG(kc)・M32〜 などが 16 進になる点だけ違う）
 vial.parse_code(text) #=> Integer / vial.format_code(Integer) #=> String
+
+qmk = Mapping::QmkNotation.new(catalog:, codec:)
+qmk.format(keycode) #=> String | nil（最新の QMK の keymap.c の名前。LT(1, KC_SPACE)。名前にできない値は nil。読むほうはない）
 ```
 
 - `KeycodeNotation#parse` は旧コード（`KeycodeParser`, `KeycodeConverter`, `ModifierExpressionCompiler`, `ReferenceConverter`,

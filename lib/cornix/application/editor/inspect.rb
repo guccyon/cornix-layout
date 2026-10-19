@@ -36,7 +36,7 @@ module Cornix
           keycode = values.parse(text)
           value = values.build(keycode, text: text)
           { value: value, diagnostics: semantic(reading.profile, keycode, env.capabilities),
-            description: Description.new(values: values, profile: reading.profile).call(keycode, value) }
+            description: Description.new(values: values, profile: reading.profile, qmk: env.qmk).call(keycode, value) }
         rescue UnknownKeycode => e
           { value: nil, diagnostics: [{ severity: 'error', message: e.message, source: 'structure' }], description: nil }
         end

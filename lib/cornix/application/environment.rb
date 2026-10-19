@@ -57,6 +57,7 @@ module Cornix
       def codec = @codec ||= Mapping::KeycodeCodec.new(catalog)
       def notation = @notation ||= Mapping::KeycodeNotation.new(catalog: catalog, codec: codec)
       def vial = @vial ||= Mapping::VialNotation.new(catalog: catalog, codec: codec)
+      def qmk = @qmk ||= Mapping::QmkNotation.new(catalog: catalog, codec: codec)
       def macro_codec = @macro_codec ||= Mapping::MacroCodec.new
       def mapper = @mapper ||= Mapping::ProfileMapper.new(codec: codec)
       def vil_file = @vil_file ||= Storage::VilFile.new(vial: vial)

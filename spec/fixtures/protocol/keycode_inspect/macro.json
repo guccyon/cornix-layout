@@ -1,5 +1,5 @@
 {
-  "description": "名前で書いたマクロの解釈と、説明（説明文と手順、16bit 値）",
+  "description": "名前で書いたマクロの解釈と、説明（説明文と手順、QMK の名前）",
   "setup": { "profile": "authors_config" },
   "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey", "text": "Macro('Bracket Pair')" } },
   "response": {
@@ -13,7 +13,7 @@
         "display": { "label": "Bracket Pair" }
       },
       "diagnostics": [],
-      "description": { "title": "マクロ Bracket Pair（M0）", "lines": ["角括弧ペア [] を挿入してカーソルを内側に配置", "tap: [ ] Left", "16bit 値: 0x7700"] }
+      "description": { "title": "マクロ Bracket Pair（M0）", "lines": ["角括弧ペア [] を挿入してカーソルを内側に配置", "tap: [ ] Left", "QMK: QK_MACRO_0（0x7700）"] }
     }
   }
 }

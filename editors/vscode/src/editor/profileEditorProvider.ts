@@ -7,6 +7,7 @@ import type { CornixServer } from '../server/cornixServer';
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
 import { ProfileDocument } from './profileDocument';
 import { profileDirOf } from './profileUri';
+import { profileFilePath, relayRequest } from './webviewRelay';
 import type { Range } from '../protocol';
 
 export class ProfileEditorProvider implements vscode.CustomEditorProvider<ProfileDocument>, vscode.Disposable {
@@ -74,6 +75,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     panel.webview.options = { enableScripts: true, localResourceRoots: [outUri, mediaUri] };
     panel.webview.html = this.html(panel.webview);
 
+    let disposed = false;
     const post = () => {
       const message: HostMessage = { type: 'snapshot', snapshot: document.snapshot, changes: document.changes.list() };
       void panel.webview.postMessage(message);
@@ -90,16 +92,16 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
             document.applyChange(message.change);
             return;
           case 'request':
-            // サーバーへの中継。profileId はそのときのもの（再起動で変わる）を入れる
-            this.server.request(message.method, { ...message.params, profileId: document.profileId }).then(
-              (result) => void panel.webview.postMessage({ type: 'response', id: message.id, result } satisfies HostMessage),
-              (error: unknown) =>
-                void panel.webview.postMessage({
-                  type: 'response',
-                  id: message.id,
-                  error: error instanceof Error ? error.message : String(error),
-                } satisfies HostMessage),
-            );
+            // サーバーへの中継（RELAYED_METHODS だけ。profileId はそのときのもの（再起動で変わる）を入れる）。
+            // 返ってくるまでにパネルを閉じていたら送らない
+            void relayRequest(
+              message,
+              // params の形は Webview の型（WebviewRequestMap）で決まり、サーバーが InvalidParams で確かめる
+              (method, params) => this.server.request(method, params as never),
+              document.profileId,
+            ).then((response) => {
+              if (!disposed) void panel.webview.postMessage(response).then(undefined, () => undefined);
+            });
             return;
           case 'openFile':
             void openProfileFile(document, message.file, message.range);
@@ -107,7 +109,10 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
         }
       }),
     ];
-    panel.onDidDispose(() => subscriptions.forEach((s) => s.dispose()));
+    panel.onDidDispose(() => {
+      disposed = true;
+      subscriptions.forEach((s) => s.dispose());
+    });
   }
 
   saveCustomDocument(document: ProfileDocument, cancellation: vscode.CancellationToken): Thenable<void> {
@@ -142,7 +147,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
       "default-src 'none'",
       `img-src ${webview.cspSource} data:`,
       `font-src ${webview.cspSource}`,
-      `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `style-src ${webview.cspSource}`, // 画面は style を CSSOM（element.style）でだけ付ける
       `script-src 'nonce-${nonce}'`,
     ].join('; ');
     return `<!DOCTYPE html>
@@ -161,15 +166,15 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
   }
 }
 
-/** 設定ディレクトリのファイルをテキストで開く（構造の問題の一覧の「ファイルを開く」） */
+/** 設定ディレクトリのファイルをテキストで開く（構造の問題の一覧の「ファイルを開く」）。設定ディレクトリの外は開かない */
 async function openProfileFile(document: ProfileDocument, file: string, range: Range | undefined): Promise<void> {
   const root = vscode.workspace.workspaceFolders?.[0]?.uri;
   // dir はワークスペースからの相対パス（外なら絶対パス。protocol.md の 2.）
-  const base = path.isAbsolute(document.dir) ? vscode.Uri.file(document.dir) : root && vscode.Uri.joinPath(root, document.dir);
-  if (!base) return;
-  const uri = vscode.Uri.joinPath(base, file);
+  const dir = path.isAbsolute(document.dir) ? document.dir : root && path.join(root.fsPath, document.dir);
+  const target = dir && profileFilePath(dir, file);
+  if (!target) return;
   const selection = range
     ? new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character)
     : undefined;
-  await vscode.window.showTextDocument(uri, { preview: false, ...(selection ? { selection } : {}) });
+  await vscode.window.showTextDocument(vscode.Uri.file(target), { preview: false, ...(selection ? { selection } : {}) });
 }

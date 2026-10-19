@@ -1,4 +1,4 @@
-# .vsix に入れないもの（入れるのは package.json・out/extension.js・out/webview.js・resources/・media/・README.md）
+# .vsix に入れないもの（入れるのは package.json・out/extension.js・out/webview.js・resources/・media/（素材の取り出しの道具 extract.mjs を除く）・README.md）
 **
 !package.json
 !README.md
@@ -6,3 +6,4 @@
 !out/webview.js
 !resources/**
 !media/**
+media/icons/extract.mjs

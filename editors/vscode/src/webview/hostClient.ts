@@ -1,7 +1,7 @@
 // 画面からホスト（拡張）への口。Webview はサーバーと直接話せないので、keycode/candidates・keycode/inspect は
 // ホストに中継してもらう（profileId はホストが入れる。webviewMessages.ts の WebviewRequest）。
 import type { Change, Range } from '../protocol';
-import type { HostMessage, WebviewMessage, WebviewRequestMap, WebviewRequestMethod } from '../webviewMessages';
+import type { HostMessage, WebviewMessage, WebviewRequest, WebviewRequestMap, WebviewRequestMethod } from '../webviewMessages';
 
 export interface HostClient {
   request<M extends WebviewRequestMethod>(method: M, params: WebviewRequestMap[M]['params']): Promise<WebviewRequestMap[M]['result']>;
@@ -11,18 +11,22 @@ export interface HostClient {
   openFile(file: string, range?: Range): void;
 }
 
+type Pending = { method: WebviewRequestMethod; resolve: (result: unknown) => void; reject: (error: Error) => void };
+
 /** postMessage でホストと話す HostClient。応答は handle に渡す */
 export class MessageHostClient implements HostClient {
   private nextId = 1;
-  private readonly pending = new Map<number, { resolve: (value: never) => void; reject: (error: Error) => void }>();
+  private readonly pending = new Map<number, Pending>();
 
   constructor(private readonly post: (message: WebviewMessage) => void) {}
 
   request<M extends WebviewRequestMethod>(method: M, params: WebviewRequestMap[M]['params']): Promise<WebviewRequestMap[M]['result']> {
     const id = this.nextId++;
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (value: never) => void, reject });
-      this.post({ type: 'request', id, method, params } as WebviewMessage);
+    // M は 2 つのうちのどれかなので、組にした形は WebviewRequest のどれかになる（TypeScript は総称のままでは絞れない）
+    const message = { type: 'request', id, method, params } as WebviewRequest;
+    return new Promise<WebviewRequestMap[M]['result']>((resolve, reject) => {
+      this.pending.set(id, { method, resolve: (result) => resolve(result as WebviewRequestMap[M]['result']), reject });
+      this.post(message);
     });
   }
 
@@ -34,14 +38,15 @@ export class MessageHostClient implements HostClient {
     this.post({ type: 'openFile', file, ...(range ? { range } : {}) });
   }
 
-  /** ホストからの応答を受ける。応答だったら true */
+  /** ホストからの応答を受ける。応答だったら true。要求と method が違えば取り違えとして失敗にする */
   handle(message: HostMessage): boolean {
     if (message.type !== 'response') return false;
     const entry = this.pending.get(message.id);
     if (!entry) return true;
     this.pending.delete(message.id);
-    if ('error' in message) entry.reject(new Error(message.error));
-    else entry.resolve(message.result as never);
+    if (message.method !== entry.method) entry.reject(new Error(`応答の取り違え: ${entry.method} に ${message.method} の応答が来ました`));
+    else if ('error' in message) entry.reject(new Error(message.error));
+    else entry.resolve(message.result);
     return true;
   }
 }

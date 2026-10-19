@@ -11,6 +11,13 @@ export interface WebviewRequestMap {
 }
 export type WebviewRequestMethod = keyof WebviewRequestMap;
 
+/** ホストが中継するメソッド（これ以外は中継しない。Webview から来た文字列をそのままサーバーに渡さないため） */
+export const RELAYED_METHODS: ReadonlySet<string> = new Set<WebviewRequestMethod>(['keycode/candidates', 'keycode/inspect']);
+
+export function isRelayedMethod(method: unknown): method is WebviewRequestMethod {
+  return typeof method === 'string' && RELAYED_METHODS.has(method);
+}
+
 export type WebviewRequest = {
   [M in WebviewRequestMethod]: { type: 'request'; id: number; method: M; params: WebviewRequestMap[M]['params'] };
 }[WebviewRequestMethod];
@@ -21,9 +28,9 @@ export type HostMessage =
   | { type: 'snapshot'; snapshot: ProfileSnapshot; changes: Change[] }
   /** 読めなかったときなど */
   | { type: 'error'; message: string }
-  /** WebviewRequest の応答（id は同じ）。失敗したら error にその文 */
-  | { type: 'response'; id: number; result: unknown }
-  | { type: 'response'; id: number; error: string };
+  /** WebviewRequest の応答（id と method は要求と同じ）。失敗したら error にその文 */
+  | { type: 'response'; id: number; method: string; result: unknown }
+  | { type: 'response'; id: number; method: string; error: string };
 
 /** Webview → ホスト */
 export type WebviewMessage =
@@ -35,5 +42,8 @@ export type WebviewMessage =
   | WebviewRequest
   /** 設定ディレクトリのファイルをテキストで開く（file は設定ディレクトリからの相対パス。range があればそこを選ぶ） */
   | { type: 'openFile'; file: string; range?: Range }
-  /** snapshot を描き終えた（統合テストが待つため。中身は描いたものの数と、media/webview.css が効いているか） */
+  /**
+   * snapshot を描き終えた。中身は描いたものの数と、media/webview.css が効いているか。
+   * 統合テストが待つためのものだが本番でも送る（ホストは onDidReceiveWebviewMessage に流すだけで、何もしない）
+   */
   | { type: 'rendered'; status: ProfileSnapshot['status']; layer: number | null; keys: number; encoders: number; styled: boolean };

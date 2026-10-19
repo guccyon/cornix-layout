@@ -4,7 +4,9 @@
 // 単位は 1 キーの幅（u）。左手の左上が (0, 0)。
 // - 各手 row0〜row2 は 6 キー（列ごとに少し上下にずらす: 中指がいちばん上）、row3 は外側に 3 キー、親指は内側に 3 キー
 // - 論理位置の列は左右とも「物理的に左から右」なので、右手は row3（col 0〜2）が外側（右）、親指（col 3〜5）が内側（左）になる
-// - エンコーダは両手の内側の row2 の横（layout.vil で押し込みが row2 / row5 の col 6 にあるのと同じ側）
+// - エンコーダは両手の間の row2 の高さに置く。**仮の位置**: 実機の写真や寸法で確かめたものではない
+//   （layout.vil のマトリクスで押し込みが row2 / row5 の col 6 にあるのは配線の位置で、物理の位置を決めない）。
+//   実機とずれていれば ENCODERS の数字だけを直す
 import type { Hand } from '../protocol';
 
 export type KeyRect = { x: number; y: number; w: number; h: number; rotate: number };
@@ -43,6 +45,7 @@ export function keyRect(hand: Hand, row: number, col: number): KeyRect | undefin
   return { x: RIGHT_ORIGIN + (HALF_WIDTH - left.x - left.w), y: left.y, w: left.w, h: left.h, rotate: -left.rotate };
 }
 
+/** エンコーダの中心と半径（u）。仮の位置（ファイルの先頭のコメント） */
 export const ENCODERS: Record<Hand, EncoderPlace> = {
   left: { x: HALF_WIDTH + 0.95, y: 2.2, r: 0.75 },
   right: { x: RIGHT_ORIGIN - 0.95, y: 2.2, r: 0.75 },

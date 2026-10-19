@@ -587,10 +587,6 @@ button {
   font-size: 0.85em;
 }
 
-.candidates-empty:empty {
-  display: none;
-}
-
 /* ---- アイコン ---- */
 
 .icon,
@@ -673,3 +669,19 @@ button {
   color: var(--vscode-editorWarning-foreground, var(--warning));
 }
 
+
+/* キーボードでのフォーカスの印（.selected の outline と分ける） */
+.key:focus-visible,
+.encoder-part:focus-visible,
+.layer-tab:focus-visible,
+.link-button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.key.selected:focus-visible,
+.encoder-part.selected:focus-visible {
+  outline-width: 2px;
+  outline-style: double;
+  outline-offset: 2px;
+}

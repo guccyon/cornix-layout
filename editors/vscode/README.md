@@ -77,6 +77,7 @@ editors/vscode/
       pendingChanges.ts   未保存の変更（同じ Address は最後の値だけ）
       profileWatcher.ts   設定ディレクトリの見張り → workspace/didChangeFiles
       profileEditorProvider.ts  カスタムエディタ（CustomEditorProvider）
+      webviewRelay.ts     画面からのリクエストの中継（keycode/candidates・keycode/inspect だけ）と「ファイルを開く」のパスの確かめ
     webview/              編集画面（素の TypeScript。上にキーボード図、下にレイヤーの欄）
       main.ts             入口（ホストとのメッセージをつなぐ）
       app.ts              画面の全体（レイヤーの選択・欄の選択を上下で共有、Change をホストに渡す）

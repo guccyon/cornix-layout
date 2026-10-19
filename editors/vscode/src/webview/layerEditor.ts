@@ -3,16 +3,17 @@ import type { Diagnostic } from '../protocol';
 import { h } from './dom';
 import type { HostClient } from './hostClient';
 import { KeyInput } from './keyInput';
-import { groupLabel, HAND_LABEL, type Slot } from './model';
+import { groupLabel, HAND_LABEL, slotLabel, type Slot } from './model';
 
 export type LayerEditorOptions = {
   host: HostClient;
-  onCommit: (slot: Slot, text: string) => void;
+  /** 欄で値を決めた（欄は id で指す。作り直さずに slot の中身が変わることがあるため） */
+  onCommit: (slotId: string, text: string) => void;
   onFocus: (slotId: string) => void;
-  decorate?: (element: HTMLElement, slot: Slot) => void;
+  decorate?: (input: KeyInput, slotId: string) => void;
 };
 
-type Field = { slot: Slot; element: HTMLElement; input: KeyInput };
+type Field = { element: HTMLElement; input: KeyInput };
 
 export class LayerEditor {
   readonly element: HTMLElement;
@@ -26,7 +27,9 @@ export class LayerEditor {
     return new Map([...this.fields].map(([id, field]) => [id, field.input]));
   }
 
+  /** 欄を作り直す。前の欄は dispose する（外したときの blur で決めないように） */
   setSlots(slots: Slot[]): void {
+    for (const field of this.fields.values()) field.input.dispose();
     this.fields.clear();
     this.element.replaceChildren();
     for (const hand of ['left', 'right'] as const) {
@@ -34,38 +37,33 @@ export class LayerEditor {
       const keys = slots.filter((slot) => slot.hand === hand && slot.key);
       const groups = [...new Set(keys.map((slot) => slot.key!.group))];
       for (const group of groups) {
-        const row = h('div', { class: 'group' }, h('div', { class: 'group-label' }, groupLabel(group)));
-        const fields = h('div', { class: 'fields' });
-        for (const slot of keys.filter((s) => s.key!.group === group)) fields.append(this.field(slot));
-        row.append(fields);
-        section.append(row);
+        section.append(this.group(groupLabel(group), keys.filter((s) => s.key!.group === group)));
       }
       const encoders = slots.filter((slot) => slot.hand === hand && slot.encoder);
-      if (encoders.length > 0) {
-        const row = h('div', { class: 'group' }, h('div', { class: 'group-label' }, 'エンコーダ'));
-        const fields = h('div', { class: 'fields' });
-        for (const slot of encoders) fields.append(this.field(slot));
-        row.append(fields);
-        section.append(row);
-      }
+      if (encoders.length > 0) section.append(this.group('エンコーダ', encoders));
       this.element.append(section);
     }
+  }
+
+  private group(label: string, slots: Slot[]): HTMLElement {
+    const fields = h('div', { class: 'fields' });
+    for (const slot of slots) fields.append(this.field(slot));
+    return h('div', { class: 'group' }, h('div', { class: 'group-label' }, label), fields);
   }
 
   private field(slot: Slot): HTMLElement {
     const input = new KeyInput({
       context: slot.context,
       host: this.options.host,
-      label: `${HAND_LABEL[slot.hand]} ${slot.encoder ? 'エンコーダの' : ''}${slot.label}`,
+      label: slotLabel(slot),
       placeholder: '（なし）',
-      onCommit: (text) => this.options.onCommit(slot, text),
+      onCommit: (text) => this.options.onCommit(slot.id, text),
     });
-    const label = h('label', { class: 'field-label', title: slot.address.path.join('.') }, slot.label);
+    const label = h('label', { class: 'field-label', for: input.inputId, title: slot.address.path.join('.') }, slot.label);
     const element = h('div', { class: 'field', 'data-slot': slot.id }, label, input.element);
-    label.addEventListener('click', () => input.focus());
     input.input.addEventListener('focus', () => this.options.onFocus(slot.id));
-    this.options.decorate?.(input.input, slot);
-    this.fields.set(slot.id, { slot, element, input });
+    this.options.decorate?.(input, slot.id);
+    this.fields.set(slot.id, { element, input });
     return element;
   }
 

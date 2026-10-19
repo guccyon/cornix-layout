@@ -121,3 +121,40 @@ export function severityOf(diagnostics: readonly Diagnostic[]): 'error' | 'warni
 export function layerTitle(layer: { index: number; name: string }): string {
   return `${layer.index} ${layer.name}`;
 }
+
+/** 欄の名前（読み上げ・入力欄の名前・図のキーで同じもの。「左手 tab」「左手 エンコーダの押し込み」） */
+export function slotLabel(slot: Slot): string {
+  return `${HAND_LABEL[slot.hand]} ${slot.encoder ? `エンコーダの${slot.label}` : slot.label}`;
+}
+
+/** 図のキーの読み上げ（「左手 tab: タップ Space、ホールド L1」。未割り当て・エラー・警告も入れる） */
+export function keyAccessibleName(
+  slot: Slot,
+  text: string,
+  value: KeyValue | null | undefined,
+  diagnostics: readonly Diagnostic[],
+): string {
+  let content: string;
+  if (text === '') content = '割り当てなし';
+  else if (value?.display.tap && value.display.hold) content = `タップ ${value.display.tap}、ホールド ${value.display.hold}`;
+  else content = value?.display.label || text;
+  const problems = diagnostics.map((d) => `${d.severity === 'error' ? 'エラー' : '警告'} ${d.message}`);
+  return [`${slotLabel(slot)}: ${content}`, ...problems].join('。');
+}
+
+/**
+ * 図と欄を作り直すかを決める形。position_map とレイヤーの並び・ファイル・各欄の Address が同じなら作り直さず、値だけ描き直す
+ * （保存や外での変更で files の版・diagnostics・値が変わっても、打っている欄のフォーカスと文字を残すため）
+ */
+export function structureKey(snapshot: ProfileSnapshot): string {
+  return JSON.stringify({
+    status: snapshot.status,
+    positionMap: snapshot.positionMap,
+    layers: snapshot.layers.map((layer) => ({
+      index: layer.index,
+      file: layer.file,
+      keys: layer.keys.map((key) => [key.hand, key.row, key.col, addressKey(key.address)]),
+      encoders: (['left', 'right'] as const).map((hand) => ENCODER_OPS.map(({ op }) => addressKey(layer.encoders[hand][op].address))),
+    })),
+  });
+}

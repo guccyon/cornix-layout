@@ -123,8 +123,8 @@ describe('ホストとのやりとり', () => {
       { type: 'request', id: 1, method: 'keycode/inspect', params: { context: 'layerKey', text: 'A' } },
       { type: 'request', id: 2, method: 'keycode/candidates', params: { context: 'encoder', query: '' } },
     ]);
-    expect(client.handle({ type: 'response', id: 2, error: 'だめ' })).toBe(true);
-    expect(client.handle({ type: 'response', id: 1, result: { value: null, diagnostics: [], description: null } })).toBe(true);
+    expect(client.handle({ type: 'response', id: 2, method: 'keycode/candidates', error: 'だめ' })).toBe(true);
+    expect(client.handle({ type: 'response', id: 1, method: 'keycode/inspect', result: { value: null, diagnostics: [], description: null } })).toBe(true);
     expect(client.handle({ type: 'error', message: 'x' })).toBe(false);
     await expect(first).resolves.toEqual({ value: null, diagnostics: [], description: null });
     await expect(second).rejects.toThrow('だめ');

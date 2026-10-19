@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { hideTooltip } from '../../../src/webview/tooltip';
 import type { Change } from '../../../src/protocol';
 import { App, type ViewState } from '../../../src/webview/app';
 import type { WebviewMessage } from '../../../src/webviewMessages';
@@ -39,7 +40,10 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => document.body.replaceChildren());
+afterEach(() => {
+  hideTooltip();
+  document.body.replaceChildren();
+});
 
 describe('App の描画', () => {
   it('キーボード図（全キーとエンコーダ）とレイヤーの編集画面を描く', () => {
@@ -49,6 +53,7 @@ describe('App の描画', () => {
     expect(root.querySelectorAll('.layer-editor .field')).toHaveLength(54);
     expect(rendered.at(-1)).toEqual({ type: 'rendered', status: 'ok', layer: 0, keys: 48, encoders: 6, styled: false });
     expect(root.querySelector('.layer-tab.selected')?.textContent).toBe('0 Base');
+    expect(root.querySelector('.layer-tab.selected')?.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('2 役のキーはタップとホールドを上下に分け、同梱のショートカットにはアイコンを付ける', () => {
@@ -158,6 +163,125 @@ describe('App の変更', () => {
   });
 });
 
+describe('App の描き直し', () => {
+  it('保存のあとのような snapshot（版・検証の結果・値が変わる）では作り直さず、フォーカスと打ちかけが残る', () => {
+    const snapshot = fixtureSnapshot();
+    app.receive({ type: 'snapshot', snapshot, changes: [] });
+    const qId = slotOf('left_hand', 'row0', 'Q');
+    const wId = slotOf('left_hand', 'row0', 'W');
+    const input = field(qId).querySelector('input')!;
+    input.focus();
+    input.value = 'Es';
+    input.dispatchEvent(new Event('input'));
+    const key = keyElement(qId);
+
+    const saved = structuredClone(snapshot);
+    saved.files = { 'layers/0_base.yml': 'sha256:11' };
+    saved.diagnostics = [{ severity: 'warning', source: 'semantic', message: '新しい警告', address: { file: base, path: ['mapping', 'left_hand', 'row0', 'W'] } }];
+    const w = saved.layers[0]!.keys.find((k) => JSON.stringify([k.address.file, ...k.address.path]) === wId)!;
+    w.value = { text: 'Escape', canonical: 'Escape', code: 41, kind: 'basic', display: { label: 'Esc' } };
+    app.receive({ type: 'snapshot', snapshot: saved, changes: [] });
+
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('Es');
+    expect(keyElement(qId)).toBe(key);
+    expect(field(wId).querySelector('input')?.value).toBe('Escape');
+    expect(keyElement(wId).textContent).toBe('Esc');
+    expect(keyElement(wId).classList.contains('warning')).toBe(true);
+    expect(host.changes).toEqual([]);
+  });
+
+  it('形の変わる snapshot（レイヤーが増える）で作り直しても、フォーカス・打ちかけ・スクロールを戻し、古い欄では決めない', () => {
+    const snapshot = fixtureSnapshot();
+    app.receive({ type: 'snapshot', snapshot, changes: [] });
+    const qId = slotOf('left_hand', 'row0', 'Q');
+    const old = field(qId).querySelector('input')!;
+    old.focus();
+    old.value = 'Es';
+    old.dispatchEvent(new Event('input'));
+    const pane = root.querySelector<HTMLElement>('.bottom-pane')!;
+    pane.scrollTop = 40;
+
+    const grown = structuredClone(snapshot);
+    grown.layers.push({ ...structuredClone(snapshot.layers[1]!), index: 2, name: 'Extra', file: 'layers/2_extra.yml' });
+    app.receive({ type: 'snapshot', snapshot: grown, changes: [] });
+    old.dispatchEvent(new Event('blur'));
+
+    const input = field(qId).querySelector('input')!;
+    expect(input).not.toBe(old);
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('Es');
+    expect(pane.scrollTop).toBe(40);
+    expect(root.querySelectorAll('.layer-tab')).toHaveLength(3);
+    expect(host.changes).toEqual([]);
+  });
+
+  it('選んだレイヤーと欄を覚え、作り直した画面で戻す', () => {
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    const id = slotOf('left_hand', 'row1', 'A');
+    keyElement(id).click();
+    expect(state).toEqual({ layer: 0, selected: id });
+    const again = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+    again.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    expect(again.selectedSlot).toBe(id);
+    expect(keyElement(id).classList.contains('selected')).toBe(true);
+  });
+});
+
+describe('App の読み上げと説明', () => {
+  it('図のキーの名前に割り当てと問題を入れる', async () => {
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    expect(keyElement(slotOf('left_hand', 'thumb_keys', 'middle')).getAttribute('aria-label')).toBe('左手 middle: タップ Space、ホールド L1');
+    expect(keyElement(slotOf('left_hand', 'row0', 'W')).getAttribute('aria-label')).toBe('左手 W: W');
+    const encoder = root.querySelector<HTMLElement>('.encoder-push');
+    expect(encoder?.getAttribute('aria-label')).toBe('左手 エンコーダの押し込み: Mute');
+    expect(root.querySelector('.field input[aria-label="左手 エンコーダの押し込み"]')).not.toBeNull();
+
+    app.receive({
+      type: 'snapshot',
+      snapshot: fixtureSnapshot(),
+      changes: [{ address: { file: base, path: ['mapping', 'left_hand', 'row0', 'Q'] }, value: 'Foo(' }],
+    });
+    await settle(0);
+    expect(keyElement(slotOf('left_hand', 'row0', 'Q')).getAttribute('aria-label')).toBe('左手 Q: Foo(。エラー 「Foo(」は読めない表記です');
+  });
+
+  it('入力欄にフォーカスしても説明を出し、aria-describedby で結ぶ（離れたら消す）', async () => {
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    const input = field(slotOf('left_hand', 'row2', 'B')).querySelector('input')!;
+    input.focus();
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle(10);
+    const tooltip = document.querySelector<HTMLElement>('.tooltip');
+    expect(tooltip?.hidden).toBe(false);
+    expect(input.getAttribute('aria-describedby')).toBe(tooltip?.id);
+    input.dispatchEvent(new FocusEvent('blur'));
+    expect(tooltip?.hidden).toBe(true);
+    expect(input.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('表記・名前・メッセージに HTML を入れても要素にならない', async () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    const snapshot = fixtureSnapshot({
+      name: evil,
+      diagnostics: [
+        { severity: 'error', source: 'semantic', message: evil, address: { file: base, path: ['mapping', 'left_hand', 'row0', 'Q'] } },
+        { severity: 'warning', source: 'semantic', message: evil, file: evil },
+      ],
+    });
+    snapshot.layers = structuredClone(snapshot.layers);
+    snapshot.layers[0]!.name = evil;
+    snapshot.layers[0]!.description = evil;
+    snapshot.layers[0]!.keys[0]!.value = { text: evil, canonical: evil, code: null, kind: 'raw', display: { label: evil, tap: evil, hold: evil }, note: evil };
+    app.receive({ type: 'snapshot', snapshot, changes: [] });
+    keyElement(slotOf('left_hand', 'row0', 'tab')).dispatchEvent(new Event('mouseenter'));
+    await settle(400);
+    expect(document.querySelector('img')).toBeNull();
+    expect(document.querySelector('[onerror]')).toBeNull();
+    expect(root.textContent).toContain(evil);
+  });
+});
+
 describe('App の読めないプロファイル', () => {
   it('status: invalid ならエラーの一覧とファイルを開くボタンだけを出す', () => {
     const range = { start: { line: 7, character: 11 }, end: { line: 7, character: 28 } };
@@ -178,5 +302,8 @@ describe('App の読めないプロファイル', () => {
     root.querySelector<HTMLElement>('.link-button')?.click();
     expect(host.opened).toEqual([{ file: base, range }]);
     expect(rendered.at(-1)?.status).toBe('invalid');
+    app.receive({ type: 'error', message: 'サーバーが止まりました' });
+    expect(root.querySelector<HTMLElement>('.banner')?.hidden).toBe(false);
+    expect(root.querySelector('.banner')?.textContent).toBe('サーバーが止まりました');
   });
 });

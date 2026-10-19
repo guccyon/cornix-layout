@@ -8,6 +8,7 @@ import { h } from './dom';
 import type { HostClient } from './hostClient';
 import { iconElement } from './icons';
 import { severityOf } from './model';
+import { hideTooltip } from './tooltip';
 
 export const CANDIDATE_DEBOUNCE_MS = 50;
 export const CANDIDATE_LIMIT = 50;
@@ -20,8 +21,8 @@ const CATEGORY_LABEL: Record<Candidate['category'], string> = {
   layer: 'レイヤー',
   macro: 'マクロ',
   tapDance: 'タップダンス',
-  shortcut: 'ショートカット',
-  presetShortcut: '同梱',
+  shortcut: '自分のショートカット',
+  presetShortcut: '同梱のショートカット',
   special: '特殊',
   raw: '直接の値',
 };
@@ -40,14 +41,17 @@ export type KeyInputOptions = {
 /** 候補の一覧の 1 行 */
 type Row = { insertText: string; candidate?: Candidate; typed?: KeyValue };
 
-let nextListId = 1;
+let nextId = 1;
 
 export class KeyInput {
   readonly element: HTMLElement;
   readonly input: HTMLInputElement;
   private readonly list: HTMLElement;
   private readonly message: HTMLElement;
-  private readonly listId = `key-input-list-${nextListId++}`;
+  private readonly listId = `key-input-list-${nextId}`;
+  /** 入力欄の id（欄の名前の <label for> から結ぶ） */
+  readonly inputId = `key-input-${nextId++}`;
+  private disposed = false;
 
   /** 決まっている表記（外から setValue で入れたか、最後に onCommit したもの） */
   private committed = '';
@@ -66,6 +70,7 @@ export class KeyInput {
   constructor(private readonly options: KeyInputOptions) {
     this.input = h('input', {
       type: 'text',
+      id: this.inputId,
       class: 'key-input-field',
       role: 'combobox',
       'aria-autocomplete': 'list',
@@ -88,6 +93,8 @@ export class KeyInput {
     });
     this.input.addEventListener('keydown', (event) => this.onKeyDown(event));
     this.input.addEventListener('blur', () => {
+      // 作り直しで外された欄（dispose 済み）は決めない（古い欄の値で Change を作らないため）
+      if (this.disposed) return;
       this.close();
       this.commit(this.input.value);
     });
@@ -115,6 +122,18 @@ export class KeyInput {
     }
     this.committed = text;
     if (this.input.value !== text) this.input.value = text;
+  }
+
+  /** 打ちかけの文字を戻す（画面を作り直したとき、前の欄で打っていた文字を新しい欄に移す） */
+  restoreDraft(text: string): void {
+    this.input.value = text;
+    this.editing = text !== this.committed;
+  }
+
+  /** 画面から外す前に呼ぶ。以降は blur でも決めない */
+  dispose(): void {
+    this.disposed = true;
+    this.close();
   }
 
   /** この欄の検証の結果。error / warning の印とメッセージを出す */
@@ -178,15 +197,21 @@ export class KeyInput {
   private show(query: string, result: CandidatesResult): void {
     const rows: Row[] = [];
     const trimmed = query.trim();
-    if (result.typed && trimmed && !result.items.some((item) => item.insertText === trimmed)) {
-      rows.push({ insertText: trimmed, typed: result.typed });
-    }
+    // 打った表記と同じ insertText の候補があれば typed の行は出さず、その候補を選んでおく（Enter で打ったとおりのものが入る）
+    const exact = trimmed ? result.items.findIndex((item) => item.insertText === trimmed) : -1;
+    if (result.typed && trimmed && exact < 0) rows.push({ insertText: trimmed, typed: result.typed });
     for (const item of result.items) rows.push({ insertText: item.insertText, candidate: item });
+    if (rows.length === 0 && !trimmed) {
+      // 空の入力で候補もなければ、空の枠を開かない
+      this.close();
+      return;
+    }
     this.rows = rows;
-    this.active = rows.length > 0 && trimmed ? 0 : -1;
+    this.active = !trimmed || rows.length === 0 ? -1 : exact >= 0 ? exact : 0;
+    hideTooltip(this.input);
     this.list.replaceChildren(...rows.map((row, index) => this.renderRow(row, index)));
     if (result.truncated) this.list.append(h('div', { class: 'candidates-more' }, 'ほかにも候補があります。続けて打つと絞れます'));
-    if (rows.length === 0) this.list.append(h('div', { class: 'candidates-empty' }, trimmed ? '候補がありません' : ''));
+    if (rows.length === 0) this.list.append(h('div', { class: 'candidates-empty' }, '候補がありません'));
     this.list.hidden = false;
     // 画面の右端からはみ出すなら、欄の右端にそろえる
     this.list.classList.remove('align-right');

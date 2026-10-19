@@ -107,6 +107,46 @@ describe('KeyInput の候補', () => {
   });
 });
 
+describe('KeyInput の候補の選び方', () => {
+  it('打った表記と同じ候補があれば typed の行を出さず、その候補を選んでおく（先頭でなくても）', async () => {
+    host.candidates = {
+      items: [
+        { insertText: 'Backspace', label: 'Backspace', category: 'basic' },
+        { insertText: 'Space', label: 'Space', category: 'basic' },
+      ],
+      typed: { text: 'Space', canonical: 'Space', code: 44, kind: 'basic', display: { label: 'Space' } },
+      truncated: false,
+    };
+    type('Space');
+    await settle();
+    expect(options()).toEqual(['Backspace', 'Space']);
+    key('Enter');
+    expect(commits).toEqual(['Space']);
+  });
+
+  it('空の入力で候補がなければ一覧を開かない', async () => {
+    host.candidates = { items: [], typed: null, truncated: false };
+    type('');
+    input.open();
+    await settle();
+    expect(input.isOpen).toBe(false);
+  });
+
+  it('dispose したあとは欄を離れても決めない', () => {
+    type('Esc');
+    input.dispose();
+    input.input.dispatchEvent(new Event('blur'));
+    expect(commits).toEqual([]);
+  });
+
+  it('打ちかけを戻すと、打っている途中として扱う', () => {
+    input.restoreDraft('Es');
+    expect(input.isEditing).toBe(true);
+    input.setValue('A');
+    expect(input.input.value).toBe('Es');
+  });
+});
+
 describe('KeyInput の決め方', () => {
   it('手で打った表記は解釈できればそのまま決める（欄を離れたとき）', () => {
     type('Shift + Command + P');

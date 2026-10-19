@@ -37,9 +37,11 @@ test('編集画面がキーボード図とレイヤーの欄を描く（変更�
   assert.ok(document);
   const messages: string[] = [];
   const rendered: unknown[] = [];
+  const requests: unknown[] = [];
   const subscription = api.profileEditor.onDidReceiveWebviewMessage(({ message }) => {
     messages.push(message.type);
     if (message.type === 'rendered') rendered.push(message);
+    if (message.type === 'request') requests.push({ method: message.method, params: message.params });
   });
   try {
     // 変更を足すとホストが snapshot を送り直し、画面が描き終えると rendered が返る
@@ -51,6 +53,10 @@ test('編集画面がキーボード図とレイヤーの欄を描く（変更�
     });
     // styled: media/webview.css が読めている（media/ の場所を out/webview.js の場所から決めている）
     assert.deepEqual(rendered.at(-1), { type: 'rendered', status: 'ok', layer: 0, keys: 48, encoders: 6, styled: true });
+    // 未保存の値の表示と検証のため、画面がホストに keycode/inspect の中継を頼む（profileId はホストが入れる）
+    await waitFor('keycode/inspect の中継', async () =>
+      requests.some((r) => JSON.stringify(r) === JSON.stringify({ method: 'keycode/inspect', params: { context: 'layerKey', text: 'Escape' } })),
+    );
   } finally {
     subscription.dispose();
   }

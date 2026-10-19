@@ -1,0 +1,17 @@
+{
+  "description": "query を省くと空として「上に出すもの」（encoder ならメディア）から並べ、limit を省くと 50 件",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/candidates", "params": { "profileId": "p1", "context": "encoder" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        { "insertText": "VolumeUp", "category": "media" }, { "insertText": "VolumeDown", "category": "media" },
+        { "insertText": "Mute", "category": "media" }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+      ],
+      "typed": null,
+      "truncated": true
+    }
+  }
+}

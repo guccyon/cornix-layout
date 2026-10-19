@@ -289,6 +289,30 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
   拡張はエラーの一覧と、ファイルを開くボタンを出す（[11. 決めたこと](#11-決めたこと) の 6）
 - マクロ・タップダンス・コンボ・ショートカットの中身の画面は v0.2。v0.1 では `references` の名前の一覧だけを返す
 
+各項目の決まり（`null` になるものと、項目ごと省くもの）:
+
+- `files`: 設定ディレクトリの設定ファイル（`metadata` `position_map` `settings/qmk_settings` `shortcuts` と、`layers/` `macros/` `tap_dance/` `combos/` の YAML）の版。
+  版と読み込みには同じバイト列を使う。`settings/qmk_settings.yaml` はなくても `null` で入れる（QMK 設定の Address が指すファイルで、保存で作ることがあるため）。
+  読んだ版はそのプロファイルの「知っている版」になる（前の版は置き換える）
+- `metadata`: `metadata.yaml` の中身そのまま（読むだけで表示。`uid` は 2^53 を超える整数のことがあり、JavaScript の number では丸まる）
+- レイヤーの `description` は書いていなければ `null`（空の文字列はそのまま `""`）。`file` はそのレイヤーのファイル
+- `keys` は position_map の定義順（左手の row0〜row3・親指、右手の row0〜row3・親指）。`encoders` は `left` / `right` とも、`push` / `ccw` / `cw` もすべて必ずあり、
+  `value` はファイルに書いていない（空の値も）操作では `null`（読み込みでは `NoKey` になるが、書いていないことを画面で分けられるように）
+- KeyValue の `text` はファイルに書いてある表記（注記付きの形なら `key` の値）。`origin` `icon` `note` と KeyDisplay の `tap` `hold` は、値がなければ `null` にせず項目ごと省く。
+  `origin` は `Shortcut(...)` で書いたもの（自分のショートカットなら `"shortcut"` でアイコンなし、同梱のものなら `"presetShortcut"` と元のアプリのアイコン）と、
+  `preset:` のマクロを指すもの（`Macro(...)` でも番号でも `"presetMacro"` と元のアプリのアイコン）。`canonical` はそのプロファイルの名前参照を使った decompile の正規形
+  （自分のショートカットと同じ値なら `Shortcut('名前')` になる）
+- `settings` は `data/qmk_settings.yaml` の順。`value` は整数か真偽値（ファイルが 0 / 1 で書いていても `true` / `false`）、ファイルになければ `null`。
+  `default` と `description` は `data/qmk_settings.yaml` に書いていなければ `null`。`address.path` は `[group, name]`。
+  ただしファイルが旧 decompile の QSID の番号の形（`'7': 180`）で書いていて名前の形がなければ、その場所（`["7"]`）
+- `references.macros` の `icon` は `preset:` のマクロの元のアプリのアイコン、ほかは `null`。`references.shortcuts` の `text` は `shortcuts.yaml` に書いた表記
+- `diagnostics`（Diagnostic）: 構造検証の問題は、値の場所が分かれば `address`（注記付きの形でも `.key` を付けない）と `range`、
+  ファイル全体の問題（YAML として読めないなど）は `file` だけ、どのファイルとも言えない問題（プロファイル全体の組み立ての問題）はどちらも省く。
+  `shortcuts.yaml` の構造の問題は `file` だけにする（名前に `.` `[` `]` を含むと位置から道筋を正しく戻せないため）。
+  意味検証の問題は、値の場所なら `address` と `range`、ファイル全体なら `file`、一覧全体（マクロの件数の上限など）なら `file` に `"macros/"` の形
+- `status: "invalid"` のとき: `metadata` は `{}`、`positionMap` `layers` `settings` は `[]`、`references` の 4 つの一覧も `[]`
+- `dir` が分からなければ `-32050`（`data: { "dir": … }`）、`dir` がなければ `-32602`
+
 ### 5.3 `keycode/candidates`
 
 キー入力欄の候補。並び順はサーバーが決め、拡張はそのまま出す。
@@ -338,6 +362,10 @@ type CandidateCategory =
 - `raw`（`0x7E40`）は query が `0x` で始まるときだけ出す
 - 修飾キー式（`Shift + Command + P`）は v0.1 では候補に出さず、打った文字を `typed` で解釈して見せる
 - 「この入力ならこの候補」の共通テスト（[ADR 004](adr.md)）は、このメソッドの params と result の組をデータに書いたものにする（[8.2](#82-適合テスト)）
+- `query` は省くと `""`、`limit` は省くと 50（1 未満は 1。上限は設けない）。知らない `context` は `-32602`（`data: { "field": "context" }`）
+- 候補の `detail` `icon` `warning` は値がなければ項目ごと省く。`icon` は同梱のショートカットのアプリのアイコンと、`preset:` のマクロの元のアプリのアイコン
+- 名前参照（マクロ・タップダンス・自分のショートカット・レイヤーの名前）は保存済みのプロファイルから取る。構造検証で読めないプロファイルでは、キーの表と同梱のショートカットだけを出す
+- `typed` は query（前後の空白を除いて空なら `null`）を表記として読めたときの KeyValue（`text` は query そのまま）。読めなければ `null`
 
 ### 5.4 `keycode/shortcutTree`
 
@@ -368,6 +396,8 @@ type CandidateCategory =
 
 - `macro: true` は複数の手順の定義で、`macros/` の `preset:` でだけ使える（キー入力欄の候補には出さない）。
   `insertText` は `preset:` に書く名前で、`text` は省く
+- アプリは `data/shortcuts/` のファイル名の順、カテゴリとラベルは定義の順（カテゴリの中では 1 シーケンスの定義のあとに複数の手順の定義）。
+  アプリの `icon` はアイコンの表（`data/shortcut_icons.yaml`）になければ `null`（v0.1 の同梱のアプリはすべてある）。params は見ない（省いてもよい）
 
 ### 5.5 `keycode/inspect`
 
@@ -393,6 +423,12 @@ type CandidateCategory =
 - 参照先（マクロの名前など）は保存済みのプロファイルで判断する。v0.1 には名前を変える操作がないので未保存の変更は渡さない
   （名前の変更が入る v0.2 で `baseVersions` と `changes` を足す）
 - 説明に出すもの: Shortcut の中身（`Shift + Command + P`）、マクロの手順、タップダンスの 4 つの動作、レイヤー操作の行き先のレイヤー名、16bit 値
+- 読めない表記では `value` と `description` が `null` で、`diagnostics` に構造の error が 1 件（`source: "structure"`、message は読み込みのときと同じ文）
+- 読めれば、`diagnostics` は意味検証の規則（参照先の定義がない、レイヤーの番号がレイヤー数を超える・定義されていない、Cornix が対応していないキー）でその値だけを確かめた結果。
+  プロファイル全体の問題（件数の上限など）は混ぜない。保存済みのプロファイルが構造検証で読めないときは意味検証をしない（名前参照はマクロ・タップダンスなしで読む）
+- `description` は `{ title, lines }`。`lines` の最後はいつも 16bit 値（`16bit 値: 0x412C`）。title は、ショートカットは「ショートカット 名前」（同梱は「同梱のショートカット 名前」）、
+  マクロは「マクロ 名前（M0）」、タップダンスは「タップダンス 名前（TD(4)）」、そのほかは正規形。定義のないマクロ・タップダンスは lines に「定義されていません」
+- 知らない `context` は `-32602`（`data: { "field": "context" }`）。v0.1 では `context` による解釈の違いはない
 
 ### 5.6 `profile/validate`
 
@@ -468,7 +504,7 @@ type CandidateCategory =
 [ADR 006](adr.md) のとおり、値の部分だけを書き換える。
 
 - 値の部分（スカラーの範囲）だけを置き換える。キー・字下げ・コメント・ほかの行・フロー表記（`{ tab: Escape, Q: Q }`）の並びは変えない
-- 値が今のファイルの値と同じ（表記の文字が同じ）なら書き換えを作らない
+- 値が今のファイルの値と同じ（表記の文字が同じで、読んだときの型も同じ。`"180"` と `180` は違う値）なら書き換えを作らない
 - 引用符はサーバーが決める（`","` `"-"` のように YAML で引用符が要るものだけ囲む）。もとが引用符付きならその引用符を保ち、
   新しい値に同じ引用符が含まれるときはもう一方の引用符にする（`Storage::ConfigEditor#quoted` と同じ）
 - 注記付きの形は `key` の値だけを置き換え、`note` は残す

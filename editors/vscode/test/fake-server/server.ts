@@ -218,19 +218,26 @@ class FakeServer {
         return this.snapshot(profileId);
       }
       case 'keycode/candidates': {
-        const p = params as { profileId: string; context: string; query?: string; limit?: number };
-        this.profile(p.profileId);
-        return this.candidates(p.context, p.query ?? '', p.limit ?? 50);
+        const p = params as { profileId?: unknown; context?: unknown; query?: string; limit?: number };
+        requireString(p, 'profileId');
+        const context = requireString(p, 'context');
+        this.profile(p.profileId as string);
+        checkContext(context);
+        return this.candidates(context, p.query ?? '', p.limit ?? DEFAULT_LIMIT);
       }
       case 'keycode/shortcutTree':
         return data.SHORTCUT_TREE;
       case 'keycode/inspect': {
-        const p = params as { profileId: string; text: string };
-        this.profile(p.profileId);
-        const value = data.interpret(p.text);
+        const p = params as { profileId?: unknown; context?: unknown; text?: unknown };
+        requireString(p, 'profileId');
+        const context = requireString(p, 'context');
+        requireString(p, 'text');
+        this.profile(p.profileId as string);
+        checkContext(context);
+        const value = data.interpret(p.text as string);
         return {
           value,
-          diagnostics: value ? [] : [unreadable(p.text)],
+          diagnostics: value ? [] : [unreadable(p.text as string)],
           description: value ? data.describe(value) : null,
         };
       }
@@ -454,6 +461,25 @@ class FakeServer {
   private log(line: string): void {
     this.options.log?.(`[fake-cornix] ${line}`);
   }
+}
+
+/** keycode/candidates の limit を省いたときの数（protocol.md の 5.3） */
+const DEFAULT_LIMIT = 50;
+/** v0.1 の context（protocol.md の 5.3） */
+const CONTEXTS = new Set(['layerKey', 'encoder']);
+
+/** params の文字列の項目。なければ・文字列でなければ -32602（Ruby のサーバーと同じ data: { field }） */
+function requireString(params: Record<string, unknown>, field: string): string {
+  const value = params[field];
+  if (typeof value !== 'string') {
+    throw new RpcError(ErrorCodes.InvalidParams, `params の ${field} ${value === undefined ? 'がありません' : 'の形が違います'}`, { field });
+  }
+  return value;
+}
+
+/** 知らない context は -32602 */
+function checkContext(context: string): void {
+  if (!CONTEXTS.has(context)) throw new RpcError(ErrorCodes.InvalidParams, `知らない context です: ${context}`, { field: 'context' });
 }
 
 function hasEntries(dir: string): boolean {

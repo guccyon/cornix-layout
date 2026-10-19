@@ -1,0 +1,5 @@
+{
+  "description": "dir がなければ -32602",
+  "request": { "id": 1, "method": "profile/open", "params": {} },
+  "response": { "id": 1, "error": { "code": -32602, "data": { "field": "dir" } } }
+}

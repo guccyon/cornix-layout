@@ -1,0 +1,46 @@
+{
+  "description": "アプリ（data/shortcuts/ のファイル名の順）ごとのアイコンとカテゴリ。複数の手順の定義は macro: true で、insertText は preset: に書く名前、text は省く",
+  "request": { "id": 1, "method": "keycode/shortcutTree", "params": {} },
+  "response": {
+    "id": 1,
+    "result": {
+      "apps": [
+        {
+          "name": "Android Studio",
+          "icon": "simple-icons:androidstudio",
+          "categories": [
+            { "name": "一般" },
+            {
+              "name": "ナビゲーション",
+              "items": [
+                { "label": "クラスに移動", "insertText": "Shortcut('Android Studio:ナビゲーション:クラスに移動')", "text": "Command + O", "macro": false },
+                { "label": "ファイルに移動", "insertText": "Shortcut('Android Studio:ナビゲーション:ファイルに移動')", "text": "Shift + Command + O", "macro": false },
+                { "label": "シンボルに移動", "insertText": "Shortcut('Android Studio:ナビゲーション:シンボルに移動')", "text": "Option + Command + O", "macro": false },
+                { "label": "定義に移動", "insertText": "Shortcut('Android Studio:ナビゲーション:定義に移動')", "text": "Command + B", "macro": false },
+                { "label": "実装に移動", "insertText": "Shortcut('Android Studio:ナビゲーション:実装に移動')", "text": "Option + Command + B", "macro": false },
+                { "label": "戻る", "insertText": "Shortcut('Android Studio:ナビゲーション:戻る')", "text": "Command + [", "macro": false },
+                { "label": "進む", "insertText": "Shortcut('Android Studio:ナビゲーション:進む')", "text": "Command + ]", "macro": false },
+                { "label": "最近使用したファイル", "insertText": "Shortcut('Android Studio:ナビゲーション:最近使用したファイル')", "text": "Command + E", "macro": false },
+                { "label": "全体を検索", "insertText": "Android Studio:ナビゲーション:全体を検索", "macro": true }
+              ]
+            },
+            { "name": "編集" }, { "name": "ツール" }, { "name": "アクション" }, { "name": "パネル" }
+          ]
+        },
+        { "name": "Blender", "icon": "simple-icons:blender" }, { "name": "CleanShot X", "icon": "badge:CS" },
+        { "name": "CLIP STUDIO PAINT", "icon": "badge:CSP" }, { "name": "DaVinci Resolve", "icon": "simple-icons:davinciresolve" },
+        { "name": "Discord", "icon": "simple-icons:discord" }, { "name": "Microsoft Excel", "icon": "badge:X" },
+        { "name": "Figma", "icon": "simple-icons:figma" }, { "name": "Fusion 360", "icon": "badge:F" }, { "name": "Illustrator", "icon": "badge:Ai" },
+        { "name": "KiCad", "icon": "simple-icons:kicad" }, { "name": "Linux", "icon": "simple-icons:linux" },
+        { "name": "macOS", "icon": "simple-icons:macos" }, { "name": "note", "icon": "simple-icons:note" },
+        { "name": "Notion", "icon": "simple-icons:notion" }, { "name": "Photoshop", "icon": "badge:Ps" },
+        { "name": "Microsoft PowerPoint", "icon": "material-icon-theme:powerpoint" }, { "name": "Premiere Pro", "icon": "badge:Pr" },
+        { "name": "Raycast", "icon": "simple-icons:raycast" }, { "name": "Slack", "icon": "badge:S" },
+        { "name": "Spotify", "icon": "simple-icons:spotify" }, { "name": "Unity", "icon": "simple-icons:unity" },
+        { "name": "VS Code", "icon": "material-icon-theme:vscode" }, { "name": "Windows", "icon": "badge:W" },
+        { "name": "Microsoft Word", "icon": "material-icon-theme:word" }, { "name": "Xcode", "icon": "simple-icons:xcode" },
+        { "name": "Zoom", "icon": "simple-icons:zoom" }
+      ]
+    }
+  }
+}

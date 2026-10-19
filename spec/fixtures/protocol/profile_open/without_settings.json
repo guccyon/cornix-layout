@@ -1,0 +1,44 @@
+{
+  "description": "settings/qmk_settings.yaml がなければ files に null で入れ、設定の value は null、Address は名前の形",
+  "setup": {
+    "files": {
+      "profiles/default/metadata.yaml": "keyboard: cornix\nversion: 1\n",
+      "profiles/default/position_map.yaml": "left_hand:\n  row0: [tab, Q, W, E, R, T]\n  row1: [caps, A, S, D, F, G]\n  row2: [lshift, Z, X, C, V, B]\n  row3: [lctrl, command, option]\n  thumb_keys: [left, middle, right]\nright_hand:\n  row0: [Y, U, I, O, P, backspace]\n  row1: [H, J, K, L, colon, enter]\n  row2: [N, M, comma, dot, up, rshift]\n  row3: [left, down, right]\n  thumb_keys: [left, middle, right]\nencoders:\n  left: { push: push, ccw: ccw, cw: cw }\n  right: { push: push, ccw: ccw, cw: cw }\n",
+      "profiles/default/layers/0_base.yaml": "name: Base\ndescription: いちばん下のレイヤー\nindex: 0\nmapping:\n  left_hand:\n    row0: { tab: Tab }\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n"
+    }
+  },
+  "request": { "id": 1, "method": "profile/open", "params": { "dir": "profiles/default" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "profileId": "p1",
+      "name": "default",
+      "dir": "profiles/default",
+      "status": "ok",
+      "files": { "settings/qmk_settings.yaml": null },
+      "metadata": { "keyboard": "cornix", "version": 1 },
+      "layers": [{ "index": 0, "name": "Base", "description": "いちばん下のレイヤー", "file": "layers/0_base.yaml" }],
+      "settings": [
+        {
+          "group": "vial",
+          "name": "combo_timing_window",
+          "type": "integer",
+          "value": null,
+          "default": 50,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["vial", "combo_timing_window"] }
+        },
+        {}, {}, {}, {},
+        {
+          "name": "permissive_hold",
+          "type": "boolean",
+          "value": null,
+          "default": false,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["keyboard", "permissive_hold"] }
+        },
+        {}, {}, {}
+      ],
+      "references": { "layers": [{ "index": 0, "name": "Base" }], "macros": [], "tapDances": [], "shortcuts": [] },
+      "diagnostics": []
+    }
+  }
+}

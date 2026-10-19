@@ -1,0 +1,21 @@
+{
+  "description": "同梱のショートカットは origin: presetShortcut と元のアプリのアイコン。説明は中身の表記",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "encoder", "text": "Shortcut('VS Code:基本操作:コマンドパレット')" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "value": {
+        "text": "Shortcut('VS Code:基本操作:コマンドパレット')",
+        "canonical": "Shift + Command + P",
+        "code": 2579,
+        "kind": "modified",
+        "origin": "presetShortcut",
+        "display": { "label": "⇧⌘P" },
+        "icon": "material-icon-theme:vscode"
+      },
+      "diagnostics": [],
+      "description": { "title": "同梱のショートカット VS Code:基本操作:コマンドパレット", "lines": ["Shift + Command + P", "16bit 値: 0x0A13"] }
+    }
+  }
+}

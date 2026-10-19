@@ -1,0 +1,13 @@
+{
+  "description": "読めない表記はエラーにせず、value と description を null にして構造の error を返す（address は付けない）",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey", "text": "Macro('Removed')" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "value": null,
+      "diagnostics": [{ "severity": "error", "source": "structure", "message": "キーコード「Macro('Removed')」を解釈できません: マクロ「Removed」が見つかりません" }],
+      "description": null
+    }
+  }
+}

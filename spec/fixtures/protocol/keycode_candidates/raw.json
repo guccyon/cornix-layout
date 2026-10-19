@@ -1,0 +1,13 @@
+{
+  "description": "0x で始まる query だけ直接の値を出す（先頭）。typed は raw の解釈",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/candidates", "params": { "profileId": "p1", "context": "layerKey", "query": "0x7E40" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [{ "insertText": "0x7E40", "label": "0x7E40", "category": "raw" }],
+      "typed": { "text": "0x7E40", "canonical": "0x7E40", "code": 32320, "kind": "raw", "display": { "label": "0x7E40" } },
+      "truncated": false
+    }
+  }
+}

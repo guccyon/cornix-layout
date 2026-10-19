@@ -4,7 +4,10 @@ import type { Diagnostic, Hand, KeyValue } from '../protocol';
 import { BOARD, ENCODERS, keyRect } from './cornixLayout';
 import { h } from './dom';
 import { iconElement } from './icons';
-import { ENCODER_OPS, HAND_LABEL, keyAccessibleName, severityOf, type Slot } from './model';
+import { HAND_LABEL, keyAccessibleName, severityOf, type EncoderOp, type Slot } from './model';
+
+/** エンコーダの欄を上から並べる順（回す向きを上下に分け、押し込みをまん中に） */
+const ENCODER_STACK: EncoderOp[] = ['ccw', 'push', 'cw'];
 
 /** 1 つの欄の描き方 */
 export type SlotView = {
@@ -75,13 +78,13 @@ export class KeyboardView {
       role: 'group',
       'aria-label': `${HAND_LABEL[hand]}のエンコーダ`,
       style: [
-        `left: ${pct(place.x - place.r, BOARD.width)}`,
-        `top: ${pct(place.y - place.r, BOARD.height)}`,
-        `width: ${pct(place.r * 2, BOARD.width)}`,
-        `height: ${pct(place.r * 2, BOARD.height)}`,
+        `left: ${pct(place.x, BOARD.width)}`,
+        `top: ${pct(place.y, BOARD.height)}`,
+        `width: ${pct(place.w, BOARD.width)}`,
+        `height: ${pct(place.h, BOARD.height)}`,
       ].join('; '),
     });
-    for (const { op } of ENCODER_OPS) {
+    for (const op of ENCODER_STACK) {
       const slot = slots.find((s) => s.hand === hand && s.encoder === op);
       if (!slot) continue;
       const part = h('button', { type: 'button', class: `encoder-part encoder-${op}`, 'data-slot': slot.id });
@@ -104,7 +107,7 @@ export class KeyboardView {
     const slot = this.slots.get(slotId);
     if (!element || !slot) return;
     const severity = severityOf(view.diagnostics);
-    element.replaceChildren(...keyFace(view, slot.encoder !== undefined));
+    element.replaceChildren(...keyFace(view));
     element.setAttribute('aria-label', keyAccessibleName(slot, view.text, view.value, view.diagnostics));
     element.classList.toggle('unassigned', view.text === '');
     element.classList.toggle('changed', view.changed);
@@ -129,7 +132,7 @@ export class KeyboardView {
 }
 
 /** キーの面: アイコン・文字（2 役なら tap と hold を上下に）・印 */
-export function keyFace(view: Pick<SlotView, 'text' | 'value'>, compact = false): Node[] {
+export function keyFace(view: Pick<SlotView, 'text' | 'value'>): Node[] {
   const nodes: Node[] = [];
   const value = view.value;
   const icon = iconElement(value?.icon, 'key-icon');
@@ -141,14 +144,14 @@ export function keyFace(view: Pick<SlotView, 'text' | 'value'>, compact = false)
     return nodes;
   }
   const { tap, hold, label } = value.display;
-  if (tap && hold && !compact) {
+  if (tap && hold) {
     nodes.push(h('span', { class: 'key-tap' }, tap), h('span', { class: 'key-hold' }, hold));
   } else if (value.kind === 'transparent') {
     nodes.push(h('span', { class: 'key-label faint' }, label || '▽'));
   } else if (value.kind === 'noKey') {
     nodes.push(h('span', { class: 'key-label faint' }, label || '✕'));
   } else {
-    nodes.push(h('span', { class: `key-label${label.length > 6 ? ' long' : ''}` }, compact && tap && hold ? `${tap}/${hold}` : label));
+    nodes.push(h('span', { class: `key-label${label.length > 6 ? ' long' : ''}` }, label));
   }
   return nodes;
 }

@@ -47,7 +47,7 @@ if (!production) {
     },
     {
       ...common,
-      entryPoints: ['test/integration/runTest.ts', 'test/integration/suite/index.ts'],
+      entryPoints: ['test/integration/runTest.ts', 'test/integration/suite/index.ts', 'test/integration/suite/realServer.ts'],
       outdir: 'out/test/integration',
       outbase: 'test/integration',
       platform: 'node',

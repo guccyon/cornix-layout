@@ -19,3 +19,14 @@
 - main の ruleset は `rspec` を必須チェックにしている。ワークフローを `paths-ignore` で丸ごと飛ばすとチェックが待ちのままになり PR がマージできないので、
   rspec.yml はいつも動かし、ジョブの中で変わったパスを見て手順を飛ばす形にした
 - 拡張の CI（vscode.yml、ジョブ名 `node`）は必須チェックになっていない（ruleset の変更はユーザーの判断）
+- vscode.yml の node ジョブは、本物のサーバーでの統合テスト（`npm run test:integration:ruby`）のために Ruby を入れる（gem は使わないので bundle install しない）。
+  そのため lib/ と bin/cornix の変更でも動かす
+
+## 通しの確認（J）で分かったこと
+- VS Code（テストで起動したものも、Dock から起動したものも）はログインシェルから環境を読み直すので、mise の Ruby が PATH の後ろに回り、
+  `bin/cornix` の `#!/usr/bin/env ruby` が macOS の `/usr/bin/ruby` 2.6 を選んで `Data.define` で落ちることがある。
+  統合テストは runTest.ts が使う Ruby を決めたスクリプトを cornix.path にする。利用者向けには editors/vscode/README.md に同じ回避を書いた
+  （`extensionTestsEnv` で PATH を渡しても VS Code が上書きするので効かない）
+- `.vscodeignore` で `!media/**` のあとに `media/icons/extract.mjs` を書いても vsce は除外しない。入れるものを拡張子で書く
+- 本物のサーバーでの通し: authors のプロファイルの写しでキー・エンコーダ・QMK 設定を 10 か所変えて保存し、変えていない行は変わらず、
+  手で直した写しと compile の結果（.vil）がバイト単位で一致した。もとが引用符付きの値（`colon: "-"`）は新しい値も引用符付きで書く（`"Minus"`）

@@ -1,24 +1,19 @@
 // VS Code の中で動く統合テスト。偽のサーバーとつなぎ、プロファイルを開いて、dirty・revert・見張り・バックアップ・保存・外での変更・再起動が VS Code の仕組みに乗ることを確かめる。
+// 本物のサーバー（bin/cornix serve）での流れは suite/realServer.ts。
 import * as assert from 'node:assert/strict';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { ProfileDocument } from '../../../src/editor/profileDocument';
 import { snapshotValueAt } from '../../../src/editor/pendingChanges';
-import type { KeepChoice, ProfilePrompts } from '../../../src/editor/prompts';
 import type { CornixExtensionApi } from '../../../src/extension';
 import type { Address } from '../../../src/protocol';
+import { activateExtension, FakePrompts, profileTab, readWorkspaceFile, revertProfile, saveProfile, test, waitFor, workspaceRoot, writeOutside } from './support';
 
-type Test = { name: string; fn: () => Promise<void> };
-const tests: Test[] = [];
-const test = (name: string, fn: () => Promise<void>) => tests.push({ name, fn });
+export { run } from './support';
 
 let api: CornixExtensionApi;
 
 test('拡張が動き、サーバーの一覧が取れる', async () => {
-  const extension = vscode.extensions.getExtension<CornixExtensionApi>('guccyon.cornix-vscode');
-  assert.ok(extension, '拡張が見つからない');
-  api = await extension.activate();
+  api = await activateExtension();
   const list = await api.server.request('profile/list', {});
   assert.equal(list.default, 'profiles/default');
 });
@@ -136,65 +131,8 @@ test('バックアップから戻すと未保存の変更と、そのときの�
 // 保存と外での変更（protocol.md の 6.2・7.3）。通知のボタンは押せないので、prompts を差し替えて答える
 // ---------------------------------------------------------------------------
 
-type PromptLog = { method: string; args: unknown[] };
-
-class FakePrompts implements ProfilePrompts {
-  readonly calls: PromptLog[] = [];
-  side: KeepChoice | undefined = 'screen';
-  /** 画面の値を残す項目の添字（undefined なら閉じた扱い） */
-  conflicts: number[] | undefined = [];
-  lost: 'discard' | 'external' | undefined = 'discard';
-  /** あれば chooseSide はこれが解決するまで答えない（聞いている途中を作る） */
-  gate: Promise<void> | undefined;
-
-  async chooseSide(...args: unknown[]) {
-    this.calls.push({ method: 'chooseSide', args });
-    await this.gate;
-    return this.side;
-  }
-  resolveConflicts(...args: unknown[]) {
-    this.calls.push({ method: 'resolveConflicts', args });
-    return Promise.resolve(this.conflicts);
-  }
-  confirmLost(...args: unknown[]) {
-    this.calls.push({ method: 'confirmLost', args });
-    return Promise.resolve(this.lost);
-  }
-  saveFailed(message: string, openFile?: () => void) {
-    this.calls.push({ method: 'saveFailed', args: [message, openFile !== undefined] });
-  }
-  of(method: string): PromptLog[] {
-    return this.calls.filter((call) => call.method === method);
-  }
-}
-
 const BASE = 'profiles/default/layers/0_base.yml';
 const baseKey = (group: string, symbol: string, hand = 'left_hand'): Address => ({ file: 'layers/0_base.yml', path: ['mapping', hand, group, symbol] });
-
-function readWorkspaceFile(rel: string): string {
-  return fs.readFileSync(path.join(workspaceRoot().fsPath, rel), 'utf-8');
-}
-
-/** 外（テキストエディタや Claude）でファイルを書き換える */
-async function writeOutside(rel: string, from: string, to: string): Promise<void> {
-  const text = readWorkspaceFile(rel);
-  assert.ok(text.includes(from), `${rel} に ${from} がない`);
-  await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(workspaceRoot(), rel), new TextEncoder().encode(text.replace(from, to)));
-}
-
-/** 編集画面を前に出して Ctrl+S と同じコマンドで保存し、保存の流れが終わるのを待つ */
-async function saveProfile(document: ProfileDocument): Promise<void> {
-  await vscode.commands.executeCommand('vscode.openWith', document.uri, 'cornix.profileEditor');
-  await vscode.commands.executeCommand('workbench.action.files.save');
-  await document.settled();
-}
-
-async function revertProfile(document: ProfileDocument): Promise<void> {
-  await vscode.commands.executeCommand('vscode.openWith', document.uri, 'cornix.profileEditor');
-  await vscode.commands.executeCommand('workbench.action.files.revert');
-  await waitFor('revert', async () => profileTab()?.isDirty === false && document.changes.size === 0);
-  await document.settled();
-}
 
 let prompts: FakePrompts;
 
@@ -767,40 +705,3 @@ test('cornix が見つからなければ CornixUnavailableError になり、設�
   const list = await api.server.request('profile/list', {});
   assert.equal(list.profiles.length, 2);
 });
-
-function workspaceRoot(): vscode.Uri {
-  const root = vscode.workspace.workspaceFolders?.[0]?.uri;
-  assert.ok(root, 'ワークスペースがない');
-  return root;
-}
-
-function profileTab(): vscode.Tab | undefined {
-  return vscode.window.tabGroups.all
-    .flatMap((group) => group.tabs)
-    .find((tab) => tab.input instanceof vscode.TabInputCustom && tab.input.viewType === 'cornix.profileEditor');
-}
-
-async function waitFor<T>(what: string, check: () => Promise<T | undefined | false>, timeoutMs = 10000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = await check();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`${what} を待ちきれませんでした`);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
-export async function run(): Promise<void> {
-  const failures: string[] = [];
-  for (const { name, fn } of tests) {
-    try {
-      await fn();
-      console.log(`  ✓ ${name}`);
-    } catch (error) {
-      console.log(`  ✗ ${name}\n    ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
-      failures.push(name);
-      break; // 後のテストは前のテストの状態に依存する
-    }
-  }
-  if (failures.length > 0) throw new Error(`${failures.length} 件の統合テストが失敗しました`);
-}

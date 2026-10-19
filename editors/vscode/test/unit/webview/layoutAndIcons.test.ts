@@ -48,10 +48,12 @@ describe('Cornix の物理配置', () => {
 
   it('エンコーダは両手の間にあり、キーと重ならない', () => {
     for (const place of Object.values(ENCODERS)) {
-      const box = { x: place.x - place.r, y: place.y - place.r, w: place.r * 2, h: place.r * 2, rotate: 0 };
+      const box = { ...place, rotate: 0 };
       for (const entry of data.POSITION_MAP) expect(overlaps(box, keyRect(entry.hand, entry.row, entry.col)!)).toBe(false);
     }
-    expect(ENCODERS.left.x).toBeLessThan(ENCODERS.right.x);
+    expect(ENCODERS.left.x + ENCODERS.left.w).toBeLessThan(ENCODERS.right.x);
+    // 文字が読めるように、エンコーダの欄はキーより幅がある
+    for (const place of Object.values(ENCODERS)) expect(place.w).toBeGreaterThan(keyRect('left', 0, 0)!.w * 1.5);
   });
 
   it('レイヤーの欄は position_map の順のキーとエンコーダ 6 つ', () => {

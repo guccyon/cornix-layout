@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'json'
 require_relative 'error_codes'
 require_relative 'rpc_error'
 require_relative 'framing'
@@ -16,8 +17,11 @@ module Cornix
       #   server.handle({ 'jsonrpc' => '2.0', 'id' => 1, 'method' => 'profile/list' })   #=> 応答の Hash | nil（通知）
       #
       # ライフサイクル（LSP と同じ）: initialize の前のリクエストは -32002、shutdown の後のリクエストは -32600。
-      # その間の通知は捨てる。exit の通知で run を終える。終了コードは shutdown を受けていれば 0、なければ 1
-      # （exit なしで入力が終わったときも同じ）
+      # initialize の前と shutdown の後に来た通知は捨てる。exit の通知で run を終える。
+      # 終了コードは shutdown を受けていれば 0、なければ 1（exit なしで入力が終わったときも同じ）。
+      #
+      # 通知とリクエストの別はハンドラ（rpc / notification）に合わせる。rpc のメソッドを通知で送られたら実行せずにログに書き、
+      # notification のメソッドを id 付きで送られたら -32600 を返す
       class Server
         def initialize(workbench:, input: $stdin, output: $stdout, error: $stderr)
           @workbench = workbench
@@ -37,8 +41,7 @@ module Cornix
             break if message == :eof
             next if message == :skip
 
-            response = handle(message)
-            Framing.write(@output, response) if response
+            write_response(handle(message))
           end
           exit_code
         rescue Framing::HeaderError => e
@@ -48,19 +51,19 @@ module Cornix
 
         # 1 メッセージ（JSON を読んだもの）を処理して、応答（Hash）を返す。通知なら nil
         def handle(message)
-          return error_response(nil, invalid_request('JSON-RPC 2.0 のメッセージではありません')) unless message.is_a?(Hash)
+          return error_response(nil, invalid_request('JSON-RPC 2.0 のメッセージ（オブジェクト）ではありません')) unless message.is_a?(Hash)
 
           request = message.key?('id')
           id = message['id']
-          return error_response(nil, invalid_request('id は文字列か数にしてください')) if request && !valid_id?(id)
-          return client_response(message) if !message.key?('method') && request
+          return error_response(nil, invalid_request('id は文字列か整数にしてください')) if request && !valid_id?(id)
+          return client_response(message) if request && !message.key?('method')
 
           name = message['method']
           unless message['jsonrpc'] == '2.0' && name.is_a?(String)
             return request ? error_response(id, invalid_request('JSON-RPC 2.0 のメッセージではありません')) : nil
           end
 
-          dispatch(name, message['params'], request ? id : nil, request)
+          dispatch(name, message['params'], id, request)
         end
 
         private
@@ -69,7 +72,10 @@ module Cornix
           Framing.read(@input) || :eof
         rescue Framing::ParseError => e
           log("JSON として読めないメッセージ: #{e.message}")
-          Framing.write(@output, error_response(nil, RpcError.new(ErrorCodes::PARSE_ERROR, 'JSON として読めません')))
+          write_response(error_response(nil, RpcError.new(ErrorCodes::PARSE_ERROR, 'JSON として読めません')))
+          :skip
+        rescue Framing::InvalidMessage => e
+          write_response(handle(e.value))
           :skip
         end
 
@@ -77,7 +83,10 @@ module Cornix
           gate = lifecycle_gate(name, request)
           return (gate == :drop ? nil : error_response(id, gate)) if gate
 
-          result = invoke(name, params)
+          handler = Handler.fetch(name)
+          return kind_mismatch(name, id, request) if handler && handler.notification? == request
+
+          result = invoke(handler, name, params, request)
           after(name)
           request ? { jsonrpc: '2.0', id: id, result: result } : nil
         rescue RpcError => e
@@ -102,12 +111,20 @@ module Cornix
           request ? error : :drop
         end
 
-        def invoke(name, params)
-          handler = Handler.registry[name]
-          if handler.nil?
-            raise RpcError.new(ErrorCodes::METHOD_NOT_FOUND, "知らないメソッドです: #{name}") unless name.start_with?('$/')
+        # rpc のメソッドを通知で送られた（実行せずに捨てる）か、notification のメソッドを id 付きで送られた（-32600）
+        def kind_mismatch(name, id, request)
+          return error_response(id, invalid_request("#{name} は通知で送るメソッドです（id を付けない）")) if request
 
-            return nil # $/ で始まる知らない通知・リクエストは何もしない（LSP と同じ）
+          log("#{name} はリクエストで送るメソッドです（id がないので実行しません）")
+          nil
+        end
+
+        def invoke(handler, name, params, request)
+          if handler.nil?
+            # $/ で始まる知らない通知は何もしない。リクエストは知らないメソッドとして断る（LSP と同じ）
+            return nil if name.start_with?('$/') && !request
+
+            raise RpcError.new(ErrorCodes::METHOD_NOT_FOUND, "知らないメソッドです: #{name}")
           end
           raise RpcError.new(ErrorCodes::INVALID_PARAMS, 'params はオブジェクトにしてください') unless params.nil? || params.is_a?(Hash)
 
@@ -120,7 +137,7 @@ module Cornix
         rescue Cornix::Error => e
           raise RpcError.new(ErrorCodes::INTERNAL_ERROR, e.message)
         rescue StandardError => e
-          log("#{name} の処理で例外: #{e.class}: #{e.message}\n#{Array(e.backtrace).first(10).join("\n")}")
+          log_exception("#{name} の処理で例外", e)
           raise RpcError.new(ErrorCodes::INTERNAL_ERROR, "サーバーの内部エラーです（#{e.class}: #{e.message}）")
         end
 
@@ -139,8 +156,13 @@ module Cornix
 
         def valid_id?(id) = id.nil? || id.is_a?(String) || id.is_a?(Integer)
 
-        # 拡張からの応答（v0.1 ではサーバーからリクエストを送らないので、読み捨てる）
+        # 拡張からの応答（result か error を持つ）は、v0.1 ではサーバーからリクエストを送らないので読み捨てる。
+        # どちらも持たず method もないものは JSON-RPC の形でないので -32600
         def client_response(message)
+          unless message.key?('result') || message.key?('error')
+            return error_response(message['id'], invalid_request('method も result / error もありません'))
+          end
+
           log("知らない応答を読み捨てます: id=#{message['id'].inspect}")
           nil
         end
@@ -154,8 +176,25 @@ module Cornix
           nil
         end
 
+        # 応答を書く。結果を JSON にできなければ（正しくない UTF-8、NaN など）、その id で -32603 を返す
+        def write_response(response)
+          return if response.nil?
+
+          Framing.write(@output, response)
+        rescue JSON::JSONError, EncodingError => e
+          log_exception('応答を JSON にできません', e)
+          Framing.write(@output, error_response(response[:id], RpcError.new(ErrorCodes::INTERNAL_ERROR,
+                                                                            "応答を JSON にできません（#{e.class}）")))
+        end
+
         def send_notification(method, params)
           Framing.write(@output, { jsonrpc: '2.0', method: method, params: params })
+        rescue JSON::JSONError, EncodingError => e
+          log_exception("通知 #{method} を JSON にできません", e)
+        end
+
+        def log_exception(label, error)
+          log("#{label}: #{error.class}: #{error.message}\n#{Array(error.backtrace).first(10).join("\n")}")
         end
 
         def log(message)

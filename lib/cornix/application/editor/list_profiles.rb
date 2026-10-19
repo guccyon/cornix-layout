@@ -21,13 +21,21 @@ module Cornix
         end
 
         def call
-          dirs = [*profile_dirs, *settings_dir, *legacy_config].uniq
+          workspace = resolve
+          dirs = [*profile_dirs, *settings_dir(workspace), *legacy_config].uniq
           profiles = dirs.map { |dir| { dir: Workbench.relative_dir(@root, dir), name: File.basename(dir) } }
-          default = default_dir
+          default = workspace&.config_dir
           { profiles: profiles, default: dirs.include?(default) ? Workbench.relative_dir(@root, default) : nil }
         end
 
         private
+
+        # root で何も指定せずに選ばれる設定（.cornix.yml が読めなければ nil）
+        def resolve
+          Workspace.resolve(cwd: @root, root: @root, env: {})
+        rescue ConfigError
+          nil
+        end
 
         def profile_dirs
           base = File.join(@root, Workspace::PROFILES_DIR)
@@ -38,24 +46,16 @@ module Cornix
              .map { |name| File.join(base, name) }
         end
 
-        def settings_dir
-          path = Storage::SettingsFile.at(@root) or return []
-          key, value = Storage::SettingsFile.read(path)
-          dir = File.expand_path(value, @root)
-          key == 'config' && File.directory?(dir) ? [dir] : []
-        rescue ConfigError
-          []
+        # .cornix.yml が選ぶディレクトリ（profile: なら profiles/ の下なので、すでに並んでいる）
+        def settings_dir(workspace)
+          return [] unless workspace&.source == :cornix_yml && File.directory?(workspace.config_dir)
+
+          [workspace.config_dir]
         end
 
         def legacy_config
           dir = File.join(@root, Workspace::DEFAULT_CONFIG)
           File.directory?(dir) && !Dir.empty?(dir) ? [dir] : []
-        end
-
-        def default_dir
-          Workspace.resolve(cwd: @root, root: @root, env: {}).config_dir
-        rescue ConfigError
-          nil
         end
       end
     end

@@ -156,7 +156,7 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 | `shutdown` / `exit` | 拡張 → サーバー | リクエスト / 通知 | 終わる |
 | `profile/list` | 拡張 → サーバー | リクエスト | ワークスペースのプロファイルの一覧と既定 |
 | `profile/open` | 拡張 → サーバー | リクエスト | プロファイルを構造で読む |
-| `profile/close` | 拡張 → サーバー | 通知 | 開いたプロファイルを閉じる |
+| `profile/close` | 拡張 → サーバー | 通知 | 開いたプロファイルを閉じる（params は `{ "profileId": "p1" }`。知らない id でも何もしない） |
 | `keycode/candidates` | 拡張 → サーバー | リクエスト | キー入力欄の候補 |
 | `keycode/shortcutTree` | 拡張 → サーバー | リクエスト | 同梱のショートカットの「アプリ → カテゴリ → ラベル」の木 |
 | `keycode/inspect` | 拡張 → サーバー | リクエスト | 1 つの表記の解釈・説明・その欄だけの検証 |
@@ -211,9 +211,12 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 ```
 
 - プロファイルは `dir` で指す（`profile/open` の引数も `dir`）。`name` は表示用で、重なってもよい（拡張は重なるときだけ `dir` を添えて見せる）
-- 並べるもの: `profiles/` の下のディレクトリ、`.cornix.yml` の `config:` が指すディレクトリ、後方互換の `config/`（中身があるとき）
+- 並べるもの（この順。同じディレクトリは 1 回だけ）: `profiles/` の下のディレクトリ（名前の順。`--profile` に使える名前だけ）、
+  `.cornix.yml` の `config:` が指すディレクトリ、後方互換の `config/`（中身があるとき）
 - `default` はワークスペースのフォルダで `Application::Workspace.resolve`（`--root` 付き、オプションなし）が選ぶ設定ディレクトリ。
-  そのディレクトリがなければ `null`（拡張は一覧から選ばせる）。`.cornix.yml` の変更は v0.1 では知らせない（開くときに 1 回だけ使う）
+  環境変数 `CORNIX_CONFIG` は見ない（拡張を起動した環境によって既定が変わらないように）。
+  そのディレクトリが一覧にないとき（ないとき、中身のない `config/` のとき）と、`.cornix.yml` が読めないときは `null`（拡張は一覧から選ばせる）。
+  `.cornix.yml` の変更は v0.1 では知らせない（開くときに 1 回だけ使う）
 
 ### 5.2 `profile/open`
 
@@ -545,6 +548,32 @@ Ruby の RSpec と、将来の TypeScript の vitest の両方から同じデー
 `keycode/candidates` の「この入力ならこの候補」もここに書く。応答の比べ方は、順序に意味のある配列（候補の並び）は順序ごと、
 それ以外の Hash は書いた項目だけを比べる（版の文字列などは比べない）。
 
+データは `spec/fixtures/protocol/<メソッド>/<名前>.json`（`<メソッド>` は `profile_list` のように `/` を `_` にしたもの。
+ライフサイクルと枠・形の約束は `lifecycle/`）に 1 件ずつ置く。形は次のとおり（`request` か `raw` のどちらか一方が要り、ほかは省ける）。
+
+```jsonc
+{
+  "description": "何を確かめるか（省けばファイル名）",
+  "setup": {
+    "profile": "test_config",          // spec/fixtures/<名前> をワークスペースの profiles/default に置き、開いておく（profileId は "p1"）
+    "open": false,                     // profile を置くだけで開かない（profile/open 自体を確かめるとき）
+    "profiles": { "profiles/ipad": "test_config", "config": null },   // ほかの設定ディレクトリ（null なら空のディレクトリ。profile と重ねない）
+    "files": { ".cornix.yml": "profile: ipad\n" },   // ワークスペースに書くファイル（ワークスペースからの相対パス）
+    "initialize": false,               // initialize（protocolVersion "0.1"）と initialized を先に送らない
+    "before": [{ "id": "b1", "method": "shutdown" }]  // request の前に送るメッセージ（応答は確かめない）
+  },
+  "request": { "id": 1, "method": "profile/list", "params": {} },   // jsonrpc は省くと "2.0"。"jsonrpc": null なら項目ごと外す。id がなければ通知
+  "raw": "{oops",                      // request の代わりに、本文の文字列をそのまま枠に入れて送る（JSON でない本文・null・配列など）
+  "response": { "id": 1, "result": { "default": "profiles/default" } },   // 応答。書かなければ「応答がない」ことを確かめる
+  "notifications": [{ "method": "profile/didChange", "params": { "profileId": "p1" } }]   // サーバーからの通知（書けば確かめる）
+}
+```
+
+- 送る順: `initialize` と `initialized`（`setup.initialize: false` でなければ）、`setup.profile` を開くこと、`before`、`request`（か `raw`）。
+  `setup.profile` は、`profile/open` を受けるサーバーではそのリクエストで開く
+- 確かめる応答は `request` の id のもの（`raw` と通知では、setup と before のほかで最初の応答）。setup と before のほかに応答があれば誤り
+- `response` の比べ方: Hash は書いた項目だけ、配列は順序と長さごと、ほかの値（`null` を含む）は等しいこと。`notifications` も同じ比べ方で、届いた順に並べた配列と比べる
+
 ### 8.3 Ruby 側の置き場所（案）
 
 [architecture.md](../architecture.md) の層と依存の向きを守る（Interface は Application だけを参照する）。
@@ -563,19 +592,20 @@ JSON-RPC のエラーで返す。`message` は利用者に見せてよい日本�
 
 | code | 名前 | いつ | data |
 |---|---|---|---|
-| -32700 | ParseError | JSON として読めない | — |
-| -32600 | InvalidRequest | JSON-RPC の形でない、`shutdown` の後のリクエスト | — |
-| -32601 | MethodNotFound | 知らないメソッド | — |
+| -32700 | ParseError | JSON として読めない（id は `null`） | — |
+| -32600 | InvalidRequest | JSON-RPC の形でない（本文がオブジェクトでない・`jsonrpc: "2.0"` がない・id が文字列か整数でない・method も result / error もない）、通知で送るメソッドに id を付けた、2 回目の `initialize`、`shutdown` の後のリクエスト | — |
+| -32601 | MethodNotFound | 知らないメソッド（`$/` で始まるリクエストも。`$/` で始まる通知と知らない通知は何もしない） | — |
 | -32602 | InvalidParams | params の形が違う、Address が指せない（[2. の Address](#address設定ファイルの中の値の場所)） | `{ "field": "changes[0].address" }` |
 | -32603 | InternalError | サーバーの不具合、検証の結果にならない `Cornix::Error`（message にその文を入れる） | — |
 | -32002 | ServerNotInitialized | `initialize` の前のリクエスト（LSP と同じ code） | — |
-| -32050 | ProfileNotFound | `dir` や `profileId` が分からない | `{ "dir": "profiles/ipad" }` |
+| -32050 | ProfileNotFound | `dir` や `profileId` が分からない | `{ "dir": "profiles/ipad" }` か `{ "profileId": "p9" }` |
 | -32051 | ProtocolVersionMismatch | 約束の版が合わない（[4.](#initialize)） | `{ "supported": ["0.1"] }` |
 | -32052 | NotSupported | capabilities にない機能を呼んだ（v0.1 では使わない。TypeScript 版が持たないコマンドを足すとき用） | `{ "capability": "…" }` |
 | -32060 | VersionConflict | `baseVersions` が今のファイルと違う | `{ "files": { "layers/0_base.yml": "sha256:e1d4…" } }`（今の版） |
 | -32061 | EditNotLocal | 値の部分だけでは書き換えられない | `{ "address": { … }, "reason": "multiline" }`（reason: `"multiline"` \| `"anchor"` \| `"flowInsert"`） |
 
 - プロファイルが構造検証で読めないこと・値が読めないことはエラーにしない。`status: "invalid"` や `diagnostics` で返す
+- リクエストで送るメソッドを通知で送られたら、実行せずに捨てる（応答を返せないので、ログに書くだけ）。通知の処理の失敗もログに書くだけ
 
 ## 10. v0.1 のこの案に入れないもの
 

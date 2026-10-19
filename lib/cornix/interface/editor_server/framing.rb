@@ -7,7 +7,7 @@ module Cornix
     module EditorServer
       # LSP と同じ `Content-Length: <バイト数>\r\n\r\n<JSON>` の枠で 1 メッセージずつ読み書きする（JSON は UTF-8）
       #
-      #   Framing.read($stdin)            #=> Hash（読んだ JSON）| nil（EOF）
+      #   Framing.read($stdin)            #=> Hash（読んだ JSON のオブジェクト）| nil（EOF のときだけ）
       #   Framing.write($stdout, message) # message は JSON にできる Hash
       #
       # ヘッダーは Content-Length のほかを無視する（Content-Type など）。名前の大文字小文字は区別しない
@@ -18,7 +18,19 @@ module Cornix
         # 本文が JSON として読めない（本文は読み終えているので、続けて次のメッセージを読める）
         class ParseError < StandardError; end
 
+        # 本文が JSON としては読めたが、オブジェクトでない（null・配列・文字列など）。value に読んだ値を持つ
+        class InvalidMessage < StandardError
+          attr_reader :value
+
+          def initialize(value)
+            @value = value
+            super("JSON-RPC のメッセージ（オブジェクト）ではありません: #{value.inspect[0, 80]}")
+          end
+        end
+
         HEADER = 'Content-Length'
+        # 本文の上限（これを超える Content-Length は HeaderError。大きな値でメモリを使い果たさないように）
+        MAX_CONTENT_LENGTH = 64 * 1024 * 1024
 
         module_function
 
@@ -29,7 +41,10 @@ module Cornix
           body = io.read(length)
           return nil if body.nil? || body.bytesize < length
 
-          parse(body)
+          value = parse(body)
+          raise InvalidMessage.new(value) unless value.is_a?(Hash)
+
+          value
         end
 
         def write(io, message)
@@ -58,6 +73,7 @@ module Cornix
             raise HeaderError, "#{HEADER} が数ではありません: #{value.to_s.strip}" unless value.to_s.strip.match?(/\A\d+\z/)
 
             length = Integer(value.strip, 10)
+            raise HeaderError, "#{HEADER} が上限（#{MAX_CONTENT_LENGTH} バイト）を超えています: #{length}" if length > MAX_CONTENT_LENGTH
           end
           raise HeaderError, 'ヘッダーの途中で入力が終わりました' if seen
 

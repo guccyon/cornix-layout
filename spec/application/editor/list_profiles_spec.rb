@@ -69,6 +69,32 @@ RSpec.describe Cornix::Application::Editor::ListProfiles do
     expect(list).to eq(profiles: [{ dir: 'profiles/default', name: 'default' }], default: nil)
   end
 
+  it '既定は Workspace.resolve（root で何も指定しない。CORNIX_CONFIG は見ない）が選ぶ設定ディレクトリと一致する' do
+    layouts = {
+      'config/ だけ' => -> { mkdir('config', content: true) },
+      'profile:' => lambda {
+        mkdir('profiles/ipad')
+        File.write(File.join(@root, '.cornix.yml'), "profile: ipad\n")
+      },
+      'config:' => lambda {
+        mkdir('layouts/x')
+        File.write(File.join(@root, '.cornix.yml'), "config: layouts/x\n")
+      },
+      'config: と config/' => lambda {
+        mkdir('config', content: true)
+        mkdir('layouts/y')
+        File.write(File.join(@root, '.cornix.yml'), "config: ./layouts/y/\n")
+      }
+    }
+    layouts.each do |label, arrange|
+      FileUtils.rm_rf(Dir.glob(File.join(@root, '{*,.cornix.yml}')))
+      arrange.call
+      expected = Cornix::Application::Workspace.resolve(cwd: @root, root: @root, env: {}).config_dir
+      expect(list[:default]).not_to be_nil, label
+      expect(File.join(@root, list[:default])).to eq(expected), label
+    end
+  end
+
   it '環境変数 CORNIX_CONFIG は見ない' do
     mkdir('profiles/a')
     mkdir('config', content: true)

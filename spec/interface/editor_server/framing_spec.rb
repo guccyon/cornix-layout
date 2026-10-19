@@ -35,6 +35,20 @@ RSpec.describe Cornix::Interface::EditorServer::Framing do
     expect(described_class.read(input)).to eq('ok' => true)
   end
 
+  it '本文がオブジェクトでない（null・配列・文字列）ときは InvalidMessage（値を持つ。EOF の nil とは別）' do
+    input = io(frame('null') + frame('[1]') + frame('"s"') + frame('{}'))
+    [nil, [1], 's'].each do |value|
+      expect { described_class.read(input) }.to raise_error(described_class::InvalidMessage) { |e| expect(e.value).to eq(value) }
+    end
+    expect(described_class.read(input)).to eq({})
+  end
+
+  it 'Content-Length が上限を超えれば HeaderError（本文を読もうとしない）' do
+    input = io("Content-Length: #{described_class::MAX_CONTENT_LENGTH + 1}\r\n\r\n{}")
+    expect { described_class.read(input) }.to raise_error(described_class::HeaderError, /上限/)
+    expect { described_class.read(io("Content-Length: 99999999999999\r\n\r\n")) }.to raise_error(described_class::HeaderError, /上限/)
+  end
+
   it 'UTF-8 でない本文は ParseError' do
     input = io("Content-Length: 3\r\n\r\n\"\xFF\"".b)
     expect { described_class.read(input) }.to raise_error(described_class::ParseError, /UTF-8/)

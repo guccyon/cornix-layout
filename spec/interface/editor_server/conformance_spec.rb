@@ -13,9 +13,10 @@ RSpec.describe '約束の適合テスト（spec/fixtures/protocol）' do
           problems = []
           if fixture.response
             problems += outcome.response ? ProtocolFixtures.mismatches(fixture.response, outcome.response) : ['応答がありません']
-          elsif fixture.request.key?('id')
-            problems << 'response を書いてください'
+          elsif outcome.response
+            problems << "応答がないはずが #{outcome.response.inspect}"
           end
+          problems += outcome.extra_responses.map { |m| "ほかの応答があります: #{m.inspect}" }
           problems += ProtocolFixtures.mismatches(fixture.notifications, outcome.notifications, '$notifications') if fixture.notifications
           expect(problems).to be_empty, "#{fixture.path}\n#{problems.join("\n")}\n応答: #{outcome.response.inspect}\nログ: #{outcome.log}"
         end

@@ -8,25 +8,7 @@ require 'tmpdir'
 # 約束の適合テスト（docs/vscode-extension/protocol.md の 8.2）。
 # spec/fixtures/protocol/<メソッド>/<名前>.json の「リクエストと期待する応答」の組を読み、cornix serve と同じ枠で
 # サーバーに流して確かめる。データを足すだけで spec/interface/editor_server/conformance_spec.rb が拾う。
-#
-# データの形（setup の項目はどれも省ける）:
-#   {
-#     "description": "何を確かめるか（省けばファイル名）",
-#     "setup": {
-#       "profile": "test_config",                       # spec/fixtures/<名前> を <ワークスペース>/profiles/default に置き、開いておく（id は "p1"）
-#       "open": false,                                  # profile を開かずに置くだけにする（profile/open 自体を確かめるとき）
-#       "profiles": { "profiles/ipad": "test_config", "config": null },   # ほかの設定ディレクトリ（null なら空のディレクトリ）
-#       "files": { ".cornix.yml": "profile: ipad\n" },  # ワークスペースに書くファイル（ワークスペースからの相対パス）
-#       "initialize": false,                            # initialize / initialized を送らない（既定では先に送る）
-#       "before": [ { "id": "b1", "method": "shutdown" } ]   # request の前に送るメッセージ（応答は確かめない）
-#     },
-#     "request": { "id": 1, "method": "profile/list", "params": {} },   # jsonrpc は省ける。id がなければ通知
-#     "response": { "result": { "default": "profiles/default" } },      # request への応答（通知なら書かない）
-#     "notifications": [ { "method": "profile/didChange", "params": { "profileId": "p1" } } ]   # サーバーからの通知（書けば確かめる）
-#   }
-#
-# 比べ方: Hash は期待に書いた項目だけを比べる（版の文字列など、書かない項目は比べない）。配列は順序と長さごと比べる。
-# ほかの値は == で比べる（null も書けば比べる）
+# データの形（setup・request / raw・response・notifications）と比べ方は protocol.md の 8.2 に書いた（TypeScript 版も同じに読む）
 module ProtocolFixtures
   DIR = File.expand_path('../fixtures/protocol', __dir__)
   FIXTURES = File.expand_path('../fixtures', __dir__)
@@ -36,13 +18,15 @@ module ProtocolFixtures
     def name = path.delete_prefix("#{DIR}/").delete_suffix('.json')
     def description = data['description'] || name
     def setup = data['setup'] || {}
-    def request = data.fetch('request')
+    def request = data['request']
+    def raw = data['raw']
     def response = data['response']
     def notifications = data['notifications']
   end
 
-  # サーバーに流した結果。response は request への応答（なければ nil）、notifications はサーバーからの通知、log は標準エラー出力
-  Outcome = Data.define(:response, :notifications, :log)
+  # サーバーに流した結果。response は request（か raw）への応答（なければ nil）、extra_responses はそのほかの応答（あれば誤り）、
+  # notifications はサーバーからの通知、log は標準エラー出力
+  Outcome = Data.define(:response, :extra_responses, :notifications, :log)
 
   module_function
 
@@ -54,8 +38,13 @@ module ProtocolFixtures
     Dir.mktmpdir('cornix-protocol') do |root|
       prepare(root, fixture.setup)
       workbench = Cornix::Application::Editor::Workbench.new(root: root)
-      messages = [*setup_messages(workbench, fixture.setup), message(fixture.request)]
-      execute(workbench, messages, fixture.request['id'])
+      unless fixture.request.nil? ^ fixture.raw.nil?
+        raise ArgumentError, "#{fixture.path}: request と raw のどちらか一方を書いてください"
+      end
+
+      setup = setup_messages(workbench, fixture.setup)
+      body = fixture.raw || JSON.generate(message(fixture.request))
+      execute(workbench, setup, body, fixture.request&.dig('id'))
     end
   end
 
@@ -81,10 +70,13 @@ module ProtocolFixtures
   end
 
   def prepare(root, setup)
+    profiles = setup['profiles'] || {}
     if setup['profile']
+      raise ArgumentError, "setup.profile と setup.profiles の #{DEFAULT_PROFILE_DIR} が重なっています" if profiles.key?(DEFAULT_PROFILE_DIR)
+
       copy_profile(root, DEFAULT_PROFILE_DIR, setup['profile'])
     end
-    (setup['profiles'] || {}).each { |dir, source| copy_profile(root, dir, source) }
+    profiles.each { |dir, source| copy_profile(root, dir, source) }
     (setup['files'] || {}).each do |rel, text|
       path = File.join(root, rel)
       FileUtils.mkdir_p(File.dirname(path))
@@ -94,6 +86,8 @@ module ProtocolFixtures
 
   def copy_profile(root, dir, source)
     dest = File.join(root, dir)
+    raise ArgumentError, "setup の #{dir} がほかの設定ディレクトリと重なっています" if File.exist?(dest)
+
     FileUtils.mkdir_p(File.dirname(dest))
     if source.nil?
       FileUtils.mkdir_p(dest)
@@ -111,7 +105,7 @@ module ProtocolFixtures
     end
     if setup['profile'] && setup['open'] != false
       # profile/open のハンドラがあればリクエストで開く（知っている版なども作られる）。なければ Workbench で直接開く
-      if Cornix::Interface::EditorServer::Handler.registry.key?('profile/open')
+      if Cornix::Interface::EditorServer::Handler.fetch('profile/open')
         list << message('id' => 'setup:open', 'method' => 'profile/open', 'params' => { 'dir' => DEFAULT_PROFILE_DIR })
       else
         workbench.open(DEFAULT_PROFILE_DIR)
@@ -120,25 +114,35 @@ module ProtocolFixtures
     list + (setup['before'] || []).map { |m| message(m) }
   end
 
-  def message(hash) = { 'jsonrpc' => '2.0' }.merge(hash)
+  # jsonrpc を省いたら "2.0" を足す。"jsonrpc": null と書いたら項目ごと外す（JSON-RPC の形でないメッセージを書くとき）
+  def message(hash)
+    full = { 'jsonrpc' => '2.0' }.merge(hash)
+    full.delete('jsonrpc') if full['jsonrpc'].nil?
+    full
+  end
 
-  def execute(workbench, messages, request_id)
-    input = StringIO.new
-    messages.each { |m| Cornix::Interface::EditorServer::Framing.write(input, m) }
+  def execute(workbench, setup, body, request_id)
+    framing = Cornix::Interface::EditorServer::Framing
+    input = StringIO.new(+'')
+    setup.each { |m| framing.write(input, m) }
+    input.write("Content-Length: #{body.bytesize}\r\n\r\n", body)
     input.rewind
-    output = StringIO.new
+    output = StringIO.new(+'')
     error = StringIO.new
     Cornix::Interface::EditorServer::Server.new(workbench: workbench, input: input, output: output, error: error).run
     output.rewind
     received = []
-    while (m = Cornix::Interface::EditorServer::Framing.read(output))
+    while (m = framing.read(output))
       received << m
     end
-    responses = received.select { |m| m.key?('id') && !m.key?('method') }
+    responses = received.reject { |m| m.key?('method') }
+    setup_ids = setup.filter_map { |m| m['id'] }
     failed = responses.select { |m| m['id'].to_s.start_with?('setup:') && m.key?('error') }
     raise "setup のリクエストが失敗しました: #{failed.inspect}\n#{error.string}" unless failed.empty?
 
-    response = request_id.nil? ? nil : responses.find { |m| m['id'] == request_id }
-    Outcome.new(response: response, notifications: received.select { |m| m.key?('method') }, log: error.string)
+    own = responses.reject { |m| setup_ids.include?(m['id']) }
+    response = request_id.nil? ? own.first : own.find { |m| m['id'] == request_id }
+    Outcome.new(response: response, extra_responses: own - [response], notifications: received.select { |m| m.key?('method') },
+                log: error.string)
   end
 end

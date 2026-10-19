@@ -1,0 +1,5 @@
+{
+  "description": "id だけで method も result / error もないものは -32600（InvalidRequest）",
+  "request": { "id": 4 },
+  "response": { "id": 4, "error": { "code": -32600 } }
+}

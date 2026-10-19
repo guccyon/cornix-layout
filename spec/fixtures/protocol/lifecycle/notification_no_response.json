@@ -1,0 +1,5 @@
+{
+  "description": "通知には応答しない",
+  "request": { "method": "initialized" },
+  "notifications": []
+}

@@ -32,6 +32,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Serve do
       expect(responses[1]['result']).to eq('profiles' => [{ 'dir' => 'profiles/default', 'name' => 'default' }],
                                            'default' => nil)
       expect(responses[2]).to eq('jsonrpc' => '2.0', 'id' => 3, 'result' => nil)
+      expect(framing.read(out)).to be_nil # 標準出力には応答のほか何も書かない
     end
   end
 
@@ -41,6 +42,14 @@ RSpec.describe Cornix::Interface::Cli::Commands::Serve do
     expect(run('serve', '--root', '/nonexistent/cornix', input: StringIO.new, out: out, err: err)).to eq(1)
     expect(out.string).to be_empty
     expect(err.string).to include('--root のディレクトリがありません')
+  end
+
+  it '--config / --profile は使えない（UsageError）' do
+    %w[--config --profile].each do |flag|
+      err = StringIO.new
+      expect(run('serve', flag, 'x', input: StringIO.new, out: StringIO.new, err: err)).to eq(1)
+      expect(err.string).to include('serve では --config / --profile は使えません')
+    end
   end
 
   it 'help に載る' do

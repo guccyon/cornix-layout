@@ -15,7 +15,10 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
     end
   end
 
-  after { %w[test/fail test/boom test/missing test/config test/notify].each { |name| handler::REGISTRY.delete(name) } }
+  after do
+    %w[test/fail test/boom test/missing test/config test/notify test/note test/nan test/bad_utf8 test/emit_nan]
+      .each { |name| handler.unregister(name) }
+  end
 
   let(:workbench) { Cornix::Application::Editor::Workbench.new(root: @root, env_factory: ->(ws) { ws }) }
   let(:error) { StringIO.new }
@@ -93,15 +96,44 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
       expect(server.handle({ 'jsonrpc' => '2.0', 'method' => 1 })).to be_nil
     end
 
-    it '知らないメソッドは -32601、$/ で始まるものは何もしない' do
+    it '知らないメソッドは -32601（$/ で始まるリクエストも）。$/ で始まる通知と知らない通知は何もしない' do
       expect(server.handle(request(1, 'nope'))[:error][:code]).to eq(-32_601)
-      expect(server.handle(request(2, '$/unknown'))).to eq(jsonrpc: '2.0', id: 2, result: nil)
+      expect(server.handle(request(2, '$/unknown'))[:error][:code]).to eq(-32_601)
+      expect(server.handle(notification('$/unknown'))).to be_nil
       expect(server.handle(notification('$/cancelRequest', { 'id' => 1 }))).to be_nil
       expect(server.handle(notification('nope'))).to be_nil
     end
 
-    it '拡張からの応答（method のない id 付きのもの）は読み捨てる' do
+    it 'id が整数でない数なら -32600（id は null）' do
+      expect(server.handle(request(7.5, 'profile/list'))).to include(id: nil, error: include(code: -32_600, message: include('整数')))
+    end
+
+    it '拡張からの応答（result か error を持つもの）は読み捨て、どちらもなければ -32600' do
       expect(server.handle({ 'jsonrpc' => '2.0', 'id' => 1, 'result' => {} })).to be_nil
+      expect(server.handle({ 'jsonrpc' => '2.0', 'id' => 2, 'error' => { 'code' => 1 } })).to be_nil
+      expect(server.handle({ 'jsonrpc' => '2.0', 'id' => 4 })).to include(id: 4, error: include(code: -32_600))
+    end
+
+    it 'リクエストで送るメソッドを通知で送られたら実行せずログに書く（shutdown を通知で送っても止まらない）' do
+      expect(server.handle(notification('shutdown'))).to be_nil
+      expect(error.string).to include('shutdown はリクエストで送るメソッドです')
+      expect(server.handle(request(1, 'profile/list'))).to include(result: { profiles: [], default: nil })
+    end
+
+    it '通知で送るメソッドを id 付きで送られたら -32600 で、実行しない（exit でも終わらない）' do
+      expect(server.handle(request(1, 'initialized'))).to include(id: 1, error: include(code: -32_600))
+      code, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.1' }), request(2, 'exit'),
+                                  request(3, 'shutdown'), notification('exit'))
+      expect(code).to eq(0)
+      expect(received.map { |m| [m['id'], m.key?('error')] }).to eq([[1, false], [2, true], [3, false]])
+    end
+
+    it '本文がオブジェクトでない（null・配列・文字列）ときは -32600 を返して続ける' do
+      raw = %w[null [] "str"].map { |body| "Content-Length: #{body.bytesize}\r\n\r\n#{body}" }.join
+      code, received = run_framed(raw: raw + "Content-Length: 4\r\n\r\nnull")
+      expect(code).to eq(1)
+      expect(received.size).to eq(4)
+      expect(received).to all(include('id' => nil, 'error' => include('code' => -32_600)))
     end
 
     it 'JSON として読めない本文には -32700 を返して続ける' do
@@ -157,8 +189,46 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
     end
 
     it '通知の失敗は応答せず、ログに書く' do
-      expect(server.handle(notification('test/fail'))).to be_nil
-      expect(error.string).to include('通知 test/fail を処理できませんでした')
+      Class.new(handler) do
+        notification 'test/note'
+        def call(_params, _context) = raise(Cornix::Interface::EditorServer::RpcError.new(-32_602, '形が違います'))
+      end
+      expect(server.handle(notification('test/note'))).to be_nil
+      expect(error.string).to include('通知 test/note を処理できませんでした: 形が違います')
+    end
+  end
+
+  describe '応答や通知を JSON にできないとき' do
+    before do
+      Class.new(handler) do
+        rpc 'test/nan'
+        def call(_params, _context) = { value: Float::NAN }
+      end
+      Class.new(handler) do
+        rpc 'test/bad_utf8'
+        def call(_params, _context) = { text: (+"\xFF").force_encoding(Encoding::UTF_8) }
+      end
+      Class.new(handler) do
+        rpc 'test/emit_nan'
+        def call(_params, context)
+          context.notify('test/value', { value: Float::NAN })
+          { ok: true }
+        end
+      end
+    end
+
+    it 'その id で -32603 を返して続け、ログにバックトレースを書く' do
+      code, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.1' }), request(2, 'test/nan'),
+                                  request(3, 'test/bad_utf8'), request(4, 'shutdown'), notification('exit'))
+      expect(code).to eq(0)
+      expect(received.drop(1).map { |m| [m['id'], m.dig('error', 'code')] }).to eq([[2, -32_603], [3, -32_603], [4, nil]])
+      expect(error.string).to include('応答を JSON にできません')
+    end
+
+    it '通知を JSON にできなければログだけに書き、応答は返す' do
+      _, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.1' }), request(2, 'test/emit_nan'))
+      expect(received.drop(1)).to eq([{ 'jsonrpc' => '2.0', 'id' => 2, 'result' => { 'ok' => true } }])
+      expect(error.string).to include('通知 test/value を JSON にできません')
     end
   end
 

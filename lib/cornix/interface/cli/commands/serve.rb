@@ -14,12 +14,16 @@ module Cornix
 
           def run(args)
             parse!(args)
+            if runtime.global_options.key?(:config) || runtime.global_options.key?(:profile)
+              raise UsageError, 'serve では --config / --profile は使えません（ワークスペースのフォルダを --root で指定する）'
+            end
             # LANG が未設定でもファイルを UTF-8 として扱う（stdout は JSON-RPC 専用なので何も表示しない）
             Encoding.default_external = Encoding::UTF_8 unless Encoding.default_external == Encoding::UTF_8
             root = File.expand_path(runtime.global_options[:root] || Dir.pwd)
             raise UsageError, "--root のディレクトリがありません: #{root}" unless File.directory?(root)
 
             workbench = Application::Editor::Workbench.new(root: root)
+            # TODO: ログの出し先を Main.new(err:) に合わせる（Runtime に err を持たせる。今は標準エラー出力に直接書く）
             EditorServer::Server.new(workbench: workbench, input: runtime.input, output: out.io, error: $stderr).run
           end
         end

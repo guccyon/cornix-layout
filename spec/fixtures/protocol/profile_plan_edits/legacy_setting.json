@@ -1,0 +1,55 @@
+{
+  "description": "QSID の番号の形で書いた QMK 設定は、その場所（[\"7\"]）の値を置き換える",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "settings/qmk_settings.yaml": "sha256:1e1b2dea5656828a874f72f334a90a925c227164c1b25c8705096d9cfa8f0762"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "settings/qmk_settings.yaml",
+            "path": [
+              "7"
+            ]
+          },
+          "value": 200
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "settings/qmk_settings.yaml",
+          "baseVersion": "sha256:1e1b2dea5656828a874f72f334a90a925c227164c1b25c8705096d9cfa8f0762",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 3,
+                  "character": 5
+                },
+                "end": {
+                  "line": 3,
+                  "character": 8
+                }
+              },
+              "newText": "200"
+            }
+          ]
+        }
+      ],
+      "diagnostics": []
+    }
+  }
+}

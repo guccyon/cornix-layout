@@ -48,4 +48,17 @@ RSpec.describe Cornix::Application::Editor::ProfileReading do
     expect(reading.document('layers/0_layer_0.yaml')).to be_a(Cornix::Storage::YamlDocument)
     expect(reading.document('shortcuts.yaml')).to be_nil
   end
+
+  it 'with_files は保存前の中身を重ねて読み直し（ディスクは読み直さない）、text は読んだ中身' do
+    reading = described_class.read(env)
+    original = reading.text('layers/0_layer_0.yaml')
+    File.write(path('layers/1_layer_1.yaml'), File.read(path('layers/1_layer_1.yaml')).sub('Layer 1', 'Disk'))
+    draft = reading.with_files('layers/0_layer_0.yaml' => original.sub('Layer 0', 'Draft'),
+                               'settings/qmk_settings.yaml' => "keyboard:\n  tapping_term: 200\n")
+    expect(draft.profile.layers.map(&:name).first(2)).to eq(['Draft', 'Layer 1'])
+    expect(draft.files['layers/0_layer_0.yaml']).to eq(Cornix::Storage::FileVersion.of(original.sub('Layer 0', 'Draft')))
+    expect(draft.text('settings/qmk_settings.yaml')).to eq("keyboard:\n  tapping_term: 200\n")
+    expect(reading.text('layers/0_layer_0.yaml')).to eq(original)
+    expect(reading.text('nope.yaml')).to be_nil
+  end
 end

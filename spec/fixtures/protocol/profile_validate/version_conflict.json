@@ -1,0 +1,41 @@
+{
+  "description": "baseVersions が今のファイルと違えば -32060（data.files に今の版）",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/validate",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/0_layer_0.yaml": "sha256:0000"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "layers/0_layer_0.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "value": "Escape"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32060,
+      "data": {
+        "files": {
+          "layers/0_layer_0.yaml": "sha256:9faa12c6c209ea8cb5e6ec37f158d05bf97a29200c5b2c278601d0e0b204fee0"
+        }
+      }
+    }
+  }
+}

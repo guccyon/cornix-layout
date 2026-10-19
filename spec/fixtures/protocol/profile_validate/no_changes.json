@@ -1,0 +1,19 @@
+{
+  "description": "変更がなければ保存済みの中身の検証の結果（baseVersions と changes は省ける）",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/validate",
+    "params": {
+      "profileId": "p1"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "diagnostics": []
+    }
+  }
+}

@@ -157,6 +157,26 @@ Mapping::KeycodeNotation#shortcut_name(text)          # Shortcut('名前') の�
   Domain に 1 つのキーコードだけを確かめる公開メソッド（`Profile#keycode_diagnostics(keycode, capabilities)` など）を足したら置き換える
   （`spec/application/editor/inspect_spec.rb` がレイヤーのキーに置いたときの結果と比べている）
 
+```ruby
+Application::Editor::PlanEdits.new(workbench).call(id, base_versions:, changes: [PlanEdits::Change(file:, path:, value:)])
+  #=> { files: [{ file:, baseVersion:, create:, edits: }], diagnostics: }   # 失敗は PlanEdits::VersionConflict / InvalidChange / NotLocal
+Application::Editor::ValidateDraft.new(workbench).call(id, base_versions:, changes:) #=> { diagnostics: }
+Application::Editor::PlanEdits::Draft.new(reading, settings_catalog).apply(base_versions, changes)
+  #=> Result(files: [FileEdit], texts: { file => 当てたあとの中身 }, reading: 当てたあとの中身で読み直した ProfileReading)
+Application::Editor::PlanEdits::Targets.new(reading, settings_catalog).fetch(file, path)   # profile/open に出てくる Address だけ
+Application::Editor::Saved.new(workbench).call(id, files:) #=> Result(snapshot:, changed:)（changed が空でなければ profile/didChange）
+Application::Editor::FileChanges.new(workbench).call(paths) #=> [{ profileId:, files:, snapshot: }]（profile/didChange の params）
+Application::Editor::ProfileReading#text(rel) / #with_files({ rel => text })   # H で足した（保存前の中身を重ねて読み直す）
+```
+
+- H で決めたこと（protocol.md の 5.6・6.1・6.4・7 の「決めたこと」に書いた）: `baseVersions` はいまのディスクの版と比べる、
+  変更のあるファイルはすべて `baseVersions` に要る、確かめる順は -32060 → -32602 → -32061、`profile/validate` も書き換えられない変更は -32061、
+  `files` は書き換えのあるファイルだけ、`profile/didChange` は `profile/saved` の応答の前に届く、`workspace/didChangeFiles` は知らせに入っていない設定ファイルの違いも入れる
+- 書き換えたあとの compile の結果が手で直したときと同じことは `spec/application/editor/plan_edits_compile_spec.rb`（authors_config の写し）が確かめる
+- I への申し送り: 偽のサーバーは `spec/fixtures/protocol/` の `profile_validate` `profile_plan_edits` `profile_saved` `workspace_did_change_files` を流せる。
+  外で変わったときに `profile/didChange` を送る場合は、適合テストのデータに途中でファイルを書き換える手順がないので入っていない
+  （`setup.before` にファイルを書く手順を足すなら protocol.md の 8.2 と `spec/support/protocol_fixtures.rb` を変える相談が要る）
+
 ### I. 拡張の保存と外での変更（`vscode/extension-save`、roadmap の 9）
 
 dirty と Ctrl+S（protocol.md の 6.2）、外での変更の扱い（7.3）、QMK 設定とメタデータの表示。

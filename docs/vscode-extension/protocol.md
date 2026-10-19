@@ -461,6 +461,22 @@ type CandidateCategory =
 - `range` は変更を当てたあとの中身での位置（保存すればそのまま波線に使える）
 - `baseVersions` が今のファイルと違えば `-32060`（版の食い違い）
 
+決めたこと（実装して決めた細部。[6.1](#61-profileplanedits) も同じ）:
+
+- `baseVersions` と `changes` は省ける（`{}` と `[]`）。変更がなければ保存済みの中身の検証の結果（`profile/open` の `diagnostics` と同じ）を返す
+- `baseVersions` は、サーバーがいま読んだディスクの版と比べる（`profile/open` で覚えた「知っている版」ではない）。
+  値は版の文字列か `null`（ファイルがない）で、それ以外は `-32602`（`data: { "field": "baseVersions.<file>" }`）。
+  設定ファイルでないファイルの今の版は `null` として比べる
+- 変更のあるファイルはすべて `baseVersions` に入れる（まだない `settings/qmk_settings.yaml` は `null`）。なければ `-32602`（`data: { "field": "baseVersions" }`）
+- 確かめる順: 版の食い違い（`-32060`）→ Change の形と宛先（`-32602`）→ 書き換え（`-32061`）。
+  `-32060` の `data.files` は食い違ったファイルだけの今の版（ないファイルは `null`）
+- Change の宛先は `profile/open` の結果に出てくる Address だけ（レイヤーの `keys` と `encoders` の `address`、`settings` の `address`）。
+  それ以外は `-32602`（`data: { "field": "changes[i].address" }`）。`status: "invalid"` のプロファイルには宛先がない
+- 値の型: キーは文字列。QMK 設定は `data/qmk_settings.yaml` の型に直し、整数の設定は整数、真偽値の設定は `true` / `false`（`0` / `1` も受け付ける）。
+  合わなければ `-32602`（`data: { "field": "changes[i].value" }`）。整数の範囲（幅）はここでは見ず、超えれば構造の error の Diagnostic になる
+- 同じ Address が何度も出てきたら、並びの順に当てる（最後の値になる）
+- 値の部分だけでは書き換えられない Change は、`profile/planEdits` と同じく `-32061`（保存できない変更だと早く分かるように）
+
 ## 6. 保存
 
 ### 6.1 `profile/planEdits`
@@ -487,6 +503,17 @@ type CandidateCategory =
 ```
 
 `baseVersions` が今のファイルと違えば `-32060`、値の部分だけでは書き換えられなければ `-32061`。
+
+- params の決まりと確かめる順は [5.6](#56-profilevalidate) と同じ
+- `files` は書き換えのあるファイルだけで、`changes` に初めて出てきた順。値が今と同じ Change だけのファイルは入れない（全部同じなら `files: []`）
+- `baseVersion` はそのファイルの今の版（`create: true` なら `null`）
+- `edits` の範囲はすべて今のファイル（`baseVersion` の中身）での位置で、重ならない。拡張はファイルごとにすべてを 1 つの `WorkspaceEdit` で当てる。
+  同じファイルへの変更が 2 つ以上なら、サーバーは 1 つずつ当てて読み直し、元の中身との行の差分にまとめる。
+  そのため隣り合う行の変更は複数行にまたがる 1 つの書き換えになることがある（変わる文字は値の部分だけ）
+- `create: true` のときの `edits` は、空のファイルの先頭（0 行 0 列）に中身をすべて入れる 1 つの書き換え。拡張はファイルを作ってから当てる
+- 真偽値の QMK 設定は、ファイルが `0` / `1` で書いていれば `0` / `1` で書く（`true` と `1` は同じ値として、書き換えを作らない）
+- `-32061` の `data.address` はその Change の Address、`message` は「値の部分だけでは書き換えられません（理由）: 道筋。テキストで直してください」。
+  アンカーとエイリアスは今の読み込みが構造の問題にする（プロファイルが `invalid` になり宛先がない）ので、`"anchor"` は v0.1 では返らない
 
 ### 6.2 保存の流れ
 
@@ -527,6 +554,12 @@ type CandidateCategory =
 読み直した中身の版が知らされた版と違えば（保存の直後にさらに外で変わったとき）、読み直した版を知っている版にし、`profile/didChange` を送る。
 拡張は返された snapshot で描き直し、未保存の変更を空にする（以降の `baseVersions` は snapshot の `files` から取る）。
 
+- `files` は要る（`{ file: 版 | null }`。なければ `-32602`、値が文字列でも `null` でもなければ `data: { "field": "files.<file>" }`）。
+  設定ファイルでないもの（知っている版にも読み直した版にもないファイル）は見ない
+- サーバーは設定ディレクトリ全体を読み直す。「知っている版に知らされた版を重ねたもの」と読み直した版を比べ、違うファイルがあれば
+  `profile/didChange` を送る（保存の直後にさらに外で変わったファイルと、知らされていないファイルの外での変更。消えたファイルは `null`）
+- `profile/didChange` は `profile/saved` の応答の**前に**届く。その `snapshot` は応答の result と同じもの（拡張は応答の snapshot で描けばよい）
+
 ## 7. 外での変更
 
 ### 7.1 `workspace/didChangeFiles`（拡張 → サーバー、通知）
@@ -550,6 +583,18 @@ type CandidateCategory =
   "snapshot": { /* ProfileSnapshot（profile/open の result と同じ形） */ }
 }
 ```
+
+決めたこと（7.1・7.2）:
+
+- `path` はワークスペースのフォルダからの相対パスか絶対パス。開いているプロファイルの設定ディレクトリ（そのものか、その中）を指すものだけを見る。
+  ディレクトリを指してもよい（`layers/` ごと消えたときなど）。`type` は見ない（どれでも読み直して比べる）
+- 見るプロファイルごとに設定ファイルの版を読み、知っている版と違うときだけ読み直して `profile/didChange` を送る。
+  `files` は知っている版と違う設定ファイルすべて（知らせの `path` に入っていないものも。足されたファイルは新しい版、消えたファイルは `null`）。
+  送ったときの版が新しい知っている版になる（同じ知らせをもう一度受けても送らない）。設定ファイルでないファイルの変更は知らせない
+- 同じ設定ディレクトリを 2 つの `profileId` で開いていれば、それぞれに送る
+- params の形が違えば何もしない（通知なのでログに書くだけ。`type` は `"created"` `"changed"` `"deleted"` のどれか）
+- 適合テスト（[8.2](#82-適合テスト)）のデータは、途中でファイルを書き換える手順を持たないので、送らない場合だけを書いている。
+  送る場合は `spec/interface/editor_server/handlers/write_handlers_spec.rb` で確かめる
 
 ### 7.3 拡張の扱い
 

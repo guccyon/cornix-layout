@@ -29,7 +29,11 @@ export type ConnectOptions = {
   trace?: TraceLevel;
   /** やりとりの記録（trace が off 以外のとき）を書く先 */
   log?: (line: string) => void;
+  /** initialize の応答を待つ上限（ミリ秒）。既定は 10 秒 */
+  initializeTimeoutMs?: number;
 };
+
+const DEFAULT_INITIALIZE_TIMEOUT_MS = 10_000;
 
 export type Disposable = { dispose(): void };
 
@@ -74,10 +78,15 @@ export class CornixConnection {
 
     let result: InitializeResult;
     try {
-      result = await connection.sendRequest<InitializeResult>('initialize', {
-        protocolVersion: PROTOCOL_VERSION,
-        clientInfo: { name: options.clientName, version: options.clientVersion },
-      } satisfies RequestMap['initialize']['params']);
+      const timeoutMs = options.initializeTimeoutMs ?? DEFAULT_INITIALIZE_TIMEOUT_MS;
+      result = await withTimeout(
+        connection.sendRequest<InitializeResult>('initialize', {
+          protocolVersion: PROTOCOL_VERSION,
+          clientInfo: { name: options.clientName, version: options.clientVersion },
+        } satisfies RequestMap['initialize']['params']),
+        timeoutMs,
+        `initialize に応答がありません（${timeoutMs / 1000} 秒待ちました）`,
+      );
     } catch (error) {
       connection.dispose();
       if (error instanceof ResponseError && error.code === ErrorCodes.ProtocolVersionMismatch) {
@@ -119,7 +128,7 @@ export class CornixConnection {
   /** shutdown のあと exit を送る。待ち切れなければあきらめる（プロセスを止めるのは呼ぶ側） */
   async shutdown(timeoutMs = 2000): Promise<void> {
     try {
-      await withTimeout(this.request('shutdown', undefined), timeoutMs);
+      await withTimeout(this.request('shutdown', undefined), timeoutMs, 'shutdown に応答がありません');
       await this.notify('exit', undefined);
     } catch {
       // サーバーがもう止まっている・応えないときは何もしない
@@ -133,9 +142,9 @@ export class CornixConnection {
   }
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    const timer = setTimeout(() => reject(new Error(message)), ms);
     promise.then(
       (value) => {
         clearTimeout(timer);

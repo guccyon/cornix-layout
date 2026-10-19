@@ -171,7 +171,8 @@ export type EncoderBinding = {
 export type LayerSnapshot = {
   index: number;
   name: string;
-  description: string;
+  /** レイヤーの説明。書いていなければ null（Domain::Layer の既定は nil） */
+  description: string | null;
   /** 設定ディレクトリからの相対パス */
   file: string;
   keys: LayerKey[];

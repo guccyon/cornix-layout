@@ -1,23 +1,14 @@
 name: VS Code 拡張
 
 # editors/vscode/ の型検査・ビルド・単体テスト（vitest）・統合テスト（@vscode/test-electron）。
-# 拡張が読む data/ と、Ruby と共通の約束のテストのデータ（spec/fixtures/protocol/・candidates/）が変わったときも動かす。
+# rspec.yml と同じく、ワークフローはいつも動かしてチェック（node）を必ず報告し、関係するファイルが変わっていなければ手順を飛ばして成功で終える
+# （必須のチェックにしても、拡張に関係しない PR が待ちにならないように）。
+# 関係するファイル: editors/vscode/、拡張が読む data/、Ruby と共通の約束のテストのデータ（spec/fixtures/protocol/・candidates/）と、
+# そのデータが setup で写す spec/fixtures/ の設定、このファイル。main への push では毎回動かす。
 on:
   push:
     branches: [main]
-    paths:
-      - 'editors/vscode/**'
-      - 'data/**'
-      - 'spec/fixtures/protocol/**'
-      - 'spec/fixtures/candidates/**'
-      - '.github/workflows/vscode.yml'
   pull_request:
-    paths:
-      - 'editors/vscode/**'
-      - 'data/**'
-      - 'spec/fixtures/protocol/**'
-      - 'spec/fixtures/candidates/**'
-      - '.github/workflows/vscode.yml'
 
 permissions:
   contents: read
@@ -32,17 +23,55 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 変わったパスを見る
+        id: changes
+        working-directory: .
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "${{ github.event_name }}" != pull_request ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "origin/$BASE_REF...HEAD")
+          printf '%s\n' "$files"
+          if printf '%s\n' "$files" | grep -qE '^(editors/vscode/|data/|spec/fixtures/|\.github/workflows/vscode\.yml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "拡張に関係する変更がないので飛ばします"
+          fi
       - uses: actions/setup-node@v4
+        if: steps.changes.outputs.run == 'true'
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: editors/vscode/package-lock.json
-      - run: npm ci
+      - if: steps.changes.outputs.run == 'true'
+        run: npm ci
       - name: 型検査
+        if: steps.changes.outputs.run == 'true'
         run: npm run typecheck
       - name: ビルド
+        if: steps.changes.outputs.run == 'true'
         run: npm run build
       - name: 単体テスト
+        if: steps.changes.outputs.run == 'true'
         run: npm test
-      - name: 統合テスト
+      - name: VS Code をとっておく
+        if: steps.changes.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: editors/vscode/.vscode-test
+          key: vscode-test-${{ runner.os }}-${{ hashFiles('editors/vscode/package-lock.json') }}
+          restore-keys: vscode-test-${{ runner.os }}-
+      # engines.vscode の最小版（1.120.0）と、いまの stable の両方で動かす
+      - name: 統合テスト（VS Code 1.120.0）
+        if: steps.changes.outputs.run == 'true'
+        env:
+          VSCODE_TEST_VERSION: 1.120.0
+        run: xvfb-run -a npm run test:integration
+      - name: 統合テスト（VS Code stable）
+        if: steps.changes.outputs.run == 'true'
         run: xvfb-run -a npm run test:integration

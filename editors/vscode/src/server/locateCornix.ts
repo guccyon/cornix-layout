@@ -24,40 +24,47 @@ export type LocateOptions = {
   envPath: string | undefined;
   /** 実行できるファイルか（テストで差し替える） */
   isExecutable?: (file: string) => boolean;
-  platform?: NodeJS.Platform;
 };
 
 export function locateCornix(options: LocateOptions): LocateResult {
   const isExecutable = options.isExecutable ?? defaultIsExecutable;
-  const platform = options.platform ?? process.platform;
   const configured = options.configured?.trim();
 
   if (configured) {
+    // 名前だけ（パスの区切りがない。cornix など）なら PATH から探す。パスならワークスペースのフォルダから
+    if (!/[\\/]/.test(configured) && configured !== '~') {
+      const command = searchPath(configured, options.envPath, isExecutable);
+      if (command) return { found: true, location: { command, source: 'setting' } };
+      return { found: false, message: `設定 cornix.path の「${configured}」が PATH に見つかりません。` };
+    }
     const command = resolveConfigured(configured, options.workspaceRoot);
     if (isExecutable(command)) return { found: true, location: { command, source: 'setting' } };
     return {
       found: false,
-      message: `設定 cornix.path の「${configured}」が見つからないか、実行できません。`,
+      message: `設定 cornix.path の「${configured}」（${command}）が見つからないか、実行できません。`,
     };
   }
 
   const workspaceBin = path.join(options.workspaceRoot, 'bin', 'cornix');
   if (isExecutable(workspaceBin)) return { found: true, location: { command: workspaceBin, source: 'workspace' } };
 
-  const names = platform === 'win32' ? ['cornix.bat', 'cornix.cmd', 'cornix.exe', 'cornix'] : ['cornix'];
-  const separator = platform === 'win32' ? ';' : ':';
-  for (const dir of (options.envPath ?? '').split(separator)) {
-    if (!dir) continue;
-    for (const name of names) {
-      const command = path.join(dir, name);
-      if (isExecutable(command)) return { found: true, location: { command, source: 'path' } };
-    }
-  }
+  const command = searchPath('cornix', options.envPath, isExecutable);
+  if (command) return { found: true, location: { command, source: 'path' } };
 
   return {
     found: false,
     message: 'cornix が見つかりません。ワークスペースに bin/cornix がなく、PATH にもありません。設定 cornix.path で場所を指定してください。',
   };
+}
+
+// Windows には対応しない（対象は母艦の Mac。.bat / .cmd は spawn に shell: true が要る）
+function searchPath(name: string, envPath: string | undefined, isExecutable: (file: string) => boolean): string | undefined {
+  for (const dir of (envPath ?? '').split(path.delimiter)) {
+    if (!dir) continue;
+    const command = path.join(dir, name);
+    if (isExecutable(command)) return command;
+  }
+  return undefined;
 }
 
 function resolveConfigured(configured: string, workspaceRoot: string): string {

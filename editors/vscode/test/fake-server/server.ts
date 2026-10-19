@@ -17,6 +17,7 @@ import {
   type DraftParams,
   type FileEdits,
   type FileVersion,
+  type ProfileListResult,
   type ProfileSnapshot,
   type TextEdit,
 } from '../../src/protocol';
@@ -31,7 +32,14 @@ export type FakeServerOptions = {
   log?: (line: string) => void;
   /** exit の通知・exitOn で呼ぶ */
   onExit?: (code: number) => void;
+  /** 受け付ける約束の版（既定は拡張と同じ版だけ）。版の食い違いを試すときに差し替える */
+  supportedVersions?: string[];
+  /** initialize の result に入れる版（既定は受け付けた版）。違う版を返すサーバーを試すとき */
+  respondVersion?: string;
 };
+
+/** 通知で送るメソッド（id 付きで来たら -32600） */
+const NOTIFICATION_METHODS = new Set(['initialized', 'exit', 'profile/close', 'workspace/didChangeFiles', '$/cancelRequest']);
 
 type Message = {
   jsonrpc?: string;
@@ -68,7 +76,7 @@ export function writeMessage(output: Writable, message: Message): void {
   output.write(Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, 'ascii'), body]));
 }
 
-export function readMessages(input: Readable, onMessage: (message: Message) => void, onError: (error: Error) => void): void {
+export function readMessages(input: Readable, onMessage: (message: unknown) => void, onError: (error: Error) => void): void {
   let buffer = Buffer.alloc(0);
   input.on('data', (chunk: Buffer) => {
     buffer = Buffer.concat([buffer, chunk]);
@@ -87,9 +95,9 @@ export function readMessages(input: Readable, onMessage: (message: Message) => v
       if (buffer.length < start + length) return;
       const body = buffer.subarray(start, start + length).toString('utf-8');
       buffer = buffer.subarray(start + length);
-      let message: Message;
+      let message: unknown;
       try {
-        message = JSON.parse(body) as Message;
+        message = JSON.parse(body) as unknown;
       } catch {
         onError(new Error('JSON として読めません'));
         continue;
@@ -113,10 +121,23 @@ class FakeServer {
     private readonly send: (message: Message) => void,
   ) {}
 
-  handle(message: Message): void {
-    const { id, method } = message;
+  /** protocol.md の 1.・4.・9. と、spec/fixtures/protocol/lifecycle の Ruby のサーバーの振る舞いに合わせる */
+  handle(raw: unknown): void {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+      this.error(null, ErrorCodes.InvalidRequest, 'JSON-RPC の形ではありません（オブジェクトでない・バッチ）');
+      return;
+    }
+    const message = raw as Message;
+    const hasId = 'id' in message;
+    const id = message.id ?? null;
+    const { method } = message;
+    if (message.jsonrpc !== '2.0') {
+      if (hasId) this.error(id, ErrorCodes.InvalidRequest, 'jsonrpc: "2.0" がありません');
+      return;
+    }
     if (typeof method !== 'string') {
-      if (id !== undefined) this.send({ jsonrpc: '2.0', id: id ?? null, error: { code: ErrorCodes.InvalidRequest, message: 'JSON-RPC の形ではありません' } });
+      // 拡張からの応答（result か error がある）は使わない。それ以外は形の誤り
+      if (!('result' in message) && !('error' in message)) this.error(id, ErrorCodes.InvalidRequest, 'method がありません');
       return;
     }
     this.log(`← ${method}`);
@@ -125,21 +146,31 @@ class FakeServer {
       this.options.onExit?.(3);
       return;
     }
-    const isRequest = id !== undefined && id !== null;
-    if (!isRequest) {
-      this.notification(method, message.params);
+    if (!hasId) {
+      // リクエストで送るメソッドを通知で送っても実行しない
+      if (NOTIFICATION_METHODS.has(method)) this.notification(method, message.params);
+      return;
+    }
+    if (NOTIFICATION_METHODS.has(method)) {
+      this.error(id, ErrorCodes.InvalidRequest, `${method} は通知で送るメソッドです`);
+      return;
+    }
+    const { params } = message;
+    if (params !== undefined && (params === null || typeof params !== 'object' || Array.isArray(params))) {
+      this.error(id, ErrorCodes.InvalidParams, 'params がオブジェクトではありません');
       return;
     }
     try {
-      const result = this.request(method, message.params);
+      const result = this.request(method, params ?? {});
       this.send({ jsonrpc: '2.0', id, result });
     } catch (error) {
-      if (error instanceof RpcError) {
-        this.send({ jsonrpc: '2.0', id, error: { code: error.code, message: error.message, ...(error.data === undefined ? {} : { data: error.data }) } });
-      } else {
-        this.send({ jsonrpc: '2.0', id, error: { code: ErrorCodes.InternalError, message: String(error) } });
-      }
+      if (error instanceof RpcError) this.error(id, error.code, error.message, error.data);
+      else this.error(id, ErrorCodes.InternalError, String(error));
     }
+  }
+
+  private error(id: Message['id'], code: number, message: string, data?: unknown): void {
+    this.send({ jsonrpc: '2.0', id: id ?? null, error: { code, message, ...(data === undefined ? {} : { data }) } });
   }
 
   private notification(method: string, params: unknown): void {
@@ -163,7 +194,10 @@ class FakeServer {
 
   private request(method: string, params: unknown): unknown {
     if (this.state === 'shutdown') throw new RpcError(ErrorCodes.InvalidRequest, 'shutdown のあとのリクエストです');
-    if (method === 'initialize') return this.initialize(params as { protocolVersion?: string });
+    if (method === 'initialize') {
+      if (this.state !== 'new') throw new RpcError(ErrorCodes.InvalidRequest, 'initialize は 1 回だけです');
+      return this.initialize(params as { protocolVersion?: unknown });
+    }
     if (this.state !== 'initialized') throw new RpcError(ErrorCodes.ServerNotInitialized, 'initialize の前のリクエストです');
 
     switch (method) {
@@ -171,11 +205,13 @@ class FakeServer {
         this.state = 'shutdown';
         return null;
       case 'profile/list':
-        return data.PROFILE_LIST;
+        return this.listProfiles();
       case 'profile/open': {
         const dir = (params as { dir?: unknown } | undefined)?.dir;
         if (typeof dir !== 'string') throw new RpcError(ErrorCodes.InvalidParams, 'dir がありません', { field: 'dir' });
-        const summary = data.PROFILE_LIST.profiles.find((profile) => profile.dir === dir);
+        const summary =
+          this.listProfiles().profiles.find((profile) => profile.dir === dir) ??
+          (hasEntries(path.resolve(this.options.root, dir)) ? { dir, name: path.basename(dir) } : undefined);
         if (!summary) throw new RpcError(ErrorCodes.ProfileNotFound, `プロファイル ${dir} が見つかりません`, { dir });
         const profileId = `p${this.nextProfile++}`;
         this.profiles.set(profileId, summary);
@@ -218,18 +254,44 @@ class FakeServer {
     }
   }
 
-  private initialize(params: { protocolVersion?: string }) {
-    if (params?.protocolVersion !== PROTOCOL_VERSION) {
-      throw new RpcError(ErrorCodes.ProtocolVersionMismatch, `約束の版 ${String(params?.protocolVersion)} には対応していません`, {
-        supported: [PROTOCOL_VERSION],
-      });
+  private initialize(params: { protocolVersion?: unknown }) {
+    if (typeof params.protocolVersion !== 'string') {
+      throw new RpcError(ErrorCodes.InvalidParams, 'protocolVersion がありません', { field: 'protocolVersion' });
+    }
+    const supported = this.options.supportedVersions ?? [PROTOCOL_VERSION];
+    if (!supported.includes(params.protocolVersion)) {
+      throw new RpcError(ErrorCodes.ProtocolVersionMismatch, `約束の版 ${params.protocolVersion} には対応していません`, { supported });
     }
     this.state = 'initialized';
     return {
-      protocolVersion: PROTOCOL_VERSION,
+      protocolVersion: this.options.respondVersion ?? params.protocolVersion,
       serverInfo: { name: 'cornix', version: data.SERVER_VERSION, implementation: 'fake' },
       capabilities: { semanticValidation: true, keycodeCode: true },
     };
+  }
+
+  /**
+   * ワークスペースのプロファイルの一覧（protocol.md の 5.1）。Ruby の ListProfiles と同じ順と既定を素朴にまねる:
+   * profiles/ の下を名前の順 → .cornix.yml の config: が指すディレクトリ → 中身のある config/。
+   * 既定は .cornix.yml の profile: / config:、なければ config。そのディレクトリに中身がなければ null
+   */
+  private listProfiles(): ProfileListResult {
+    const root = this.options.root;
+    const profiles: ProfileListResult['profiles'] = [];
+    const add = (dir: string) => {
+      if (!profiles.some((profile) => profile.dir === dir)) profiles.push({ dir, name: path.basename(dir) });
+    };
+    const profilesDir = path.join(root, 'profiles');
+    if (fs.existsSync(profilesDir)) {
+      for (const entry of fs.readdirSync(profilesDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort()) {
+        add(`profiles/${entry}`);
+      }
+    }
+    const settings = readCornixYml(root);
+    if (settings.config && hasEntries(path.resolve(root, settings.config))) add(settings.config);
+    if (hasEntries(path.join(root, 'config'))) add('config');
+    const preferred = settings.profile ? `profiles/${settings.profile}` : (settings.config ?? 'config');
+    return { profiles, default: hasEntries(path.resolve(root, preferred)) ? preferred : null };
   }
 
   private profile(profileId: string | undefined): { dir: string; name: string } {
@@ -381,7 +443,7 @@ class FakeServer {
       for (const change of params.changes ?? []) {
         const full = path.resolve(this.options.root, change.path);
         const rel = path.relative(base, full);
-        if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
+        if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) continue;
         files[rel.split(path.sep).join('/')] = fs.existsSync(full) ? versionOf(fs.readFileSync(full)) : null;
       }
       if (Object.keys(files).length === 0) continue;
@@ -392,6 +454,26 @@ class FakeServer {
   private log(line: string): void {
     this.options.log?.(`[fake-cornix] ${line}`);
   }
+}
+
+function hasEntries(dir: string): boolean {
+  try {
+    return fs.statSync(dir).isDirectory() && fs.readdirSync(dir).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** .cornix.yml の `config:` と `profile:` だけを読む（1 行 1 項目の素朴な読み方） */
+function readCornixYml(root: string): { config?: string; profile?: string } {
+  const file = path.join(root, '.cornix.yml');
+  if (!fs.existsSync(file)) return {};
+  const result: { config?: string; profile?: string } = {};
+  for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
+    const match = /^(config|profile):\s*["']?([^"'#]+?)["']?\s*(#.*)?$/.exec(line);
+    if (match?.[1] && match[2]) result[match[1] as 'config' | 'profile'] = match[2];
+  }
+  return result;
 }
 
 function unreadable(text: string): Diagnostic {

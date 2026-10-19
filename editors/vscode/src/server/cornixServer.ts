@@ -55,6 +55,11 @@ export class CornixServer implements vscode.Disposable {
     return this.running !== undefined;
   }
 
+  /** 動いているか、起動の途中（設定が変わったときに起動し直すかどうかに使う） */
+  get isStartingOrRunning(): boolean {
+    return this.running !== undefined || this.starting !== undefined;
+  }
+
   async request<M extends RequestMethod>(method: M, params: RequestMap[M]['params']): Promise<RequestMap[M]['result']> {
     const { connection } = await this.ensureStarted();
     return connection.request(method, params);
@@ -87,8 +92,10 @@ export class CornixServer implements vscode.Disposable {
     if (!running) return;
     this.log('サーバーを止めます');
     running.process.removeAllListeners('exit');
+    const exited = waitForExit(running.process, EXIT_GRACE_MS);
     await running.connection.shutdown();
-    if (running.process.exitCode === null) running.process.kill();
+    // exit を受けたサーバーが自分で終わるのを少し待ち（終わりぎわのログを出力パネルに残すため）、終わらなければ止める
+    if (!(await exited)) running.process.kill();
     this.onDidStopEmitter.fire();
   }
 
@@ -203,6 +210,21 @@ export class CornixServer implements vscode.Disposable {
   private log(message: string): void {
     this.output.appendLine(`[拡張] ${message}`);
   }
+}
+
+/** shutdown / exit を送ってからプロセスが終わるのを待つ時間 */
+const EXIT_GRACE_MS = 1000;
+
+/** プロセスが終われば true、ms のうちに終わらなければ false */
+function waitForExit(child: ChildProcess, ms: number): Promise<boolean> {
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), ms);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
 }
 
 function exitText(code: number | null, signal: NodeJS.Signals | null): string {

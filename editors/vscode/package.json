@@ -33,7 +33,7 @@
         "cornix.path": {
           "type": "string",
           "default": "",
-          "markdownDescription": "`cornix` コマンドの場所。空ならワークスペースの `bin/cornix`、なければ `PATH` の `cornix` を使う。相対パスはワークスペースのフォルダから。"
+          "markdownDescription": "`cornix` コマンドの場所。空ならワークスペースの `bin/cornix`、なければ `PATH` の `cornix` を使う。名前だけ（`cornix` など）なら `PATH` から探し、相対パス（`tools/cornix` など）はワークスペースのフォルダから。変えると、動いているサーバーは起動し直す。"
         },
         "cornix.trace.server": {
           "type": "string",
@@ -134,7 +134,7 @@
     "vscode-jsonrpc": "9.0.3"
   },
   "devDependencies": {
-    "@types/node": "24.19.2",
+    "@types/node": "22.20.4",
     "@types/vscode": "1.120.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",

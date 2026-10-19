@@ -9,7 +9,7 @@ cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 
 ## 必要なもの
 
 - Node.js 24 以上と npm（CI は Node 24）
-- VS Code 1.120 以上
+- VS Code 1.120 以上（CI は 1.120.0 と stable の両方で統合テストを動かす）。ワークスペースはフォルダを 1 つだけ開いたもの（マルチルートでは最初のフォルダを `--root` にする。v0.1 では対象外）
 - 本物のサーバーで動かすときは、このリポジトリの Ruby の環境（`bundle install` 済み）。サーバーがなくても、テスト用の偽のサーバーで画面の作業ができる
 
 ## 開発の手順
@@ -21,7 +21,7 @@ npm run build             # out/ にビルド（拡張・Webview・偽のサー�
 npm run watch             # 変わるたびにビルド
 npm run typecheck         # 型検査（tsc --noEmit）
 npm test                  # 単体テスト（vitest。VS Code なしで動く）
-npm run test:integration  # 統合テスト（VS Code をダウンロードして .vscode-test/ に置き、その中で動かす）
+npm run test:integration  # 統合テスト（VS Code をダウンロードして .vscode-test/ に置き、その中で動かす。VSCODE_TEST_VERSION=1.120.0 で版を選べる）
 npm run package           # .vsix を作る（自分用。code --install-extension cornix-vscode-0.1.0.vsix で入れる）
 ```
 
@@ -38,7 +38,7 @@ npm run package           # .vsix を作る（自分用。code --install-extensi
 
 | 設定 | 既定 | 中身 |
 |---|---|---|
-| `cornix.path` | 空 | `cornix` の場所。空ならワークスペースの `bin/cornix`、なければ `PATH`。相対パスはワークスペースのフォルダから。見つからなければ設定を開くボタン付きで知らせる |
+| `cornix.path` | 空 | `cornix` の場所。空ならワークスペースの `bin/cornix`、なければ `PATH`。名前だけ（`cornix`）なら `PATH` から、相対パスはワークスペースのフォルダから。見つからなければ設定を開くボタン付きで知らせる。変えると起動し直す |
 | `cornix.trace.server` | `off` | `messages` / `verbose` にすると、サーバーとのやりとりを出力パネル「Cornix」に書く |
 
 ワークスペースのコマンドを実行するので、信頼したワークスペースでだけ動く（Restricted Mode では無効）。
@@ -49,6 +49,8 @@ npm run package           # .vsix を作る（自分用。code --install-extensi
 `cornix serve` と同じ枠（`Content-Length`）と約束で返す Node のプログラム。Ruby のサーバーができる前に画面の作業を進めるのと、統合テストに使う。
 
 - 起動: `test/fake-server/cornix serve --root <ワークスペース>`（先に `npm run build`）。設定 `cornix.path` にこのファイルを指定すると拡張がつなぐ
+- ライフサイクルとエラーは Ruby のサーバーに合わせてあり、vitest が `spec/fixtures/protocol/` の `lifecycle` と `profile_list` を偽のサーバーにも流して確かめる（`test/unit/protocolFixtures.test.ts`）
+- `profile/list` はワークスペースの `profiles/`・`.cornix.yml`・`config/` を見て返す（Ruby と同じ並びと既定）。それ以外の中身（`profile/open` の snapshot など）は固定のデータ
 - すべてのメソッドに答える。`profile/planEdits` はディスクのファイルの行を素朴にたどるだけ（ブロック形式の `キー: 値`）で、Ruby の書き換えの代わりではない
 - `workspace/didChangeFiles` で開いているプロファイルのファイルが来れば `profile/didChange` を返す
 - わざと崩す: `CORNIX_FAKE_SCENARIO=invalid`（構造検証で読めないプロファイル）、`CORNIX_FAKE_EXIT_ON=<メソッド>`（そのリクエストで落ちる。再起動の確認用）
@@ -80,13 +82,13 @@ editors/vscode/
   test/
     unit/                 単体テスト（vitest）
     fake-server/          偽のサーバー
-    integration/          統合テスト（@vscode/test-electron）と、そのワークスペース
+    integration/          統合テスト（@vscode/test-electron）と、そのワークスペース（テストのときは一時ディレクトリに写して使う）
 ```
 
 ## 作りのメモ
 
 - 編集画面はカスタムエディタ（ADR 015）。プロファイルを `cornix-profile:` の仮想ドキュメントに見立てるので、タブの題はプロファイルの名前になり、
   dirty の印・閉じるときの確認・ホットエグジットは VS Code が面倒をみる。画面の変更は `ProfileDocument#applyChange` に渡すと
-  VS Code の編集の履歴に載り、元に戻す・やり直し（Webview にフォーカスがあるときの Ctrl+Z）も効く
+  VS Code の編集の履歴に載り、元に戻す・やり直し（Webview にフォーカスがあるときの Ctrl+Z）も効く。保存・外での変更・ホットエグジットの残りは段 3（[tasks.md](../../docs/vscode-extension/tasks.md) の「I」の申し送り）
 - サーバーは最初のリクエストのときに起動する。落ちたら「再起動」のボタンを出し、再起動したら開いていたプロファイルは `profile/open` からやり直す
 - 単体テストは vscode に依存しないもの（`locateCornix`・`connection`・`pendingChanges` など）だけ。vscode を使うものは統合テストで確かめる

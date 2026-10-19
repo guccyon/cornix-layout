@@ -1,4 +1,4 @@
-// VS Code の中で動く統合テスト（最小限）。偽のサーバーとつなぎ、プロファイルを開いて、dirty と元に戻すが VS Code の仕組みに乗ることを確かめる。
+// VS Code の中で動く統合テスト。偽のサーバーとつなぎ、プロファイルを開いて、dirty・revert・見張り・バックアップ・再起動が VS Code の仕組みに乗ることを確かめる。
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import type { CornixExtensionApi } from '../../../src/extension';
@@ -47,29 +47,100 @@ test('変更で dirty になり、戻す（revert）と消える', async () => {
   await waitFor('revert', async () => profileTab()?.isDirty === false && document.changes.size === 0);
 });
 
-test('閉じると一覧から消える', async () => {
-  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-  await waitFor('閉じる', async () => api.profileEditor.openDocuments.length === 0);
+test('設定ディレクトリのファイルが変わると workspace/didChangeFiles が届き、hold の間は溜める', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  const root = workspaceRoot();
+  const received: string[][] = [];
+  const subscription = api.server.onNotification('profile/didChange', (params) => received.push(Object.keys(params.files)));
+  try {
+    const write = (name: string) =>
+      vscode.workspace.fs.writeFile(vscode.Uri.joinPath(root, 'profiles/default/layers', name), new TextEncoder().encode('---\nname: Test\n'));
+    await write('8_watch.yml');
+    await waitFor('profile/didChange', async () => received.some((files) => files.includes('layers/8_watch.yml')));
+
+    const hold = document.watcher.hold();
+    await write('9_hold.yml');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    assert.ok(!received.some((files) => files.includes('layers/9_hold.yml')), 'hold の間に送った');
+    hold.dispose();
+    await waitFor('hold を離したあとの profile/didChange', async () => received.some((files) => files.includes('layers/9_hold.yml'))).catch((e) => { throw new Error(`${e.message} ${JSON.stringify(received)}`); });
+  } finally {
+    subscription.dispose();
+  }
 });
 
-test('サーバーが落ちたら止まったことが分かり、再起動でつなぎ直せる', async () => {
+test('バックアップから戻すと未保存の変更と、そのときのファイルの版が戻る', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  const key = document.snapshot.layers[0]?.keys[1];
+  assert.ok(key);
+  document.applyChange({ address: key.address, value: 'NoKey' });
+  const token = new vscode.CancellationTokenSource().token;
+  const destination = vscode.Uri.joinPath(workspaceRoot(), '.backup-test.json');
+  const backup = await api.profileEditor.backupCustomDocument(document, { destination });
+  const restored = await api.profileEditor.openCustomDocument(document.uri, { backupId: backup.id, untitledDocumentData: undefined }, token);
+  try {
+    assert.deepEqual(restored.changes.list(), [{ address: key.address, value: 'NoKey' }]);
+    assert.deepEqual(restored.backupFiles, document.snapshot.files);
+  } finally {
+    restored.dispose();
+    backup.delete();
+  }
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('revert', async () => profileTab()?.isDirty === false && document.changes.size === 0);
+});
+
+test('開いたままサーバーが落ちても、再起動すると profile/open からやり直す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
   // 偽のサーバーは CORNIX_FAKE_EXIT_ON のメソッドが来ると落ちる（環境変数は拡張が起動する子プロセスに引き継がれる）
   process.env.CORNIX_FAKE_EXIT_ON = 'keycode/shortcutTree';
   try {
+    // 新しいサーバーの profileId は前と同じ "p1" のこともあるので、snapshot が取り直されたかで見る
+    const first = document.snapshot;
     await api.server.restart();
+    await waitFor('再起動のあとの開き直し', async () => document.snapshot !== first);
     await assert.rejects(api.server.request('keycode/shortcutTree', {}));
     await waitFor('止まる', async () => !api.server.isRunning);
   } finally {
     delete process.env.CORNIX_FAKE_EXIT_ON;
   }
+  const before = document.snapshot;
   let restarted = false;
   const subscription = api.server.onDidRestart(() => (restarted = true));
   await api.server.restart();
   subscription.dispose();
   assert.ok(restarted);
+  await waitFor('落ちたあとの開き直し', async () => document.snapshot !== before);
   const tree = await api.server.request('keycode/shortcutTree', {});
   assert.ok(tree.apps.length > 0);
 });
+
+test('閉じると一覧から消える', async () => {
+  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  await waitFor('閉じる', async () => api.profileEditor.openDocuments.length === 0);
+});
+
+test('cornix が見つからなければ CornixUnavailableError になり、設定を直せばつながる', async () => {
+  const config = vscode.workspace.getConfiguration('cornix');
+  const original = config.get<string>('path');
+  await config.update('path', '/nonexistent/cornix', vscode.ConfigurationTarget.Workspace);
+  try {
+    await waitFor('止まる', async () => !api.server.isStartingOrRunning);
+    await assert.rejects(api.server.request('profile/list', {}), (error: Error) => error.name === 'CornixUnavailableError');
+  } finally {
+    await config.update('path', original, vscode.ConfigurationTarget.Workspace);
+  }
+  const list = await api.server.request('profile/list', {});
+  assert.equal(list.profiles.length, 2);
+});
+
+function workspaceRoot(): vscode.Uri {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+  assert.ok(root, 'ワークスペースがない');
+  return root;
+}
 
 function profileTab(): vscode.Tab | undefined {
   return vscode.window.tabGroups.all

@@ -42,7 +42,8 @@ export class ProfileWatcher implements vscode.Disposable {
 
   private record(uri: vscode.Uri, type: FileChangeType): void {
     const rel = path.relative(this.workspaceRoot.fsPath, uri.fsPath);
-    const key = rel.startsWith('..') || path.isAbsolute(rel) ? uri.fsPath : rel.split(path.sep).join('/');
+    const outside = rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);
+    const key = outside ? uri.fsPath : rel.split(path.sep).join('/');
     const before = this.pending.get(key);
     // 作ってすぐ変えたものは「作った」のまま
     this.pending.set(key, before === 'created' && type === 'changed' ? 'created' : type);

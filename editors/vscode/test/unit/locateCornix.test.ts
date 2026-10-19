@@ -16,6 +16,14 @@ describe('locateCornix', () => {
     if (!result.found) expect(result.message).toContain('/opt/cornix');
   });
 
+  it('設定が名前だけ（パスの区切りがない）なら PATH から探す', () => {
+    const result = locateCornix({ configured: 'cornix', workspaceRoot: root, envPath: '/a:/b', isExecutable: only('/work/cornix-layout/cornix', '/b/cornix') });
+    expect(result).toEqual({ found: true, location: { command: '/b/cornix', source: 'setting' } });
+    const missing = locateCornix({ configured: 'cornix', workspaceRoot: root, envPath: '/a', isExecutable: () => false });
+    expect(missing.found).toBe(false);
+    if (!missing.found) expect(missing.message).toContain('PATH');
+  });
+
   it('設定が空ならワークスペースの bin/cornix', () => {
     const result = locateCornix({ configured: '  ', workspaceRoot: root, envPath: '/usr/local/bin', isExecutable: only('/work/cornix-layout/bin/cornix', '/usr/local/bin/cornix') });
     expect(result).toEqual({ found: true, location: { command: '/work/cornix-layout/bin/cornix', source: 'workspace' } });

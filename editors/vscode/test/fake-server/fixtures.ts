@@ -7,7 +7,6 @@ import type {
   LayerKey,
   LayerSnapshot,
   PositionMapEntry,
-  ProfileListResult,
   ProfileReferences,
   QmkSettingSnapshot,
   ShortcutTreeResult,
@@ -15,16 +14,7 @@ import type {
 
 export const SERVER_VERSION = '1.0.0';
 
-export const PROFILE_LIST: ProfileListResult = {
-  profiles: [
-    { dir: 'profiles/default', name: 'default' },
-    { dir: 'profiles/ipad', name: 'ipad' },
-    { dir: 'config', name: 'config' },
-  ],
-  default: 'profiles/default',
-};
-
-/** dir を指定しないときに files に入れるもの（ディスクに設定ディレクトリがないとき） */
+/** snapshot の files に入れるもの（ディスクに設定ディレクトリがないとき） */
 export const FALLBACK_FILES = [
   'metadata.yaml',
   'position_map.yaml',

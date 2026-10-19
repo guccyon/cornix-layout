@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext): CornixExtensionApi {
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (!event.affectsConfiguration('cornix.path') && !event.affectsConfiguration('cornix.trace.server')) return;
       // 場所が変わったら、動いていれば起動し直す（動いていなければ次のリクエストで新しい設定を使う）
-      if (current.isRunning) void current.restart().catch(() => undefined);
+      if (current.isStartingOrRunning) void current.restart().catch(() => undefined);
       tree.refresh();
     }),
   );

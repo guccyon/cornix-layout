@@ -1,19 +1,27 @@
 // 拡張の接続（vscode-jsonrpc）と偽のサーバー（自前の枠）を、メモリの上の流れでつないで確かめる
+import * as path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { ResponseError } from 'vscode-jsonrpc/node';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ErrorCodes, type ProfileDidChangeParams } from '../../src/protocol';
-import { CornixConnection } from '../../src/server/connection';
+import { CornixConnection, ProtocolVersionError } from '../../src/server/connection';
 import { runFakeServer, type FakeServerOptions } from '../fake-server/server';
 
+// 統合テストと同じワークスペース（profiles/default と profiles/ipad、.cornix.yml の profile: default）
+const ROOT = path.resolve(__dirname, '../integration/workspace');
 const connections: CornixConnection[] = [];
 
-async function connect(options: Partial<FakeServerOptions> = {}) {
+function streams(options: Partial<FakeServerOptions> = {}) {
   const toServer = new PassThrough();
   const toClient = new PassThrough();
   const exits: number[] = [];
-  runFakeServer(toServer, toClient, { root: '/nonexistent-root', onExit: (code) => exits.push(code), ...options });
-  const connection = await CornixConnection.connect({ input: toClient, output: toServer }, { clientName: 'test', clientVersion: '0.0.0' });
+  runFakeServer(toServer, toClient, { root: ROOT, onExit: (code) => exits.push(code), ...options });
+  return { input: toClient, output: toServer, exits };
+}
+
+async function connect(options: Partial<FakeServerOptions> = {}) {
+  const { exits, ...io } = streams(options);
+  const connection = await CornixConnection.connect(io, { clientName: 'test', clientVersion: '0.0.0' });
   connections.push(connection);
   return { connection, exits };
 }
@@ -77,7 +85,28 @@ describe('CornixConnection と偽のサーバー', () => {
     const { profileId } = await connection.request('profile/open', { dir: 'profiles/default' });
     const received = new Promise<ProfileDidChangeParams>((resolve) => connection.onNotification('profile/didChange', resolve));
     await connection.notify('workspace/didChangeFiles', { changes: [{ path: 'profiles/default/layers/0_base.yml', type: 'changed' }] });
-    await expect(received).resolves.toMatchObject({ profileId, files: { 'layers/0_base.yml': null } });
+    await expect(received).resolves.toMatchObject({ profileId, files: { 'layers/0_base.yml': expect.stringMatching(/^sha256:[0-9a-f]{64}$/) } });
+  });
+
+  it('サーバーが約束の版を断ったら（-32051）ProtocolVersionError', async () => {
+    const io = streams({ supportedVersions: ['0.2'] });
+    const error = await CornixConnection.connect(io, { clientName: 'test', clientVersion: '0.0.0' }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProtocolVersionError);
+    expect(error).toMatchObject({ supported: ['0.2'] });
+    expect((error as Error).message).toContain('約束の版が合いません');
+  });
+
+  it('サーバーが違う版を返したら ProtocolVersionError', async () => {
+    const io = streams({ respondVersion: '0.9' });
+    const error = await CornixConnection.connect(io, { clientName: 'test', clientVersion: '0.0.0' }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'ProtocolVersionError', serverVersion: '0.9' });
+  });
+
+  it('initialize に応えなければ時間切れにする', async () => {
+    const toServer = new PassThrough();
+    const toClient = new PassThrough(); // 何も返さない
+    const error = await CornixConnection.connect({ input: toClient, output: toServer }, { clientName: 'test', clientVersion: '0.0.0', initializeTimeoutMs: 50 }).catch((e: unknown) => e);
+    expect((error as Error).message).toContain('応答がありません');
   });
 
   it('shutdown と exit で終わる', async () => {

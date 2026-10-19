@@ -1,0 +1,6 @@
+{
+  "description": "$/ で始まる知らないリクエストは -32601（MethodNotFound。通知なら何もしない）",
+  "setup": { "before": [{ "method": "$/unknown" }] },
+  "request": { "id": 1, "method": "$/unknown" },
+  "response": { "id": 1, "error": { "code": -32601 } }
+}

@@ -1,0 +1,5 @@
+{
+  "description": "JSON として読めない本文には -32700（ParseError、id は null）を返して続ける",
+  "raw": "{oops",
+  "response": { "id": null, "error": { "code": -32700 } }
+}

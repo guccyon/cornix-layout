@@ -1,0 +1,5 @@
+{
+  "description": "shutdown の result は null",
+  "request": { "id": 1, "method": "shutdown" },
+  "response": { "id": 1, "result": null }
+}

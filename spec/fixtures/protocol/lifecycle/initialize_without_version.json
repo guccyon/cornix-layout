@@ -1,0 +1,6 @@
+{
+  "description": "protocolVersion のない initialize は -32602（InvalidParams）",
+  "setup": { "initialize": false },
+  "request": { "id": 1, "method": "initialize", "params": {} },
+  "response": { "id": 1, "error": { "code": -32602, "data": { "field": "protocolVersion" } } }
+}

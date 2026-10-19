@@ -1,0 +1,7 @@
+{
+  "description": "$/cancelRequest は受け付けるが応答しない（通知）。続くリクエストはふつうに処理する",
+  "setup": { "before": [{ "method": "$/cancelRequest", "params": { "id": 9 } }] },
+  "request": { "id": 1, "method": "shutdown" },
+  "response": { "id": 1, "result": null },
+  "notifications": []
+}

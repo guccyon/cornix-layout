@@ -1,0 +1,5 @@
+{
+  "description": "jsonrpc: \"2.0\" のないリクエストは -32600（InvalidRequest。id は分かればその id）",
+  "request": { "jsonrpc": null, "id": 1, "method": "profile/list" },
+  "response": { "id": 1, "error": { "code": -32600 } }
+}

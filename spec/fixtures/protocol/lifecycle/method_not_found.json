@@ -1,0 +1,5 @@
+{
+  "description": "知らないメソッドは -32601（MethodNotFound）",
+  "request": { "id": 1, "method": "profile/unknown", "params": {} },
+  "response": { "id": 1, "error": { "code": -32601 } }
+}

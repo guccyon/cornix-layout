@@ -1,0 +1,15 @@
+{
+  "description": "profiles/ の下を名前の順に、後方互換の config/ を最後に並べる。.cornix.yml がなければ既定は config",
+  "setup": { "profiles": { "profiles/ipad": "test_config", "profiles/default": "test_config", "config": "test_config" } },
+  "request": { "id": 1, "method": "profile/list", "params": {} },
+  "response": {
+    "result": {
+      "profiles": [
+        { "dir": "profiles/default", "name": "default" },
+        { "dir": "profiles/ipad", "name": "ipad" },
+        { "dir": "config", "name": "config" }
+      ],
+      "default": "config"
+    }
+  }
+}

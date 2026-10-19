@@ -1,0 +1,5 @@
+{
+  "description": "本文がオブジェクトでない（null）ときは -32600（InvalidRequest、id は null）を返して続ける",
+  "raw": "null",
+  "response": { "id": null, "error": { "code": -32600 } }
+}

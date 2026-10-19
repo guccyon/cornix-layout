@@ -53,6 +53,7 @@ Application::Editor::ProfileNotFound < Cornix::Error
 YAML のノードの位置、値の部分だけの書き換えと挿入、中身を差し替えて読む口、モデル内のパスから Address への写像。
 
 触るファイル: `lib/cornix/storage/yaml_document.rb`（+ `yaml_document/`）、`lib/cornix/storage/file_version.rb`、`lib/cornix/storage/file_source.rb`、
+`lib/cornix/storage/text_range.rb`・`text_edit.rb`・`edit_not_local.rb`、
 `lib/cornix/storage/config_loader.rb`・`config_repository.rb`・`config_files.rb`・`diagnostic_locator.rb`・`problem.rb`、対応する `spec/storage/**`
 
 ```ruby
@@ -104,7 +105,7 @@ Mapping::QmkSettingCatalog::Definition#description / #default   # data/qmk_setti
 
 ### E. 拡張の土台と CI（ブランチ `vscode/extension-scaffold`、roadmap の 7 と 10 の CI）
 
-触るファイル: `editors/vscode/**`（ただし `src/webview/` の画面の中身は段 2 の H）、`.github/workflows/**`、`.gitignore`
+触るファイル: `editors/vscode/**`（ただし `src/webview/` の画面の中身は段 2 の G）、`.github/workflows/**`、`.gitignore`
 
 - esbuild・vitest・@vscode/test-electron、`vscode-jsonrpc` でサーバーを起動してつなぐ（`cornix.path`、既定はワークスペースの `bin/cornix`、なければ PATH、見つからなければ設定を開くボタン）
 - `src/protocol.ts`: protocol.md の型をそのまま TypeScript にしたもの（以降の作業はこれを使う）

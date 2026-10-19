@@ -110,8 +110,15 @@ module Cornix
         def shortcut(name, refs)
           fail!('Shortcut(...) はここでは使えません（マクロの keys など）') unless refs.shortcuts_available?
 
-          refs.shortcut(name.strip) or
-            fail!("ショートカット「#{name}」は shortcuts.yaml にも同梱のショートカット（data/shortcuts/）にも定義されていません")
+          name = name.strip
+          keycode = refs.shortcut(name)
+          return keycode if keycode
+
+          if refs.preset_macro?(name)
+            fail!("「#{name}」は複数の手順のマクロなので Shortcut(...) では使えません。" \
+                  "macros/ のファイルに preset: '#{name}' と書き、Macro('#{name}') で参照してください")
+          end
+          fail!("ショートカット「#{name}」は shortcuts.yaml にも同梱のショートカット（data/shortcuts/）にも定義されていません")
         end
 
         def reference_class(function) = function == 'Macro' ? K::MacroCall : K::TapDanceCall

@@ -1,6 +1,6 @@
 # macOS のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
 # Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('macOS:システム:全画面キャプチャ')）。
-# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+# 複数の手順のもの（macro:）は Shortcut(...) では使えない。macros/ のファイルに preset: 'アプリ:カテゴリ:ラベル' と書いて使う
 macOS:
   システム:
     全画面キャプチャ: Shift + Command + 3
@@ -12,6 +12,12 @@ macOS:
     強制終了: Option + Command + Escape
     画面ロック: Ctrl + Command + Q
     Finderで表示: Option + Command + Space
+    ウィンドウキャプチャ:
+      macro:
+        - { action: down, keys: [LGui, LShift] }
+        - { action: tap, keys: '4' }
+        - { action: up, keys: [LShift, LGui] }
+        - { action: tap, keys: Space }
   テキスト:
     コピー: Command + C
     ペースト: Command + V

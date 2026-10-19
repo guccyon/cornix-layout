@@ -1,6 +1,6 @@
 # VS Code のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
 # Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('VS Code:基本操作:コマンドパレット')）。
-# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+# 複数の手順のもの（macro:）は Shortcut(...) では使えない。macros/ のファイルに preset: 'アプリ:カテゴリ:ラベル' と書いて使う
 VS Code:
   基本操作:
     コマンドパレット: Shift + Command + P
@@ -8,6 +8,14 @@ VS Code:
     環境設定: Command + ,
     新規ウィンドウ: Shift + Command + N
     ウィンドウを閉じる: Command + W
+    キーボードショートカット:
+      macro:
+        - { action: down, keys: LGui }
+        - { action: tap, keys: K }
+        - { action: up, keys: LGui }
+        - { action: down, keys: LGui }
+        - { action: tap, keys: S }
+        - { action: up, keys: LGui }
   編集:
     行を上下に移動: Option + Up
     行を上下にコピー: Option + Shift + Up

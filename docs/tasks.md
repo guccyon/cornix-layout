@@ -32,6 +32,9 @@ refs = Mapping::References.new(macros: { '名前' => index }, tap_dances: { '名
 refs.macro_index(name) / tap_dance_index(name) / macro_name(index) / tap_dance_name(index)   # Mapping::References::NONE
 refs.shortcut(name) #=> Keycode（shortcuts、なければ preset_shortcuts）/ shortcut_name(keycode) #=> shortcuts のちょうど 1 つと一致すればその名前
 Mapping::ShortcutCatalog.default.texts #=> { 'アプリ:カテゴリ:ラベル' => 表記 }（data/shortcuts/*.yaml）/ library(notation) #=> Domain::ShortcutLibrary
+catalog.macro_names / preset_names #=> 複数の手順の定義の名前 / preset: に書ける名前すべて
+catalog.preset(name, notation) #=> [Domain::MacroStep]（macros/ の preset: の手順。1 シーケンスの定義は押して離す手順）/ nil
+refs.preset_macro?(name)        # 同梱の複数の手順の定義か（Shortcut('名前') で使われたときの案内用。References.new(preset_macros: [...])）
 Mapping::QmkSettingCatalog.default.fetch(qsid) / find(group, name) / all  #=> Definition(qsid, name, group, width, type)
 ```
 
@@ -78,8 +81,8 @@ Domain::PositionMap.from_h(hash)                           # position_map.yaml �
 Domain::EncoderBinding(push:, ccw:, cw:, notes: { push: String, ... })   # 各 Keycode。notes は省略可
 Domain::Layer(index:, name:, description:, keys: { KeyPosition => Keycode }, encoders: { left: EncoderBinding, right: EncoderBinding },
               notes: { KeyPosition => String })            # notes（注記）は割り当てのある位置だけ。省略可
-Domain::MacroStep::Tap / Down / Up(keys: [Keycode]), Delay(ms:), Text(content:)
-Domain::Macro(index:, name:, description:, steps:)
+Domain::MacroStep::Tap / Down / Up(keys: [Keycode]), Delay(ms:), Text(content:)   # KEY_ACTIONS: action の名前 → Tap / Down / Up
+Domain::Macro(index:, name:, description:, steps:, preset: nil)   # preset は同梱のショートカットの名前（デバイスにはない。書き戻し用）
 Domain::TapDance(index:, name:, description:, on_tap:, on_hold:, on_double_tap:, on_tap_hold:, tapping_term:,
                  notes: { on_tap: String, ... })
 Domain::Combo(index:, name:, description:, trigger_keys: [Keycode], output_key: Keycode, notes: { output_key: String })

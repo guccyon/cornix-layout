@@ -1,6 +1,6 @@
 # Fusion 360 のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
 # Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('Fusion 360:ナビゲーション:パン')）。
-# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+# 複数の手順のもの（macro:）は Shortcut(...) では使えない。macros/ のファイルに preset: 'アプリ:カテゴリ:ラベル' と書いて使う
 Fusion 360:
   ナビゲーション:
     パン: Shift + MouseButton3
@@ -20,6 +20,12 @@ Fusion 360:
     トリム: T
     寸法: D
     制約を表示: Ctrl + Shift + C
+    スプライン:
+      macro:
+        - { action: tap, keys: [S, P] }
+    ミラー:
+      macro:
+        - { action: tap, keys: [M, I] }
   モデリング:
     押し出し: E
     回転体: Ctrl + Shift + R

@@ -274,6 +274,20 @@ sequence:
 
 There are also `action: text`, which types a string (`content:`, ASCII only), and `action: delay`, which waits (`duration:` in milliseconds).
 
+Write `preset` instead of `sequence` to make a macro from the steps of a bundled shortcut ([data/shortcuts/](data/shortcuts/)).
+
+```yaml
+# profiles/default/macros/05_window_capture.yaml
+index: 5
+preset: 'macOS:システム:ウィンドウキャプチャ'   # ⌘⇧4 → Space
+# without name, the preset name is used (refer to it as Macro('macOS:システム:ウィンドウキャプチャ'))
+```
+
+- Shortcuts that cannot be a single key, such as keys pressed one after another (S → P for `Fusion 360:スケッチ:スプライン`), are used this way (not with `Shortcut(...)`)
+- Single-key shortcuts work too. A key with modifiers becomes "press the modifiers → tap the key → release the modifiers"
+- `preset` uses only the bundled definitions (overriding the same name in `shortcuts.yaml` does not change it)
+- You choose the macro number (`index`) yourself. The preset is not written to the keyboard, so decompile writes the macro as a plain `sequence`
+
 ### Tap dances
 
 ```yaml
@@ -351,6 +365,7 @@ mapping:
 - Shortcuts shared on [cornixhub](https://cornixhub.com/shortcuts) (824 shortcuts for 27 apps) can be used without defining them, as `Shortcut('app:category:label')` (for example `Shortcut('Spotify:再生:次のクリップ')`). The available names are in the files under [data/shortcuts/](data/shortcuts/). Labels are cornixhub's Japanese names
 - A definition with the same name in `shortcuts.yaml` takes precedence over the bundled one
 - decompile writes `Shortcut(...)` back only for definitions in `shortcuts.yaml` (values equal to a bundled shortcut are written as plain keycodes)
+- Multi-step entries (written with `macro:`) cannot be used with `Shortcut(...)`. Use them through `preset` in [Macros](#macros)
 
 ### Key positions (`position_map.yaml`)
 

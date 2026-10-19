@@ -1,6 +1,6 @@
 # CLIP STUDIO PAINT のショートカット（cornixhub https://cornixhub.com/shortcuts の一覧から。2026-10-19 取得）。
 # Shortcut('アプリ:カテゴリ:ラベル') で参照する（例: Shortcut('CLIP STUDIO PAINT:ツール:ペン')）。
-# 1 つのキーコードで表せないもの（連続して押すもの・押したまま操作するもの）は入れていない
+# 複数の手順のもの（macro:）は Shortcut(...) では使えない。macros/ のファイルに preset: 'アプリ:カテゴリ:ラベル' と書いて使う
 CLIP STUDIO PAINT:
   ツール:
     ペン: P

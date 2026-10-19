@@ -17,7 +17,7 @@ Profile（集約ルート。設定ファイル一式 = layout.vil 1 つ）
  │         ├─ encoders: { left:, right: } => EncoderBinding(push, ccw, cw, notes)
  │         └─ notes: KeyPosition => String       注記（§3.4）
  ├─ macros: [Macro]                     … 最大 32
- │    └─ Macro(index, name, description, steps: [MacroStep])
+ │    └─ Macro(index, name, description, steps: [MacroStep], preset)
  │         MacroStep = Tap(keys) | Down(keys) | Up(keys) | Delay(ms) | Text(content)
  ├─ tap_dances: [TapDance]              … 最大 32
  │    └─ TapDance(index, name, description, on_tap, on_hold, on_double_tap, on_tap_hold, tapping_term, notes)
@@ -157,6 +157,7 @@ nape_pro-layout の `Assignment(keycode, label, shortcut)` のように包まな
 - `Delay(ms)`: 0〜65024（Vial のバイト列が 2 バイト `(ms % 255) + 1, (ms / 255) + 1` のため）
 - `Text(content)`: 空でない ASCII 文字列。NUL（マクロの終端）と `0x01`（命令の接頭辞）は使えない
 - `MacroStep` の `kind` は `Image::MacroAction` の kind と同じ記号（`:tap` / `:down` / `:up` / `:delay` / `:text`）
+- `preset` は同梱のショートカットの名前（macros/ に `preset:` で書いたもの。`steps` はその手順）。デバイスにはないので設定ファイルに書き戻すときだけ使う。なければ nil
 
 ### TapDance
 
@@ -336,6 +337,10 @@ sequence:
   - { action: delay, duration: 100 }        # ミリ秒
   - { action: text, content: "hello" }      # ASCII
   - { action: up, keys: KC_LGUI }
+
+# macros/05_window_capture.yaml
+index: 5
+preset: 'macOS:システム:ウィンドウキャプチャ'  # sequence の代わりに同梱のショートカットの手順（name を省くと preset の名前）
 
 # tap_dance/02_paste_variants.yaml
 name: Paste Variants

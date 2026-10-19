@@ -61,10 +61,14 @@ module Cornix
 
       def layers_location(_rel, rest) = rest.match?(LAYER_MAPPING) ? "mapping.#{rest}" : rest
 
+      # preset: のマクロ（sequence がない）は手順の場所を preset にする
       def macros_location(rel, rest)
         m = MACRO_STEP.match(rest) or return rest
+        data = content(rel)
+        return 'preset' if data.is_a?(Hash) && data.key?('preset') && !data.key?('sequence')
+
         tail = m[2]
-        step = content(rel).then { |d| d.is_a?(Hash) && d['sequence'].is_a?(Array) ? d['sequence'][Integer(m[1], 10)] : nil }
+        step = data.then { |d| d.is_a?(Hash) && d['sequence'].is_a?(Array) ? d['sequence'][Integer(m[1], 10)] : nil }
         tail = '.keys' if tail.match?(MACRO_KEY) && step.is_a?(Hash) && step['keys'].is_a?(String)
         "sequence[#{m[1]}]#{tail}"
       end

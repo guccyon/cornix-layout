@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'did_you_mean'
+
 module Cornix
   module Storage
     module Schema
@@ -18,24 +20,68 @@ module Cornix
       #       duration: 100
       #     - action: text          # text は content（ASCII の文字列）
       #       content: "``````"
+      #
+      # sequence の代わりに preset（同梱のショートカットの名前）を書くと、その手順のマクロになる（name は省略すると preset の名前）。
+      # preset は同梱の定義だけを引く（shortcuts.yaml で同じ名前を上書きしても効かない）:
+      #
+      #   index: 5
+      #   preset: 'macOS:システム:ウィンドウキャプチャ'
       module MacroFile
-        KEYS = %w[name description enabled index sequence].freeze
+        KEYS = %w[name description enabled index sequence preset].freeze
+        CANDIDATES = 3
+
+        # preset: の名前 → 手順（Mapping::ShortcutCatalog#preset）。NONE は preset: を使えない（どの名前もない）
+        Presets = Data.define(:catalog, :notation) do
+          def steps(name) = catalog&.preset(name, notation)
+          def names = catalog ? catalog.preset_names : []
+        end
+        Presets.const_set(:NONE, Presets.new(catalog: nil, notation: nil))
         STEP_KEYS = %w[action keys duration content].freeze
-        KEY_ACTIONS = { 'tap' => Domain::MacroStep::Tap, 'down' => Domain::MacroStep::Down,
-                        'up' => Domain::MacroStep::Up }.freeze
+        KEY_ACTIONS = Domain::MacroStep::KEY_ACTIONS
         ACTIONS = (KEY_ACTIONS.keys + %w[delay text]).freeze
 
         module_function
 
-        def read(data, ctx, keycodes)
-          hash = ctx.mapping(data, '', required: %w[name index sequence], allowed: KEYS) or return nil
-          name = ctx.name(hash['name'], 'name')
+        def read(data, ctx, keycodes, presets = Presets::NONE)
+          hash = ctx.mapping(data, '', required: required_keys(data), allowed: KEYS) or return nil
+          preset = read_preset(hash, ctx)
+          name = hash.key?('name') ? ctx.name(hash['name'], 'name') : Header.name_of(hash, preset: preset.is_a?(String))
           description = ctx.description(hash['description'])
           index = ctx.bounded(hash['index'], 'index', Domain::Keycode::MacroCall::RANGE, 'マクロ番号')
-          steps = read_sequence(hash['sequence'], ctx, keycodes)
-          return nil if [name, index, steps].any?(&:nil?) || description == :invalid
+          steps = preset ? preset_steps(preset, ctx, presets) : read_sequence(hash['sequence'], ctx, keycodes)
+          return nil if [name, index, steps].any?(&:nil?) || preset == :invalid || description == :invalid
 
-          ctx.build('') { Domain::Macro.new(index: index, name: name, description: description, steps: steps) }
+          ctx.build('') do
+            Domain::Macro.new(index: index, name: name, description: description, steps: steps, preset: preset)
+          end
+        end
+
+        # 必ず書くキー。preset を書いたときは name（省くと preset の名前）と sequence はいらない
+        def required_keys(data)
+          data.is_a?(Hash) && data.key?('preset') ? %w[index] : %w[name index sequence]
+        end
+
+        # preset の名前。sequence と preset はどちらか一方。なければ nil、誤りは問題を記録して :invalid
+        def read_preset(hash, ctx)
+          if hash.key?('preset') && hash.key?('sequence')
+            ctx.problem('', 'sequence と preset はどちらか一方だけを書いてください')
+            return :invalid
+          end
+          return nil unless hash.key?('preset')
+
+          ctx.name(hash['preset'], 'preset', 'プリセットの名前（文字列）')&.strip || :invalid
+        end
+
+        def preset_steps(name, ctx, presets)
+          return nil if name == :invalid
+
+          presets.steps(name) or ctx.problem('preset', unknown_preset(name, presets))
+        end
+
+        def unknown_preset(name, presets)
+          message = "プリセット「#{name}」は同梱のショートカット（data/shortcuts/）にありません"
+          candidates = DidYouMean::SpellChecker.new(dictionary: presets.names).correct(name).first(CANDIDATES)
+          candidates.empty? ? message : "#{message}（候補: #{candidates.join(' / ')}）"
         end
 
         def read_sequence(raw, ctx, keycodes)
@@ -91,14 +137,13 @@ module Cornix
           ctx.build("#{loc}.content") { Domain::MacroStep::Text.new(content: text) }
         end
 
-        # 旧 YamlWriter と同じ形（index, name, description, sequence）。keys は常にリスト
+        # 旧 YamlWriter と同じ形（index, name, description, sequence）。keys は常にリスト。
+        # プリセットのマクロは sequence の代わりに preset を書く
         def write(macro, keycodes)
-          {
-            'index' => macro.index,
-            'name' => macro.name,
-            'description' => macro.description || '',
-            'sequence' => macro.steps.map { |step| write_step(step, keycodes) }
-          }
+          head = { 'index' => macro.index, 'name' => macro.name, 'description' => macro.description || '' }
+          return head.merge('preset' => macro.preset) if macro.preset
+
+          head.merge('sequence' => macro.steps.map { |step| write_step(step, keycodes) })
         end
 
         def write_step(step, keycodes)

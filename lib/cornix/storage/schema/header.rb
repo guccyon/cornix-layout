@@ -10,14 +10,23 @@ module Cornix
         module_function
 
         # → [名前, 番号] または nil
-        def call(data)
+        def call(data, preset: false)
           return nil unless data.is_a?(Hash)
 
-          name = data['name']
+          name = name_of(data, preset: preset)
           index = data['index']
           return nil unless name.is_a?(String) && !name.strip.empty? && index.is_a?(Integer)
 
           [name, index]
+        end
+
+        # ファイルの name。マクロ（preset: true）は name がなければ preset の名前（前後の空白を除く。MacroFile と同じ規則）。
+        # 文字列とは限らない（検査は呼び出し側）
+        def name_of(data, preset: false)
+          return nil unless data.is_a?(Hash)
+          return data['name'] if data.key?('name') || !preset
+
+          data['preset'].is_a?(String) ? data['preset'].strip : nil
         end
       end
     end

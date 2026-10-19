@@ -1,5 +1,5 @@
 // 偽のサーバーが返すデータ。protocol.md の例を元に、spec/fixtures/authors_config の Base と Symbols のレイヤーを写した。
-// 16bit 値や表示の文字はそれらしい値で、Ruby のサーバーの結果と一致するとは限らない（画面を作るための仮のデータ）。
+// 16bit 値・QMK の名前・表示の文字はそれらしい値で、Ruby のサーバーの結果と一致するとは限らない（画面を作るための仮のデータ）。
 import type {
   Candidate,
   EncoderBinding,
@@ -424,9 +424,63 @@ export const SHORTCUT_TREE: ShortcutTreeResult = {
   ],
 };
 
+/** 偽のデータの値の QMK の名前（Ruby の Inspect::QmkName と同じ形。A〜Z はこの下で足す）。ここにない値は 16bit 値だけを出す */
+const QMK_NAMES: Record<number, string> = {
+  0x0000: 'KC_NO',
+  0x0001: 'KC_TRANSPARENT',
+  0x0028: 'KC_ENTER',
+  0x0029: 'KC_ESCAPE',
+  0x002a: 'KC_BACKSPACE',
+  0x002b: 'KC_TAB',
+  0x002c: 'KC_SPACE',
+  0x002d: 'KC_MINUS',
+  0x002f: 'KC_LEFT_BRACKET',
+  0x0030: 'KC_RIGHT_BRACKET',
+  0x0036: 'KC_COMMA',
+  0x0037: 'KC_DOT',
+  0x0039: 'KC_CAPS_LOCK',
+  0x004f: 'KC_RIGHT',
+  0x0050: 'KC_LEFT',
+  0x0051: 'KC_DOWN',
+  0x0052: 'KC_UP',
+  0x00a8: 'KC_AUDIO_MUTE',
+  0x00a9: 'KC_AUDIO_VOL_UP',
+  0x00aa: 'KC_AUDIO_VOL_DOWN',
+  0x00d9: 'QK_MOUSE_WHEEL_UP',
+  0x00da: 'QK_MOUSE_WHEEL_DOWN',
+  0x00e0: 'KC_LEFT_CTRL',
+  0x00e1: 'KC_LEFT_SHIFT',
+  0x00e2: 'KC_LEFT_ALT',
+  0x00e3: 'KC_LEFT_GUI',
+  0x00e5: 'KC_RIGHT_SHIFT',
+  0x021f: 'KC_AT',
+  0x0238: 'KC_QUESTION',
+  0x0a13: 'LSG(KC_P)',
+  0x0a2f: 'LSG(KC_LEFT_BRACKET)',
+  0x2891: 'LGUI_T(KC_LANGUAGE_2)',
+  0x412c: 'LT(1, KC_SPACE)',
+  0x4290: 'LT(2, KC_LANGUAGE_1)',
+  0x5221: 'MO(1)',
+  0x5222: 'MO(2)',
+  0x5223: 'MO(3)',
+  0x5263: 'TG(3)',
+  0x5703: 'TD(3)',
+  0x5704: 'TD(4)',
+  0x7700: 'QK_MACRO_0',
+  0x7c79: 'QK_REPEAT_KEY',
+};
+for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') QMK_NAMES[4 + letter.charCodeAt(0) - 'A'.charCodeAt(0)] = `KC_${letter}`;
+
+/** 説明の最後の行（protocol.md の 5.5。QMK の名前があれば「QMK: 名前（0xHHHH）」、なければ「16bit 値: 0xHHHH」） */
+function codeLine(code: number): string {
+  const hex = `0x${code.toString(16).toUpperCase().padStart(4, '0')}`;
+  const name = QMK_NAMES[code];
+  return name === undefined ? `16bit 値: ${hex}` : `QMK: ${name}（${hex}）`;
+}
+
 /** マウスを載せたときの説明 */
 export function describe(value: KeyValue): { title: string; lines: string[] } {
-  const code = value.code === null ? [] : [`16bit 値: 0x${value.code.toString(16).toUpperCase().padStart(4, '0')}`];
+  const code = value.code === null ? [] : [codeLine(value.code)];
   if (value.kind === 'macro') {
     return { title: 'マクロ Bracket Pair（M0）', lines: ['角括弧ペア [] を挿入してカーソルを内側に配置', 'tap: [ ] ←', ...code] };
   }

@@ -4,6 +4,7 @@ require_relative 'profile_reading'
 require_relative 'key_values'
 require_relative 'unknown_context'
 require_relative 'inspect/description'
+require_relative 'inspect/qmk_name'
 
 module Cornix
   module Application
@@ -36,12 +37,17 @@ module Cornix
           keycode = values.parse(text)
           value = values.build(keycode, text: text)
           { value: value, diagnostics: semantic(reading.profile, keycode, env.capabilities),
-            description: Description.new(values: values, profile: reading.profile).call(keycode, value) }
+            description: describe(env, values, reading.profile, keycode, value) }
         rescue UnknownKeycode => e
           { value: nil, diagnostics: [{ severity: 'error', message: e.message, source: 'structure' }], description: nil }
         end
 
         private
+
+        def describe(env, values, profile, keycode, value)
+          qmk = QmkName.new(catalog: env.catalog, codec: env.codec)
+          Description.new(values: values, profile: profile, qmk: qmk).call(keycode, value)
+        end
 
         def semantic(profile, keycode, capabilities)
           return [] unless profile

@@ -13,7 +13,7 @@
         "display": { "label": "Space", "tap": "Space", "hold": "L1" }
       },
       "diagnostics": [],
-      "description": { "title": "LT1(Space)", "lines": ["タップ: Space", "ホールド: レイヤー 1（Symbols）", "16bit 値: 0x412C"] }
+      "description": { "title": "LT1(Space)", "lines": ["タップ: Space", "ホールド: レイヤー 1（Symbols）", "QMK: LT(1, KC_SPACE)（0x412C）"] }
     }
   }
 }

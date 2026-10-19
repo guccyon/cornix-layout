@@ -15,7 +15,7 @@
         "icon": "material-icon-theme:vscode"
       },
       "diagnostics": [],
-      "description": { "title": "同梱のショートカット VS Code:基本操作:コマンドパレット", "lines": ["Shift + Command + P", "16bit 値: 0x0A13"] }
+      "description": { "title": "同梱のショートカット VS Code:基本操作:コマンドパレット", "lines": ["Shift + Command + P", "QMK: LSG(KC_P)（0x0A13）"] }
     }
   }
 }

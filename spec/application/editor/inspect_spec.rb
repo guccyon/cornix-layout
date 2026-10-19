@@ -24,12 +24,12 @@ RSpec.describe Cornix::Application::Editor::Inspect do
 
   def inspect_text(text, context: 'layerKey') = described_class.new(workbench).call(id, context: context, text: text)
 
-  it '読める表記は KeyValue と説明（最後の行は 16bit 値）' do
+  it '読める表記は KeyValue と説明（最後の行は QMK の名前と 16bit 値）' do
     result = inspect_text('Cmd + Shift + P')
     expect(result[:value]).to eq(text: 'Cmd + Shift + P', canonical: 'Shift + Command + P', code: 0x0A13, kind: 'modified',
                                  display: { label: '⇧⌘P' })
     expect(result[:diagnostics]).to eq([])
-    expect(result[:description]).to eq(title: 'Shift + Command + P', lines: ['16bit 値: 0x0A13'])
+    expect(result[:description]).to eq(title: 'Shift + Command + P', lines: ['QMK: LSG(KC_P)（0x0A13）'])
   end
 
   it '読めない表記は value / description が nil で構造の error' do
@@ -78,7 +78,7 @@ RSpec.describe Cornix::Application::Editor::Inspect do
     expect(result[:value]).to include(canonical: "Macro('Figma:ツール:フレームツール')", origin: 'presetMacro', icon: 'simple-icons:figma')
     expect(result[:description]).to eq(
       title: 'マクロ Figma:ツール:フレームツール（M12）',
-      lines: ['フレーム', '同梱のショートカット: Figma:ツール:フレームツール', 'tap: F', '16bit 値: 0x770C']
+      lines: ['フレーム', '同梱のショートカット: Figma:ツール:フレームツール', 'tap: F', 'QMK: QK_MACRO_12（0x770C）']
     )
   end
 
@@ -87,12 +87,17 @@ RSpec.describe Cornix::Application::Editor::Inspect do
     result = inspect_text("Shortcut('前のタブへ')")
     expect(result[:value]).to include(origin: 'shortcut')
     expect(result[:value]).not_to have_key(:icon)
-    expect(result[:description]).to eq(title: 'ショートカット 前のタブへ', lines: ['Shift + Command + [', '16bit 値: 0x0A2F'])
+    expect(result[:description]).to eq(title: 'ショートカット 前のタブへ', lines: ['Shift + Command + [', 'QMK: LSG(KC_LEFT_BRACKET)（0x0A2F）'])
   end
 
   it 'Mod-Tap はタップとホールド、レイヤー操作は行き先のレイヤー' do
-    expect(inspect_text('RSFT_T(KC_UP)')[:description][:lines]).to eq(['タップ: Up', 'ホールド: R⇧', '16bit 値: 0x3252'])
-    expect(inspect_text('MO(1)')[:description][:lines]).to eq(['レイヤー 1（Layer 1）', '16bit 値: 0x5221'])
+    expect(inspect_text('RSFT_T(KC_UP)')[:description][:lines]).to eq(['タップ: Up', 'ホールド: R⇧', 'QMK: RSFT_T(KC_UP)（0x3252）'])
+    expect(inspect_text('MO(1)')[:description][:lines]).to eq(['レイヤー 1（Layer 1）', 'QMK: MO(1)（0x5221）'])
+  end
+
+  it 'QMK の名前にできない値（Raw、QMK に名前のないマクロの番号）は最後の行が 16bit 値だけ' do
+    expect(inspect_text('0x7E40')[:description][:lines]).to eq(['16bit 値: 0x7E40'])
+    expect(inspect_text('M40')[:description][:lines].last).to eq('16bit 値: 0x7728')
   end
 
   it '構造検証で読めないプロファイルでは意味検証をしない（キーの表記は読める）' do

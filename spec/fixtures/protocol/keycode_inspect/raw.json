@@ -1,0 +1,13 @@
+{
+  "description": "QMK の名前にできない値（Raw）は、説明の最後の行が 16bit 値だけ",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey", "text": "0x7E40" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "value": { "text": "0x7E40", "canonical": "0x7E40", "code": 32320, "kind": "raw", "display": { "label": "0x7E40" } },
+      "diagnostics": [],
+      "description": { "title": "0x7E40", "lines": ["16bit 値: 0x7E40"] }
+    }
+  }
+}

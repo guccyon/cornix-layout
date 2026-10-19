@@ -81,7 +81,7 @@ Storage::Problem#path #=> Array                                              # l
 ```ruby
 display = Mapping::KeyDisplay.new(catalog:, notation:)
 display.kind(keycode) #=> "basic" | "modified" | ... （protocol.md の KeyKind）
-display.display(keycode, references:, layer_names: { 1 => 'Symbols' }) #=> { label:, tap: nil | String, hold: nil | String }
+display.display(keycode, references:) #=> { label:, tap: nil | String, hold: nil | String }（レイヤーは名前があっても L<番号>）
 candidates = Mapping::CandidateCatalog.new(catalog:, notation:, shortcut_catalog:, categories: CandidateCatalog.default_categories,
                                            icon_for: ->(app_name) { nil })   # アイコンは段 2 で D の表をつなぐ
 candidates.search(query:, context: 'layerKey' | 'encoder', references:, layer_names:, limit: 50)

@@ -1,8 +1,8 @@
 // 上のペイン: Cornix のキーボード図。選んでいるレイヤーの割り当てを描き、キーを押すと onSelect（下の欄へ移る）。
-// 2 役のキー（display の tap / hold）は上下に分けて描く。割り当て済みのキーにアイコン（同梱のショートカットと preset: のマクロ）。
+// 2 役のキー（display の tap / hold）は上下に分けて描く。レイヤー操作も同じ形で、下の帯にレイヤー番号（MO は帯だけ）。割り当て済みのキーにアイコン（同梱のショートカットと preset: のマクロ）。
 // マクロ・タップダンス・自分のショートカットは右上に小さな印（M・TD・★。model.ts の keyMark）。NoKey は何も描かない（空白）。
-// 割り当てのある動作が 2 つ以上のタップダンスは、キーの面を動作の数の窓に分けて描く（2 つは左右、3 つは上 1・下 2、4 つは 2×2。
-// 順はタップ・ホールド・ダブルタップ・タップホールド）。エンコーダの帯では窓にせず、動作の文字を短く横に並べる。
+// タップダンスは、キーの面を割り当てのある動作の数の窓に分けて描く（1 つは面全体、2 つは左右、3 つは上 1・下 2、4 つは 2×2。
+// 順はタップ・ホールド・ダブルタップ・タップホールド）。エンコーダの帯では窓にせず、タップの札と「+残りの数」を並べる。
 import type { Diagnostic, Hand, KeyValue } from '../protocol';
 import { BOARD, ENCODERS, keyRect } from './cornixLayout';
 import { h } from './dom';
@@ -113,7 +113,7 @@ export class KeyboardView {
     element.classList.toggle('changed', view.changed);
     element.classList.toggle('error', severity === 'error');
     element.classList.toggle('warning', severity === 'warning');
-    element.classList.toggle('dual', !!(view.value?.display.tap && view.value.display.hold));
+    element.classList.toggle('dual', !!view.value?.display.hold && !tapDanceWindows(view.value));
     element.dataset.kind = view.value?.kind ?? '';
     element.classList.toggle('marked', !!keyMark(view.value));
     element.classList.toggle('windowed', !!tapDanceWindows(view.value));
@@ -158,10 +158,13 @@ export function keyFace(view: Pick<SlotView, 'text' | 'value'>): Node[] {
         ...windows.map((action, i) =>
           h('span', { class: `td-window td-window-${i + 1}`, 'data-action': action.action }, h('span', { class: 'td-label' }, action.label)),
         ),
+        // エンコーダの帯ではタップの札とこの「+残りの数」だけを見せる（キーでは隠す。media/webview.css）
+        windows.length > 1 ? h('span', { class: 'td-more' }, `+${windows.length - 1}`) : null,
       ),
     );
-  } else if (tap && hold) {
-    nodes.push(h('span', { class: 'key-tap' }, tap), h('span', { class: 'key-hold' }, hold));
+  } else if (hold) {
+    // 下の帯（2 役のキーのホールド、レイヤー操作のレイヤー）。MO は面を空けて帯だけ
+    nodes.push(h('span', { class: 'key-tap' }, tap ?? ''), h('span', { class: 'key-hold' }, hold));
   } else if (value.kind === 'transparent') {
     nodes.push(h('span', { class: 'key-label faint' }, label || '▽'));
   } else if (value.kind === 'noKey') {

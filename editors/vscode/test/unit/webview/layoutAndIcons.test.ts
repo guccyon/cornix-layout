@@ -106,12 +106,35 @@ describe('Cornix の物理配置', () => {
   });
 });
 
-describe('キーの面の印', () => {
+describe('キーの面の印・窓・帯', () => {
   const value = (text: string): KeyValue => data.interpret(text)!;
-  const face = (text: string) => {
+  const faceOf = (v: KeyValue) => {
     const element = document.createElement('div');
-    element.append(...keyFace({ text, value: value(text) }));
+    element.append(...keyFace({ text: v.text, value: v }));
     return element;
+  };
+  const face = (text: string) => faceOf(value(text));
+  const tapDance = (actions?: NonNullable<KeyValue['display']['actions']>): KeyValue => ({
+    text: "TapDance('Paste Variants')",
+    canonical: "TapDance('Paste Variants')",
+    code: 0x5702,
+    kind: 'tapDance',
+    display: actions ? { label: 'Paste Variants', actions } : { label: 'Paste Variants' },
+  });
+  const four = tapDance([
+    { action: 'tap', label: '⌘V' },
+    { action: 'hold', label: 'Copy Selected' },
+    { action: 'doubleTap', label: 'Copy Word' },
+    { action: 'tapHold', label: 'Copy Line' },
+  ]);
+  const slots = () => layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+  const encoderView = (hand: 'left' | 'right', op: 'ccw' | 'push' | 'cw', v: KeyValue) => {
+    const all = slots();
+    const view = new KeyboardView({ onSelect: () => undefined });
+    view.setSlots(all);
+    const slot = all.find((s) => s.hand === hand && s.encoder === op)!;
+    view.update(slot.id, { text: v.text, value: v, diagnostics: [], changed: false });
+    return view.element.querySelectorAll('.encoder')[hand === 'left' ? 0 : 1]!.querySelector(`.encoder-${op}`)!;
   };
 
   it('NoKey は空白で、✕ や x を描かない', () => {
@@ -120,11 +143,10 @@ describe('キーの面の印', () => {
     expect(element.querySelector('.key-label')).toBeNull();
   });
 
-  it('マクロは M、タップダンスは TD、自分のショートカットは ★ の印を右上に付ける', () => {
+  it('マクロは M、自分のショートカットは ★ の印を右上に付ける', () => {
     const mark = (text: string) => face(text).querySelector('.key-mark');
     expect(mark("Macro('Bracket Pair')")?.textContent).toBe('M');
     expect(mark("Macro('Bracket Pair')")?.classList.contains('mark-macro')).toBe(true);
-    expect(mark("TapDance('Tab Escape')")?.textContent).toBe('TD');
     expect(mark("Shortcut('前のタブへ')")?.textContent).toBe('★');
     expect(face("Shortcut('前のタブへ')").querySelector('.key-label')?.textContent).toBe('⇧⌘[');
   });
@@ -137,90 +159,75 @@ describe('キーの面の印', () => {
   });
 
   it('印の意味は読み上げと説明でも分かる', () => {
-    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
-    const q = slots.find((slot) => slot.label === 'Q')!;
+    const q = slots().find((slot) => slot.label === 'Q')!;
     const macro = value("Macro('Bracket Pair')");
     expect(keyAccessibleName(q, macro.text, macro, [])).toBe('左手 Q: マクロ Bracket Pair');
+    expect(keyFaceNote(macro)).toBe('印「M」: マクロ');
     const tip = describeContent(macro.text, { value: macro, diagnostics: [], description: null }, { mark: '印「M」: マクロ' }) as HTMLElement;
     expect(tip.querySelector('.tooltip-mark')?.textContent).toBe('印「M」: マクロ');
-    expect(keyMark(value("TapDance('Tab Escape')"))?.meaning).toBe('タップダンス');
   });
 
-  const tapDance = (actions: NonNullable<KeyValue['display']['actions']>): KeyValue => ({
-    text: "TapDance('Paste Variants')",
-    canonical: "TapDance('Paste Variants')",
-    code: 0x5702,
-    kind: 'tapDance',
-    display: { label: 'Paste Variants', actions },
-  });
-  const four = tapDance([
-    { action: 'tap', label: '⌘V' },
-    { action: 'hold', label: 'Copy Selected' },
-    { action: 'doubleTap', label: 'Copy Word' },
-    { action: 'tapHold', label: 'Copy Line' },
-  ]);
-
-  it('動作が 2 つ以上のタップダンスは、キーの面を動作の数の窓に分け、TD の印は付けない', () => {
-    const element = document.createElement('div');
-    element.append(...keyFace({ text: four.text, value: four }));
-    const grid = element.querySelector('.td-windows')!;
-    expect(grid.classList.contains('td-4')).toBe(true);
-    expect([...grid.querySelectorAll('.td-window')].map((w) => [w.getAttribute('data-action'), w.textContent])).toEqual([
+  it('タップダンスは、割り当てのある動作の数の窓に分ける（1 つでも窓）。TD の印は付けない', () => {
+    for (const [count, v] of [
+      [4, four],
+      [2, value("TapDance('Tab Escape')")],
+      [1, tapDance([{ action: 'tap', label: 'OSL L4' }])],
+    ] as const) {
+      const element = faceOf(v);
+      expect(element.querySelector('.td-windows')?.classList.contains(`td-${count}`), String(count)).toBe(true);
+      expect(element.querySelectorAll('.td-window')).toHaveLength(count);
+      expect(element.querySelector('.key-mark')).toBeNull();
+    }
+    expect([...faceOf(four).querySelectorAll('.td-window')].map((w) => [w.getAttribute('data-action'), w.textContent])).toEqual([
       ['tap', '⌘V'],
       ['hold', 'Copy Selected'],
       ['doubleTap', 'Copy Word'],
       ['tapHold', 'Copy Line'],
     ]);
-    expect(element.querySelector('.key-mark')).toBeNull();
-    const two = tapDance([
-      { action: 'tap', label: 'Tab' },
-      { action: 'hold', label: 'Escape' },
-    ]);
-    const twoElement = document.createElement('div');
-    twoElement.append(...keyFace({ text: two.text, value: two }));
-    expect(twoElement.querySelector('.td-windows')?.classList.contains('td-2')).toBe(true);
+    expect(faceOf(four).querySelector('.td-more')?.textContent).toBe('+3');
+    expect(face("TapDance('Tab Escape')").querySelector('.td-window-1')?.textContent).toBe('Tab');
   });
 
-  it('動作が 1 つ・actions のないタップダンスは、ふつうのキーに TD の印', () => {
-    for (const value of [tapDance([{ action: 'tap', label: 'OSL L4' }]), data.interpret("TapDance('Tab Escape')")!]) {
-      const element = document.createElement('div');
-      element.append(...keyFace({ text: value.text, value }));
-      expect(element.querySelector('.td-windows')).toBeNull();
-      expect(element.querySelector('.key-mark')?.textContent).toBe('TD');
-    }
+  it('動作の分からない（actions のない）タップダンスだけ、ふつうのキーに TD の印', () => {
+    const element = faceOf(tapDance());
+    expect(element.querySelector('.td-windows')).toBeNull();
+    expect(element.querySelector('.key-mark')?.textContent).toBe('TD');
+    expect(keyMark(tapDance())?.meaning).toBe('タップダンス');
   });
 
   it('窓の動作は読み上げと説明でも分かる', () => {
-    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
-    const b = slots.find((slot) => slot.label === 'B')!;
+    const b = slots().find((slot) => slot.label === 'B')!;
     expect(keyAccessibleName(b, four.text, four, [])).toBe(
       '左手 B: タップダンス Paste Variants（タップ ⌘V、ホールド Copy Selected、ダブルタップ Copy Word、タップホールド Copy Line）',
     );
-    expect(keyFaceNote(four)).toBe('窓（左上から）: タップ ⌘V・ホールド Copy Selected・ダブルタップ Copy Word・タップホールド Copy Line');
-    expect(keyFaceNote(data.interpret("Macro('Bracket Pair')"))).toBe('印「M」: マクロ');
+    expect(keyFaceNote(four)).toBe('窓（タップから順に）: タップ ⌘V・ホールド Copy Selected・ダブルタップ Copy Word・タップホールド Copy Line');
   });
 
-  it('エンコーダの帯では窓にせず、同じ札を横に並べる', () => {
-    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
-    const view = new KeyboardView({ onSelect: () => undefined });
-    view.setSlots(slots);
-    const ccw = slots.find((slot) => slot.hand === 'left' && slot.encoder === 'ccw')!;
-    view.update(ccw.id, { text: four.text, value: four, diagnostics: [], changed: false });
-    const part = view.element.querySelector('.encoder-ccw')!;
+  it('レイヤー操作は LT と同じ下の帯にレイヤー番号。MO は面を空け、ほかは面に操作名', () => {
+    const mo = face('MO(1)');
+    expect(mo.querySelector('.key-tap')?.textContent).toBe('');
+    expect(mo.querySelector('.key-hold')?.textContent).toBe('L1');
+    const tg = face('TG(3)');
+    expect(tg.querySelector('.key-tap')?.textContent).toBe('TG');
+    expect(tg.querySelector('.key-hold')?.textContent).toBe('L3');
+    const thumb = slots().find((slot) => slot.label === 'fn')!;
+    expect(keyAccessibleName(thumb, 'MO(3)', value('MO(3)'), [])).toBe('左手 fn: MO(3)');
+  });
+
+  it('エンコーダの帯では窓にせず、タップの札と「+残りの数」の札', () => {
+    const part = encoderView('left', 'ccw', four);
     expect(part.classList.contains('windowed')).toBe(true);
-    expect(part.querySelectorAll('.td-window')).toHaveLength(4);
+    expect(part.querySelector('.td-window-1')?.textContent).toBe('⌘V');
+    expect(part.querySelector('.td-more')?.textContent).toBe('+3');
   });
 
-  it('エンコーダの帯にも同じ印を付ける', () => {
-    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
-    const view = new KeyboardView({ onSelect: () => undefined });
-    view.setSlots(slots);
-    const push = slots.find((slot) => slot.hand === 'right' && slot.encoder === 'push')!;
-    const td = value("TapDance('Tab Escape')");
-    view.update(push.id, { text: td.text, value: td, diagnostics: [], changed: false });
-    const part = view.element.querySelectorAll('.encoder')[1]!.querySelector('.encoder-push')!;
-    expect(part.classList.contains('marked')).toBe(true);
-    expect(part.querySelector('.key-mark')?.textContent).toBe('TD');
+  it('エンコーダの帯にも印・レイヤーの帯を付ける', () => {
+    const macro = encoderView('right', 'push', value("Macro('Bracket Pair')"));
+    expect(macro.classList.contains('marked')).toBe(true);
+    expect(macro.querySelector('.key-mark')?.textContent).toBe('M');
+    const mo = encoderView('right', 'cw', value('MO(1)'));
+    expect(mo.classList.contains('dual')).toBe(true);
+    expect(mo.querySelector('.key-hold')?.textContent).toBe('L1');
   });
 });
 

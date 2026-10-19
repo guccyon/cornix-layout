@@ -57,11 +57,11 @@ export type KeyKind =
   | 'raw';
 
 export type KeyDisplay = {
-  /** 図に描く短い文字（"Space"、"⇧⌘P"、"Bracket Pair"）。修飾キーは macOS の並び（⌃⌥⇧⌘） */
+  /** 1 行で描くときの短い文字（"Space"、"⇧⌘P"、"Bracket Pair"、"TG L3"）。修飾キーは macOS の並び（⌃⌥⇧⌘） */
   label: string;
-  /** 2 役のキーのタップ側（"Space"） */
+  /** 上の面の文字。2 役のキーのタップ側（"Space"）、レイヤー操作の操作名（"TG"）、LM の修飾キー（"⇧"）。MO は省く */
   tap?: string;
-  /** 2 役のキーのホールド側（"L1"、"⇧"） */
+  /** 下の帯の文字。2 役のキーのホールド側（"L1"、"⇧"）、レイヤー操作・LM のレイヤー（"L3"）。名前があっても番号 */
   hold?: string;
   /** タップダンスの割り当てのある動作（図で窓に分けて描く）。定義のないもの・どの動作も NoKey なら省く */
   actions?: TapDanceAction[];
@@ -70,7 +70,7 @@ export type KeyDisplay = {
 /** タップダンスの動作 1 つ。tap・hold・doubleTap・tapHold の順で、NoKey の動作は省く */
 export type TapDanceAction = {
   action: 'tap' | 'hold' | 'doubleTap' | 'tapHold';
-  /** その動作のキーの label（"Tab"、"MO Symbols"） */
+  /** その動作のキーの label（"Tab"、"L1"） */
   label: string;
 };
 

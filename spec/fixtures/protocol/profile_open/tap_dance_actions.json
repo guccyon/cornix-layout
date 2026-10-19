@@ -17,7 +17,7 @@
                   "kind": "tapDance",
                   "display": {
                     "label": "Layer 3 Toggle",
-                    "actions": [{ "action": "tap", "label": "TG Function Keys" }, { "action": "hold", "label": "MO Function Keys" }]
+                    "actions": [{ "action": "tap", "label": "TG L3" }, { "action": "hold", "label": "L3" }]
                   }
                 }
               }

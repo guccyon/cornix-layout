@@ -271,8 +271,8 @@ button {
   margin-top: 0.7em;
 }
 
-/* タップダンスの窓: キーの面を割り当てのある動作の数で分ける（2 つは左右、3 つは上 1・下 2、4 つは 2×2）。
-   順はタップ・ホールド・ダブルタップ・タップホールドで、後ろの窓ほど背景を少しずつ濃くする（色は TD の印と同じ） */
+/* タップダンスの窓: キーの面を割り当てのある動作の数で分ける（1 つは面全体、2 つは左右、3 つは上 1・下 2、4 つは 2×2）。
+   順はタップ・ホールド・ダブルタップ・タップホールドで、後ろの窓ほど背景を少しずつ濃くする */
 .key.windowed {
   padding: 0;
 }
@@ -286,6 +286,17 @@ button {
   grid-auto-rows: 1fr;
 }
 
+/* 変更の印（inset の box-shadow）が窓の背景に隠れないように、窓を内側に寄せる */
+.key.changed .td-windows {
+  inset: 2px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.td-1 {
+  grid-template-columns: 1fr;
+}
+
 .td-window {
   display: flex;
   align-items: center;
@@ -294,41 +305,58 @@ button {
   min-height: 0;
   padding: 0 1px;
   overflow: hidden;
-  font-size: 0.78em;
+  /* 読めることを優先: 小さくしても 8.5px より下げない */
+  font-size: max(8.5px, 0.8em);
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: color-mix(in srgb, var(--td-color) 35%, var(--vscode-foreground));
   border-color: color-mix(in srgb, var(--td-color) 45%, transparent);
   border-style: solid;
   border-width: 0;
 }
 
+.td-1 .td-window,
+.td-2 .td-window,
+.td-3 .td-window-1 {
+  font-size: max(9px, 0.9em);
+}
+
 .td-window-1 {
-  background: color-mix(in srgb, var(--td-color) 8%, transparent);
+  background: color-mix(in srgb, var(--td-color) 10%, transparent);
 }
 
 .td-window-2 {
-  background: color-mix(in srgb, var(--td-color) 16%, transparent);
+  background: color-mix(in srgb, var(--td-color) 18%, transparent);
   border-left-width: 1px;
 }
 
 .td-window-3 {
-  background: color-mix(in srgb, var(--td-color) 24%, transparent);
+  background: color-mix(in srgb, var(--td-color) 26%, transparent);
   border-top-width: 1px;
 }
 
 .td-window-4 {
-  background: color-mix(in srgb, var(--td-color) 32%, transparent);
+  background: color-mix(in srgb, var(--td-color) 34%, transparent);
   border-top-width: 1px;
   border-left-width: 1px;
 }
 
-/* 窓の文字は 1 行で、入りきらない分は切る（窓は狭いので「…」にせず 1 文字でも多く見せる。全部は説明で見せる） */
+/* 窓の文字は 2 行まで折り返し（語の切れ目を優先）、入りきらない分は「…」（全部は説明で見せる） */
 .td-label {
   max-width: 100%;
   overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+}
+
+/* 「+残りの数」はエンコーダの帯でだけ見せる */
+.td-more {
+  display: none;
 }
 
 /* 3 つ: 上にタップを横いっぱい、下にホールドとダブルタップ（タップホールド） */
@@ -343,6 +371,34 @@ button {
 
 .td-3 .td-window-3 {
   border-left-width: 1px;
+}
+
+/* 図が狭いとき（キーが 50px ほどより小さい）は、窓を横に割ると 1 語も入らないので、上から順の横長の窓に並べ替える。
+   順（タップ → ホールド → ダブルタップ → タップホールド）と濃さは同じ。1 つの窓が 1 行なら「…」で省略 */
+@container (max-width: 880px) {
+  .key .td-windows {
+    grid-template-columns: 1fr;
+  }
+
+  .key .td-3 .td-window-1 {
+    grid-column: auto;
+  }
+
+  .key .td-window {
+    border-width: 0;
+    border-top-width: 1px;
+  }
+
+  .key .td-window-1 {
+    border-top-width: 0;
+  }
+
+  .key .td-4 .td-label,
+  .key .td-3 .td-label {
+    -webkit-line-clamp: 1;
+    overflow-wrap: normal;
+    word-break: break-all;
+  }
 }
 
 /* エンコーダ: 丸いつまみ。円を上・中・下の帯に分け、左回し・押し込み・右回しの欄にする。
@@ -500,36 +556,46 @@ button {
   height: 1.1em;
 }
 
-/* エンコーダの帯ではタップダンスを窓にせず、動作の文字を小さな札で横に並べる（入りきらない分は省略） */
+/* エンコーダの帯ではタップダンスを窓にせず、タップの文字の札と「+残りの数」の札を並べる（全部は説明と読み上げで分かる） */
 .encoder-part .td-windows {
   position: static;
   display: flex;
-  gap: 2px;
+  align-items: center;
+  gap: 3px;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
 }
 
-/* タップの札は縮めすぎず（帯の 6 割まで）、残りの動作の札を先に省略する */
-.encoder-part .td-window {
+.encoder-part .td-window,
+.encoder-part .td-more {
   display: block;
   flex: 0 1 auto;
-  min-width: 1.4em;
+  min-width: 0;
   padding: 0 0.3em;
   border: 1px solid color-mix(in srgb, var(--td-color) 45%, transparent);
   border-radius: 3px;
   font-size: 0.9em;
   white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.encoder-part .td-window-1 {
-  flex-shrink: 0;
-  max-width: 60%;
+.encoder-part .td-window:not(.td-window-1) {
+  display: none;
+}
+
+.encoder-part .td-more {
+  flex: none;
+  background: color-mix(in srgb, var(--td-color) 26%, transparent);
+  color: color-mix(in srgb, var(--td-color) 35%, var(--vscode-foreground));
 }
 
 .encoder-part .td-label {
   display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* エンコーダの帯では印を文字の後ろに並べる */

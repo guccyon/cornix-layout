@@ -40,7 +40,7 @@ module Cornix
           {
             text: text, canonical: canonical(keycode), code: @codec.encode(keycode), kind: @display.kind(keycode),
             origin: origin,
-            display: display(keycode),
+            display: display_of(keycode),
             icon: icon, note: note
           }.compact
         end
@@ -50,7 +50,7 @@ module Cornix
         # 名前参照を使わない表記（Shortcut の中身、LT / MT のタップ側の説明、references.shortcuts の text の代わりに使う）
         def plain(keycode) = @notation.format(keycode)
 
-        def label(keycode) = @display.display(keycode, references: @references, layer_names: @layer_names)[:label]
+        def label(keycode) = @display.display(keycode, references: @references)[:label]
 
         # preset: のマクロの元のアプリのアイコン（preset でなければ nil）
         def macro_icon(macro) = macro&.preset ? app_icon(macro.preset) : nil
@@ -66,8 +66,8 @@ module Cornix
 
         private
 
-        def display(keycode)
-          shown = @display.display(keycode, references: @references, layer_names: @layer_names).compact
+        def display_of(keycode)
+          shown = @display.display(keycode, references: @references).compact
           actions = tap_dance_actions(keycode)
           actions.empty? ? shown : shown.merge(actions: actions)
         end
@@ -76,7 +76,7 @@ module Cornix
           return [] unless keycode.is_a?(Domain::Keycode::TapDanceCall)
 
           tap_dance = @profile&.tap_dance(keycode.index)
-          tap_dance ? @display.tap_dance_actions(tap_dance, references: @references, layer_names: @layer_names) : []
+          tap_dance ? @display.tap_dance_actions(tap_dance, references: @references) : []
         end
 
         def build_references(env, profile)

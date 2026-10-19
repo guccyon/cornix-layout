@@ -7,8 +7,8 @@ module Cornix
     #
     #   display = KeyDisplay.new(catalog:, notation:)
     #   display.kind(keycode)                                     #=> "basic" | "modified" | "layerTap" | ...
-    #   display.display(keycode, references:, layer_names: {})   #=> { label:, tap:, hold: }
-    #   display.tap_dance_actions(tap_dance, references:, layer_names: {})
+    #   display.display(keycode, references:)   #=> { label:, tap:, hold: }
+    #   display.tap_dance_actions(tap_dance, references:)
     #     #=> [{ action: "tap", label: "Tab" }, { action: "hold", label: "Escape" }]（割り当てのある動作だけ。図で窓に分けて描く）
     #
     # 文字の決め方
@@ -16,15 +16,17 @@ module Cornix
     #   修飾キー単体        記号（⌃ ⌥ ⇧ ⌘。右側は R⇧ のように R を付ける）
     #   Modified            別名があれば別名（!）、なければ修飾キーの記号を macOS の並び（⌃⌥⇧⌘）で前に付ける（⇧⌘P）
     #   ModTap / LayerTap   2 役のキー。label と tap はタップ側のキー、hold は修飾キーの記号（⇧）か L<番号>（L1）
-    #   LayerAction         操作の名前とレイヤー（MO Symbols）。レイヤーの名前がなければ L<番号>（MO L1）
-    #   LayerMod            レイヤーと修飾キー（L1 ⇧）。OneShotMod は OSM ⇧
+    #   LayerAction         図の下の帯にレイヤー（hold: L3）、上の面に操作の名前（tap: TG）。MO は面を空けて帯だけ（tap なし）。
+    #                       label は 1 行の形（MO は L3、ほかは TG L3）
+    #   LayerMod            帯にレイヤー（hold: L1）、面に修飾キーの記号（tap: ⇧）。label は L1 ⇧。OneShotMod は OSM ⇧
     #   MacroCall / TapDanceCall  名前（Bracket Pair）。名前がなければ M0 / TD(4)
     #   NoKey / Transparent 空の文字 / ▽（Vial と同じ）
     #   Raw                 0xHHHH
     #
     # タップダンスの動作は tap・hold・doubleTap・tapHold の順（Domain::TapDance::ACTIONS と同じ）。NoKey の動作は省く。
     #
-    # LayerTap の hold は図の小さな文字なので、名前があっても L<番号> にする（protocol.md の profile/open の例と同じ）。
+    # レイヤーは名前があっても L<番号> にする。名前は任意で長くなりがちで図では省略されてしまうため（名前は説明で見せる）。
+    # 帯（hold）はレイヤーを切り替える・効かせるキーの印で、LayerTap の帯と同じ見た目にそろえる。
     class KeyDisplay
       K = Domain::Keycode
 
@@ -52,11 +54,11 @@ module Cornix
       }.freeze
 
       NO_KEY_LABEL = ''
-
-      # Domain::TapDance の動作 → KeyDisplay の actions[].action
-      TAP_DANCE_ACTIONS = { on_tap: 'tap', on_hold: 'hold', on_double_tap: 'doubleTap', on_tap_hold: 'tapHold' }.freeze
       TRANSPARENT_LABEL = '▽'
       QMK_PREFIX = 'KC_'
+
+      # Domain::TapDance の動作 → KeyDisplay の actions[].action（並びは Domain::TapDance::ACTIONS と同じ）
+      TAP_DANCE_ACTIONS = { on_tap: 'tap', on_hold: 'hold', on_double_tap: 'doubleTap', on_tap_hold: 'tapHold' }.freeze
 
       def initialize(catalog: KeycodeCatalog.default, notation: KeycodeNotation.new(catalog: catalog))
         @catalog = catalog
@@ -70,21 +72,23 @@ module Cornix
       end
 
       # Keycode → { label:, tap:, hold: }（tap / hold は 2 役のキーだけ。ほかは nil）
-      def display(keycode, references: References::NONE, layer_names: {})
+      def display(keycode, references: References::NONE)
         case keycode
         when K::ModTap then dual(key_label(keycode.base), modifier_symbols(keycode.mods))
-        when K::LayerTap then dual(key_label(keycode.base), "L#{keycode.layer.index}")
-        else single(label(keycode, references, layer_names))
+        when K::LayerTap then dual(key_label(keycode.base), layer_label(keycode.layer.index))
+        when K::LayerAction then layer_action(keycode)
+        when K::LayerMod then layer_mod(keycode)
+        else single(label(keycode, references))
         end
       end
 
       # Domain::TapDance → 割り当てのある動作と、その文字（label）の配列
-      def tap_dance_actions(tap_dance, references: References::NONE, layer_names: {})
+      def tap_dance_actions(tap_dance, references: References::NONE)
         TAP_DANCE_ACTIONS.filter_map do |field, action|
           keycode = tap_dance.keycode_at(field)
           next if keycode.is_a?(K::NoKey)
 
-          { action: action, label: display(keycode, references: references, layer_names: layer_names)[:label] }
+          { action: action, label: display(keycode, references: references)[:label] }
         end
       end
 
@@ -100,14 +104,27 @@ module Cornix
 
       def dual(tap, hold) = { label: tap, tap: tap, hold: hold }
 
-      def label(keycode, references, layer_names)
+      # MO は面を空けて帯だけ。ほかは面に操作の名前
+      def layer_action(keycode)
+        layer = layer_label(keycode.layer.index)
+        return { label: layer, tap: nil, hold: layer } if keycode.op == :momentary
+
+        op = LAYER_OPS.fetch(keycode.op)
+        { label: "#{op} #{layer}", tap: op, hold: layer }
+      end
+
+      def layer_mod(keycode)
+        layer = layer_label(keycode.layer.index)
+        mods = modifier_symbols(keycode.mods)
+        { label: "#{layer} #{mods}", tap: mods, hold: layer }
+      end
+
+      def label(keycode, references)
         case keycode
         when K::NoKey then NO_KEY_LABEL
         when K::Transparent then TRANSPARENT_LABEL
         when K::Basic, K::Quantum then key_label(keycode)
         when K::Modified then modified_label(keycode)
-        when K::LayerAction then "#{LAYER_OPS.fetch(keycode.op)} #{layer_label(keycode.layer.index, layer_names)}"
-        when K::LayerMod then "#{layer_label(keycode.layer.index, layer_names)} #{modifier_symbols(keycode.mods)}"
         when K::OneShotMod then "OSM #{modifier_symbols(keycode.mods)}"
         when K::MacroCall then references.macro_name(keycode.index) || "M#{keycode.index}"
         when K::TapDanceCall then references.tap_dance_name(keycode.index) || "TD(#{keycode.index})"
@@ -129,7 +146,7 @@ module Cornix
         @catalog.preferred_alias(@codec.encode(keycode)) || "#{modifier_symbols(keycode.mods)}#{key_label(keycode.base)}"
       end
 
-      def layer_label(index, layer_names) = layer_names[index] || "L#{index}"
+      def layer_label(index) = "L#{index}"
 
       def hex(code) = ::Kernel.format('0x%04X', code)
     end

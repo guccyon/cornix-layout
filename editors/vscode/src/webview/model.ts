@@ -145,16 +145,17 @@ export const TAP_DANCE_ACTION_LABEL: Record<TapDanceAction['action'], string> = 
   tapHold: 'タップホールド',
 };
 
-/** タップダンスを窓に分けて描くときの動作（割り当てのある動作が 2 つ以上のときだけ。ほかは null） */
+/** タップダンスを窓に分けて描くときの動作（割り当てのある動作が 1 つ以上のとき。サーバーが actions を返さなければ null） */
 export function tapDanceWindows(value: KeyValue | null | undefined): TapDanceAction[] | null {
   if (value?.kind !== 'tapDance') return null;
   const actions = value.display.actions ?? [];
-  return actions.length >= 2 ? actions : null;
+  return actions.length >= 1 ? actions : null;
 }
 
 /**
  * 値に付ける印（なければ null）。自分のショートカット（Shortcut(...)）は中身の種類より先に ★。
  * アイコンのあるもの（同梱のショートカット・preset: のマクロ）はアイコンで、窓に分けて描くタップダンスは窓で分かるので印を付けない
+ * （TD の印は、定義が見つからず動作の分からないタップダンスだけ）
  */
 export function keyMark(value: KeyValue | null | undefined): KeyMark | null {
   if (!value || value.icon) return null;
@@ -167,7 +168,7 @@ export function keyMark(value: KeyValue | null | undefined): KeyMark | null {
 /** 図の印・窓の説明（説明の吹き出しに出す 1 行。なければ undefined） */
 export function keyFaceNote(value: KeyValue | null | undefined): string | undefined {
   const windows = tapDanceWindows(value);
-  if (windows) return `窓（左上から）: ${windows.map((a) => `${TAP_DANCE_ACTION_LABEL[a.action]} ${a.label}`).join('・')}`;
+  if (windows) return `窓（タップから順に）: ${windows.map((a) => `${TAP_DANCE_ACTION_LABEL[a.action]} ${a.label}`).join('・')}`;
   const mark = keyMark(value);
   return mark ? `印「${mark.text}」: ${mark.meaning}` : undefined;
 }
@@ -181,7 +182,10 @@ export function keyAccessibleName(
 ): string {
   let content: string;
   if (text === '') content = '割り当てなし';
-  else if (value?.display.tap && value.display.hold) content = `タップ ${value.display.tap}、ホールド ${value.display.hold}`;
+  else if (value?.display.tap && value.display.hold && (value.kind === 'layerTap' || value.kind === 'modTap'))
+    content = `タップ ${value.display.tap}、ホールド ${value.display.hold}`;
+  // レイヤー操作は図では帯に番号だけなので、読み上げは表記の形（MO(1)）で
+  else if (value?.kind === 'layerAction' || value?.kind === 'layerMod') content = value.canonical;
   else content = value?.display.label || text;
   const mark = keyMark(value);
   if (mark) content = `${mark.meaning} ${content}`;

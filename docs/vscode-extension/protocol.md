@@ -126,20 +126,23 @@ type KeyKind =
   | "macro" | "tapDance" | "quantum" | "noKey" | "transparent" | "raw";
 
 type KeyDisplay = {
-  label: string;                // 図に描く短い文字（"Space"、"⇧⌘P"、"Bracket Pair"）。修飾キーは macOS の並び（⌃⌥⇧⌘）
-  tap?: string;                 // 2 役のキーのタップ側（"Space"）
-  hold?: string;                // 2 役のキーのホールド側（"L1"、"⇧"）
+  label: string;                // 1 行で描くときの短い文字（"Space"、"⇧⌘P"、"Bracket Pair"、"TG L3"）。修飾キーは macOS の並び（⌃⌥⇧⌘）
+  tap?: string;                 // 上の面の文字。2 役のキーのタップ側（"Space"）、レイヤー操作の操作名（"TG"）、LM の修飾キー（"⇧"）。MO は省く
+  hold?: string;                // 下の帯の文字。2 役のキーのホールド側（"L1"、"⇧"）、レイヤー操作・LM のレイヤー（"L3"）
   actions?: TapDanceAction[];   // タップダンスの割り当てのある動作（図で窓に分けて描く）。定義のないもの・どの動作も NoKey なら省く
 };
 
 type TapDanceAction = {
   action: "tap" | "hold" | "doubleTap" | "tapHold";  // この順で並べ、NoKey の動作は省く
-  label: string;                // その動作のキーの label（"Tab"、"MO Symbols"）
+  label: string;                // その動作のキーの label（"Tab"、"L1"）
 };
 ```
 
 `kind` は `Domain::Keycode` の種類に対応する名前だが、約束としては文字列の列挙として固定し、Ruby のクラス名とは切り離す。
 表示用の文字（`display`）もサーバーが作る（TypeScript 版も同じ `data/` から同じ文字を作る）。
+レイヤーは名前があっても番号（`L3`）で描く（名前は任意で長くなりがちなので、図では番号にして名前は説明で見せる）。
+レイヤー操作は LT の帯にそろえ、`hold` にレイヤー、`tap` に操作名を入れる（`MO(3)` は `{ label: "L3", hold: "L3" }`、`TG(3)` は `{ label: "TG L3", tap: "TG", hold: "L3" }`、
+`LM(1, MOD_LSFT)` は `{ label: "L1 ⇧", tap: "⇧", hold: "L1" }`）。
 
 ### Change（画面での変更 1 つ）
 
@@ -256,6 +259,14 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
           "value": {
             "text": "LT1(Space)", "canonical": "LT1(Space)", "code": 16684, "kind": "layerTap",
             "display": { "label": "Space", "tap": "Space", "hold": "L1" }
+          }
+        },
+        {
+          "hand": "left", "row": 0, "col": 0,
+          "address": { "file": "layers/0_base.yml", "path": ["mapping", "left_hand", "row0", "tab"] },
+          "value": {
+            "text": "TapDance('Tab Escape')", "canonical": "TapDance('Tab Escape')", "code": 22276, "kind": "tapDance",
+            "display": { "label": "Tab Escape", "actions": [{ "action": "tap", "label": "Tab" }, { "action": "hold", "label": "Escape" }] }
           }
         }
       ],

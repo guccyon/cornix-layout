@@ -115,10 +115,11 @@ data/
 lib/cornix.rb       全ファイルを層の順に require
 lib/cornix/
   domain/ image/ mapping/ planning/ storage/ device/ application/ interface/
-  errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
+  version.rb（Cornix::VERSION）, errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
 ext/cornix_hid/     raw HID ブリッジ（Swift、tmp/cornix-hid にビルド）
 spec/               lib と同じ層の構成 + end_to_end_spec.rb / architecture_spec.rb / fixtures/
 docs/               設計文書（README.md が一覧。architecture / domain-model / notation / validation / rename / device / tasks / background）
+CHANGELOG.md        変更履歴（Keep a Changelog の形。リリースごとに項を作る）
 config/             利用者の設定（生成物。main ブランチにはない）
 ```
 

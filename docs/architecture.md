@@ -40,7 +40,7 @@ Device          HidBridge / Protocol / Session / Reader / Writer
 | application | すべて |
 | interface | application |
 
-`spec/architecture_spec.rb` がソースの参照を検査する。`Cornix::Error` 系の例外（`lib/cornix/errors.rb`）はどこからでも使ってよい。
+`spec/architecture_spec.rb` がソースの参照を検査する。`Cornix::Error` 系の例外（`lib/cornix/errors.rb`）と `Cornix::VERSION`（`lib/cornix/version.rb`）はどこからでも使ってよい。
 
 ## データの流れ
 

@@ -13,18 +13,18 @@
 ### キーボードとの読み書き
 
 - `cornix pull` / `status` / `apply` / `restore`: キーボードの設定を YAML に読み出し、差分を確かめ、差分だけを書き込み、バックアップから戻す（macOS、Bluetooth / USB）
-- 書き込みの前に必ずバックアップを取り、書き込んだあとに読み直して確かめる。実機に書き込まないキーコード（`data/dangerous_keycodes.yaml`）は止める
+- 書き込みの前に必ずバックアップを取り、書き込んだあとに読み直して確かめる。`QK_BOOT` など実機に書き込まないキーコード（`data/dangerous_keycodes.yaml`）が含まれていれば、書き込みをすべて止める
 - `cornix device info` / `read` / `backup` / `diff` / `apply` / `restore`: ファイルを指定して読み書きする
 - `cornix mcp`: MCP サーバーとして起動し、Claude などの AI アシスタントから読み書きできる（書き込みは dry run と確認トークンの 2 段階）
 
 ### 設定ファイル
 
-- レイヤー・エンコーダー・マクロ・タップダンス・コンボ・QMK Settings を YAML で書く
+- レイヤー・エンコーダ・マクロ・タップダンス・コンボ・QMK Settings を YAML で書く
 - `cornix init` と `profiles/`・`.cornix.yml`、共通のオプション `--config` / `--profile` / `--root` で、設定ディレクトリを作って切り替える
 - 修飾キー式（`Cmd + Q`）、別名（`Tab`, `!`）、名前での参照（`Macro('名前')` / `TapDance('名前')`）
 - 名前付きショートカット `Shortcut('名前')` と、同梱の cornixhub のショートカット（`Shortcut('アプリ:カテゴリ:ラベル')`）。手順を `macros/` の `preset:` でマクロにできる
 - 割り当てに注記を書ける（`{ key:, note: }`）
-- cornixhub の Vial キー一覧のキーをすべて書ける
+- cornixhub の Vial キー一覧にあるキーを名前で書ける（Cornix が対応していないとみられるキーは validate などで警告する）
 
 ### 検証と名前付け
 

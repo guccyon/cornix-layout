@@ -43,6 +43,7 @@ module Cornix
         DEFAULT_MCP_SERVER = ->(env) { Interface::Mcp::Server.new(env) }
         HELP_NAMES = %w[help -h --help].freeze
         VERSION_NAMES = %w[version -v --version].freeze
+        VERSION_HELP = "使い方: cornix version（--version / -v でも）\n\nこのツールのバージョンを表示する"
         # 既定（<root>/config）以外の設定ディレクトリを使うとき、最初にどの設定かを表示するコマンド
         SHOW_CONFIG = %w[compile decompile validate pull status apply restore rename cleanup].freeze
 
@@ -89,7 +90,9 @@ module Cornix
         end
 
         def help(name)
-          if name
+          if VERSION_NAMES.include?(name)
+            @out.puts(VERSION_HELP)
+          elsif name
             command_class = @commands[name] or raise UsageError, "知らないコマンドです: #{name}"
             @out.puts(command_class.help)
           else

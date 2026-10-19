@@ -69,6 +69,17 @@ RSpec.describe Cornix::Mapping::KeyDisplay do
     expect(key_display.display(keycode)).to eq({ label: 'M0', tap: nil, hold: nil })
   end
 
+  it 'タップダンスの動作は tap・hold・doubleTap・tapHold の順で、NoKey の動作は省く' do
+    tap_dance = Cornix::Domain::TapDance.new(
+      index: 4, name: 'Tab Escape', on_tap: notation.parse('Tab'), on_hold: notation.parse('MO(1)'),
+      on_double_tap: Cornix::Domain::Keycode::NO_KEY, on_tap_hold: notation.parse("Macro('Bracket Pair')", references: references),
+      tapping_term: 200
+    )
+    expect(key_display.tap_dance_actions(tap_dance, references: references, layer_names: layer_names)).to eq(
+      [{ action: 'tap', label: 'Tab' }, { action: 'hold', label: 'MO Symbols' }, { action: 'tapHold', label: 'Bracket Pair' }]
+    )
+  end
+
   it 'すべての 16bit 値に kind と文字がある' do
     codec = notation.codec
     kinds = (0..0xFFFF).map do |code|

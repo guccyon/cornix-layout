@@ -129,6 +129,12 @@ type KeyDisplay = {
   label: string;                // 図に描く短い文字（"Space"、"⇧⌘P"、"Bracket Pair"）。修飾キーは macOS の並び（⌃⌥⇧⌘）
   tap?: string;                 // 2 役のキーのタップ側（"Space"）
   hold?: string;                // 2 役のキーのホールド側（"L1"、"⇧"）
+  actions?: TapDanceAction[];   // タップダンスの割り当てのある動作（図で窓に分けて描く）。定義のないもの・どの動作も NoKey なら省く
+};
+
+type TapDanceAction = {
+  action: "tap" | "hold" | "doubleTap" | "tapHold";  // この順で並べ、NoKey の動作は省く
+  label: string;                // その動作のキーの label（"Tab"、"MO Symbols"）
 };
 ```
 
@@ -298,7 +304,7 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 - レイヤーの `description` は書いていなければ `null`（空の文字列はそのまま `""`）。`file` はそのレイヤーのファイル
 - `keys` は position_map の定義順（左手の row0〜row3・親指、右手の row0〜row3・親指）。`encoders` は `left` / `right` とも、`push` / `ccw` / `cw` もすべて必ずあり、
   `value` はファイルに書いていない操作（`push:` のように値を書いていないものも）では `null`（読み込みでは `NoKey` になるが、書いていないことを画面で分けられるように）
-- KeyValue の `text` はファイルに書いてある表記（注記付きの形なら `key` の値）。`origin` `icon` `note` と KeyDisplay の `tap` `hold` は、値がなければ `null` にせず項目ごと省く。
+- KeyValue の `text` はファイルに書いてある表記（注記付きの形なら `key` の値）。`origin` `icon` `note` と KeyDisplay の `tap` `hold` `actions` は、値がなければ `null` にせず項目ごと省く。
   `origin` は `Shortcut(...)` で書いたもの（自分のショートカットなら `"shortcut"` でアイコンなし、同梱のものなら `"presetShortcut"` と元のアプリのアイコン）と、
   `preset:` のマクロを指すもの（`Macro(...)` でも番号でも `"presetMacro"` と元のアプリのアイコン）。`canonical` はそのプロファイルの名前参照を使った decompile の正規形
   （自分のショートカットと同じ値なら `Shortcut('名前')` になる）

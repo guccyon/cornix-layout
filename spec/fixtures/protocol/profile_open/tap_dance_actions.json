@@ -1,0 +1,32 @@
+{
+  "description": "タップダンスの display には、割り当てのある動作（tap・hold・doubleTap・tapHold の順）の文字を actions に入れる。NoKey の動作は省く",
+  "setup": { "profile": "authors_config", "open": false },
+  "request": { "id": 1, "method": "profile/open", "params": { "dir": "profiles/default" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "status": "ok",
+      "layers": [
+        {
+          "index": 0,
+          "encoders": {
+            "right": {
+              "push": {
+                "value": {
+                  "text": "TapDance('Layer 3 Toggle')",
+                  "kind": "tapDance",
+                  "display": {
+                    "label": "Layer 3 Toggle",
+                    "actions": [{ "action": "tap", "label": "TG Function Keys" }, { "action": "hold", "label": "MO Function Keys" }]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {}, {}, {}, {}, {}, {}, {}, {}, {}
+      ],
+      "diagnostics": []
+    }
+  }
+}

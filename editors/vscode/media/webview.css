@@ -271,6 +271,80 @@ button {
   margin-top: 0.7em;
 }
 
+/* タップダンスの窓: キーの面を割り当てのある動作の数で分ける（2 つは左右、3 つは上 1・下 2、4 つは 2×2）。
+   順はタップ・ホールド・ダブルタップ・タップホールドで、後ろの窓ほど背景を少しずつ濃くする（色は TD の印と同じ） */
+.key.windowed {
+  padding: 0;
+}
+
+.td-windows {
+  --td-color: var(--vscode-charts-orange, #d18616);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+}
+
+.td-window {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 1px;
+  overflow: hidden;
+  font-size: 0.78em;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--td-color) 35%, var(--vscode-foreground));
+  border-color: color-mix(in srgb, var(--td-color) 45%, transparent);
+  border-style: solid;
+  border-width: 0;
+}
+
+.td-window-1 {
+  background: color-mix(in srgb, var(--td-color) 8%, transparent);
+}
+
+.td-window-2 {
+  background: color-mix(in srgb, var(--td-color) 16%, transparent);
+  border-left-width: 1px;
+}
+
+.td-window-3 {
+  background: color-mix(in srgb, var(--td-color) 24%, transparent);
+  border-top-width: 1px;
+}
+
+.td-window-4 {
+  background: color-mix(in srgb, var(--td-color) 32%, transparent);
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+
+/* 窓の文字は 1 行で、入りきらない分は切る（窓は狭いので「…」にせず 1 文字でも多く見せる。全部は説明で見せる） */
+.td-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* 3 つ: 上にタップを横いっぱい、下にホールドとダブルタップ（タップホールド） */
+.td-3 .td-window-1 {
+  grid-column: 1 / -1;
+}
+
+.td-3 .td-window-2 {
+  border-left-width: 0;
+  border-top-width: 1px;
+}
+
+.td-3 .td-window-3 {
+  border-left-width: 1px;
+}
+
 /* エンコーダ: 丸いつまみ。円を上・中・下の帯に分け、左回し・押し込み・右回しの欄にする。
    文字はキーと同じ大きさで 1 行に描き、入りきらない分は省略する（全部は説明で見せる） */
 .encoder {
@@ -424,6 +498,38 @@ button {
   flex: none;
   width: 1.1em;
   height: 1.1em;
+}
+
+/* エンコーダの帯ではタップダンスを窓にせず、動作の文字を小さな札で横に並べる（入りきらない分は省略） */
+.encoder-part .td-windows {
+  position: static;
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* タップの札は縮めすぎず（帯の 6 割まで）、残りの動作の札を先に省略する */
+.encoder-part .td-window {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 1.4em;
+  padding: 0 0.3em;
+  border: 1px solid color-mix(in srgb, var(--td-color) 45%, transparent);
+  border-radius: 3px;
+  font-size: 0.9em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.encoder-part .td-window-1 {
+  flex-shrink: 0;
+  max-width: 60%;
+}
+
+.encoder-part .td-label {
+  display: block;
 }
 
 /* エンコーダの帯では印を文字の後ろに並べる */

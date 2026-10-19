@@ -8,7 +8,7 @@ import { ICON_ASSETS } from '../../../src/webview/icons/manifest';
 import { MessageHostClient } from '../../../src/webview/hostClient';
 import { Inspector } from '../../../src/webview/inspector';
 import { KeyboardView, keyFace } from '../../../src/webview/keyboardView';
-import { keyAccessibleName, keyMark, layerSlots } from '../../../src/webview/model';
+import { keyAccessibleName, keyFaceNote, keyMark, layerSlots } from '../../../src/webview/model';
 import { describeContent } from '../../../src/webview/tooltip';
 import type { KeyValue } from '../../../src/protocol';
 import type { WebviewMessage } from '../../../src/webviewMessages';
@@ -144,6 +144,71 @@ describe('キーの面の印', () => {
     const tip = describeContent(macro.text, { value: macro, diagnostics: [], description: null }, { mark: '印「M」: マクロ' }) as HTMLElement;
     expect(tip.querySelector('.tooltip-mark')?.textContent).toBe('印「M」: マクロ');
     expect(keyMark(value("TapDance('Tab Escape')"))?.meaning).toBe('タップダンス');
+  });
+
+  const tapDance = (actions: NonNullable<KeyValue['display']['actions']>): KeyValue => ({
+    text: "TapDance('Paste Variants')",
+    canonical: "TapDance('Paste Variants')",
+    code: 0x5702,
+    kind: 'tapDance',
+    display: { label: 'Paste Variants', actions },
+  });
+  const four = tapDance([
+    { action: 'tap', label: '⌘V' },
+    { action: 'hold', label: 'Copy Selected' },
+    { action: 'doubleTap', label: 'Copy Word' },
+    { action: 'tapHold', label: 'Copy Line' },
+  ]);
+
+  it('動作が 2 つ以上のタップダンスは、キーの面を動作の数の窓に分け、TD の印は付けない', () => {
+    const element = document.createElement('div');
+    element.append(...keyFace({ text: four.text, value: four }));
+    const grid = element.querySelector('.td-windows')!;
+    expect(grid.classList.contains('td-4')).toBe(true);
+    expect([...grid.querySelectorAll('.td-window')].map((w) => [w.getAttribute('data-action'), w.textContent])).toEqual([
+      ['tap', '⌘V'],
+      ['hold', 'Copy Selected'],
+      ['doubleTap', 'Copy Word'],
+      ['tapHold', 'Copy Line'],
+    ]);
+    expect(element.querySelector('.key-mark')).toBeNull();
+    const two = tapDance([
+      { action: 'tap', label: 'Tab' },
+      { action: 'hold', label: 'Escape' },
+    ]);
+    const twoElement = document.createElement('div');
+    twoElement.append(...keyFace({ text: two.text, value: two }));
+    expect(twoElement.querySelector('.td-windows')?.classList.contains('td-2')).toBe(true);
+  });
+
+  it('動作が 1 つ・actions のないタップダンスは、ふつうのキーに TD の印', () => {
+    for (const value of [tapDance([{ action: 'tap', label: 'OSL L4' }]), data.interpret("TapDance('Tab Escape')")!]) {
+      const element = document.createElement('div');
+      element.append(...keyFace({ text: value.text, value }));
+      expect(element.querySelector('.td-windows')).toBeNull();
+      expect(element.querySelector('.key-mark')?.textContent).toBe('TD');
+    }
+  });
+
+  it('窓の動作は読み上げと説明でも分かる', () => {
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+    const b = slots.find((slot) => slot.label === 'B')!;
+    expect(keyAccessibleName(b, four.text, four, [])).toBe(
+      '左手 B: タップダンス Paste Variants（タップ ⌘V、ホールド Copy Selected、ダブルタップ Copy Word、タップホールド Copy Line）',
+    );
+    expect(keyFaceNote(four)).toBe('窓（左上から）: タップ ⌘V・ホールド Copy Selected・ダブルタップ Copy Word・タップホールド Copy Line');
+    expect(keyFaceNote(data.interpret("Macro('Bracket Pair')"))).toBe('印「M」: マクロ');
+  });
+
+  it('エンコーダの帯では窓にせず、同じ札を横に並べる', () => {
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+    const view = new KeyboardView({ onSelect: () => undefined });
+    view.setSlots(slots);
+    const ccw = slots.find((slot) => slot.hand === 'left' && slot.encoder === 'ccw')!;
+    view.update(ccw.id, { text: four.text, value: four, diagnostics: [], changed: false });
+    const part = view.element.querySelector('.encoder-ccw')!;
+    expect(part.classList.contains('windowed')).toBe(true);
+    expect(part.querySelectorAll('.td-window')).toHaveLength(4);
   });
 
   it('エンコーダの帯にも同じ印を付ける', () => {

@@ -1,11 +1,13 @@
 // 上のペイン: Cornix のキーボード図。選んでいるレイヤーの割り当てを描き、キーを押すと onSelect（下の欄へ移る）。
 // 2 役のキー（display の tap / hold）は上下に分けて描く。割り当て済みのキーにアイコン（同梱のショートカットと preset: のマクロ）。
 // マクロ・タップダンス・自分のショートカットは右上に小さな印（M・TD・★。model.ts の keyMark）。NoKey は何も描かない（空白）。
+// 割り当てのある動作が 2 つ以上のタップダンスは、キーの面を動作の数の窓に分けて描く（2 つは左右、3 つは上 1・下 2、4 つは 2×2。
+// 順はタップ・ホールド・ダブルタップ・タップホールド）。エンコーダの帯では窓にせず、動作の文字を短く横に並べる。
 import type { Diagnostic, Hand, KeyValue } from '../protocol';
 import { BOARD, ENCODERS, keyRect } from './cornixLayout';
 import { h } from './dom';
 import { iconElement } from './icons';
-import { ENCODER_OPS, HAND_LABEL, keyAccessibleName, keyMark, severityOf, type Slot } from './model';
+import { ENCODER_OPS, HAND_LABEL, keyAccessibleName, keyMark, severityOf, tapDanceWindows, type Slot } from './model';
 
 /** 1 つの欄の描き方 */
 export type SlotView = {
@@ -114,6 +116,7 @@ export class KeyboardView {
     element.classList.toggle('dual', !!(view.value?.display.tap && view.value.display.hold));
     element.dataset.kind = view.value?.kind ?? '';
     element.classList.toggle('marked', !!keyMark(view.value));
+    element.classList.toggle('windowed', !!tapDanceWindows(view.value));
   }
 
   setSelected(slotId: string | undefined): void {
@@ -146,7 +149,18 @@ export function keyFace(view: Pick<SlotView, 'text' | 'value'>): Node[] {
     return nodes;
   }
   const { tap, hold, label } = value.display;
-  if (tap && hold) {
+  const windows = tapDanceWindows(value);
+  if (windows) {
+    nodes.push(
+      h(
+        'span',
+        { class: `td-windows td-${windows.length}`, 'aria-hidden': 'true' },
+        ...windows.map((action, i) =>
+          h('span', { class: `td-window td-window-${i + 1}`, 'data-action': action.action }, h('span', { class: 'td-label' }, action.label)),
+        ),
+      ),
+    );
+  } else if (tap && hold) {
     nodes.push(h('span', { class: 'key-tap' }, tap), h('span', { class: 'key-hold' }, hold));
   } else if (value.kind === 'transparent') {
     nodes.push(h('span', { class: 'key-label faint' }, label || '▽'));

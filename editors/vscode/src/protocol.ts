@@ -63,6 +63,15 @@ export type KeyDisplay = {
   tap?: string;
   /** 2 役のキーのホールド側（"L1"、"⇧"） */
   hold?: string;
+  /** タップダンスの割り当てのある動作（図で窓に分けて描く）。定義のないもの・どの動作も NoKey なら省く */
+  actions?: TapDanceAction[];
+};
+
+/** タップダンスの動作 1 つ。tap・hold・doubleTap・tapHold の順で、NoKey の動作は省く */
+export type TapDanceAction = {
+  action: 'tap' | 'hold' | 'doubleTap' | 'tapHold';
+  /** その動作のキーの label（"Tab"、"MO Symbols"） */
+  label: string;
 };
 
 /** 割り当て 1 つの解釈 */

@@ -13,7 +13,7 @@ import { Inspector } from './inspector';
 import type { KeyInput } from './keyInput';
 import { KeyboardView } from './keyboardView';
 import { LayerEditor } from './layerEditor';
-import { changeMap, currentText, diagnosticsByAddress, keyMark, keyMarkNote, layerSlots, layerTitle, slotLabel, structureKey, type Slot } from './model';
+import { changeMap, currentText, diagnosticsByAddress, keyFaceNote, layerSlots, layerTitle, slotLabel, structureKey, type Slot } from './model';
 import { attachTooltip, describeContent, hideTooltip } from './tooltip';
 
 /** 画面を閉じても覚えておくもの（Webview の getState / setState。タブを裏に回すと Webview は作り直される） */
@@ -371,12 +371,12 @@ export class App {
     const own = result?.diagnostics ?? [];
     const diagnostics = [...saved, ...own.filter((d) => !saved.some((s) => s.message === d.message))];
     const context = slot.encoder ? slotLabel(slot) : undefined;
-    const mark = keyMark(result ? result.value : slot.saved);
+    const face = keyFaceNote(result ? result.value : slot.saved);
     return describeContent(text, result, {
       context,
       note: changed ? undefined : slot.saved?.note,
       diagnostics,
-      ...(mark ? { mark: keyMarkNote(mark) } : {}),
+      ...(face ? { mark: face } : {}),
     });
   }
 

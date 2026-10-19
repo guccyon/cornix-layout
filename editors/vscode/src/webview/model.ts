@@ -8,6 +8,7 @@ import type {
   Hand,
   KeyValue,
   LayerSnapshot,
+  TapDanceAction,
   PositionMapEntry,
   ProfileSnapshot,
 } from '../protocol';
@@ -137,21 +138,38 @@ const MARKS: Record<KeyMark['kind'], KeyMark> = {
   shortcut: { kind: 'shortcut', text: '★', meaning: '自分のショートカット' },
 };
 
+export const TAP_DANCE_ACTION_LABEL: Record<TapDanceAction['action'], string> = {
+  tap: 'タップ',
+  hold: 'ホールド',
+  doubleTap: 'ダブルタップ',
+  tapHold: 'タップホールド',
+};
+
+/** タップダンスを窓に分けて描くときの動作（割り当てのある動作が 2 つ以上のときだけ。ほかは null） */
+export function tapDanceWindows(value: KeyValue | null | undefined): TapDanceAction[] | null {
+  if (value?.kind !== 'tapDance') return null;
+  const actions = value.display.actions ?? [];
+  return actions.length >= 2 ? actions : null;
+}
+
 /**
  * 値に付ける印（なければ null）。自分のショートカット（Shortcut(...)）は中身の種類より先に ★。
- * アイコンのあるもの（同梱のショートカット・preset: のマクロ）はアイコンで分かるので印を付けない
+ * アイコンのあるもの（同梱のショートカット・preset: のマクロ）はアイコンで、窓に分けて描くタップダンスは窓で分かるので印を付けない
  */
 export function keyMark(value: KeyValue | null | undefined): KeyMark | null {
   if (!value || value.icon) return null;
   if (value.origin === 'shortcut') return MARKS.shortcut;
   if (value.kind === 'macro') return MARKS.macro;
-  if (value.kind === 'tapDance') return MARKS.tapDance;
+  if (value.kind === 'tapDance' && !tapDanceWindows(value)) return MARKS.tapDance;
   return null;
 }
 
-/** 印の説明（説明の吹き出しに出す 1 行） */
-export function keyMarkNote(mark: KeyMark): string {
-  return `印「${mark.text}」: ${mark.meaning}`;
+/** 図の印・窓の説明（説明の吹き出しに出す 1 行。なければ undefined） */
+export function keyFaceNote(value: KeyValue | null | undefined): string | undefined {
+  const windows = tapDanceWindows(value);
+  if (windows) return `窓（左上から）: ${windows.map((a) => `${TAP_DANCE_ACTION_LABEL[a.action]} ${a.label}`).join('・')}`;
+  const mark = keyMark(value);
+  return mark ? `印「${mark.text}」: ${mark.meaning}` : undefined;
 }
 
 /** 図のキーの読み上げ（「左手 tab: タップ Space、ホールド L1」。未割り当て・エラー・警告も入れる） */
@@ -167,6 +185,8 @@ export function keyAccessibleName(
   else content = value?.display.label || text;
   const mark = keyMark(value);
   if (mark) content = `${mark.meaning} ${content}`;
+  const windows = tapDanceWindows(value);
+  if (windows) content = `タップダンス ${content}（${windows.map((a) => `${TAP_DANCE_ACTION_LABEL[a.action]} ${a.label}`).join('、')}）`;
   const problems = diagnostics.map((d) => `${d.severity === 'error' ? 'エラー' : '警告'} ${d.message}`);
   return [`${slotLabel(slot)}: ${content}`, ...problems].join('。');
 }

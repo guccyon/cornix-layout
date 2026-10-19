@@ -8,6 +8,8 @@ module Cornix
     #   display = KeyDisplay.new(catalog:, notation:)
     #   display.kind(keycode)                                     #=> "basic" | "modified" | "layerTap" | ...
     #   display.display(keycode, references:, layer_names: {})   #=> { label:, tap:, hold: }
+    #   display.tap_dance_actions(tap_dance, references:, layer_names: {})
+    #     #=> [{ action: "tap", label: "Tab" }, { action: "hold", label: "Escape" }]（割り当てのある動作だけ。図で窓に分けて描く）
     #
     # 文字の決め方
     #   基本キー・特殊キー  別名の先頭（Space、VolumeUp）。別名がなければ keycodes.yaml の name から KC_ を除いたもの（STOP）
@@ -19,6 +21,8 @@ module Cornix
     #   MacroCall / TapDanceCall  名前（Bracket Pair）。名前がなければ M0 / TD(4)
     #   NoKey / Transparent 空の文字 / ▽（Vial と同じ）
     #   Raw                 0xHHHH
+    #
+    # タップダンスの動作は tap・hold・doubleTap・tapHold の順（Domain::TapDance::ACTIONS と同じ）。NoKey の動作は省く。
     #
     # LayerTap の hold は図の小さな文字なので、名前があっても L<番号> にする（protocol.md の profile/open の例と同じ）。
     class KeyDisplay
@@ -48,6 +52,9 @@ module Cornix
       }.freeze
 
       NO_KEY_LABEL = ''
+
+      # Domain::TapDance の動作 → KeyDisplay の actions[].action
+      TAP_DANCE_ACTIONS = { on_tap: 'tap', on_hold: 'hold', on_double_tap: 'doubleTap', on_tap_hold: 'tapHold' }.freeze
       TRANSPARENT_LABEL = '▽'
       QMK_PREFIX = 'KC_'
 
@@ -68,6 +75,16 @@ module Cornix
         when K::ModTap then dual(key_label(keycode.base), modifier_symbols(keycode.mods))
         when K::LayerTap then dual(key_label(keycode.base), "L#{keycode.layer.index}")
         else single(label(keycode, references, layer_names))
+        end
+      end
+
+      # Domain::TapDance → 割り当てのある動作と、その文字（label）の配列
+      def tap_dance_actions(tap_dance, references: References::NONE, layer_names: {})
+        TAP_DANCE_ACTIONS.filter_map do |field, action|
+          keycode = tap_dance.keycode_at(field)
+          next if keycode.is_a?(K::NoKey)
+
+          { action: action, label: display(keycode, references: references, layer_names: layer_names)[:label] }
         end
       end
 

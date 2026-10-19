@@ -6,7 +6,7 @@ Only the latest release receives security fixes.
 
 ## Reporting a Vulnerability
 
-Please do not open a public issue. Report it privately from
+Please do not open a public issue for security vulnerabilities. Report them privately from
 [Security → Report a vulnerability](https://github.com/guccyon/cornix-layout/security/advisories/new).
 
 ---

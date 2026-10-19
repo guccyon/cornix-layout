@@ -56,6 +56,18 @@ describe('App の描画', () => {
     expect(root.querySelector('.layer-tab.selected')?.getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('レイヤーの編集画面は左手の節の下に右手の節。手ごとに段・親指・エンコーダの順で、欄は 1 つの並びにまとめる', () => {
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    const hands = [...root.querySelectorAll('.layer-editor > .hand')];
+    expect(hands.map((hand) => hand.querySelector('h3')?.textContent)).toEqual(['左手', '右手']);
+    for (const hand of hands) {
+      const groups = [...hand.querySelectorAll(':scope > .group')];
+      expect(groups.map((group) => group.querySelector('.group-label')?.textContent)).toEqual(['1 段目', '2 段目', '3 段目', '4 段目', '親指', 'エンコーダ']);
+      // 段ごとの欄は .fields 1 つの中（幅が足りれば横 1 列。折り返しは CSS が決める）
+      expect(groups.map((group) => group.querySelectorAll(':scope > .fields > .field').length)).toEqual([6, 6, 6, 3, 3, 3]);
+    }
+  });
+
   it('2 役のキーはタップとホールドを上下に分け、同梱のショートカットにはアイコンを付ける', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     const space = keyElement(slotOf('left_hand', 'thumb_keys', 'middle'));

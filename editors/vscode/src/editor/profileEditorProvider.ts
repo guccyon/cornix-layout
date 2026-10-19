@@ -1,17 +1,17 @@
 // プロファイル丸ごとの編集画面（ADR 001・015）。cornix-profile: の仮想ドキュメントを開くカスタムエディタ。
 // 画面は src/webview/。サーバーへのリクエスト（候補・解釈）は画面に代わってここが中継する。
 import * as crypto from 'node:crypto';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { CornixServer } from '../server/cornixServer';
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
 import { ProfileDocument } from './profileDocument';
-import { profileDirOf } from './profileUri';
-import { profileFilePath, relayRequest } from './webviewRelay';
-import type { Range } from '../protocol';
+import { PROFILE_EDITOR_VIEW_TYPE, profileDirOf } from './profileUri';
+import { openProfileFile } from './profileFiles';
+import { vscodePrompts, type ProfilePrompts } from './prompts';
+import { relayRequest } from './webviewRelay';
 
 export class ProfileEditorProvider implements vscode.CustomEditorProvider<ProfileDocument>, vscode.Disposable {
-  static readonly viewType = 'cornix.profileEditor';
+  static readonly viewType = PROFILE_EDITOR_VIEW_TYPE;
 
   private readonly onDidChangeEmitter = new vscode.EventEmitter<vscode.CustomDocumentEditEvent<ProfileDocument>>();
   readonly onDidChangeCustomDocument = this.onDidChangeEmitter.event;
@@ -21,6 +21,8 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
   readonly onDidReceiveWebviewMessage = this.onDidReceiveMessageEmitter.event;
 
   private readonly documents = new Set<ProfileDocument>();
+  /** 保存と外での変更で利用者に聞くこと（統合テストが差し替える） */
+  prompts: ProfilePrompts = vscodePrompts;
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(
@@ -45,7 +47,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     return provider;
   }
 
-  /** 開いているドキュメント（テストと、段 3 の保存の作業から使う） */
+  /** 開いているドキュメント（テスト用） */
   get openDocuments(): readonly ProfileDocument[] {
     return [...this.documents];
   }
@@ -58,7 +60,8 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     const dir = profileDirOf(uri);
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!dir || !root) throw new Error(`Cornix のプロファイルとして開けません: ${uri.toString()}`);
-    const document = await ProfileDocument.open(uri, dir, this.server, root, openContext.backupId);
+    const env = { server: this.server, workspaceRoot: root, prompts: () => this.prompts };
+    const document = await ProfileDocument.open(uri, dir, env, openContext.backupId);
     this.documents.add(document);
     document.onDidEdit((edit) => this.onDidChangeEmitter.fire(edit));
     document.onDidDispose(() => this.documents.delete(document));
@@ -77,7 +80,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
 
     let disposed = false;
     const post = () => {
-      const message: HostMessage = { type: 'snapshot', snapshot: document.snapshot, changes: document.changes.list() };
+      const message: HostMessage = { type: 'snapshot', snapshot: document.viewSnapshot, changes: document.changes.list() };
       void panel.webview.postMessage(message);
     };
     const subscriptions = [
@@ -104,7 +107,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
             });
             return;
           case 'openFile':
-            void openProfileFile(document, message.file, message.range);
+            void openProfileFile(document.dir, message.file, message.range);
             return;
         }
       }),
@@ -164,17 +167,4 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
 </body>
 </html>`;
   }
-}
-
-/** 設定ディレクトリのファイルをテキストで開く（構造の問題の一覧の「ファイルを開く」）。設定ディレクトリの外は開かない */
-async function openProfileFile(document: ProfileDocument, file: string, range: Range | undefined): Promise<void> {
-  const root = vscode.workspace.workspaceFolders?.[0]?.uri;
-  // dir はワークスペースからの相対パス（外なら絶対パス。protocol.md の 2.）
-  const dir = path.isAbsolute(document.dir) ? document.dir : root && path.join(root.fsPath, document.dir);
-  const target = dir && profileFilePath(dir, file);
-  if (!target) return;
-  const selection = range
-    ? new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character)
-    : undefined;
-  await vscode.window.showTextDocument(vscode.Uri.file(target), { preview: false, ...(selection ? { selection } : {}) });
 }

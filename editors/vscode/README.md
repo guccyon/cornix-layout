@@ -50,10 +50,13 @@ npm run package           # .vsix を作る（自分用。code --install-extensi
 
 - 起動: `test/fake-server/cornix serve --root <ワークスペース>`（先に `npm run build`）。設定 `cornix.path` にこのファイルを指定すると拡張がつなぐ
 - ライフサイクルとエラーは Ruby のサーバーに合わせてあり、vitest が `spec/fixtures/protocol/` の `lifecycle` と `profile_list` を偽のサーバーにも流して確かめる（`test/unit/protocolFixtures.test.ts`）
-- `profile/list` はワークスペースの `profiles/`・`.cornix.yml`・`config/` を見て返す（Ruby と同じ並びと既定）。それ以外の中身（`profile/open` の snapshot など）は固定のデータ
-- すべてのメソッドに答える。`profile/planEdits` はディスクのファイルの行を素朴にたどるだけ（ブロック形式の `キー: 値`）で、Ruby の書き換えの代わりではない
-- `workspace/didChangeFiles` で開いているプロファイルのファイルが来れば `profile/didChange` を返す
+- `profile/list` はワークスペースの `profiles/`・`.cornix.yml`・`config/` を見て返す（Ruby と同じ並びと既定）。snapshot のレイヤーのキー・エンコーダと QMK 設定の値はディスクのファイルの `キー: 値` の行から読み、それ以外（表示の文字・候補など）は固定のデータ
+- すべてのメソッドに答える。`profile/planEdits` はディスクのファイルの行を素朴にたどるだけ（ブロック形式の `キー: 値`。ない場所への挿入は -32061）で、Ruby の書き換えの代わりではない
+- `profile/validate` は保存済みの問題に変更の問題を足す（読めない表記は構造の error だけ、`Macro(数字)` は定義のないマクロ、`MO(9)` はほかの項目にかかる問題の例）
+- 開いたプロファイルごとに「知っている版」を持ち、`workspace/didChangeFiles` と `profile/saved` で版が違えば `profile/didChange` を送る
 - わざと崩す: `CORNIX_FAKE_SCENARIO=invalid`（構造検証で読めないプロファイル）、`CORNIX_FAKE_EXIT_ON=<メソッド>`（そのリクエストで落ちる。再起動の確認用）
+- 動いている途中で変える: 通知 `$/fake/configure`（`{ scenario?: "default" | "invalid", delays?: { <メソッド>: ミリ秒 } }`。偽のサーバーだけのもの）。統合テストが保存の途中や読めない間を作るのに使う
+- params の確かめ方と順（形 → -32060 → 宛先・値の型・baseVersions → -32061）は Ruby のサーバーに合わせ、`spec/fixtures/protocol/` の validate・planEdits・saved は応答が error のデータを、didChangeFiles はすべてを流す
 - 16bit 値や表示の文字はそれらしい値で、Ruby のサーバーの結果と一致するとは限らない。約束の形の正しさは Ruby の適合テスト（`spec/fixtures/protocol/`）が決める
 
 ## 構成
@@ -73,7 +76,10 @@ editors/vscode/
     profiles/             プロファイルの一覧（アクティビティバー）と「プロファイルを開く」
     editor/
       profileUri.ts       cornix-profile:/<名前>?dir=<dir> の仮想ドキュメントの URI（ADR 015）
-      profileDocument.ts  1 つのプロファイル（snapshot と未保存の変更）。保存は段 3
+      profileDocument.ts  1 つのプロファイル（snapshot と未保存の変更）。保存（6.2）・外での変更（7.3）・ホットエグジット・onchange の検証
+      rebase.ts           外での変更の当て直し（7.3）と、場所・値の名前などの道具（vscode に依存しない）
+      prompts.ts          保存と外での変更で利用者に聞くこと（統合テストが差し替える）
+      profileFiles.ts     設定ディレクトリのファイルの場所と、テキストで開くこと
       pendingChanges.ts   未保存の変更（同じ Address は最後の値だけ）
       profileWatcher.ts   設定ディレクトリの見張り → workspace/didChangeFiles
       profileEditorProvider.ts  カスタムエディタ（CustomEditorProvider）
@@ -85,6 +91,8 @@ editors/vscode/
       keyboardView.ts     キーボード図（2 役のキーは tap / hold を上下に、アイコン、印）
       layerEditor.ts      レイヤーの欄
       keyInput.ts         キー入力欄（候補・typed・警告。どこも同じ部品）
+      settingsEditor.ts   QMK 設定の欄（整数は数値、真偽値はチェックボックス。説明と既定値）
+      metadataView.ts     metadata.yaml と position_map の表示（読むだけ）
       hostClient.ts       ホストへのリクエストの中継（keycode/candidates・keycode/inspect）
       icons/              アイコン ID → 要素（manifest.ts は media/icons/extract.mjs が作る）
   media/                  画面の CSS と同梱のアイコン（SVG とライセンス表記。media/icons/NOTICE.md）
@@ -99,6 +107,50 @@ editors/vscode/
 
 - 編集画面はカスタムエディタ（ADR 015）。プロファイルを `cornix-profile:` の仮想ドキュメントに見立てるので、タブの題はプロファイルの名前になり、
   dirty の印・閉じるときの確認・ホットエグジットは VS Code が面倒をみる。画面の変更は `ProfileDocument#applyChange` に渡すと
-  VS Code の編集の履歴に載り、元に戻す・やり直し（Webview にフォーカスがあるときの Ctrl+Z）も効く。保存・外での変更・ホットエグジットの残りは段 3（[tasks.md](../../docs/vscode-extension/tasks.md) の「I」の申し送り）
+  VS Code の編集の履歴に載り、元に戻す・やり直し（Webview にフォーカスがあるときの Ctrl+Z）も効く
+- 保存・undo・外での変更・ホットエグジットの状態と遷移は下の「ProfileDocument の状態」
+- 値を決めるたびに `profile/validate` を呼び、その結果を画面に送る snapshot の `diagnostics` に入れる（ほかの項目にかかる問題も参照している側の欄に出る）
 - サーバーは最初のリクエストのときに起動する。落ちたら「再起動」のボタンを出し、再起動したら開いていたプロファイルは `profile/open` からやり直す
 - 単体テストは vscode に依存しないもの（`locateCornix`・`connection`・`pendingChanges` など）だけ。vscode を使うものは統合テストで確かめる
+
+## ProfileDocument の状態（保存・undo・外での変更・ホットエグジット）
+
+`src/editor/profileDocument.ts` が持つもの。方針は「利用者の変更を黙って捨てない」と「外での変更を黙って上書きしない」で、問いを閉じたときは変更を残す側に倒す。
+
+| 持つもの | 中身 |
+|---|---|
+| `snapshot` | 画面の基準（未保存の変更はこれに対する差）。`baseVersions` はこの `files` から取る |
+| `changes` | 未保存の変更（Address ごとに最後の値。snapshot の値と同じになれば外れる） |
+| `saving` / `deferred` | 保存の途中と、その間に届いた `profile/didChange` の snapshot（保存のあとに扱う） |
+| `external` / `resolving` | どちらを残すか聞いている外での変更（聞いている間に次が来れば snapshot だけ新しくする）と、聞いている流れ |
+| `changeBase` | 外の変更で読めなくなったときの、変更を作ったときの snapshot（読めるまで聞かずに待つ） |
+| `waitingBackup` | ホットエグジットから戻したら読めなかったときの、バックアップの版と値（読めるまで待つ。もう一度バックアップするときも受け継ぐ） |
+| `epoch` | 外の変更を取り込んだ回数（そのあとの undo の扱いを変える） |
+
+遷移:
+
+```
+画面で値を決める ─ applyChange → changes に足す・VS Code の編集の履歴に載せる → profile/validate
+   undo: 前の値に戻す。ただし前の値が snapshot の値で、そのあと外の変更を取り込んでいたら（epoch が変わった）今の snapshot の値に戻す
+
+Ctrl+S ─ save
+   止める（知らせて CancellationError、dirty のまま）: 読めない・聞いている途中・テキストで dirty・構造の error・-32060・-32061・
+     場所の見つからない変更（もう一度聞いて、捨てるときだけ続ける）・ディスクか TextDocument の版が baseVersion と違う（当てる直前にも確かめる）
+   当てて保存 → profile/saved → snapshot を差し替え、保存した場所は「今の画面の値」を新しい snapshot に当て直す
+     → 残った変更があれば、VS Code が保存点を置いたあとに編集を 1 つ足して dirty に戻す
+   -32060 で profile/didChange が来なければ profile/open で開き直して、外での変更と同じ扱い
+
+profile/didChange（保存の途中なら deferred に溜めて保存のあと）
+   変更がない → 黙って描き直す
+   新しい snapshot が読めない → changeBase を覚えて読めない表示にし、聞かずに待つ
+   waitingBackup がある → 読めるようになったので、バックアップの版と値で下の「聞く」へ（reason: backup）
+   それ以外 → 聞く（chooseSide）
+       画面の変更を残す（閉じたときも）→ rebaseChanges: そのまま当て直す / 同じ場所が外でも変わった → 項目ごとに選ばせる（閉じたら画面の値）/
+         場所がない → 捨てるか選ばせる（閉じたら残し、保存のときにもう一度聞く）。聞いている間の revert・undo・入力は活かす
+       外の変更を残す → 編集画面を前に出して VS Code の revert を通す（dirty を消す。聞いている間に来たいちばん新しい snapshot を使う）
+
+ホットエグジット ─ backup: 変更・変更を作ったときの files・その場所の値（saved）を書く
+   戻す: 読めない → waitingBackup で待つ / 変更が触るファイルの版が違う → 聞く（reason: backup）/ 同じ → そのまま
+
+サーバーの再起動 ─ profile/open からやり直す。変更があって、版が違う・読めない・待っている・聞いている途中なら外での変更と同じ扱い
+```

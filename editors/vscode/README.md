@@ -77,7 +77,17 @@ editors/vscode/
       pendingChanges.ts   未保存の変更（同じ Address は最後の値だけ）
       profileWatcher.ts   設定ディレクトリの見張り → workspace/didChangeFiles
       profileEditorProvider.ts  カスタムエディタ（CustomEditorProvider）
-    webview/              編集画面（今は profile/open の結果を JSON で見せる仮のもの）
+      webviewRelay.ts     画面からのリクエストの中継（keycode/candidates・keycode/inspect だけ）と「ファイルを開く」のパスの確かめ
+    webview/              編集画面（素の TypeScript。上にキーボード図、下にレイヤーの欄）
+      main.ts             入口（ホストとのメッセージをつなぐ）
+      app.ts              画面の全体（レイヤーの選択・欄の選択を上下で共有、Change をホストに渡す）
+      cornixLayout.ts     Cornix の物理配置（論理位置 hand / row / col → 図の座標。ADR 009）
+      keyboardView.ts     キーボード図（2 役のキーは tap / hold を上下に、アイコン、印）
+      layerEditor.ts      レイヤーの欄
+      keyInput.ts         キー入力欄（候補・typed・警告。どこも同じ部品）
+      hostClient.ts       ホストへのリクエストの中継（keycode/candidates・keycode/inspect）
+      icons/              アイコン ID → 要素（manifest.ts は media/icons/extract.mjs が作る）
+  media/                  画面の CSS と同梱のアイコン（SVG とライセンス表記。media/icons/NOTICE.md）
   resources/              アクティビティバーのアイコン
   test/
     unit/                 単体テスト（vitest）

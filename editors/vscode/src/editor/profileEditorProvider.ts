@@ -1,17 +1,24 @@
 // プロファイル丸ごとの編集画面（ADR 001・015）。cornix-profile: の仮想ドキュメントを開くカスタムエディタ。
-// 画面（src/webview/）は今は仮のもので、profile/open の結果を JSON で見せるだけ。中身は段 2 の画面の作業で作る。
+// 画面は src/webview/。サーバーへのリクエスト（候補・解釈）は画面に代わってここが中継する。
 import * as crypto from 'node:crypto';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { CornixServer } from '../server/cornixServer';
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
 import { ProfileDocument } from './profileDocument';
 import { profileDirOf } from './profileUri';
+import { profileFilePath, relayRequest } from './webviewRelay';
+import type { Range } from '../protocol';
 
 export class ProfileEditorProvider implements vscode.CustomEditorProvider<ProfileDocument>, vscode.Disposable {
   static readonly viewType = 'cornix.profileEditor';
 
   private readonly onDidChangeEmitter = new vscode.EventEmitter<vscode.CustomDocumentEditEvent<ProfileDocument>>();
   readonly onDidChangeCustomDocument = this.onDidChangeEmitter.event;
+
+  private readonly onDidReceiveMessageEmitter = new vscode.EventEmitter<{ document: ProfileDocument; message: WebviewMessage }>();
+  /** 編集画面から届いたメッセージ（統合テストが描画を待つため） */
+  readonly onDidReceiveWebviewMessage = this.onDidReceiveMessageEmitter.event;
 
   private readonly documents = new Set<ProfileDocument>();
   private readonly disposables: vscode.Disposable[] = [];
@@ -68,6 +75,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     panel.webview.options = { enableScripts: true, localResourceRoots: [outUri, mediaUri] };
     panel.webview.html = this.html(panel.webview);
 
+    let disposed = false;
     const post = () => {
       const message: HostMessage = { type: 'snapshot', snapshot: document.snapshot, changes: document.changes.list() };
       void panel.webview.postMessage(message);
@@ -75,6 +83,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     const subscriptions = [
       document.onDidChangeContent(post),
       panel.webview.onDidReceiveMessage((message: WebviewMessage) => {
+        this.onDidReceiveMessageEmitter.fire({ document, message });
         switch (message.type) {
           case 'ready':
             post();
@@ -82,10 +91,28 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
           case 'change':
             document.applyChange(message.change);
             return;
+          case 'request':
+            // サーバーへの中継（RELAYED_METHODS だけ。profileId はそのときのもの（再起動で変わる）を入れる）。
+            // 返ってくるまでにパネルを閉じていたら送らない
+            void relayRequest(
+              message,
+              // params の形は Webview の型（WebviewRequestMap）で決まり、サーバーが InvalidParams で確かめる
+              (method, params) => this.server.request(method, params as never),
+              document.profileId,
+            ).then((response) => {
+              if (!disposed) void panel.webview.postMessage(response).then(undefined, () => undefined);
+            });
+            return;
+          case 'openFile':
+            void openProfileFile(document, message.file, message.range);
+            return;
         }
       }),
     ];
-    panel.onDidDispose(() => subscriptions.forEach((s) => s.dispose()));
+    panel.onDidDispose(() => {
+      disposed = true;
+      subscriptions.forEach((s) => s.dispose());
+    });
   }
 
   saveCustomDocument(document: ProfileDocument, cancellation: vscode.CancellationToken): Thenable<void> {
@@ -110,6 +137,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
   dispose(): void {
     for (const disposable of this.disposables) disposable.dispose();
     this.onDidChangeEmitter.dispose();
+    this.onDidReceiveMessageEmitter.dispose();
   }
 
   private html(webview: vscode.Webview): string {
@@ -119,7 +147,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
       "default-src 'none'",
       `img-src ${webview.cspSource} data:`,
       `font-src ${webview.cspSource}`,
-      `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `style-src ${webview.cspSource}`, // 画面は style を CSSOM（element.style）でだけ付ける
       `script-src 'nonce-${nonce}'`,
     ].join('; ');
     return `<!DOCTYPE html>
@@ -136,4 +164,17 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
 </body>
 </html>`;
   }
+}
+
+/** 設定ディレクトリのファイルをテキストで開く（構造の問題の一覧の「ファイルを開く」）。設定ディレクトリの外は開かない */
+async function openProfileFile(document: ProfileDocument, file: string, range: Range | undefined): Promise<void> {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+  // dir はワークスペースからの相対パス（外なら絶対パス。protocol.md の 2.）
+  const dir = path.isAbsolute(document.dir) ? document.dir : root && path.join(root.fsPath, document.dir);
+  const target = dir && profileFilePath(dir, file);
+  if (!target) return;
+  const selection = range
+    ? new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character)
+    : undefined;
+  await vscode.window.showTextDocument(vscode.Uri.file(target), { preview: false, ...(selection ? { selection } : {}) });
 }

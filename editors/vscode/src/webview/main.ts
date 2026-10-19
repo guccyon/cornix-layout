@@ -1,40 +1,38 @@
-// 編集画面（Webview）の仮のもの。profile/open の結果を JSON で見せるだけ。
-// 本当の画面（キーボード図・レイヤーの編集・キー入力欄）は段 2 の画面の作業（G）がこのディレクトリに作る。
-import type { Change, ProfileSnapshot } from '../protocol';
+// 編集画面（Webview）の入口。ホストとのメッセージ（webviewMessages.ts）をつなぎ、App に描かせる。
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
+import { App, type ViewState } from './app';
+import { MessageHostClient } from './hostClient';
+import { mediaUrl, setMediaBase } from './icons';
 
-declare function acquireVsCodeApi(): { postMessage(message: WebviewMessage): void };
+declare function acquireVsCodeApi(): {
+  postMessage(message: WebviewMessage): void;
+  getState(): ViewState | undefined;
+  setState(state: ViewState): void;
+};
 
 const vscode = acquireVsCodeApi();
-const app = document.getElementById('app') as HTMLElement;
 
-window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
-  const message = event.data;
-  if (message.type === 'snapshot') render(message.snapshot, message.changes);
-  if (message.type === 'error') app.textContent = message.message;
+// media/ の場所は、この script（out/webview.js）の場所から決める（どちらも拡張の localResourceRoots）
+const script = document.currentScript as HTMLScriptElement | null;
+if (script?.src) setMediaBase(new URL('../media/', script.src).toString());
+const stylesheet = Object.assign(document.createElement('link'), { rel: 'stylesheet', href: mediaUrl('webview.css') });
+// 見た目が崩れたまま描かないよう、stylesheet を読み終えて（読めなくても）から snapshot をもらう
+const styled = new Promise<void>((resolve) => {
+  stylesheet.addEventListener('load', () => resolve());
+  stylesheet.addEventListener('error', () => resolve());
+});
+document.head.append(stylesheet);
+
+const host = new MessageHostClient((message) => vscode.postMessage(message));
+const app = new App(document.getElementById('app') as HTMLElement, {
+  host,
+  onRendered: (message) => vscode.postMessage(message),
+  state: { get: () => vscode.getState(), set: (state) => vscode.setState(state) },
 });
 
-vscode.postMessage({ type: 'ready' });
+window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
+  if (host.handle(event.data)) return;
+  app.receive(event.data);
+});
 
-function render(snapshot: ProfileSnapshot, changes: Change[]): void {
-  app.replaceChildren();
-  const heading = document.createElement('h2');
-  heading.textContent = `${snapshot.name}（${snapshot.dir}）`;
-  const status = document.createElement('p');
-  status.textContent = `状態: ${snapshot.status} ／ レイヤー ${snapshot.layers.length} ／ 未保存の変更 ${changes.length} 件（仮の画面）`;
-  app.append(heading, status);
-
-  // 仮: dirty と元に戻すの仕組みを試すためのボタン。最初のレイヤーの最初のキーを NoKey にする
-  const key = snapshot.layers[0]?.keys[0];
-  if (key) {
-    const button = document.createElement('button');
-    button.textContent = `仮の変更: ${key.address.path.join('.')} を NoKey にする`;
-    button.addEventListener('click', () => vscode.postMessage({ type: 'change', change: { address: key.address, value: 'NoKey' } }));
-    app.append(button);
-  }
-
-  const pre = document.createElement('pre');
-  pre.style.whiteSpace = 'pre-wrap';
-  pre.textContent = JSON.stringify({ changes, snapshot }, null, 2);
-  app.append(pre);
-}
+void styled.then(() => vscode.postMessage({ type: 'ready' }));

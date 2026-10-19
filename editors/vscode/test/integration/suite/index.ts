@@ -32,6 +32,38 @@ test('「Cornix: プロファイルを開く」で既定のプロファイルが
   assert.equal(document?.snapshot.status, 'ok');
 });
 
+test('編集画面がキーボード図とレイヤーの欄を描く（変更のたびに描き直す）', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  const messages: string[] = [];
+  const rendered: unknown[] = [];
+  const requests: unknown[] = [];
+  const subscription = api.profileEditor.onDidReceiveWebviewMessage(({ message }) => {
+    messages.push(message.type);
+    if (message.type === 'rendered') rendered.push(message);
+    if (message.type === 'request') requests.push({ method: message.method, params: message.params });
+  });
+  try {
+    // 変更を足すとホストが snapshot を送り直し、画面が描き終えると rendered が返る
+    const key = document.snapshot.layers[0]?.keys[2];
+    assert.ok(key);
+    document.applyChange({ address: key.address, value: 'Escape' });
+    await waitFor('rendered', async () => rendered.length > 0).catch((e: Error) => {
+      throw new Error(`${e.message} ${JSON.stringify(messages)}`);
+    });
+    // styled: media/webview.css が読めている（media/ の場所を out/webview.js の場所から決めている）
+    assert.deepEqual(rendered.at(-1), { type: 'rendered', status: 'ok', layer: 0, keys: 48, encoders: 6, styled: true });
+    // 未保存の値の表示と検証のため、画面がホストに keycode/inspect の中継を頼む（profileId はホストが入れる）
+    await waitFor('keycode/inspect の中継', async () =>
+      requests.some((r) => JSON.stringify(r) === JSON.stringify({ method: 'keycode/inspect', params: { context: 'layerKey', text: 'Escape' } })),
+    );
+  } finally {
+    subscription.dispose();
+  }
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('revert', async () => profileTab()?.isDirty === false && document.changes.size === 0);
+});
+
 test('変更で dirty になり、戻す（revert）と消える', async () => {
   // 元に戻す（Ctrl+Z）は編集画面の Webview にフォーカスがあるときだけ VS Code が edit.undo を呼ぶので、ここでは試さない
   //（テストの中から Webview にフォーカスを移せない）。undo・redo の中身は PendingChanges の単体テストで確かめる

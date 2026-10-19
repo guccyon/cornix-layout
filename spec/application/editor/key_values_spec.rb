@@ -16,6 +16,15 @@ RSpec.describe Cornix::Application::Editor::KeyValues do
     expect(value('Shift + Command + P')).not_to have_key(:origin)
   end
 
+  it 'タップダンスの display には、割り当てのある動作の文字（actions）を入れる' do
+    expect(value("TapDance('Tab Escape')")[:display]).to eq(
+      label: 'Tab Escape', actions: [{ action: 'tap', label: 'Tab' }, { action: 'hold', label: 'Escape' }]
+    )
+    expect(value("TapDance('Paste Variants')")[:display][:actions].map { |a| a[:action] }).to eq(%w[tap hold doubleTap tapHold])
+    expect(value('A')[:display]).not_to have_key(:actions)
+    expect(value('TD(200)')[:display]).to eq(label: 'TD(200)') # 定義のないタップダンス
+  end
+
   it 'プロファイルが読めないときは、キーの表と同梱のショートカットだけで読む' do
     empty = described_class.new(env: env, profile: nil)
     expect(empty.layer_names).to eq({})

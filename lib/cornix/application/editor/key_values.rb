@@ -8,7 +8,10 @@ module Cornix
       #   values = KeyValues.new(env:, profile:)            # profile は読めなければ nil（キーの表と同梱のショートカットだけで読む）
       #   keycode = values.parse("Macro('Bracket Pair')")  # 読めなければ Cornix::UnknownKeycode
       #   values.build(keycode, text: "Macro('Bracket Pair')", note: nil)
-      #   #=> { text:, canonical:, code:, kind:, origin:, display: { label:, tap:, hold: }, icon:, note: }（nil の項目は省く）
+      #   #=> { text:, canonical:, code:, kind:, origin:, display: { label:, tap:, hold:, actions: }, icon:, note: }（nil の項目は省く）
+      #
+      # display の actions はタップダンス（プロファイルに定義があるもの）の割り当てのある動作（KeyDisplay#tap_dance_actions）。
+      # 定義がない・どの動作も NoKey なら省く
       #
       # origin と icon（spec.md の「アイコン」）
       #   Shortcut('名前') で書いたもの   自分のショートカット（shortcuts.yaml）なら origin: "shortcut"（アイコンなし）、
@@ -37,7 +40,7 @@ module Cornix
           {
             text: text, canonical: canonical(keycode), code: @codec.encode(keycode), kind: @display.kind(keycode),
             origin: origin,
-            display: @display.display(keycode, references: @references, layer_names: @layer_names).compact,
+            display: display_of(keycode),
             icon: icon, note: note
           }.compact
         end
@@ -47,7 +50,7 @@ module Cornix
         # 名前参照を使わない表記（Shortcut の中身、LT / MT のタップ側の説明、references.shortcuts の text の代わりに使う）
         def plain(keycode) = @notation.format(keycode)
 
-        def label(keycode) = @display.display(keycode, references: @references, layer_names: @layer_names)[:label]
+        def label(keycode) = @display.display(keycode, references: @references)[:label]
 
         # preset: のマクロの元のアプリのアイコン（preset でなければ nil）
         def macro_icon(macro) = macro&.preset ? app_icon(macro.preset) : nil
@@ -62,6 +65,19 @@ module Cornix
         def user_shortcut?(name) = @references.shortcut_names.include?(name)
 
         private
+
+        def display_of(keycode)
+          shown = @display.display(keycode, references: @references).compact
+          actions = tap_dance_actions(keycode)
+          actions.empty? ? shown : shown.merge(actions: actions)
+        end
+
+        def tap_dance_actions(keycode)
+          return [] unless keycode.is_a?(Domain::Keycode::TapDanceCall)
+
+          tap_dance = @profile&.tap_dance(keycode.index)
+          tap_dance ? @display.tap_dance_actions(tap_dance, references: @references) : []
+        end
 
         def build_references(env, profile)
           presets = { preset_shortcuts: env.shortcut_catalog.library(env.notation).entries,

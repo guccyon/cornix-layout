@@ -73,10 +73,10 @@ const KEYS: Record<string, KeyInfo> = {
   Trans: { canonical: 'Trans', code: 1, kind: 'transparent', display: { label: '▽' } },
   NoKey: { canonical: 'NoKey', code: 0, kind: 'noKey', display: { label: '' } },
   Repeat: { canonical: 'Repeat', code: 0x7c79, kind: 'quantum', display: { label: 'Repeat' } },
-  'MO(1)': { canonical: 'MO(1)', code: 0x5221, kind: 'layerAction', display: { label: 'MO(1)', hold: 'L1' } },
-  'MO(2)': { canonical: 'MO(2)', code: 0x5222, kind: 'layerAction', display: { label: 'MO(2)', hold: 'L2' } },
-  'MO(3)': { canonical: 'MO(3)', code: 0x5223, kind: 'layerAction', display: { label: 'MO(3)', hold: 'L3' } },
-  'TG(3)': { canonical: 'TG(3)', code: 0x5263, kind: 'layerAction', display: { label: 'TG(3)' } },
+  'MO(1)': { canonical: 'MO(1)', code: 0x5221, kind: 'layerAction', display: { label: 'L1', hold: 'L1' } },
+  'MO(2)': { canonical: 'MO(2)', code: 0x5222, kind: 'layerAction', display: { label: 'L2', hold: 'L2' } },
+  'MO(3)': { canonical: 'MO(3)', code: 0x5223, kind: 'layerAction', display: { label: 'L3', hold: 'L3' } },
+  'TG(3)': { canonical: 'TG(3)', code: 0x5263, kind: 'layerAction', display: { label: 'TG L3', tap: 'TG', hold: 'L3' } },
   'LT1(Space)': {
     canonical: 'LT1(Space)',
     code: 16684,
@@ -99,13 +99,25 @@ const KEYS: Record<string, KeyInfo> = {
     canonical: "TapDance('Tab Escape')",
     code: 0x5704,
     kind: 'tapDance',
-    display: { label: 'Tab Escape' },
+    display: {
+      label: 'Tab Escape',
+      actions: [
+        { action: 'tap', label: 'Tab' },
+        { action: 'hold', label: 'Escape' },
+      ],
+    },
   },
   "TapDance('Layer 3 Toggle')": {
     canonical: "TapDance('Layer 3 Toggle')",
     code: 0x5703,
     kind: 'tapDance',
-    display: { label: 'Layer 3 Toggle' },
+    display: {
+      label: 'Layer 3 Toggle',
+      actions: [
+        { action: 'tap', label: 'TG L3' },
+        { action: 'hold', label: 'L3' },
+      ],
+    },
   },
   "Macro('Bracket Pair')": {
     canonical: "Macro('Bracket Pair')",

@@ -232,7 +232,7 @@
               "row": 3,
               "col": 4,
               "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "thumb_keys", "middle"] },
-              "value": { "text": "MO(1)", "canonical": "MO(1)", "code": 21025, "kind": "layerAction", "display": { "label": "MO Layer 1" } }
+              "value": { "text": "MO(1)", "canonical": "MO(1)", "code": 21025, "kind": "layerAction", "display": { "label": "L1", "hold": "L1" } }
             },
             {
               "hand": "left",

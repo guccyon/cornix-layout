@@ -13,7 +13,7 @@ import { Inspector } from './inspector';
 import type { KeyInput } from './keyInput';
 import { KeyboardView } from './keyboardView';
 import { LayerEditor } from './layerEditor';
-import { changeMap, currentText, diagnosticsByAddress, layerSlots, layerTitle, slotLabel, structureKey, type Slot } from './model';
+import { changeMap, currentText, diagnosticsByAddress, keyFaceNote, layerSlots, layerTitle, slotLabel, structureKey, type Slot } from './model';
 import { attachTooltip, describeContent, hideTooltip } from './tooltip';
 
 /** 画面を閉じても覚えておくもの（Webview の getState / setState。タブを裏に回すと Webview は作り直される） */
@@ -133,6 +133,7 @@ export class App {
       this.renderProblems();
       this.renderLayerInfo();
       this.slots = this.currentSlots();
+      this.keyboard.setLayerNames(this.layerNames());
       this.keyboard.replaceSlots(this.slots);
       this.updateSlots();
       this.rendered();
@@ -184,6 +185,10 @@ export class App {
   private currentSlots(): Slot[] {
     const layer = this.snapshot?.layers.find((l) => l.index === this.layerIndex);
     return layer && this.snapshot ? layerSlots(layer, this.snapshot.positionMap) : [];
+  }
+
+  private layerNames(): Map<number, string> {
+    return new Map((this.snapshot?.layers ?? []).map((layer) => [layer.index, layer.name]));
   }
 
   private captureDraft(): Draft {
@@ -261,6 +266,7 @@ export class App {
     this.renderTabs();
     this.renderLayerInfo();
     this.slots = this.currentSlots();
+    this.keyboard.setLayerNames(this.layerNames());
     this.keyboard.setSlots(this.slots);
     this.editor.setSlots(this.slots);
     if (this.selected && !this.slots.some((slot) => slot.id === this.selected)) this.selected = undefined;
@@ -371,7 +377,13 @@ export class App {
     const own = result?.diagnostics ?? [];
     const diagnostics = [...saved, ...own.filter((d) => !saved.some((s) => s.message === d.message))];
     const context = slot.encoder ? slotLabel(slot) : undefined;
-    return describeContent(text, result, { context, note: changed ? undefined : slot.saved?.note, diagnostics });
+    const face = keyFaceNote(result ? result.value : slot.saved);
+    return describeContent(text, result, {
+      context,
+      note: changed ? undefined : slot.saved?.note,
+      diagnostics,
+      ...(face ? { mark: face } : {}),
+    });
   }
 
   private rendered(): void {

@@ -123,16 +123,40 @@ describe('QMK 設定の欄', () => {
 });
 
 describe('メタデータの表示', () => {
-  it('metadata.yaml の中身と position_map を読むだけで出す', () => {
+  it('metadata.yaml の中身を読むだけの表で出し、position_map は出さない', () => {
     const view = new MetadataView();
     view.update(fixtureSnapshot());
-    const terms = [...view.element.querySelectorAll('dt')].map((e) => e.textContent);
+    const terms = [...view.element.querySelectorAll('.metadata-table > tbody > tr > th')].map((e) => e.textContent);
     expect(terms).toEqual(['keyboard', 'version', 'vial_protocol', 'via_protocol']);
-    expect(view.element.querySelector('dd')?.textContent).toBe('cornix');
+    expect(view.element.querySelector('td')?.textContent).toBe('cornix');
     expect(view.element.querySelector('input')).toBeNull();
-    const rows = [...view.element.querySelectorAll('.position-row')].map((e) => e.textContent);
-    expect(rows[0]).toBe('左手 1 段目（row0）tab Q W E R T');
-    expect(rows).toHaveLength(10);
+    expect(view.element.textContent).not.toContain('position_map');
+    expect(view.element.querySelector('.position-row')).toBeNull();
+  });
+
+  it('入れ子の Hash と配列は JSON ではなく表の中の表で出す', () => {
+    const view = new MetadataView();
+    view.update(
+      fixtureSnapshot({
+        metadata: {
+          keyboard: 'cornix',
+          extra_keys: { layout_options: 0, alt_repeat_key: [], key_override: [] },
+          file_naming: { layers: { pattern: '{index}_{name}.yaml', index_range: [0, 9] } },
+          combos: [{ name: 'a', keys: ['Q', 'W'] }],
+        },
+      }),
+    );
+    expect(view.element.textContent).not.toContain('{"');
+    const cell = (name: string) =>
+      [...view.element.querySelectorAll<HTMLElement>('.metadata-table > tbody > tr')].find((row) => row.querySelector(':scope > th')?.textContent === name)!
+        .querySelector(':scope > td')!;
+    const extra = cell('extra_keys').querySelector(':scope > .metadata-table')!;
+    expect([...extra.querySelectorAll(':scope > tbody > tr > th')].map((e) => e.textContent)).toEqual(['layout_options', 'alt_repeat_key', 'key_override']);
+    expect(cell('alt_repeat_key').textContent).toBe('（空）');
+    expect(cell('pattern').textContent).toBe('{index}_{name}.yaml');
+    expect([...cell('index_range').querySelectorAll('.metadata-item')].map((e) => e.textContent)).toEqual(['0', '9']);
+    expect(cell('layers').querySelector('.metadata-table')).not.toBeNull();
+    expect(cell('combos').querySelector(':scope > .metadata-table > tbody > tr > th')?.textContent).toBe('1');
   });
 });
 

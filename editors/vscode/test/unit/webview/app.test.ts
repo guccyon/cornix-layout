@@ -79,7 +79,8 @@ describe('App の描画', () => {
     // 自分のショートカット（Symbols の Y）にはアイコンがない
     app.selectLayer(1);
     const own = root.querySelector<HTMLElement>(`.board [data-slot='${JSON.stringify(['layers/1_symbols.yml', 'mapping', 'right_hand', 'row0', 'Y'])}']`);
-    expect(own?.textContent).toBe('⇧⌘[');
+    expect(own?.querySelector('.key-label')?.textContent).toBe('⇧⌘[');
+    expect(own?.querySelector('.key-mark')?.textContent).toBe('★');
     expect(own?.querySelector('[data-icon]')).toBeNull();
   });
 
@@ -175,6 +176,27 @@ describe('App の変更', () => {
     expect(tooltip?.querySelector('.tooltip-context')).toBeNull();
   });
 
+  it('説明には図の印・窓の意味を出す（保存済みの値と、書き換えて解釈が返ったあとの値で変わる）', async () => {
+    const b = slotOf('left_hand', 'row2', 'B');
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    keyElement(b).dispatchEvent(new Event('mouseenter'));
+    await settle(400);
+    expect(document.querySelector('.tooltip .tooltip-mark')?.textContent).toBe('印「M」: マクロ');
+    keyElement(b).dispatchEvent(new Event('mouseleave'));
+    const address = { file: base, path: ['mapping', 'left_hand', 'row2', 'B'] };
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [{ address, value: "TapDance('Tab Escape')" }] });
+    keyElement(b).dispatchEvent(new Event('mouseenter'));
+    await settle(400);
+    expect(document.querySelector('.tooltip .tooltip-mark')?.textContent).toBe('窓（タップから順に）: タップ Tab・ホールド Escape');
+    expect(keyElement(b).querySelector('.td-windows')).not.toBeNull();
+    keyElement(b).dispatchEvent(new Event('mouseleave'));
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [{ address, value: 'A' }] });
+    keyElement(b).dispatchEvent(new Event('mouseenter'));
+    await settle(400);
+    expect(document.querySelector('.tooltip')?.hasAttribute('hidden')).toBe(false);
+    expect(document.querySelector('.tooltip .tooltip-mark')).toBeNull();
+  });
+
   it('エンコーダの説明は、どの操作の欄かを先頭に出す（図では印でしか分からないため）', async () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     root.querySelector<HTMLElement>('.encoder-ccw')!.dispatchEvent(new Event('mouseenter'));
@@ -255,6 +277,8 @@ describe('App の読み上げと説明', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     expect(keyElement(slotOf('left_hand', 'thumb_keys', 'middle')).getAttribute('aria-label')).toBe('左手 middle: タップ Space、ホールド L1');
     expect(keyElement(slotOf('left_hand', 'row0', 'W')).getAttribute('aria-label')).toBe('左手 W: W');
+    // レイヤー操作は図では番号だけなので、読み上げにレイヤーの名前を添える
+    expect(keyElement(slotOf('right_hand', 'thumb_keys', 'middle')).getAttribute('aria-label')).toBe('右手 middle: MO(1)（Symbols）');
     const encoder = root.querySelector<HTMLElement>('.encoder-push');
     expect(encoder?.getAttribute('aria-label')).toBe('左手 エンコーダの押し込み: Mute');
     expect(root.querySelector('.field input[aria-label="左手 エンコーダの押し込み"]')).not.toBeNull();

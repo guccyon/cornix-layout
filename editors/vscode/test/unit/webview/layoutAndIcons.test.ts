@@ -7,8 +7,9 @@ import { iconElement, setMediaBase } from '../../../src/webview/icons';
 import { ICON_ASSETS } from '../../../src/webview/icons/manifest';
 import { MessageHostClient } from '../../../src/webview/hostClient';
 import { Inspector } from '../../../src/webview/inspector';
-import { KeyboardView } from '../../../src/webview/keyboardView';
-import { layerSlots } from '../../../src/webview/model';
+import { KeyboardView, keyFace } from '../../../src/webview/keyboardView';
+import { keyAccessibleName, keyFaceNote, keyMark, layerSlots, windowLabels } from '../../../src/webview/model';
+import { describeContent } from '../../../src/webview/tooltip';
 import type { KeyValue } from '../../../src/protocol';
 import type { WebviewMessage } from '../../../src/webviewMessages';
 import * as data from '../../fake-server/fixtures';
@@ -102,6 +103,158 @@ describe('Cornix の物理配置', () => {
     expect(part.classList.contains('dual')).toBe(true);
     expect(part.querySelector('.key-tap')?.textContent).toBe('Space');
     expect(part.querySelector('.key-hold')?.textContent).toBe('L1');
+  });
+});
+
+describe('キーの面の印・窓・帯', () => {
+  const value = (text: string): KeyValue => data.interpret(text)!;
+  const faceOf = (v: KeyValue) => {
+    const element = document.createElement('div');
+    element.append(...keyFace({ text: v.text, value: v }));
+    return element;
+  };
+  const face = (text: string) => faceOf(value(text));
+  const tapDance = (actions?: NonNullable<KeyValue['display']['actions']>): KeyValue => ({
+    text: "TapDance('Paste Variants')",
+    canonical: "TapDance('Paste Variants')",
+    code: 0x5702,
+    kind: 'tapDance',
+    display: actions ? { label: 'Paste Variants', actions } : { label: 'Paste Variants' },
+  });
+  const four = tapDance([
+    { action: 'tap', label: '⌘V' },
+    { action: 'hold', label: 'Copy Selected' },
+    { action: 'doubleTap', label: 'Copy Word' },
+    { action: 'tapHold', label: 'Copy Line' },
+  ]);
+  const slots = () => layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+  const encoderView = (hand: 'left' | 'right', op: 'ccw' | 'push' | 'cw', v: KeyValue) => {
+    const all = slots();
+    const view = new KeyboardView({ onSelect: () => undefined });
+    view.setSlots(all);
+    const slot = all.find((s) => s.hand === hand && s.encoder === op)!;
+    view.update(slot.id, { text: v.text, value: v, diagnostics: [], changed: false });
+    return view.element.querySelectorAll('.encoder')[hand === 'left' ? 0 : 1]!.querySelector(`.encoder-${op}`)!;
+  };
+
+  it('NoKey は空白で、✕ や x を描かない', () => {
+    const element = face('NoKey');
+    expect(element.textContent).toBe('');
+    expect(element.querySelector('.key-label')).toBeNull();
+  });
+
+  it('マクロは M、自分のショートカットは ★ の印を右上に付ける', () => {
+    const mark = (text: string) => face(text).querySelector('.key-mark');
+    expect(mark("Macro('Bracket Pair')")?.textContent).toBe('M');
+    expect(mark("Macro('Bracket Pair')")?.classList.contains('mark-macro')).toBe(true);
+    expect(mark("Shortcut('前のタブへ')")?.textContent).toBe('★');
+    expect(face("Shortcut('前のタブへ')").querySelector('.key-label')?.textContent).toBe('⇧⌘[');
+  });
+
+  it('アイコンのある同梱のショートカット・普通のキー・Mod-Tap には印を付けない', () => {
+    for (const text of ["Shortcut('VS Code:基本操作:コマンドパレット')", 'Shift + Command + P', 'A', 'LGUI_T(KC_LANG2)']) {
+      expect(face(text).querySelector('.key-mark'), text).toBeNull();
+    }
+    expect(face("Shortcut('VS Code:基本操作:コマンドパレット')").querySelector('.key-icon')).not.toBeNull();
+  });
+
+  it('印の意味は読み上げと説明でも分かる', () => {
+    const q = slots().find((slot) => slot.label === 'Q')!;
+    const macro = value("Macro('Bracket Pair')");
+    expect(keyAccessibleName(q, macro.text, macro, [])).toBe('左手 Q: マクロ Bracket Pair');
+    expect(keyFaceNote(macro)).toBe('印「M」: マクロ');
+    const tip = describeContent(macro.text, { value: macro, diagnostics: [], description: null }, { mark: '印「M」: マクロ' }) as HTMLElement;
+    expect(tip.querySelector('.tooltip-mark')?.textContent).toBe('印「M」: マクロ');
+  });
+
+  it('タップダンスは、割り当てのある動作の数の窓に分ける（1 つでも窓）。TD の印は付けない', () => {
+    for (const [count, v] of [
+      [4, four],
+      [2, value("TapDance('Tab Escape')")],
+      [1, tapDance([{ action: 'tap', label: 'OSL L4' }])],
+    ] as const) {
+      const element = faceOf(v);
+      expect(element.querySelector('.td-windows')?.classList.contains(`td-${count}`), String(count)).toBe(true);
+      expect(element.querySelectorAll('.td-window')).toHaveLength(count);
+      expect(element.querySelector('.key-mark')).toBeNull();
+    }
+    expect([...faceOf(four).querySelectorAll('.td-window')].map((w) => w.getAttribute('data-action'))).toEqual(['tap', 'hold', 'doubleTap', 'tapHold']);
+    expect(faceOf(four).querySelector('.td-more')?.textContent).toBe('+3');
+    expect(face("TapDance('Tab Escape')").querySelector('.td-window-1')?.textContent).toBe('Tab');
+  });
+
+  it('窓の文字は、ほかの窓と重なる先頭の語を落とす（説明と読み上げは元の文字）', () => {
+    const paste = tapDance([
+      { action: 'tap', label: '⌘V' },
+      { action: 'hold', label: 'Copy Selected' },
+      { action: 'doubleTap', label: 'Copy Current Word' },
+      { action: 'tapHold', label: 'Copy Current Line' },
+    ]);
+    expect([...faceOf(paste).querySelectorAll('.td-window')].map((w) => w.textContent)).toEqual(['⌘V', 'Selected', 'Word', 'Line']);
+    expect(keyFaceNote(paste)).toContain('ダブルタップ Copy Current Word');
+    expect(windowLabels(four.display.actions!)).toEqual(['⌘V', 'Selected', 'Word', 'Line']);
+    // 重ならない・落とすと空になる・1 つだけなら元のまま
+    expect(windowLabels([
+      { action: 'tap', label: 'Tab' },
+      { action: 'hold', label: 'Escape' },
+    ])).toEqual(['Tab', 'Escape']);
+    expect(windowLabels([
+      { action: 'tap', label: 'Copy' },
+      { action: 'hold', label: 'Copy Line' },
+    ])).toEqual(['Copy', 'Line']);
+    expect(windowLabels([{ action: 'tap', label: 'Copy Line' }])).toEqual(['Copy Line']);
+  });
+
+  it('窓の文字は、1 語なら 1 行（語の途中で折らない）、2 語以上なら語の切れ目で折り返す', () => {
+    const labels = [...faceOf(tapDance([
+      { action: 'tap', label: 'Escape' },
+      { action: 'hold', label: 'Bracket Pair' },
+    ])).querySelectorAll('.td-label')];
+    expect(labels[0]!.classList.contains('multi')).toBe(false);
+    expect(labels[1]!.classList.contains('multi')).toBe(true);
+  });
+
+  it('動作の分からない（actions のない）タップダンスだけ、ふつうのキーに TD の印', () => {
+    const element = faceOf(tapDance());
+    expect(element.querySelector('.td-windows')).toBeNull();
+    expect(element.querySelector('.key-mark')?.textContent).toBe('TD');
+    expect(keyMark(tapDance())?.meaning).toBe('タップダンス');
+  });
+
+  it('窓の動作は読み上げと説明でも分かる', () => {
+    const b = slots().find((slot) => slot.label === 'B')!;
+    expect(keyAccessibleName(b, four.text, four, [])).toBe(
+      '左手 B: タップダンス Paste Variants（タップ ⌘V、ホールド Copy Selected、ダブルタップ Copy Word、タップホールド Copy Line）',
+    );
+    expect(keyFaceNote(four)).toBe('窓（タップから順に）: タップ ⌘V・ホールド Copy Selected・ダブルタップ Copy Word・タップホールド Copy Line');
+  });
+
+  it('レイヤー操作は LT と同じ下の帯にレイヤー番号。MO は面を空け、ほかは面に操作名', () => {
+    const mo = face('MO(1)');
+    expect(mo.querySelector('.key-tap')?.textContent).toBe('');
+    expect(mo.querySelector('.key-hold')?.textContent).toBe('L1');
+    const tg = face('TG(3)');
+    expect(tg.querySelector('.key-tap')?.textContent).toBe('TG');
+    expect(tg.querySelector('.key-hold')?.textContent).toBe('L3');
+    const thumb = slots().find((slot) => slot.label === 'fn')!;
+    expect(keyAccessibleName(thumb, 'MO(3)', value('MO(3)'), [])).toBe('左手 fn: MO(3)');
+    expect(keyAccessibleName(thumb, 'MO(3)', value('MO(3)'), [], new Map([[3, 'Function Keys']]))).toBe('左手 fn: MO(3)（Function Keys）');
+  });
+
+  it('エンコーダの帯では窓にせず、タップの札と「+残りの数」の札', () => {
+    const part = encoderView('left', 'ccw', four);
+    expect(part.classList.contains('windowed')).toBe(true);
+    expect(part.querySelector('.td-window-1')?.textContent).toBe('⌘V');
+    expect(part.querySelector('.td-more')?.textContent).toBe('+3');
+  });
+
+  it('エンコーダの帯にも印・レイヤーの帯を付ける', () => {
+    const macro = encoderView('right', 'push', value("Macro('Bracket Pair')"));
+    expect(macro.classList.contains('marked')).toBe(true);
+    expect(macro.querySelector('.key-mark')?.textContent).toBe('M');
+    const mo = encoderView('right', 'cw', value('MO(1)'));
+    expect(mo.classList.contains('dual')).toBe(true);
+    expect(mo.querySelector('.key-hold')?.textContent).toBe('L1');
   });
 });
 

@@ -8,6 +8,7 @@ import type {
   Hand,
   KeyValue,
   LayerSnapshot,
+  TapDanceAction,
   PositionMapEntry,
   ProfileSnapshot,
 } from '../protocol';
@@ -128,17 +129,92 @@ export function slotLabel(slot: Slot): string {
   return `${HAND_LABEL[slot.hand]} ${slot.encoder ? `エンコーダの${slot.label}` : slot.label}`;
 }
 
+/** 図のキーの右上の印。マクロ・タップダンス・自分のショートカットを、ほかのキーと見分けるため */
+export type KeyMark = { kind: 'macro' | 'tapDance' | 'shortcut'; text: string; meaning: string };
+
+const MARKS: Record<KeyMark['kind'], KeyMark> = {
+  macro: { kind: 'macro', text: 'M', meaning: 'マクロ' },
+  tapDance: { kind: 'tapDance', text: 'TD', meaning: 'タップダンス' },
+  shortcut: { kind: 'shortcut', text: '★', meaning: '自分のショートカット' },
+};
+
+export const TAP_DANCE_ACTION_LABEL: Record<TapDanceAction['action'], string> = {
+  tap: 'タップ',
+  hold: 'ホールド',
+  doubleTap: 'ダブルタップ',
+  tapHold: 'タップホールド',
+};
+
+/** タップダンスを窓に分けて描くときの動作（割り当てのある動作が 1 つ以上のとき。サーバーが actions を返さなければ null） */
+export function tapDanceWindows(value: KeyValue | null | undefined): TapDanceAction[] | null {
+  if (value?.kind !== 'tapDance') return null;
+  const actions = value.display.actions ?? [];
+  return actions.length >= 1 ? actions : null;
+}
+
+/**
+ * 窓に描く文字。ほかの窓と同じ語（空白区切り）で始まる文字は、ほかの窓といちばん長く重なる先頭の語を落とす
+ * （「⌘V」「Copy Selected」「Copy Current Word」「Copy Current Line」→「⌘V」「Selected」「Word」「Line」）。
+ * 落とすと空になるときと、ほかの窓と重ならないときは元のまま。説明と読み上げは元の文字を使う
+ */
+export function windowLabels(actions: readonly TapDanceAction[]): string[] {
+  const words = actions.map((a) => a.label.split(' '));
+  return words.map((own, i) => {
+    let shared = 0;
+    words.forEach((other, j) => {
+      if (i === j) return;
+      let n = 0;
+      while (n < own.length && n < other.length && own[n] === other[n]) n++;
+      shared = Math.max(shared, n);
+    });
+    return shared > 0 && shared < own.length ? own.slice(shared).join(' ') : actions[i]!.label;
+  });
+}
+
+/**
+ * 値に付ける印（なければ null）。自分のショートカット（Shortcut(...)）は中身の種類より先に ★。
+ * アイコンのあるもの（同梱のショートカット・preset: のマクロ）はアイコンで、窓に分けて描くタップダンスは窓で分かるので印を付けない
+ * （TD の印は、定義が見つからず動作の分からないタップダンスだけ）
+ */
+export function keyMark(value: KeyValue | null | undefined): KeyMark | null {
+  if (!value || value.icon) return null;
+  if (value.origin === 'shortcut') return MARKS.shortcut;
+  if (value.kind === 'macro') return MARKS.macro;
+  if (value.kind === 'tapDance' && !tapDanceWindows(value)) return MARKS.tapDance;
+  return null;
+}
+
+/** 図の印・窓の説明（説明の吹き出しに出す 1 行。なければ undefined） */
+export function keyFaceNote(value: KeyValue | null | undefined): string | undefined {
+  const windows = tapDanceWindows(value);
+  if (windows) return `窓（タップから順に）: ${windows.map((a) => `${TAP_DANCE_ACTION_LABEL[a.action]} ${a.label}`).join('・')}`;
+  const mark = keyMark(value);
+  return mark ? `印「${mark.text}」: ${mark.meaning}` : undefined;
+}
+
 /** 図のキーの読み上げ（「左手 tab: タップ Space、ホールド L1」。未割り当て・エラー・警告も入れる） */
 export function keyAccessibleName(
   slot: Slot,
   text: string,
   value: KeyValue | null | undefined,
   diagnostics: readonly Diagnostic[],
+  layerNames: ReadonlyMap<number, string> = new Map(),
 ): string {
   let content: string;
   if (text === '') content = '割り当てなし';
-  else if (value?.display.tap && value.display.hold) content = `タップ ${value.display.tap}、ホールド ${value.display.hold}`;
+  else if (value?.display.tap && value.display.hold && (value.kind === 'layerTap' || value.kind === 'modTap'))
+    content = `タップ ${value.display.tap}、ホールド ${value.display.hold}`;
+  // レイヤー操作は図では帯に番号だけなので、読み上げは表記の形とレイヤーの名前で（MO(3)（Function Keys））
+  else if (value?.kind === 'layerAction' || value?.kind === 'layerMod') {
+    const index = /^L(\d+)$/.exec(value.display.hold ?? '')?.[1];
+    const name = index === undefined ? undefined : layerNames.get(Number(index));
+    content = name ? `${value.canonical}（${name}）` : value.canonical;
+  }
   else content = value?.display.label || text;
+  const mark = keyMark(value);
+  if (mark) content = `${mark.meaning} ${content}`;
+  const windows = tapDanceWindows(value);
+  if (windows) content = `タップダンス ${content}（${windows.map((a) => `${TAP_DANCE_ACTION_LABEL[a.action]} ${a.label}`).join('、')}）`;
   const problems = diagnostics.map((d) => `${d.severity === 'error' ? 'エラー' : '警告'} ${d.message}`);
   return [`${slotLabel(slot)}: ${content}`, ...problems].join('。');
 }

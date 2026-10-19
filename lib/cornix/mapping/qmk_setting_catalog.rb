@@ -6,8 +6,12 @@ module Cornix
   module Mapping
     # QMK Settings（QSID）の定義表（data/qmk_settings.yaml）
     class QmkSettingCatalog
-      # 1 つの設定の定義
-      class Definition < Data.define(:qsid, :name, :group, :width, :type)
+      # 1 つの設定の定義。description（説明）と default（既定値）は書いていなければ nil
+      class Definition < Data.define(:qsid, :name, :group, :width, :type, :description, :default)
+        def initialize(qsid:, name:, group:, width:, type:, description: nil, default: nil)
+          super
+        end
+
         def boolean? = type == 'boolean'
 
         def max = width == 1 ? 1 : (1 << (8 * width)) - 1

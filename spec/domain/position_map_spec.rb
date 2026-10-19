@@ -8,7 +8,7 @@ RSpec.describe Cornix::Domain::PositionMap do
 
   subject(:map) { described_class.from_h(position_map_hash) }
 
-  # layout.vil の layout[row][col] に入るキー（.claude/architecture/coordinate_system.md の物理配列）
+  # layout.vil の layout[row][col] に入るキー（docs/domain-model.md の「座標系」の物理位置）
   # [手, グループ, シンボル]。:push はエンコーダのプッシュ、nil はキーがない位置（-1）
   let(:physical_layout) do
     l = ->(g, s) { ['left_hand', g, s] }

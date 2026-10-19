@@ -1,7 +1,7 @@
 # アーキテクチャ
 
 cornix-layout の内部構造。設計の経緯は設計案ドキュメント（Claude Docs「cornix-layout リアーキテクチャ設計案」）、
-タスクの分担と公開メソッドの契約は [tasks.md](tasks.md) を参照。
+タスクの分担と公開メソッドの契約は [tasks.md](tasks.md)、Profile と値オブジェクトの詳細は [domain-model.md](domain-model.md) を参照。
 
 ## 方針
 

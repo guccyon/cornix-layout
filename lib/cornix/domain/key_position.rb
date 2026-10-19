@@ -4,7 +4,7 @@ require_relative 'checks'
 
 module Cornix
   module Domain
-    # キーの論理位置（.claude/architecture/coordinate_system.md の論理座標）。
+    # キーの論理位置（docs/domain-model.md の「座標系」の論理位置）。
     # 左右の手それぞれに 4 行 × 6 列。row3 の col 0〜2 が row3 のキー、col 3〜5 が親指キー。
     # layout.vil の物理座標（マトリクス）への変換は PositionMap だけが行う。
     class KeyPosition < Data.define(:hand, :row, :col)

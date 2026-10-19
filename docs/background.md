@@ -4,7 +4,7 @@
 
 - Cornix は分割キーボード。左右それぞれ 4 行（row0〜row2 が 6 キー、row3 が 3 キー）+ 親指 3 キー、
   ロータリーエンコーダが左右 1 個ずつ（プッシュ・左右回転）。
-- ファームウェアは RMK 0.8 系で、Vial プロトコル 6 に対応する（詳細は [vial_device_protocol](../memories/vial_device_protocol.md)）。
+- ファームウェアは RMK 0.8 系で、Vial プロトコル 6 に対応する（詳細は [device.md](device.md)）。
 - Vial はキーマップを GUI で編集し、`layout.vil`（JSON）として書き出す・読み込む。
 
 ## 解決したい問題
@@ -42,7 +42,7 @@
 }
 ```
 
-物理配列と論理位置の対応は [coordinate_system](../architecture/coordinate_system.md)。
+物理配列と論理位置の対応は [domain-model.md](domain-model.md) の「座標系」。
 
 ## 方針
 

@@ -1,0 +1,17 @@
+{
+  "description": ".cornix.yml の config: が指すディレクトリも並べ、それが既定になる",
+  "setup": {
+    "profiles": { "profiles/default": "test_config", "layouts/work": "test_config" },
+    "files": { ".cornix.yml": "config: layouts/work\n" }
+  },
+  "request": { "id": 1, "method": "profile/list", "params": {} },
+  "response": {
+    "result": {
+      "profiles": [
+        { "dir": "profiles/default", "name": "default" },
+        { "dir": "layouts/work", "name": "work" }
+      ],
+      "default": "layouts/work"
+    }
+  }
+}

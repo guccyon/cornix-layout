@@ -1,0 +1,5 @@
+{
+  "description": "params がオブジェクトでなければ -32602（InvalidParams）",
+  "request": { "id": 1, "method": "profile/list", "params": [1, 2] },
+  "response": { "id": 1, "error": { "code": -32602 } }
+}

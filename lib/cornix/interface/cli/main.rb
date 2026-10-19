@@ -16,6 +16,7 @@ require_relative 'commands/apply'
 require_relative 'commands/restore'
 require_relative 'commands/mcp'
 require_relative 'commands/init'
+require_relative 'commands/serve'
 require_relative '../use_cases'
 
 module Cornix
@@ -35,7 +36,7 @@ module Cornix
         # コマンドを足すときは Commands::Xxx < Command を作り、ここに並べる（並び順が help の順）
         COMMANDS = [
           Commands::Init, Commands::Compile, Commands::Decompile, Commands::Validate, Commands::Pull, Commands::Status,
-          Commands::Apply, Commands::Restore, Commands::Rename, Commands::Cleanup, Commands::Device, Commands::Mcp
+          Commands::Apply, Commands::Restore, Commands::Rename, Commands::Cleanup, Commands::Device, Commands::Mcp, Commands::Serve
         ].to_h { |c| [c.command_name, c] }.freeze
 
         DEFAULT_ENV = ->(workspace) { Application::Environment.for(workspace) }

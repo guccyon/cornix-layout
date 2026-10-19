@@ -255,8 +255,8 @@ button {
   flex: 1 1 0;
   min-height: 0;
   flex-direction: row;
-  gap: 0.3em;
-  padding: 0 14%;
+  gap: 0.25em;
+  padding: 0 10%;
   border: none;
   border-radius: 0;
   background: transparent;
@@ -276,31 +276,42 @@ button {
 .encoder-push {
   border-top: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
   border-bottom: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
-  background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
-  padding: 0 14% 0 18%;
+  background-color: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
 }
 
-/* 円の中では枠線を描けないので、なぞったとき・選んだとき・変更・問題は内側の線で示す */
+/* 円の中では帯の外側の線が円に切られるので、印は帯の背景の色と内側の線の両方で示す。
+   変更・警告・エラーは背景の色と内側の線（重なれば線を 2 重に）。選んでいることは背景に重ねる色と円全体の枠で示し、
+   ほかの印を上書きしない */
 .encoder-part:hover {
-  box-shadow: inset 0 0 0 1px var(--selected);
+  background-image: linear-gradient(color-mix(in srgb, var(--selected) 10%, transparent), color-mix(in srgb, var(--selected) 10%, transparent));
 }
 
 .encoder-part.changed {
   box-shadow: inset 0 0 0 2px var(--changed);
+  background-color: color-mix(in srgb, var(--changed) 14%, transparent);
 }
 
 .encoder-part.warning {
   box-shadow: inset 0 0 0 2px var(--warning);
+  background-color: color-mix(in srgb, var(--warning) 20%, transparent);
 }
 
 .encoder-part.error {
   box-shadow: inset 0 0 0 2px var(--error);
+  background-color: color-mix(in srgb, var(--error) 24%, transparent);
+}
+
+.encoder-part.changed.warning {
+  box-shadow: inset 0 0 0 2px var(--warning), inset 0 0 0 4px var(--changed);
+}
+
+.encoder-part.changed.error {
+  box-shadow: inset 0 0 0 2px var(--error), inset 0 0 0 4px var(--changed);
 }
 
 .encoder-part.selected {
   outline: none;
-  box-shadow: inset 0 0 0 2px var(--selected);
-  background: color-mix(in srgb, var(--selected) 18%, transparent);
+  background-image: linear-gradient(color-mix(in srgb, var(--selected) 28%, transparent), color-mix(in srgb, var(--selected) 28%, transparent));
 }
 
 .encoder:has(.encoder-part.selected) {
@@ -309,38 +320,30 @@ button {
   z-index: 1;
 }
 
-/* 帯の印で、どの操作かを見分ける（上と下の帯は円の外寄りの細いところ、押し込みは左端に） */
+/* 帯の中で文字の左に、どの操作かの印（左回し ⟲・押し込み ●・右回し ⟳）を文字と同じ並びで置く */
 .encoder-part::before {
-  position: absolute;
+  flex: none;
   color: var(--vscode-descriptionForeground);
   line-height: 1;
 }
 
 .encoder-ccw::before {
   content: '⟲';
-  top: 12%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 1.1em;
+  font-size: 1.45em;
 }
 
 .encoder-push::before {
   content: '●';
-  left: 6%;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.7em;
+  font-size: 0.75em;
+  padding: 0 0.15em;
 }
 
 .encoder-cw::before {
   content: '⟳';
-  bottom: 12%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 1.1em;
+  font-size: 1.45em;
 }
 
-/* 長い文字も 2 行にせず 1 行で省略する */
+/* 長い文字も 2 行にせず 1 行で省略する（keyFace の long（6 文字より長い）は、エンコーダでは 2 行にしない） */
 .encoder-part .key-label,
 .encoder-part .key-label.long {
   display: block;
@@ -359,11 +362,7 @@ button {
 /* 2 役の値は帯の中で横に並べる（タップの後ろに小さくホールド） */
 .encoder-part.dual {
   justify-content: center;
-  padding: 0 14%;
-}
-
-.encoder-part.dual.encoder-push {
-  padding-left: 18%;
+  padding: 0 10%;
 }
 
 .encoder-part .key-tap,
@@ -490,18 +489,37 @@ button {
   color: var(--vscode-descriptionForeground);
 }
 
-/* 列の幅は「6 等分」と「160px」の大きいほう。広ければ 6 列で、段ごとに列がそろう。狭ければ 160px の列で折り返す */
+/* 列の数は段（6 つ）が均等に割れる 6 / 3 / 2 のどれか。レイヤーの欄の幅で決め、6 つの段を「5 + 1」「4 + 2」には割らない。
+   広い（サイドバーを開いた既定のエディタ幅 1000px 前後から）と 6 列で横 1 列、狭いと 3 列（3 + 3）、もっと狭いと 2 列。
+   3 つの段（4 段目・親指・エンコーダ）も同じ列にそろう */
+.layer-editor {
+  container-type: inline-size;
+}
+
 .fields {
-  --field-columns: 6;
-  --field-gap: 10px;
+  --field-columns: 2;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(max(160px, (100% - (var(--field-columns) - 1) * var(--field-gap)) / var(--field-columns)), 1fr));
-  gap: 6px var(--field-gap);
+  grid-template-columns: repeat(var(--field-columns), minmax(0, 1fr));
+  gap: 6px 10px;
+}
+
+/* 6 列: 欄 1 つが 125px 以上（6 × 125 + 間 50 + 見出しの列 約 90） */
+@container (min-width: 890px) {
+  .fields {
+    --field-columns: 6;
+  }
+}
+
+/* 3 列: 欄 1 つが 150px 以上 */
+@container (min-width: 560px) and (max-width: 889.98px) {
+  .fields {
+    --field-columns: 3;
+  }
 }
 
 .field {
   display: grid;
-  grid-template-columns: minmax(3.5em, auto) 1fr;
+  grid-template-columns: minmax(3.5em, auto) minmax(0, 1fr);
   align-items: start;
   gap: 4px;
   border-radius: var(--radius);
@@ -784,6 +802,24 @@ button {
 .encoder-part.selected:focus-visible {
   outline-width: 2px;
   outline-style: double;
+  outline-offset: 2px;
+}
+
+/* エンコーダの帯の外側は円に切られるので、フォーカスの印は帯の内側に描き、円にも付ける */
+.encoder-part:focus-visible,
+.encoder-part.selected:focus-visible {
+  outline-width: 1px;
+  outline-style: solid;
+  outline-offset: -4px;
+}
+
+.encoder:has(.encoder-part:focus-visible) {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.encoder:has(.encoder-part.selected):has(.encoder-part:focus-visible) {
+  outline: 2px double var(--vscode-focusBorder);
   outline-offset: 2px;
 }
 

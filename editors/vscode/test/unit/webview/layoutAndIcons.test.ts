@@ -63,6 +63,15 @@ describe('Cornix の物理配置', () => {
     }
   });
 
+  it('レイヤーの欄の列の数は 6 つの段が均等に割れる数（6 / 3 / 2）だけ。5 + 1 や 4 + 2 に割らない', () => {
+    const css = fs.readFileSync(path.join(extensionRoot, 'media/webview.css'), 'utf-8');
+    const columns = [...css.matchAll(/--field-columns:\s*(\d+)/g)].map((m) => Number(m[1]));
+    expect(columns.length).toBeGreaterThan(0);
+    for (const n of columns) expect(6 % n, `--field-columns: ${n}`).toBe(0);
+    expect(columns).toContain(6);
+    expect(css).toMatch(/\.fields\s*\{[^}]*grid-template-columns:\s*repeat\(var\(--field-columns\)/);
+  });
+
   it('レイヤーの欄は position_map の順のキーとエンコーダ 6 つ', () => {
     const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
     expect(slots).toHaveLength(54);

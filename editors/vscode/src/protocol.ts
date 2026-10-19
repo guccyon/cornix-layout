@@ -298,7 +298,7 @@ export type InspectResult = {
   value: KeyValue | null;
   /** この欄だけで分かる問題（address は省く）。読めない表記は構造の error が 1 件 */
   diagnostics: Diagnostic[];
-  /** マウスを載せたときの説明。lines の最後は 16bit 値。読めなければ null */
+  /** マウスを載せたときの説明。lines の最後は QMK の名前と 16bit 値（「QMK: LT(1, KC_SPACE)（0x412C）」。名前にできない値は「16bit 値: 0x7E40」）。読めなければ null */
   description: { title: string; lines: string[] } | null;
 };
 

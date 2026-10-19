@@ -71,4 +71,42 @@ RSpec.describe Cornix::Storage::DiagnosticLocator do
       expect(located).to eq(['[error] layers/0_layer_0.yaml: mapping.left_hand.row0.tab: マクロ M30 が定義されていません'])
     end
   end
+
+  describe '#address' do
+    it 'モデル内のパスを [ファイル, キーの道筋] にする' do
+      expect(locator.address('layers[0].left_hand.row0.tab')).to eq(['layers/0_layer_0.yaml', %w[mapping left_hand row0 tab]])
+      expect(locator.address('layers[3].encoders.right.push')).to eq(['layers/3_layer_3.yaml', %w[mapping encoders right push]])
+      expect(locator.address('macros[9].steps[1].keys[0]')).to eq(['macros/10_macro.yaml', ['sequence', 1, 'keys', 0]])
+      expect(locator.address('combos[0].trigger_keys[1]')).to eq(['combos/00_combo.yaml', ['trigger_keys', 1]])
+      expect(locator.address('layers[2]')).to eq(['layers/2_layer_2.yaml', []])
+    end
+
+    it '一覧全体・ファイルがない番号・知らないパスは nil' do
+      expect(locator.address('macros')).to be_nil
+      expect(locator.address('combos[9].name')).to be_nil
+      expect(locator.address('settings')).to be_nil
+    end
+
+    it '注記付きの形でも .key を付けない' do
+      with_config_copy do |dir|
+        path = File.join(dir, 'layers/0_layer_0.yaml')
+        File.write(path, File.read(path).sub('tab: Tab', 'tab: { key: Tab, note: 注記 }'))
+        locator = described_class.new(dir)
+        expect(locator.locate_path('layers[0].left_hand.row0.tab')).to end_with('row0.tab.key')
+        expect(locator.address('layers[0].left_hand.row0.tab')).to eq(['layers/0_layer_0.yaml', %w[mapping left_hand row0 tab]])
+      end
+    end
+
+    it 'source を渡すと保存前の中身でファイルと位置を決める' do
+      disk = Cornix::Storage::FileSource::Disk.new(StorageHelpers::AUTHORS_CONFIG)
+      text = disk.read('tap_dance/01_screen_capture_combo.yml')
+      overlay = Cornix::Storage::FileSource::Overlay.new(
+        disk, { 'tap_dance/01_screen_capture_combo.yml' => text.sub(/^actions:\n/, '').gsub(/^  /, '') }
+      )
+      expect(described_class.new(StorageHelpers::AUTHORS_CONFIG).address('tap_dances[1].on_hold'))
+        .to eq(['tap_dance/01_screen_capture_combo.yml', %w[actions on_hold]])
+      expect(described_class.new(StorageHelpers::AUTHORS_CONFIG, source: overlay).address('tap_dances[1].on_hold'))
+        .to eq(['tap_dance/01_screen_capture_combo.yml', %w[on_hold]])
+    end
+  end
 end

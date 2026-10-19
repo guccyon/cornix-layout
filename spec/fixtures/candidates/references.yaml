@@ -1,0 +1,36 @@
+# プロファイルの名前から作る候補（レイヤー操作・マクロ・タップダンス・利用者のショートカット）
+- context: layerKey
+  query: Symbols
+  references: &profile
+    layers: [{ index: 0, name: Base }, { index: 1, name: Symbols }]
+    macros: [{ index: 0, name: Bracket Pair }, { index: 3, name: "Don't" }]
+    tapDances: [{ index: 4, name: Tab Escape }]
+    shortcuts: [{ name: 前のタブへ, text: 'Shift + Command + [' }, { name: VS Code:基本操作:コマンドパレット, text: Command + P }]
+  expect: ['MO(1)', 'TG(1)', 'TO(1)', 'OSL(1)', 'TT(1)', 'DF(1)', 'PDF(1)']
+- context: layerKey
+  query: MO(
+  references: *profile
+  expect: ['MO(0)', 'MO(1)']
+- context: layerKey
+  query: Bracket
+  references: *profile
+  expect: ["Macro('Bracket Pair')", '[', ']']
+- context: layerKey
+  query: M3
+  references: *profile
+  expect: ["Macro(\"Don't\")"]
+- context: layerKey
+  query: Tab Escape
+  references: *profile
+  expect: ["TapDance('Tab Escape')"]
+- context: layerKey
+  query: 前のタブ
+  references: *profile
+  expect: ["Shortcut('前のタブへ')"]
+# 利用者のショートカットが同梱のものと同じ名前なら、同梱の候補は出さない（利用者の定義が使われる）
+- context: layerKey
+  query: コマンドパレット
+  references: *profile
+  expect: ["Shortcut('VS Code:基本操作:コマンドパレット')"]
+  category:
+    "Shortcut('VS Code:基本操作:コマンドパレット')": shortcut

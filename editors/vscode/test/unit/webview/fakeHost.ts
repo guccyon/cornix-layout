@@ -1,6 +1,6 @@
 // 画面の部品のテスト用の HostClient。偽のサーバーのデータ（test/fake-server/fixtures.ts）で候補と解釈を返す。
 // 返事を止めておいて（hold）、好きな順で返す（release）こともできる。
-import type { CandidatesResult, Change, ProfileSnapshot, Range } from '../../../src/protocol';
+import type { CandidatesResult, Change, KeyValue, ProfileSnapshot, Range } from '../../../src/protocol';
 import type { HostClient } from '../../../src/webview/hostClient';
 import type { WebviewRequestMap, WebviewRequestMethod } from '../../../src/webviewMessages';
 import * as data from '../../fake-server/fixtures';
@@ -17,11 +17,13 @@ export class FakeHost implements HostClient {
   limit = 50;
   /** 候補の結果を差し替える（並びを決めたいとき） */
   candidates: CandidatesResult | undefined;
+  /** 解釈の結果を表記ごとに差し替える（偽のサーバーのデータにない値を返したいとき） */
+  readonly values = new Map<string, KeyValue>();
   private readonly held: Call[] = [];
 
   request<M extends WebviewRequestMethod>(method: M, params: WebviewRequestMap[M]['params']): Promise<WebviewRequestMap[M]['result']> {
     this.requests.push({ method, params });
-    const result = (method === 'keycode/candidates' && this.candidates ? this.candidates : answer(method, params, this.limit)) as WebviewRequestMap[M]['result'];
+    const result = (method === 'keycode/candidates' && this.candidates ? this.candidates : answer(method, params, this.limit, this.values)) as WebviewRequestMap[M]['result'];
     if (!this.holding) return Promise.resolve(result);
     return new Promise((resolve) => this.held.push({ method, params, resolve: () => resolve(result) }));
   }
@@ -45,10 +47,10 @@ export class FakeHost implements HostClient {
   }
 }
 
-function answer(method: WebviewRequestMethod, params: unknown, limit: number): unknown {
+function answer(method: WebviewRequestMethod, params: unknown, limit: number, values: ReadonlyMap<string, KeyValue>): unknown {
   if (method === 'keycode/inspect') {
     const { text } = params as { text: string };
-    const value = data.interpret(text);
+    const value = values.get(text) ?? data.interpret(text);
     return {
       value,
       diagnostics: value ? [] : [{ severity: 'error', source: 'structure', message: `「${text}」は読めない表記です` }],

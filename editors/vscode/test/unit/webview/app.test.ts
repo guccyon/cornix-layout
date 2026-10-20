@@ -192,6 +192,14 @@ describe('App の変更', () => {
     expect(document.querySelector('.tooltip .tooltip-mark')).toBeNull();
     expect(keyElement(b).querySelector('.td-windows')).not.toBeNull();
     keyElement(b).dispatchEvent(new Event('mouseleave'));
+    // 動作の分からない（窓に分けない）タップダンスは TD の印なので、印の行を出す
+    host.values.set("TapDance('Unknown')", { text: "TapDance('Unknown')", canonical: "TapDance('Unknown')", code: 0x5705, kind: 'tapDance', display: { label: 'Unknown' } });
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [{ address, value: "TapDance('Unknown')" }] });
+    keyElement(b).dispatchEvent(new Event('mouseenter'));
+    await settle(400);
+    expect(document.querySelector('.tooltip .tooltip-mark')?.textContent).toBe('印「TD」: タップダンス');
+    expect(keyElement(b).querySelector('.td-windows')).toBeNull();
+    keyElement(b).dispatchEvent(new Event('mouseleave'));
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [{ address, value: 'A' }] });
     keyElement(b).dispatchEvent(new Event('mouseenter'));
     await settle(400);

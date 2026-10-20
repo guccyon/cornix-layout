@@ -7,6 +7,7 @@ require_relative 'text_range'
 require_relative 'text_edit'
 require_relative 'edit_not_local'
 require_relative 'yaml_document/scalar_format'
+require_relative 'yaml_document/collection_edits'
 
 module Cornix
   module Storage
@@ -18,6 +19,9 @@ module Cornix
     #   doc.replace(%w[mapping left_hand row0 tab], 'Esc')  # => [TextEdit]（同じ値なら []）
     #   doc.insert(%w[mapping left_hand row2 Z], 'Z', order: %w[lshift Z X C V B])   # まだない場所に足す
     #   TextEdit.apply(text, edits)                         # => 書き換えたテキスト
+    #
+    # 項目の削除・並びの要素の挿入と移動・注記の書き換え（remove / insert_item / move_item / set_note / remove_note）は
+    # yaml_document/collection_edits.rb。
     #
     # path はファイルの中のキーの道筋（文字列はマッピングのキー、整数は並びの位置）。
     # 注記付きの形（{ key: 表記, note: 注記 }）は、割り当ての場所を指せば key の値を扱う（note は残す）。

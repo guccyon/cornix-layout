@@ -18,6 +18,9 @@ updates:
     directory: /editors/vscode
     schedule:
       interval: monthly
+    ignore:
+      # engines.vscode（package.json）と手でそろえる。先に上がると vsce package が通らない
+      - dependency-name: '@types/vscode'
     groups:
       npm:
         patterns: ['*']

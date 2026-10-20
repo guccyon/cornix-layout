@@ -2,7 +2,7 @@
 // tap / down / up のキー（追加・削除）・delay のミリ秒・text の文字。preset: のマクロは手順を summary で読むだけにして、preset の名前を直せる。
 import type { MacroSnapshot, MacroStepValue, ProfileSnapshot } from '../protocol';
 import { h } from './dom';
-import { ItemSection, parseMilliseconds, withCandidateParams, type ItemSectionOptions, type ListEntry } from './itemList';
+import { ItemSection, parseMilliseconds, type ItemSectionOptions, type ListEntry } from './itemList';
 import { macroView, type MacroView, type StepView } from './itemsModel';
 
 export const STEP_ACTION_LABEL: Record<StepView['action'], string> = {
@@ -36,12 +36,10 @@ let nextToggleId = 1;
 export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
   /** マクロのキーの候補を「すべて出す」（レイヤー操作・マクロなども出す） */
   private showAll = false;
-  private readonly keyHost;
   private addAction: StepView['action'] = 'tap';
 
   constructor(options: ItemSectionOptions) {
     super(options, { kind: 'macro', title: 'マクロ', namePlaceholder: 'Bracket Pair', className: 'macro-editor' });
-    this.keyHost = withCandidateParams(options.host, () => ({ all: this.showAll }));
   }
 
   protected items(snapshot: ProfileSnapshot): MacroSnapshot[] | undefined {
@@ -172,7 +170,7 @@ export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
             visibleLabel: `キー ${j + 1}`,
             focus: `step:${index}:key:${j}`,
             context: 'macroKey',
-            host: this.keyHost,
+            candidateParams: () => ({ all: this.showAll }),
             entry: () => keysOf().keys[j]!,
             className: 'step-key',
             remove: {

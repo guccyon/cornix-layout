@@ -4,7 +4,7 @@
 // - 候補を選ぶと insertText を入れる。手で打った表記は解釈できればそのまま残す（勝手に正規形に直さない）
 // - 決めた（Enter・候補を選んだ・欄を離れた）ときに onCommit を呼ぶ。検証（keycode/inspect）と表示は呼んだ側がする
 // - builder を渡すと、欄の右端に「組み立て」のボタンを置き、修飾キー式・LT・Mod-Tap の組み立て欄（modifierBuilder.ts）を開ける
-import type { Candidate, CandidateContext, CandidatesResult, Diagnostic, KeyValue } from '../protocol';
+import type { Candidate, CandidateContext, CandidatesParams, CandidatesResult, Diagnostic, KeyValue } from '../protocol';
 import { h } from './dom';
 import type { HostClient } from './hostClient';
 import { iconElement } from './icons';
@@ -29,6 +29,9 @@ const CATEGORY_LABEL: Record<Candidate['category'], string> = {
   raw: '直接の値',
 };
 
+/** keycode/candidates に足す params（v0.2 の all・exclude。protocol.md の 12.4） */
+export type CandidateExtras = Pick<CandidatesParams, 'all' | 'exclude'>;
+
 export type KeyInputOptions = {
   context: CandidateContext;
   host: HostClient;
@@ -38,8 +41,11 @@ export type KeyInputOptions = {
   label: string;
   placeholder?: string;
   debounceMs?: number;
-  /** keycode/candidates に足す params（v0.2。中身の画面の context ごとの all・exclude） */
-  candidateParams?: { all?: boolean; exclude?: string };
+  /**
+   * keycode/candidates に足す params（v0.2。中身の画面の context ごとの all・exclude）。
+   * 関数なら要求のたびに読む（マクロの「すべて出す」の切り替えをすぐに効かせる）。false と undefined の項目は送らない
+   */
+  candidateParams?: CandidateExtras | (() => CandidateExtras);
   /** 空でも決める（組み立て欄のキーなど、割り当てでない欄） */
   allowEmpty?: boolean;
   /** 空にして決めたときの案内（省くと「割り当てを消すには NoKey を選んでください」） */
@@ -236,6 +242,13 @@ export class KeyInput {
     }, delay);
   }
 
+  /** 今の candidateParams（false と undefined の項目は除く） */
+  private candidateExtras(): CandidateExtras {
+    const params = this.options.candidateParams;
+    const extras = typeof params === 'function' ? params() : params ?? {};
+    return Object.fromEntries(Object.entries(extras).filter(([, value]) => value !== undefined && value !== false)) as CandidateExtras;
+  }
+
   private async fetch(): Promise<void> {
     const sequence = ++this.sequence;
     const query = this.input.value;
@@ -246,7 +259,7 @@ export class KeyInput {
         context: this.options.context,
         query,
         limit: CANDIDATE_LIMIT,
-        ...(this.options.candidateParams ?? {}),
+        ...this.candidateExtras(),
       });
     } catch {
       return;

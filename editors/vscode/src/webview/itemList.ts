@@ -5,35 +5,13 @@
 // 姿の形（並びの長さ・手順の種類・項目）が変わったときだけで、値が変わっただけなら欄はそのまま値・印・メッセージだけを描き直す
 // （打っている欄の文字を残す）。欄で決めた変更はホストに渡すと同時に手元の pending にも足し、ホストの snapshot を待たずに描く。
 // 検証の表示はレイヤーの欄と同じ: 変えていない値は snapshot の diagnostics、変えた値は keycode/inspect（onchange の検証）。
-import type { Address, AnyChange, CandidateContext, CandidatesParams, Change, Diagnostic, ItemKind, ProfileSnapshot } from '../protocol';
-import type { WebviewRequestMap, WebviewRequestMethod } from '../webviewMessages';
+import type { Address, AnyChange, CandidateContext, Change, Diagnostic, ItemKind, ProfileSnapshot } from '../protocol';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
 import { Inspector } from './inspector';
 import { diagnosticsIn, effectivePending, nameProblem, within, type KeyEntry, type ValueEntry } from './itemsModel';
-import { KeyInput } from './keyInput';
+import { KeyInput, type KeyInputOptions } from './keyInput';
 import { addressKey, severityOf } from './model';
-
-/** keycode/candidates に足す params（v0.2 の all・exclude） */
-export type CandidateExtras = Pick<CandidatesParams, 'all' | 'exclude'>;
-
-/**
- * keycode/candidates の要求に all・exclude を足す HostClient（KeyInput は context・query・limit だけを送るため）。
- * extras は要求のたびに読む（「すべて出す」の切り替えをすぐに効かせる）
- */
-export function withCandidateParams(host: HostClient, extras: () => CandidateExtras): HostClient {
-  return {
-    request<M extends WebviewRequestMethod>(method: M, params: WebviewRequestMap[M]['params']): Promise<WebviewRequestMap[M]['result']> {
-      if (method !== 'keycode/candidates') return host.request(method, params);
-      const extra = Object.fromEntries(Object.entries(extras()).filter(([, value]) => value !== undefined && value !== false));
-      return host.request(method, { ...params, ...extra } as WebviewRequestMap[M]['params']);
-    },
-    change: (change) => host.change(change),
-    edit: (change) => host.edit(change),
-    itemEdit: (edit) => host.itemEdit(edit),
-    openFile: (file, range) => host.openFile(file, range),
-  };
-}
 
 export type ItemSectionOptions = { host: HostClient };
 
@@ -290,15 +268,17 @@ export abstract class ItemSection<T extends { name: string }, V> {
     focus: string;
     context: CandidateContext;
     entry: () => KeyEntry;
-    host?: HostClient;
+    /** keycode/candidates に足す all・exclude（KeyInput に渡す） */
+    candidateParams?: KeyInputOptions['candidateParams'];
     placeholder?: string;
     remove?: { label: string; onClick: () => void };
     className?: string;
   }): HTMLElement {
     const input = new KeyInput({
       context: options.context,
-      host: options.host ?? this.host,
+      host: this.host,
       label: options.label,
+      ...(options.candidateParams ? { candidateParams: options.candidateParams } : {}),
       placeholder: options.placeholder ?? '（なし）',
       onCommit: (text) => this.set(options.entry().address, text),
     });

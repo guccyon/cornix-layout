@@ -1,9 +1,9 @@
-// 拡張とサーバー（`cornix serve`）の間のリクエストの約束（docs/vscode-extension/protocol.md の v0.1）を TypeScript にしたもの。
+// 拡張とサーバー（`cornix serve`）の間のリクエストの約束（docs/vscode-extension/protocol.md の v0.1・v0.2）を TypeScript にしたもの。
 // 型だけを置き、vscode にも vscode-jsonrpc にも依存しない（Webview とテスト用の偽のサーバーからも読む）。
 // protocol.md を変えたら、ここも同じ PR で変える。
 
 /** 約束の版（protocol.md の 4.）。1.0 になるまでは major.minor 全体が一致しなければ話せない */
-export const PROTOCOL_VERSION = '0.1';
+export const PROTOCOL_VERSION = '0.2';
 
 // ---------------------------------------------------------------------------
 // 2. 共通の型
@@ -410,7 +410,8 @@ export type DraftParams = {
   profileId: string;
   /** 変更を作ったときのファイルの版（変更のあるファイルだけ） */
   baseVersions: Record<string, FileVersion>;
-  changes: Change[];
+  /** 当てる順の並び。v0.1 の Change（op を省いた set）も AnyChange に入る（12.3） */
+  changes: AnyChange[];
 };
 
 export type ValidateParams = DraftParams;

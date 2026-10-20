@@ -305,15 +305,12 @@ export class ProfileDocument implements vscode.CustomDocument {
     );
   }
 
-  /**
-   * 今の未保存の変更の profile/validate・profile/planEdits の params。changes は当てる順の並び（12.3 の AnyChange）。
-   * protocol.ts の DraftParams.changes は v0.1 の Change[] のままなので、型だけ合わせる
-   */
+  /** 今の未保存の変更の profile/validate・profile/planEdits の params。changes は当てる順の並び（12.3 の AnyChange） */
   private draftParams(): DraftParams {
     return {
       profileId: this.profileId,
       baseVersions: this.changes.baseVersions(this.snapshotValue.files),
-      changes: this.changes.list() as DraftParams['changes'],
+      changes: this.changes.list(),
     };
   }
 

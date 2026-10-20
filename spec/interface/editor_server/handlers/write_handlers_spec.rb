@@ -22,7 +22,7 @@ RSpec.describe 'profile/validate・planEdits・saved・workspace/didChangeFiles 
   let(:server) do
     Cornix::Interface::EditorServer::Server.new(workbench: workbench, input: StringIO.new, output: output,
                                                 error: StringIO.new).tap do |s|
-      s.handle({ 'jsonrpc' => '2.0', 'id' => 0, 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.1' } })
+      s.handle({ 'jsonrpc' => '2.0', 'id' => 0, 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.2' } })
     end
   end
   let(:layer) { 'layers/0_layer_0.yaml' }

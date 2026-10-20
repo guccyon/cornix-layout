@@ -1,6 +1,6 @@
 // タップダンスの節（spec.md の「ファイルの種類ごと」の tap_dance/）。4 つの動作のキー（自分自身への参照は候補から除く）と tapping_term。
 import type { ProfileSnapshot, TapDanceSnapshot } from '../protocol';
-import { ItemSection, parseMilliseconds, withCandidateParams, type ItemSectionOptions, type ListEntry } from './itemList';
+import { ItemSection, parseMilliseconds, type ItemSectionOptions, type ListEntry } from './itemList';
 import { TAP_DANCE_ACTIONS, tapDanceView, type TapDanceView } from './itemsModel';
 
 /** 読み込みで tapping_term を書いていないときの値（protocol.md の 12.2） */
@@ -29,7 +29,7 @@ export class TapDanceEditor extends ItemSection<TapDanceSnapshot, TapDanceView> 
 
   protected buildDetail(tapDance: TapDanceSnapshot, body: HTMLElement): void {
     // 自分自身を動作に入れると押したときに戻ってこないので、候補から除く
-    const host = withCandidateParams(this.host, () => ({ exclude: `TapDance('${tapDance.name}')` }));
+    const candidateParams = { exclude: `TapDance('${tapDance.name}')` };
     body.append(
       this.valueField<string>({
         label: '説明',
@@ -48,7 +48,7 @@ export class TapDanceEditor extends ItemSection<TapDanceSnapshot, TapDanceView> 
           label,
           focus: `action:${name}`,
           context: 'tapDanceAction',
-          host,
+          candidateParams,
           entry: () => this.current.actions[name],
           remove: {
             label: `${label}の割り当てを消す`,

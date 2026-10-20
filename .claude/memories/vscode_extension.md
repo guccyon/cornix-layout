@@ -18,7 +18,7 @@
 ## CI と必須チェック
 - main の ruleset は `rspec` を必須チェックにしている。ワークフローを `paths-ignore` で丸ごと飛ばすとチェックが待ちのままになり PR がマージできないので、
   rspec.yml はいつも動かし、ジョブの中で変わったパスを見て手順を飛ばす形にした
-- 拡張の CI（vscode.yml、ジョブ名 `node`）は必須チェックになっていない（ruleset の変更はユーザーの判断）
+- 拡張の CI（vscode.yml、ジョブ名 `node`）も 2026-10-20 に必須チェックに足した。rspec と同じく、いつも報告し関係のない PR では手順を飛ばして成功で終える
 - vscode.yml の node ジョブは、本物のサーバーでの統合テスト（`npm run test:integration:ruby`）のために Ruby を入れる（gem は使わないので bundle install しない）。
   そのため lib/ と bin/cornix の変更でも動かす
 

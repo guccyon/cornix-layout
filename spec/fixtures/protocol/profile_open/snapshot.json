@@ -1,0 +1,544 @@
+{
+  "description": "プロファイルを構造で読む。keys は position_map のすべての位置（割り当てがなければ value: null）、エンコーダは書いていない操作が null、注記は note、QMK 設定は data/qmk_settings.yaml のすべて（旧 decompile の QSID の番号の形で書いていればその場所を Address にする）、意味検証の結果に Address と range",
+  "setup": {
+    "profile": "test_config",
+    "open": false,
+    "files": {
+      "profiles/default/layers/0_layer_0.yaml": "name: Base\nindex: 0\nmapping:\n  left_hand:\n    row0:\n      tab: { key: Esc, note: 左上 }\n      Q: Q\n      W: Macro(20)\n      E: Repeat\n    row1:\n    row2: { Z: \"LT1(Space)\" }\n    row3: {}\n    thumb_keys:\n      middle: MO(1)\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  encoders:\n    left:\n      push: Mute\n"
+    }
+  },
+  "request": { "id": 1, "method": "profile/open", "params": { "dir": "profiles/default" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "profileId": "p1",
+      "name": "default",
+      "dir": "profiles/default",
+      "status": "ok",
+      "metadata": { "keyboard": "Cornix", "version": 1, "vial_protocol": 6, "extra_keys": { "layout_options": 0 } },
+      "positionMap": [
+        { "hand": "left", "row": 0, "col": 0, "group": "row0", "symbol": "tab" },
+        { "hand": "left", "row": 0, "col": 1, "group": "row0", "symbol": "Q" }, { "hand": "left", "row": 0, "col": 2, "group": "row0", "symbol": "W" },
+        { "hand": "left", "row": 0, "col": 3, "group": "row0", "symbol": "E" }, { "hand": "left", "row": 0, "col": 4, "group": "row0", "symbol": "R" },
+        { "hand": "left", "row": 0, "col": 5, "group": "row0", "symbol": "T" },
+        { "hand": "left", "row": 1, "col": 0, "group": "row1", "symbol": "caps" },
+        { "hand": "left", "row": 1, "col": 1, "group": "row1", "symbol": "A" }, { "hand": "left", "row": 1, "col": 2, "group": "row1", "symbol": "S" },
+        { "hand": "left", "row": 1, "col": 3, "group": "row1", "symbol": "D" }, { "hand": "left", "row": 1, "col": 4, "group": "row1", "symbol": "F" },
+        { "hand": "left", "row": 1, "col": 5, "group": "row1", "symbol": "G" },
+        { "hand": "left", "row": 2, "col": 0, "group": "row2", "symbol": "lshift" },
+        { "hand": "left", "row": 2, "col": 1, "group": "row2", "symbol": "Z" }, { "hand": "left", "row": 2, "col": 2, "group": "row2", "symbol": "X" },
+        { "hand": "left", "row": 2, "col": 3, "group": "row2", "symbol": "C" }, { "hand": "left", "row": 2, "col": 4, "group": "row2", "symbol": "V" },
+        { "hand": "left", "row": 2, "col": 5, "group": "row2", "symbol": "B" },
+        { "hand": "left", "row": 3, "col": 0, "group": "row3", "symbol": "lctrl" },
+        { "hand": "left", "row": 3, "col": 1, "group": "row3", "symbol": "command" },
+        { "hand": "left", "row": 3, "col": 2, "group": "row3", "symbol": "option" },
+        { "hand": "left", "row": 3, "col": 3, "group": "thumb_keys", "symbol": "left" },
+        { "hand": "left", "row": 3, "col": 4, "group": "thumb_keys", "symbol": "middle" },
+        { "hand": "left", "row": 3, "col": 5, "group": "thumb_keys", "symbol": "right" },
+        { "hand": "right", "row": 0, "col": 0, "group": "row0", "symbol": "Y" },
+        { "hand": "right", "row": 0, "col": 1, "group": "row0", "symbol": "U" },
+        { "hand": "right", "row": 0, "col": 2, "group": "row0", "symbol": "I" },
+        { "hand": "right", "row": 0, "col": 3, "group": "row0", "symbol": "O" },
+        { "hand": "right", "row": 0, "col": 4, "group": "row0", "symbol": "P" },
+        { "hand": "right", "row": 0, "col": 5, "group": "row0", "symbol": "backspace" },
+        { "hand": "right", "row": 1, "col": 0, "group": "row1", "symbol": "H" },
+        { "hand": "right", "row": 1, "col": 1, "group": "row1", "symbol": "J" },
+        { "hand": "right", "row": 1, "col": 2, "group": "row1", "symbol": "K" },
+        { "hand": "right", "row": 1, "col": 3, "group": "row1", "symbol": "L" },
+        { "hand": "right", "row": 1, "col": 4, "group": "row1", "symbol": "colon" },
+        { "hand": "right", "row": 1, "col": 5, "group": "row1", "symbol": "enter" },
+        { "hand": "right", "row": 2, "col": 0, "group": "row2", "symbol": "N" },
+        { "hand": "right", "row": 2, "col": 1, "group": "row2", "symbol": "M" },
+        { "hand": "right", "row": 2, "col": 2, "group": "row2", "symbol": "comma" },
+        { "hand": "right", "row": 2, "col": 3, "group": "row2", "symbol": "dot" },
+        { "hand": "right", "row": 2, "col": 4, "group": "row2", "symbol": "up" },
+        { "hand": "right", "row": 2, "col": 5, "group": "row2", "symbol": "rshift" },
+        { "hand": "right", "row": 3, "col": 0, "group": "row3", "symbol": "left" },
+        { "hand": "right", "row": 3, "col": 1, "group": "row3", "symbol": "down" },
+        { "hand": "right", "row": 3, "col": 2, "group": "row3", "symbol": "right" },
+        { "hand": "right", "row": 3, "col": 3, "group": "thumb_keys", "symbol": "left" },
+        { "hand": "right", "row": 3, "col": 4, "group": "thumb_keys", "symbol": "middle" },
+        { "hand": "right", "row": 3, "col": 5, "group": "thumb_keys", "symbol": "right" }
+      ],
+      "layers": [
+        {
+          "index": 0,
+          "name": "Base",
+          "description": null,
+          "file": "layers/0_layer_0.yaml",
+          "keys": [
+            {
+              "hand": "left",
+              "row": 0,
+              "col": 0,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row0", "tab"] },
+              "value": { "text": "Esc", "canonical": "Escape", "code": 41, "kind": "basic", "display": { "label": "Escape" }, "note": "左上" }
+            },
+            {
+              "hand": "left",
+              "row": 0,
+              "col": 1,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row0", "Q"] },
+              "value": { "text": "Q", "canonical": "Q", "code": 20, "kind": "basic", "display": { "label": "Q" } }
+            },
+            {
+              "hand": "left",
+              "row": 0,
+              "col": 2,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row0", "W"] },
+              "value": { "text": "Macro(20)", "canonical": "M20", "code": 30484, "kind": "macro", "display": { "label": "M20" } }
+            },
+            {
+              "hand": "left",
+              "row": 0,
+              "col": 3,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row0", "E"] },
+              "value": { "text": "Repeat", "canonical": "Repeat", "code": 31865, "kind": "quantum", "display": { "label": "Repeat" } }
+            },
+            {
+              "hand": "left",
+              "row": 0,
+              "col": 4,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row0", "R"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 0,
+              "col": 5,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row0", "T"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 1,
+              "col": 0,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row1", "caps"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 1,
+              "col": 1,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row1", "A"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 1,
+              "col": 2,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row1", "S"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 1,
+              "col": 3,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row1", "D"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 1,
+              "col": 4,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row1", "F"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 1,
+              "col": 5,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row1", "G"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 2,
+              "col": 0,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row2", "lshift"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 2,
+              "col": 1,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row2", "Z"] },
+              "value": {
+                "text": "LT1(Space)",
+                "canonical": "LT1(Space)",
+                "code": 16684,
+                "kind": "layerTap",
+                "display": { "label": "Space", "tap": "Space", "hold": "L1" }
+              }
+            },
+            {
+              "hand": "left",
+              "row": 2,
+              "col": 2,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row2", "X"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 2,
+              "col": 3,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row2", "C"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 2,
+              "col": 4,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row2", "V"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 2,
+              "col": 5,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row2", "B"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 3,
+              "col": 0,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row3", "lctrl"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 3,
+              "col": 1,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row3", "command"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 3,
+              "col": 2,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row3", "option"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 3,
+              "col": 3,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "thumb_keys", "left"] },
+              "value": null
+            },
+            {
+              "hand": "left",
+              "row": 3,
+              "col": 4,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "thumb_keys", "middle"] },
+              "value": { "text": "MO(1)", "canonical": "MO(1)", "code": 21025, "kind": "layerAction", "display": { "label": "L1", "hold": "L1" } }
+            },
+            {
+              "hand": "left",
+              "row": 3,
+              "col": 5,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "thumb_keys", "right"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 0,
+              "col": 0,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row0", "Y"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 0,
+              "col": 1,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row0", "U"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 0,
+              "col": 2,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row0", "I"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 0,
+              "col": 3,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row0", "O"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 0,
+              "col": 4,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row0", "P"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 0,
+              "col": 5,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row0", "backspace"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 1,
+              "col": 0,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row1", "H"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 1,
+              "col": 1,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row1", "J"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 1,
+              "col": 2,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row1", "K"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 1,
+              "col": 3,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row1", "L"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 1,
+              "col": 4,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row1", "colon"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 1,
+              "col": 5,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row1", "enter"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 2,
+              "col": 0,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row2", "N"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 2,
+              "col": 1,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row2", "M"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 2,
+              "col": 2,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row2", "comma"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 2,
+              "col": 3,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row2", "dot"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 2,
+              "col": 4,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row2", "up"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 2,
+              "col": 5,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row2", "rshift"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 3,
+              "col": 0,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row3", "left"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 3,
+              "col": 1,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row3", "down"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 3,
+              "col": 2,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "row3", "right"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 3,
+              "col": 3,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "thumb_keys", "left"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 3,
+              "col": 4,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "thumb_keys", "middle"] },
+              "value": null
+            },
+            {
+              "hand": "right",
+              "row": 3,
+              "col": 5,
+              "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "right_hand", "thumb_keys", "right"] },
+              "value": null
+            }
+          ],
+          "encoders": {
+            "left": {
+              "push": {
+                "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "encoders", "left", "push"] },
+                "value": { "text": "Mute", "canonical": "Mute", "code": 168, "kind": "basic", "display": { "label": "Mute" } }
+              },
+              "ccw": { "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "encoders", "left", "ccw"] }, "value": null },
+              "cw": { "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "encoders", "left", "cw"] }, "value": null }
+            },
+            "right": {
+              "push": { "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "encoders", "right", "push"] }, "value": null },
+              "ccw": { "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "encoders", "right", "ccw"] }, "value": null },
+              "cw": { "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "encoders", "right", "cw"] }, "value": null }
+            }
+          }
+        },
+        { "index": 1, "file": "layers/1_layer_1.yaml" }, { "index": 2, "file": "layers/2_layer_2.yaml" },
+        { "index": 3, "file": "layers/3_layer_3.yaml" }, { "index": 4, "file": "layers/4_layer_4.yaml" },
+        { "index": 5, "file": "layers/5_layer_5.yaml" }, { "index": 6, "file": "layers/6_layer_6.yaml" },
+        { "index": 7, "file": "layers/7_layer_7.yaml" }, { "index": 8, "file": "layers/8_layer_8.yaml" },
+        { "index": 9, "file": "layers/9_layer_9.yaml" }
+      ],
+      "settings": [
+        {
+          "group": "vial",
+          "name": "combo_timing_window",
+          "type": "integer",
+          "value": 50,
+          "default": 50,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["2"] }
+        },
+        {
+          "group": "keyboard",
+          "name": "oneshot_timeout",
+          "type": "integer",
+          "value": 1000,
+          "default": 1000,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["6"] }
+        },
+        {
+          "group": "keyboard",
+          "name": "tapping_term",
+          "type": "integer",
+          "value": 250,
+          "default": 250,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["7"] }
+        },
+        {
+          "group": "keyboard",
+          "name": "tap_code_delay",
+          "type": "integer",
+          "value": 20,
+          "default": 20,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["18"] }
+        },
+        {
+          "group": "keyboard",
+          "name": "tap_hold_caps_delay",
+          "type": "integer",
+          "value": 20,
+          "default": 20,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["19"] }
+        },
+        {
+          "group": "keyboard",
+          "name": "permissive_hold",
+          "type": "boolean",
+          "value": true,
+          "default": false,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["22"] }
+        },
+        {
+          "group": "keyboard",
+          "name": "hold_on_other_key_press",
+          "type": "boolean",
+          "value": false,
+          "default": false,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["23"] }
+        },
+        {
+          "group": "keyboard",
+          "name": "chordal_hold",
+          "type": "boolean",
+          "value": true,
+          "default": false,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["26"] }
+        },
+        {
+          "group": "keyboard",
+          "name": "flow_tap",
+          "type": "integer",
+          "value": 120,
+          "default": 120,
+          "address": { "file": "settings/qmk_settings.yaml", "path": ["27"] }
+        }
+      ],
+      "references": {
+        "layers": [
+          { "index": 0, "name": "Base" }, { "index": 1, "name": "Layer 1" }, { "index": 2, "name": "Layer 2" }, { "index": 3, "name": "Layer 3" },
+          { "index": 4, "name": "Layer 4" }, { "index": 5, "name": "Layer 5" }, { "index": 6, "name": "Layer 6" }, { "index": 7, "name": "Layer 7" },
+          { "index": 8, "name": "Layer 8" }, { "index": 9, "name": "Layer 9" }
+        ],
+        "macros": [
+          { "index": 0, "name": "Macro 0", "icon": null }, { "index": 1, "name": "Macro 1", "icon": null },
+          { "index": 2, "name": "Macro 2", "icon": null }, { "index": 3, "name": "Macro 3", "icon": null },
+          { "index": 4, "name": "Macro 4", "icon": null }, { "index": 5, "name": "Macro 5", "icon": null },
+          { "index": 6, "name": "Macro 6", "icon": null }, { "index": 7, "name": "Macro 7", "icon": null },
+          { "index": 8, "name": "Macro 8", "icon": null }, { "index": 10, "name": "Macro 10", "icon": null },
+          { "index": 11, "name": "Macro 11", "icon": null }
+        ],
+        "tapDances": [{ "index": 0, "name": "TapDance 0" }, { "index": 1, "name": "TapDance 1" }, { "index": 2, "name": "TapDance 2" }],
+        "shortcuts": []
+      },
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "マクロ M20 が定義されていません",
+          "source": "semantic",
+          "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row0", "W"] },
+          "range": { "start": { "line": 7, "character": 9 }, "end": { "line": 7, "character": 18 } }
+        },
+        {
+          "severity": "warning",
+          "message": "QK_REPEAT_KEY: Cornix は Repeat Key に対応していません（書き込みますが、押しても動かない可能性があります）",
+          "source": "semantic",
+          "address": { "file": "layers/0_layer_0.yaml", "path": ["mapping", "left_hand", "row0", "E"] },
+          "range": { "start": { "line": 8, "character": 9 }, "end": { "line": 8, "character": 15 } }
+        }
+      ]
+    }
+  }
+}

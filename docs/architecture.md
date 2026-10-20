@@ -7,7 +7,7 @@ cornix-layout の内部構造。設計の経緯は設計案ドキュメント（
 
 1. **ドメインモデルを中心に置く。** config/*.yaml も layout.vil も HID のバイト列も外側の表現で、内側には型のある値だけを置く。
 2. **値は一度だけ解析する。** キーコードの文字列は読み込み時に `Domain::Keycode` へ変換し、以降は文字列を再解析しない。
-3. **変換の口を絞る。** 文字列 ⇄ Keycode は `KeycodeNotation`（設定ファイル）と `VialNotation`（.vil）、
+3. **変換の口を絞る。** 文字列 ⇄ Keycode は `KeycodeNotation`（設定ファイル）と `VialNotation`（.vil）、Keycode → QMK の名前は `QmkNotation`（説明の表示用。読むほうはない）、
    16bit 値 ⇄ Keycode は `KeycodeCodec`、Profile ⇄ DeviceImage は `ProfileMapper` だけが行う。
 4. **表に持つのは名前だけ。** `data/keycodes.yaml` は名前付きのキーコード、`data/aliases.yaml` は人が読む別名。
    MO / LT / MT / LSFT など引数付きのキーコードは `KeycodeCodec` の定数とビット演算で組み立てる。
@@ -17,15 +17,17 @@ cornix-layout の内部構造。設計の経緯は設計案ドキュメント（
 ## レイヤーと依存の向き
 
 ```
-Interface       CLI (bin/cornix) ・ MCP サーバー
+Interface       CLI (bin/cornix) ・ MCP サーバー ・ エディタのサーバー（cornix serve。VS Code 拡張と JSON-RPC で話す）
 Application     ユースケース（Compile / Decompile / Validate / Cleanup / Rename / Init / Device*）と Environment（DI）・
-                Workspace（使う設定ディレクトリと tmp/ の場所を決める）
-Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / MacroCodec / ProfileMapper /
-                QmkSettingCatalog / ShortcutCatalog（同梱の data/*.yaml の表）
+                Workspace（使う設定ディレクトリと tmp/ の場所を決める）・Editor（エディタのサーバーのユースケース）
+Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / QmkNotation / MacroCodec / ProfileMapper /
+                QmkSettingCatalog / ShortcutCatalog / AppIconCatalog（同梱の data/*.yaml の表）/
+                KeyDisplay / CandidateCatalog（エディタの表示の文字とキー入力欄の候補）
 Planning        ImageDiff / Change / Plan（DeviceImage どうしの差分と書き込み計画）
 Domain          Profile 集約と値オブジェクト（Keycode, ModifierSet, LayerRef, Layer, Macro, ...）。I/O なし
 Image           DeviceImage（16bit 値とバイト列のまま）。I/O なし
-Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ BackupStore / SettingsFile（.cornix.yml）
+Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ BackupStore / SettingsFile（.cornix.yml）/
+                YamlDocument・TextEdit（値の位置と値の部分だけの書き換え）/ FileSource（保存前の中身で読む）/ FileVersion
 Device          HidBridge / Protocol / Session / Reader / Writer
 ```
 

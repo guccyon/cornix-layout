@@ -1,0 +1,69 @@
+# レイヤーのキー（context: layerKey）。上に出すものは基本キー
+- context: layerKey
+  query: ''
+  expect: [A, B, C, D, E]
+- context: layerKey
+  query: Cmd
+  expect: [LGui, RGui]
+- context: layerKey
+  query: cmd
+  expect: [LGui, RGui]
+- context: layerKey
+  query: KC_LGUI
+  expect: [LGui]
+- context: layerKey
+  query: a
+  expect: [A]
+- context: layerKey
+  query: esc
+  expect: [Escape]
+- context: layerKey
+  query: '!'
+  expect: ['!']
+- context: layerKey
+  query: KC_EXLM
+  expect: ['!']
+- context: layerKey
+  query: '⌘'
+  expect: [LGui, RGui]
+- context: layerKey
+  query: vol
+  expect: [VolumeUp, VolumeDown, Mute, KC__VOLUP, KC__VOLDOWN]
+- context: layerKey
+  query: Trans
+  expect: [Trans]
+- context: layerKey
+  query: KC_NO
+  expect: [NoKey]
+# 書き込み禁止のキーは出さない
+- context: layerKey
+  query: boot
+  expect: []
+- context: layerKey
+  query: EEPROM
+  expect: []
+- context: layerKey
+  query: reset
+  expect: [ClickyReset, HapticReset]
+  absent: [Reset]
+# 対応していないキーは理由を付けて下に
+- context: layerKey
+  query: repeat
+  expect: [Repeat, AltRepeat]
+  warning:
+    Repeat: Cornix は Repeat Key に対応していません
+- context: layerKey
+  query: USER0
+  expect: [BT0, BT1, BT2, NextBT, PrevBT, ClearBT, USER06, USER07, USER08, USER09]
+  warning:
+    USER08: Cornix のユーザーキーは USER00〜USER07 の 8 個だけです
+# 同梱のショートカットは日本語のラベルとアプリ名に当てる。macro: の定義は出さない
+- context: layerKey
+  query: コマンドパレット
+  expect: ["Shortcut('VS Code:基本操作:コマンドパレット')"]
+- context: layerKey
+  query: キーボードショートカット
+  expect: []
+- context: layerKey
+  query: Spotify
+  expect: ["Shortcut('Spotify:再生:再生/一時停止')"]

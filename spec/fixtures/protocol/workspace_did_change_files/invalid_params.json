@@ -1,0 +1,18 @@
+{
+  "description": "params の形が違えば何もしない（通知なのでログに書くだけ）",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "method": "workspace/didChangeFiles",
+    "params": {
+      "changes": [
+        {
+          "path": "profiles/default/layers/0_layer_0.yaml",
+          "type": "renamed"
+        }
+      ]
+    }
+  },
+  "notifications": []
+}

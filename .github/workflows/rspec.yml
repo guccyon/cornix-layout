@@ -1,5 +1,8 @@
 name: RSpec
 
+# Ruby のテスト。rspec は main の必須チェックなので、ワークフローはいつも動かしてチェックを必ず報告する。
+# PR で Ruby に関係するファイル（VS Code 拡張 editors/vscode/ と vscode.yml のほか全部）が変わっていなければ、
+# 手順を飛ばして成功で終える。main への push では今までどおり毎回テストする。
 on:
   push:
     branches: [main]
@@ -14,14 +17,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 変わったパスを見る
+        id: changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "${{ github.event_name }}" != pull_request ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "origin/$BASE_REF...HEAD")
+          printf '%s\n' "$files"
+          if printf '%s\n' "$files" | grep -qvE '^(editors/vscode/|\.github/workflows/vscode\.yml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Ruby に関係する変更がないので rspec を飛ばします"
+          fi
       - uses: ruby/setup-ruby@v1
+        if: steps.changes.outputs.run == 'true'
         with:
           ruby-version: '4.0'
           bundler: latest
           bundler-cache: true
       - name: 読み込み時に警告が出ないこと
+        if: steps.changes.outputs.run == 'true'
         run: |
           out=$(ruby -w -Ilib -e 'require "cornix"' 2>&1)
           for f in bin/*; do out+=$(ruby -wc "$f" 2>&1 >/dev/null); done
           if [ -n "$out" ]; then printf '%s\n' "$out"; exit 1; fi
-      - run: bundle exec rspec
+      - if: steps.changes.outputs.run == 'true'
+        run: bundle exec rspec

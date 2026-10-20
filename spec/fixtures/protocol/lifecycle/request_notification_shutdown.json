@@ -1,0 +1,6 @@
+{
+  "description": "リクエストで送るメソッドを通知で送っても実行しない（shutdown を通知で送っても、続くリクエストは処理する）",
+  "setup": { "before": [{ "method": "shutdown" }] },
+  "request": { "id": 1, "method": "profile/list" },
+  "response": { "id": 1, "result": { "profiles": [] } }
+}

@@ -1,0 +1,18 @@
+{
+  "description": "レイヤーの名前で当てたレイヤー操作。detail にレイヤーの名前を添え、limit で切れば truncated",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/candidates", "params": { "profileId": "p1", "context": "layerKey", "query": "Symbols", "limit": 4 } },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        { "insertText": "MO(1)", "label": "MO(1)", "detail": "Symbols", "category": "layer" },
+        { "insertText": "TG(1)", "label": "TG(1)", "detail": "Symbols", "category": "layer" },
+        { "insertText": "TO(1)", "label": "TO(1)", "detail": "Symbols", "category": "layer" },
+        { "insertText": "OSL(1)", "label": "OSL(1)", "detail": "Symbols", "category": "layer" }
+      ],
+      "typed": null,
+      "truncated": true
+    }
+  }
+}

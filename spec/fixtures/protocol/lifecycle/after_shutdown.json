@@ -1,0 +1,6 @@
+{
+  "description": "shutdown の後のリクエストは -32600（InvalidRequest）",
+  "setup": { "before": [{ "id": "b1", "method": "shutdown" }] },
+  "request": { "id": 1, "method": "profile/list", "params": {} },
+  "response": { "id": 1, "error": { "code": -32600 } }
+}

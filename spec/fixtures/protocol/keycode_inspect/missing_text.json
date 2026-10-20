@@ -1,0 +1,6 @@
+{
+  "description": "text がなければ -32602",
+  "setup": { "profile": "test_config" },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey" } },
+  "response": { "id": 1, "error": { "code": -32602, "data": { "field": "text" } } }
+}

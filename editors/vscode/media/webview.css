@@ -1,0 +1,1207 @@
+/* Cornix の編集画面。色は VS Code のテーマの CSS 変数（--vscode-*）に従う */
+
+:root {
+  --gap: 8px;
+  --radius: 4px;
+  --changed: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+  --error: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground, #f14c4c));
+  --warning: var(--vscode-inputValidation-warningBorder, var(--vscode-editorWarning-foreground, #cca700));
+  --selected: var(--vscode-focusBorder, #007fd4);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.loading {
+  padding: 16px;
+  color: var(--vscode-descriptionForeground);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---- 上のペイン ---- */
+
+.top-pane {
+  flex: none;
+  padding: var(--gap) 16px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border, transparent));
+}
+
+.profile-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.profile-name {
+  font-weight: 600;
+  font-size: 1.15em;
+}
+
+.profile-dir,
+.layer-file {
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.9em;
+}
+
+.pending {
+  color: var(--changed);
+}
+
+.banner {
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--error);
+  background: var(--vscode-inputValidation-errorBackground, transparent);
+  border-radius: var(--radius);
+}
+
+.layer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.layer-tab {
+  padding: 3px 10px;
+  border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border, #555));
+  background: transparent;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.layer-tab:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+
+.layer-tab.selected {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+
+.keyboard {
+  max-width: 1100px;
+  margin: 0 auto;
+  container-type: inline-size;
+}
+
+.board {
+  position: relative;
+  width: 100%;
+}
+
+.key,
+.encoder-part {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
+  border-bottom-width: 2px;
+  border-bottom-color: var(--vscode-keybindingLabel-bottomBorder, var(--vscode-input-border, #6668));
+  border-radius: 6px;
+  background: var(--vscode-keybindingLabel-background, var(--vscode-input-background));
+  color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
+  cursor: pointer;
+  font-size: clamp(9px, 1.15cqw, 14px);
+  line-height: 1.15;
+  text-align: center;
+}
+
+.key:hover,
+.encoder-part:hover {
+  border-color: var(--selected);
+}
+
+.key.unassigned {
+  background: transparent;
+  border-style: dashed;
+}
+
+.key.changed,
+.encoder-part.changed {
+  box-shadow: inset 0 0 0 2px var(--changed);
+}
+
+.key.warning,
+.encoder-part.warning {
+  border-color: var(--warning);
+}
+
+.key.error,
+.encoder-part.error {
+  border-color: var(--error);
+  border-width: 2px;
+}
+
+.key.selected,
+.encoder-part.selected {
+  outline: 2px solid var(--selected);
+  outline-offset: 1px;
+  z-index: 1;
+}
+
+.key-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key-label.long {
+  white-space: normal;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.key-label.raw {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.8em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.key-label.faint {
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 2 役のキー: 上にタップ、下にホールド */
+.key.dual,
+.encoder-part.dual {
+  justify-content: stretch;
+  padding: 0;
+}
+
+.key-tap,
+.key-hold {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.key-hold {
+  flex: 0 0 38%;
+  font-size: 0.85em;
+  border-top: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
+  color: var(--vscode-textLink-foreground);
+  background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent);
+}
+
+.key-icon {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22%;
+  aspect-ratio: 1;
+}
+
+.key.dual .key-icon {
+  top: 2px;
+}
+
+/* マクロ・タップダンス・自分のショートカットの印（右上の小さな札。M・TD・★）。
+   色はテーマのグラフの色を文字の色と混ぜて使う（明るいテーマでは暗く、暗いテーマでは明るくなり、背景の上で読める） */
+.key-mark {
+  --mark-color: var(--vscode-foreground);
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 0 0.3em;
+  border: 1px solid color-mix(in srgb, var(--mark-color) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--mark-color) 16%, var(--vscode-keybindingLabel-background, var(--vscode-input-background)));
+  color: color-mix(in srgb, var(--mark-color) 72%, var(--vscode-foreground));
+  font-size: 0.68em;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+}
+
+.mark-macro {
+  --mark-color: var(--vscode-charts-purple, #b180d7);
+}
+
+.mark-tapDance {
+  --mark-color: var(--vscode-charts-orange, #d18616);
+}
+
+.mark-shortcut {
+  --mark-color: var(--vscode-charts-green, #89d185);
+}
+
+/* 印のあるキーの文字は印の下に入らないように少し下げる */
+.key.marked:not(.dual) .key-label {
+  margin-top: 0.7em;
+}
+
+/* タップダンスの窓: キーの面を割り当てのある動作の数で分ける（1 つは面全体、2 つと 3 つはキーの横幅いっぱいの窓を上から順に
+   重ね、4 つは 2×2）。順はタップ・ホールド・ダブルタップ・タップホールドで、後ろの窓ほど背景を少しずつ濃くする。
+   横幅いっぱいに取るのは、キーの名前を省略せずに入れるため */
+.key.windowed {
+  padding: 0;
+}
+
+.td-windows {
+  --td-color: var(--vscode-charts-orange, #d18616);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-auto-rows: 1fr;
+}
+
+/* 変更の印（inset の box-shadow）が窓の背景に隠れないように、窓を内側に寄せる */
+.key.changed .td-windows {
+  inset: 2px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.td-4 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.td-window {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 2px;
+  overflow: hidden;
+  /* 読めることを優先: 小さくしても 8.5px より下げない */
+  font-size: max(8.5px, 0.8em);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: color-mix(in srgb, var(--td-color) 35%, var(--vscode-foreground));
+  border-color: color-mix(in srgb, var(--td-color) 45%, transparent);
+  border-style: solid;
+  border-width: 0;
+}
+
+.td-1 .td-window,
+.td-2 .td-window {
+  font-size: max(9px, 0.9em);
+}
+
+/* 上下に重ねる窓（2 つ・3 つ）は、2 つ目から上に区切りの線 */
+.td-2 .td-window + .td-window,
+.td-3 .td-window + .td-window {
+  border-top-width: 1px;
+}
+
+.td-window-1 {
+  background: color-mix(in srgb, var(--td-color) 10%, transparent);
+}
+
+.td-window-2 {
+  background: color-mix(in srgb, var(--td-color) 18%, transparent);
+}
+
+.td-window-3 {
+  background: color-mix(in srgb, var(--td-color) 26%, transparent);
+}
+
+.td-window-4 {
+  background: color-mix(in srgb, var(--td-color) 34%, transparent);
+}
+
+/* 4 つ（2×2）: 左上タップ・右上ホールド・左下ダブルタップ・右下タップホールド */
+.td-4 .td-window-2,
+.td-4 .td-window-4 {
+  border-left-width: 1px;
+}
+
+.td-4 .td-window-3,
+.td-4 .td-window-4 {
+  border-top-width: 1px;
+}
+
+/* 窓の文字: 1 語なら 1 行で、入りきらない分は「…」（語の途中で折らない）。2 語以上なら語の切れ目で 2 行まで折り返し、
+   それでも入らない分は「…」（全部は説明で見せる）。窓の高さが 1 行分しかない 3 つは 1 行で「…」 */
+.td-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.td-label.multi {
+  white-space: normal;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.td-3 .td-label.multi {
+  display: block;
+  white-space: nowrap;
+}
+
+/* 「+残りの数」はエンコーダの帯でだけ見せる */
+.td-more {
+  display: none;
+}
+
+/* エンコーダ: 丸いつまみ。円を上・中・下の帯に分け、左回し・押し込み・右回しの欄にする。
+   文字はキーと同じ大きさで 1 行に描き、入りきらない分は省略する（全部は説明で見せる） */
+.encoder {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
+  border-bottom-width: 2px;
+  border-bottom-color: var(--vscode-keybindingLabel-bottomBorder, var(--vscode-input-border, #6668));
+  border-radius: 50%;
+  background: var(--vscode-keybindingLabel-background, var(--vscode-input-background));
+}
+
+.encoder-part {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  flex-direction: row;
+  gap: 0.25em;
+  padding: 0 10%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* 円の上と下の帯は外側ほど細いので、文字を真ん中の帯の側に寄せる */
+.encoder-ccw {
+  align-items: flex-end;
+  padding-bottom: 0.35em;
+}
+
+.encoder-cw {
+  align-items: flex-start;
+  padding-top: 0.35em;
+}
+
+.encoder-push {
+  border-top: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
+  border-bottom: 1px solid var(--vscode-keybindingLabel-border, var(--vscode-input-border, #6668));
+  background-color: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+}
+
+/* 円の中では帯の外側の線が円に切られるので、印は帯の背景の色と内側の線の両方で示す。
+   変更・警告・エラーは背景の色と内側の線（重なれば線を 2 重に）。選んでいることは背景に重ねる色と円全体の枠で示し、
+   ほかの印を上書きしない */
+.encoder-part:hover {
+  background-image: linear-gradient(color-mix(in srgb, var(--selected) 10%, transparent), color-mix(in srgb, var(--selected) 10%, transparent));
+}
+
+.encoder-part.changed {
+  box-shadow: inset 0 0 0 2px var(--changed);
+  background-color: color-mix(in srgb, var(--changed) 14%, transparent);
+}
+
+.encoder-part.warning {
+  box-shadow: inset 0 0 0 2px var(--warning);
+  background-color: color-mix(in srgb, var(--warning) 20%, transparent);
+}
+
+.encoder-part.error {
+  box-shadow: inset 0 0 0 2px var(--error);
+  background-color: color-mix(in srgb, var(--error) 24%, transparent);
+}
+
+.encoder-part.changed.warning {
+  box-shadow: inset 0 0 0 2px var(--warning), inset 0 0 0 4px var(--changed);
+}
+
+.encoder-part.changed.error {
+  box-shadow: inset 0 0 0 2px var(--error), inset 0 0 0 4px var(--changed);
+}
+
+.encoder-part.selected {
+  outline: none;
+  background-image: linear-gradient(color-mix(in srgb, var(--selected) 28%, transparent), color-mix(in srgb, var(--selected) 28%, transparent));
+}
+
+.encoder:has(.encoder-part.selected) {
+  outline: 2px solid var(--selected);
+  outline-offset: 1px;
+  z-index: 1;
+}
+
+/* 帯の中で文字の左に、どの操作かの印（左回し ⟲・押し込み ●・右回し ⟳）を文字と同じ並びで置く */
+.encoder-part::before {
+  flex: none;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1;
+}
+
+.encoder-ccw::before {
+  content: '⟲';
+  font-size: 1.45em;
+}
+
+.encoder-push::before {
+  content: '●';
+  font-size: 0.75em;
+  padding: 0 0.15em;
+}
+
+.encoder-cw::before {
+  content: '⟳';
+  font-size: 1.45em;
+}
+
+/* 長い文字も 2 行にせず 1 行で省略する（keyFace の long（6 文字より長い）は、エンコーダでは 2 行にしない） */
+.encoder-part .key-label,
+.encoder-part .key-label.long {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.encoder-part .key-label.raw {
+  font-size: 0.85em;
+}
+
+/* 2 役の値は帯の中で横に並べる（タップの後ろに小さくホールド） */
+.encoder-part.dual {
+  justify-content: center;
+  padding: 0 10%;
+}
+
+.encoder-part .key-tap,
+.encoder-part .key-hold {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.encoder-part .key-hold {
+  flex: 0 1 auto;
+  padding: 0 0.3em;
+  border-top: none;
+  border-radius: 3px;
+}
+
+/* アイコンは文字の前に、文字と同じ高さで */
+.encoder-part .key-icon {
+  position: static;
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+}
+
+/* エンコーダの帯ではタップダンスを窓にせず、タップの文字の札と「+残りの数」の札を並べる（全部は説明と読み上げで分かる） */
+.encoder-part .td-windows {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.encoder-part .td-window,
+.encoder-part .td-more {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 0.3em;
+  border: 1px solid color-mix(in srgb, var(--td-color) 45%, transparent);
+  border-radius: 3px;
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.encoder-part .td-window:not(.td-window-1) {
+  display: none;
+}
+
+.encoder-part .td-more {
+  flex: none;
+  background: color-mix(in srgb, var(--td-color) 26%, transparent);
+  color: color-mix(in srgb, var(--td-color) 35%, var(--vscode-foreground));
+}
+
+.encoder-part .td-label {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* エンコーダの帯では印を文字の後ろに並べる */
+.encoder-part .key-mark {
+  position: static;
+  flex: none;
+  order: 1;
+  font-size: 0.75em;
+}
+
+.encoder-part.marked .key-label {
+  margin-top: 0;
+}
+
+/* ---- 下のペイン ---- */
+
+.bottom-pane {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 16px 24px;
+}
+
+.layer-info h2 {
+  font-size: 1.1em;
+  margin: 4px 0;
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.layer-description {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  color: var(--vscode-descriptionForeground);
+}
+
+.problems-list {
+  margin: 4px 0 8px;
+}
+
+.problems-list summary {
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground);
+}
+
+.problem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 0 3px 8px;
+  border-left: 3px solid var(--warning);
+  margin: 4px 0;
+}
+
+.problem.error {
+  border-left-color: var(--error);
+}
+
+.problem-severity {
+  font-weight: 600;
+}
+
+.problem-file {
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-descriptionForeground);
+}
+
+.link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.invalid {
+  padding: 16px;
+  overflow: auto;
+}
+
+/* 左手の節の下に右手の節。各段（とエンコーダ）の欄は、幅が足りれば 6 つを横 1 列に、足りなければ折り返す */
+.layer-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hand h3 {
+  margin: 8px 0 4px;
+  font-size: 1em;
+}
+
+.group {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 1fr);
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--vscode-editorWidget-border, #8883);
+}
+
+.group-label {
+  padding-top: 5px;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 列の数は段（6 つ）が均等に割れる 6 / 3 / 2 のどれか。レイヤーの欄の幅で決め、6 つの段を「5 + 1」「4 + 2」には割らない。
+   広い（サイドバーを開いた既定のエディタ幅 1000px 前後から）と 6 列で横 1 列、狭いと 3 列（3 + 3）、もっと狭いと 2 列。
+   3 つの段（4 段目・親指・エンコーダ）も同じ列にそろう */
+.layer-editor {
+  container-type: inline-size;
+}
+
+.fields {
+  --field-columns: 2;
+  display: grid;
+  grid-template-columns: repeat(var(--field-columns), minmax(0, 1fr));
+  gap: 6px 10px;
+}
+
+/* 6 列: 欄 1 つが 125px 以上（6 × 125 + 間 50 + 見出しの列 約 90） */
+@container (min-width: 890px) {
+  .fields {
+    --field-columns: 6;
+  }
+}
+
+/* 3 列: 欄 1 つが 150px 以上 */
+@container (min-width: 560px) and (max-width: 889.98px) {
+  .fields {
+    --field-columns: 3;
+  }
+}
+
+.field {
+  display: grid;
+  grid-template-columns: minmax(3.5em, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 4px;
+  border-radius: var(--radius);
+  padding: 1px 2px;
+}
+
+.field-label {
+  padding-top: 4px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field.changed .field-label {
+  color: var(--changed);
+}
+
+.field.changed .field-label::after {
+  content: ' ●';
+  font-size: 0.7em;
+}
+
+.field.selected {
+  background: var(--vscode-list-inactiveSelectionBackground, #8882);
+}
+
+.field.flash {
+  animation: flash 0.9s ease-out;
+}
+
+@keyframes flash {
+  from {
+    background: color-mix(in srgb, var(--selected) 40%, transparent);
+  }
+}
+
+/* ---- キー入力欄 ---- */
+
+.key-input {
+  position: relative;
+  min-width: 0;
+}
+
+.key-input-field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size, 13px);
+}
+
+.key-input-field::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.key-input-field:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.key-input.warning .key-input-field {
+  border-color: var(--warning);
+}
+
+.key-input.error .key-input-field {
+  border-color: var(--error);
+}
+
+.key-input-message {
+  font-size: 0.85em;
+  margin-top: 2px;
+}
+
+.message-line.error {
+  color: var(--vscode-errorForeground);
+}
+
+.message-line.warning {
+  color: var(--vscode-editorWarning-foreground, var(--warning));
+}
+
+.message-line.hint {
+  color: var(--vscode-descriptionForeground);
+}
+
+.candidates {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 2px);
+  left: 0;
+  width: max(100%, 380px);
+  max-width: calc(100vw - 32px);
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--vscode-editorSuggestWidget-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-editorSuggestWidget-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-editorSuggestWidget-border, var(--vscode-editorWidget-border, #8886));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+.candidates.align-right {
+  left: auto;
+  right: 0;
+}
+
+.candidate {
+  display: grid;
+  grid-template-columns: 18px auto 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.candidate.active {
+  background: var(--vscode-editorSuggestWidget-selectedBackground, var(--vscode-list-activeSelectionBackground));
+  color: var(--vscode-editorSuggestWidget-selectedForeground, var(--vscode-list-activeSelectionForeground));
+}
+
+.candidate-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+}
+
+.candidate-icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.candidate-label {
+  font-family: var(--vscode-editor-font-family);
+}
+
+.candidate.typed .candidate-label {
+  font-style: italic;
+}
+
+.candidate-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.candidate.active .candidate-detail {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.candidate-warning {
+  color: var(--vscode-editorWarning-foreground, var(--warning));
+}
+
+.candidate.has-warning .candidate-label {
+  opacity: 0.75;
+}
+
+.candidate-category {
+  font-size: 0.8em;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+
+.candidates-more,
+.candidates-empty {
+  padding: 3px 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.85em;
+}
+
+/* ---- アイコン ---- */
+
+.icon,
+.key-icon {
+  display: inline-block;
+  box-sizing: border-box;
+  flex: none;
+}
+
+.icon-mask {
+  background-color: var(--icon-color, currentColor);
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
+  mask: var(--icon-url) center / contain no-repeat;
+}
+
+.icon-image {
+  background: center / contain no-repeat;
+}
+
+.icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22%;
+  background: var(--badge-color);
+  color: #fff;
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-family: var(--vscode-font-family);
+}
+
+.icon-badge-long {
+  font-size: 7px;
+}
+
+.key-icon.icon-badge {
+  font-size: clamp(6px, 0.8cqw, 10px);
+}
+
+/* ---- 説明（マウスを載せたとき） ---- */
+
+.tooltip {
+  position: fixed;
+  z-index: 100;
+  max-width: 420px;
+  padding: 6px 9px;
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-editorWidget-border, #8886));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+  pointer-events: none;
+  font-size: 0.95em;
+}
+
+.tooltip-context {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.tooltip-title {
+  font-weight: 600;
+}
+
+.tooltip-code {
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-descriptionForeground);
+}
+
+.tooltip-line {
+  white-space: pre-wrap;
+}
+
+.tooltip-mark {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.tooltip-note {
+  margin-top: 3px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tooltip-diagnostic.error {
+  color: var(--vscode-errorForeground);
+}
+
+.tooltip-diagnostic.warning {
+  color: var(--vscode-editorWarning-foreground, var(--warning));
+}
+
+
+/* キーボードでのフォーカスの印（.selected の outline と分ける） */
+.key:focus-visible,
+.encoder-part:focus-visible,
+.layer-tab:focus-visible,
+.link-button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.key.selected:focus-visible,
+.encoder-part.selected:focus-visible {
+  outline-width: 2px;
+  outline-style: double;
+  outline-offset: 2px;
+}
+
+/* エンコーダの帯の外側は円に切られるので、フォーカスの印は帯の内側に描き、円にも付ける */
+.encoder-part:focus-visible,
+.encoder-part.selected:focus-visible {
+  outline-width: 1px;
+  outline-style: solid;
+  outline-offset: -4px;
+}
+
+.encoder:has(.encoder-part:focus-visible) {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.encoder:has(.encoder-part.selected):has(.encoder-part:focus-visible) {
+  outline: 2px double var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* ---- QMK 設定とメタデータ（下のペインのレイヤーの欄のあと） ---- */
+
+.settings-editor,
+.metadata-view {
+  margin-top: 20px;
+  border-top: 1px solid var(--vscode-editorWidget-border, #8883);
+  padding-top: 8px;
+}
+
+.section-details > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.section-details > summary h2 {
+  display: inline;
+  font-size: 1.1em;
+  margin: 4px 0;
+}
+
+.read-only {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.settings-group h3,
+.metadata-view h3 {
+  margin: 10px 0 4px;
+  font-size: 1em;
+}
+
+.setting {
+  display: grid;
+  grid-template-columns: minmax(12em, max-content) 8em 1fr;
+  grid-template-areas:
+    'name control info'
+    '. message message';
+  align-items: center;
+  gap: 2px 12px;
+  padding: 3px 4px;
+  border-radius: var(--radius);
+}
+
+.setting-name {
+  grid-area: name;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.95em;
+}
+
+.setting-control {
+  grid-area: control;
+}
+
+.setting-info {
+  grid-area: info;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.setting-message {
+  grid-area: message;
+  font-size: 0.85em;
+}
+
+.setting-message:empty {
+  display: none;
+}
+
+.setting.changed .setting-name {
+  color: var(--changed);
+}
+
+.setting.changed .setting-name::after {
+  content: ' ●';
+  font-size: 0.7em;
+}
+
+.setting-number {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-family: var(--vscode-editor-font-family);
+}
+
+.setting-number:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.setting.error .setting-number {
+  border-color: var(--error);
+}
+
+.setting.warning .setting-number {
+  border-color: var(--warning);
+}
+
+.setting-checkbox {
+  accent-color: var(--vscode-checkbox-background, var(--vscode-button-background));
+}
+
+/* metadata.yaml の表。入れ子の Hash・配列は欄の中にもう 1 つ表を置き、左の線で深さを見せる */
+.metadata-table {
+  border-collapse: collapse;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.95em;
+}
+
+.metadata-table th,
+.metadata-table td {
+  padding: 2px 10px 2px 6px;
+  vertical-align: top;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, #8883);
+}
+
+.metadata-table tr:last-child > th,
+.metadata-table tr:last-child > td {
+  border-bottom: none;
+}
+
+.metadata-table th {
+  font-weight: normal;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+.metadata-table td {
+  overflow-wrap: anywhere;
+}
+
+.metadata-table .metadata-table {
+  margin: 1px 0;
+  border-left: 2px solid var(--vscode-editorWidget-border, #8885);
+  font-size: 1em;
+}
+
+.metadata-table td:has(> .metadata-table) {
+  padding: 0;
+}
+
+.metadata-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.metadata-item {
+  padding: 0 5px;
+  border: 1px solid var(--vscode-editorWidget-border, #8885);
+  border-radius: 3px;
+}
+
+.metadata-empty {
+  color: var(--vscode-descriptionForeground);
+}
+
+@media (max-width: 640px) {
+  .setting {
+    grid-template-columns: 1fr 8em;
+    grid-template-areas:
+      'name control'
+      'info info'
+      'message message';
+  }
+}

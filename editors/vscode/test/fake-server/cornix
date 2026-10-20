@@ -1,0 +1,4 @@
+#!/bin/sh
+# テスト用の偽の cornix。設定 cornix.path にこのファイルを指定すると、拡張は Ruby の代わりにこれとつなぐ。
+# 先に npm run build（out/test/fake-server.js を作る）が要る。
+exec node "$(dirname "$0")/../../out/test/fake-server.js" "$@"

@@ -16,6 +16,7 @@
   - [検証](../docs/validation.md) - 構造検証と意味検証
   - [rename](../docs/rename.md) - `cornix rename` と `bin/rename_file`
   - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp`、RMK 0.8 の挙動と安全設計
+  - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・ロードマップ・バックエンドとのリクエストの約束（v0.1。コードは `editors/vscode/`、バックエンドは `cornix serve`）
 - **Memories**: [memories/](memories/)
   - [domain_architecture_refactor](memories/domain_architecture_refactor.md) - 作り直しの知見・意図的に変えた振る舞い
   - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
@@ -23,6 +24,7 @@
   - [key_notes](memories/key_notes.md) - 割り当ての注記（`{ key:, note: }`）の持ち方と引き継ぎ
   - [named_shortcuts](memories/named_shortcuts.md) - Shortcut('名前') を nape_pro-layout から移植したときの判断
   - [keycode_coverage](memories/keycode_coverage.md) - cornixhub / QMK / vial-qmk に基づくキーコードの網羅と出典
+  - [vscode_extension](memories/vscode_extension.md) - VS Code 拡張の作業で分かったこと（QMK 設定の既定値は RMK、YAML の書き換えの注意、CI と必須チェック、通しの確認で分かった古い Ruby が選ばれる件と .vscodeignore の件）
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---
@@ -33,7 +35,7 @@
 - 作業完了時には、得られた知見を `.claude/memories/` に記録すること
 - `README.md`（英語）と `README.ja.md`（日本語）は**常に一緒に更新**すること（下の「README の同期」）
 - プロンプト及び計画、作業結果の報告は全て日本語で行うこと
-- タスクを実行してコミットする際には必ず RSpec が全て通る状態を確認すること（`LANG=ja_JP.UTF-8 bundle exec rspec`）
+- タスクを実行してコミットする際には必ず RSpec が全て通る状態を確認すること（`LANG=ja_JP.UTF-8 bundle exec rspec`）。VS Code 拡張（`editors/vscode/`）を触ったときは `cd editors/vscode && npm ci && npm run typecheck && npm test` も通ること
 - Pull Request の説明は下記「Pull Request の説明」のルールに従うこと
 - [docs/architecture.md](../docs/architecture.md) の方針・依存の向き・コード規約を守ること
 - 実機のキーボードへの書き込み（`cornix apply` / `restore`、`cornix device apply` / `restore`、MCP の書き込み）は利用者の同意なしに行わないこと
@@ -69,19 +71,20 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
   （compile の出力は `tmp/build/layout.vil`、pull は `tmp/layout.vil` に読み出してから decompile）
 - `cornix init` と共通のオプション `--config` / `--profile` / `--root`: 設定ディレクトリの作成と場所の指定
 - `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
+- `cornix serve`: VS Code 拡張（`editors/vscode/`）のバックエンド。標準入出力の JSON-RPC（docs/vscode-extension/protocol.md）でプロファイルを読み、候補・検証・書き換えを返す（実機には触らない）
 - 名前参照（`Macro('名前')`）、名前付きショートカット（`Shortcut('名前')`、`config/shortcuts.yaml` と同梱の `data/shortcuts/`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
 - decompile → compile で 16bit 値が元と一致する
 
 ## Architecture
 
 ```
-Interface       CLI（bin/cornix → Interface::Cli::Main）・MCP サーバー（Interface::Mcp::Server）
-Application     ユースケース（Compile / Decompile / Validate / Cleanup / RenameFiles / SuggestRenames / Device*）と Environment（DI）
-Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / MacroCodec / ProfileMapper / QmkSettingCatalog / ShortcutCatalog
+Interface       CLI（bin/cornix → Interface::Cli::Main）・MCP サーバー（Interface::Mcp::Server）・エディタのサーバー（Interface::EditorServer、cornix serve）
+Application     ユースケース（Compile / Decompile / Validate / Cleanup / RenameFiles / SuggestRenames / Device* / Editor::*）と Environment（DI）
+Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation / QmkNotation / MacroCodec / ProfileMapper / QmkSettingCatalog / ShortcutCatalog / AppIconCatalog / KeyDisplay / CandidateCatalog
 Planning        ImageDiff / Change / Plan
 Domain          Profile 集約と値オブジェクト（Keycode, ModifierSet, LayerRef, Layer, Macro, TapDance, Combo, PositionMap, ...）。I/O なし
 Image           DeviceImage（16bit 値とバイト列のまま）。I/O なし
-Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ BackupStore / ConfigEditor / DecompileLock
+Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ BackupStore / ConfigEditor / DecompileLock / YamlDocument / TextEdit / FileSource / FileVersion
 Device          HidBridge / Protocol / Session / Reader / Planner / Writer
 ```
 
@@ -108,17 +111,20 @@ bin/
 data/
   keycodes.yaml     名前付きキーコードの表（Vial プロトコル 6）
   aliases.yaml      別名（QMK 名: [正規名, 別名...]。先頭が decompile で書く名前）
-  qmk_settings.yaml QSID・名前・グループ・幅
+  qmk_settings.yaml QSID・名前・グループ・幅・型と、エディタに出す説明（description）・既定値（default。RMK 0.8.3 の値）
   dangerous_keycodes.yaml  実機に書き込まないキーコード
   unsupported_keycodes.yaml  Cornix が対応していないとみられるキーコード（validate などで警告。書き込みは止めない）
   shortcuts/*.yaml  同梱のショートカット（cornixhub の一覧。Shortcut('アプリ:カテゴリ:ラベル') で参照）
+  shortcut_icons.yaml  同梱のショートカットのアプリ名 → アイコン ID（AppIconCatalog。SVG は拡張に同梱）
+  keycode_categories.yaml  キー入力欄の候補の分類と、場面ごとに上に出すもの（CandidateCatalog。keycode/candidates が使う）
 lib/cornix.rb       全ファイルを層の順に require
 lib/cornix/
   domain/ image/ mapping/ planning/ storage/ device/ application/ interface/
   version.rb（Cornix::VERSION）, errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
 ext/cornix_hid/     raw HID ブリッジ（Swift、tmp/cornix-hid にビルド）
-spec/               lib と同じ層の構成 + end_to_end_spec.rb / architecture_spec.rb / fixtures/
-docs/               設計文書（README.md が一覧。architecture / domain-model / notation / validation / rename / device / tasks / background）
+editors/vscode/     VS Code 拡張（TypeScript。cornix serve を子プロセスで起動して JSON-RPC で話す。README.md に開発の手順と構成）
+spec/               lib と同じ層の構成 + end_to_end_spec.rb / architecture_spec.rb / support/ / fixtures/（protocol/ は cornix serve の適合テストのデータ）
+docs/               設計文書（README.md が一覧。architecture / domain-model / notation / validation / rename / device / tasks / background、vscode-extension/）
 CHANGELOG.md        変更履歴（Keep a Changelog の形。リリースごとに項を作る）
 config/             利用者の設定（生成物。main ブランチにはない）
 ```
@@ -130,12 +136,16 @@ bundle install                                             # テスト用の gem
 LANG=ja_JP.UTF-8 bundle exec rspec                         # すべて（キーボード不要）
 LANG=ja_JP.UTF-8 bundle exec rspec spec/mapping            # 層ごと
 LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb # compile / decompile の一致
+
+cd editors/vscode && npm ci && npm run typecheck && npm test  # VS Code 拡張の型検査と単体テスト（vitest。VS Code なしで動く）
+npm run test:integration       # 拡張の統合テスト（VS Code をダウンロードして動かす。:ruby を付けると本物の cornix serve で）
 ```
 
 - `spec/end_to_end_spec.rb`: `spec/fixtures/test_config` と `spec/fixtures/authors_config` を compile し、
   保存した `layout.vil` / `authors_baseline.vil` と 16bit 値で一致すること、decompile → compile で戻ること
 - 旧実装の結果は `spec/fixtures/expected/` に保存してあり、それと比べる
 - 実機の代わりに `spec/device/fake_rmk_device.rb`（RMK 0.8 の応答を模したもの）を使う
+- `cornix serve` の約束は `spec/fixtures/protocol/` のデータで確かめる（Ruby は `spec/interface/editor_server/conformance_spec.rb`、拡張の偽のサーバーも同じデータの一部を vitest で流す）。CI は `.github/workflows/rspec.yml`（`rspec`）と `vscode.yml`（`node`）
 
 ### Round-trip check（手元の layout.vil で）
 

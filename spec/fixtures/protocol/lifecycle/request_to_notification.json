@@ -1,0 +1,5 @@
+{
+  "description": "通知で送るメソッドを id 付きで送ると -32600（InvalidRequest）",
+  "request": { "id": 1, "method": "initialized" },
+  "response": { "id": 1, "error": { "code": -32600 } }
+}

@@ -1,0 +1,5 @@
+{
+  "description": "プロファイルがひとつもないワークスペース",
+  "request": { "id": 1, "method": "profile/list" },
+  "response": { "result": { "profiles": [], "default": null } }
+}

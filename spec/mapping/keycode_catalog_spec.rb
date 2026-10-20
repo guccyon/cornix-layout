@@ -50,6 +50,14 @@ RSpec.describe Cornix::Mapping::KeycodeCatalog do
   it 'customKeycodes を USER00 からの名前として足せる' do
     custom = described_class.load(custom_keycodes: [{ 'name' => 'BT0' }, { 'name' => 'BT1' }])
     expect(custom.lookup('BT1')).to eq(0x7E01)
+    expect(custom.names_for(0x7E01)).to eq(%w[USER01 QK_KB_1])
+  end
+
+  it '値から keycodes.yaml の name と qmk を表の順に引ける（別名は含まない。shifted も引ける）' do
+    expect(catalog.names_for(0x2A)).to eq(%w[KC_BSPACE KC_BSPC KC_BACKSPACE])
+    expect(catalog.names_for(0x021E)).to eq(%w[KC_EXLM KC_EXCLAIM])
+    expect(catalog.names_for(0x04)).to eq(%w[KC_A])
+    expect(catalog.names_for(0x7E40)).to eq([])
   end
 
   describe '表の不整合' do

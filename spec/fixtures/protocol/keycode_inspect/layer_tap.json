@@ -1,0 +1,19 @@
+{
+  "description": "2 役のキーはタップ側とホールド側に分けて描き、説明に行き先のレイヤーの名前を出す",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey", "text": "LT1(KC_SPACE)" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "value": {
+        "text": "LT1(KC_SPACE)",
+        "canonical": "LT1(Space)",
+        "code": 16684,
+        "kind": "layerTap",
+        "display": { "label": "Space", "tap": "Space", "hold": "L1" }
+      },
+      "diagnostics": [],
+      "description": { "title": "LT1(Space)", "lines": ["タップ: Space", "ホールド: レイヤー 1（Symbols）", "QMK: LT(1, KC_SPACE)（0x412C）"] }
+    }
+  }
+}

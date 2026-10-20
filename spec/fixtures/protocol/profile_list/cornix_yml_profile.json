@@ -1,0 +1,17 @@
+{
+  "description": ".cornix.yml の profile: が既定になる",
+  "setup": {
+    "profiles": { "profiles/default": "test_config", "profiles/ipad": "test_config" },
+    "files": { ".cornix.yml": "profile: ipad\n" }
+  },
+  "request": { "id": 1, "method": "profile/list", "params": {} },
+  "response": {
+    "result": {
+      "profiles": [
+        { "dir": "profiles/default", "name": "default" },
+        { "dir": "profiles/ipad", "name": "ipad" }
+      ],
+      "default": "profiles/ipad"
+    }
+  }
+}

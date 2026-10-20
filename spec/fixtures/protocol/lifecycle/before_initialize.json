@@ -1,0 +1,6 @@
+{
+  "description": "initialize の前のリクエストは -32002（ServerNotInitialized）",
+  "setup": { "initialize": false },
+  "request": { "id": 1, "method": "profile/list", "params": {} },
+  "response": { "id": 1, "error": { "code": -32002 } }
+}

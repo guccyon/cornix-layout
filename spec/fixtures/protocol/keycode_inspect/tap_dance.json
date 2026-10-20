@@ -1,0 +1,13 @@
+{
+  "description": "タップダンスの説明は 4 つの動作（使わない動作は省く）と tapping_term",
+  "setup": { "profile": "authors_config" },
+  "request": { "id": 1, "method": "keycode/inspect", "params": { "profileId": "p1", "context": "layerKey", "text": "TapDance('Tab Escape')" } },
+  "response": {
+    "id": 1,
+    "result": {
+      "value": { "canonical": "TapDance('Tab Escape')", "code": 22276, "kind": "tapDance", "display": { "label": "Tab Escape" } },
+      "diagnostics": [],
+      "description": { "title": "タップダンス Tab Escape（TD(4)）", "lines": ["タップ: Tab", "ホールド: Escape", "tapping_term: 200ms", "QMK: TD(4)（0x5704）"] }
+    }
+  }
+}

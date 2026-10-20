@@ -8,7 +8,7 @@ module Cornix
     #   KeycodeCatalog.default                     同梱の表（プロセスで 1 回だけ読む）
     #   KeycodeCatalog.load(custom_keycodes: [..]) キーボード定義の customKeycodes（BT0 など）を USER00.. の別名として足す
     class KeycodeCatalog
-      FIELDS = %i[qmk_names names_by_code vial_names aliases aliases_by_code preferred basic quantum dangerous_ranges
+      FIELDS = %i[qmk_names table_names names_by_code vial_names aliases aliases_by_code preferred basic quantum dangerous_ranges
                  unsupported_ranges].freeze
 
       # 通常は Loader が作る。引数はすべて読み込み済みの Hash / Set
@@ -31,6 +31,9 @@ module Cornix
 
       # 値 → 設定ファイルに書く名前（special / basic / quantum の name。なければ nil）
       def name(code) = @names_by_code[code]
+
+      # 値 → keycodes.yaml のその値の name と qmk（表の順。customKeycodes と aliases.yaml の別名は含まない。なければ空）
+      def names_for(code) = @table_names.fetch(code, EMPTY)
 
       # 値 → .vil に書く Vial 名（name のうち Vial GUI に名前があるもの。なければ nil）
       def vial_name(code) = @vial_names[code]

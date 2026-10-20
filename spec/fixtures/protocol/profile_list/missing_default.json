@@ -1,0 +1,11 @@
+{
+  "description": "既定の設定ディレクトリがなければ default は null（中身のない config/ は並べない）",
+  "setup": { "profiles": { "profiles/default": "test_config", "config": null } },
+  "request": { "id": 1, "method": "profile/list", "params": {} },
+  "response": {
+    "result": {
+      "profiles": [{ "dir": "profiles/default", "name": "default" }],
+      "default": null
+    }
+  }
+}

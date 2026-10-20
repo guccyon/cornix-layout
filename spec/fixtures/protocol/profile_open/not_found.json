@@ -1,0 +1,5 @@
+{
+  "description": "ない dir は -32050（data に dir）",
+  "request": { "id": 1, "method": "profile/open", "params": { "dir": "profiles/ipad" } },
+  "response": { "id": 1, "error": { "code": -32050, "data": { "dir": "profiles/ipad" } } }
+}

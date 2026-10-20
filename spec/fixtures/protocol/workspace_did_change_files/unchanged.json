@@ -1,0 +1,18 @@
+{
+  "description": "中身が知っている版と同じなら profile/didChange を送らない（通知なので応答もない）",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "method": "workspace/didChangeFiles",
+    "params": {
+      "changes": [
+        {
+          "path": "profiles/default/layers/0_layer_0.yaml",
+          "type": "changed"
+        }
+      ]
+    }
+  },
+  "notifications": []
+}

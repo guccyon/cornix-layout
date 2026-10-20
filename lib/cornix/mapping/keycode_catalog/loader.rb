@@ -25,6 +25,7 @@ module Cornix
           unsupported = read('unsupported_keycodes.yaml')
 
           @qmk_names = {}
+          @table_names = Hash.new { |h, k| h[k] = [] }
           @names_by_code = {}
           @vial_names = {}
           @basic = []
@@ -68,6 +69,7 @@ module Cornix
           name = entry.fetch('name')
           register_name(name, code)
           Array(entry['qmk']).each { |q| register_name(q, code) }
+          @table_names[code].push(name, *Array(entry['qmk']))
           return if section == 'shifted'
 
           raise ConfigError, "keycodes.yaml に値 #{format('0x%04X', code)} が 2 回あります" if @names_by_code.key?(code)
@@ -124,7 +126,8 @@ module Cornix
 
         def build(dangerous, unsupported)
           KeycodeCatalog.new(
-            qmk_names: @qmk_names, names_by_code: @names_by_code, vial_names: @vial_names, aliases: @aliases,
+            qmk_names: @qmk_names, table_names: @table_names.transform_values(&:freeze).to_h,
+            names_by_code: @names_by_code, vial_names: @vial_names, aliases: @aliases,
             aliases_by_code: @aliases_by_code.transform_values(&:freeze).to_h,
             preferred: @aliases_by_code.transform_values(&:first).to_h,
             basic: @basic.to_set, quantum: @quantum.to_set,

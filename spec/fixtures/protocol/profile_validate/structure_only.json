@@ -1,0 +1,73 @@
+{
+  "description": "構造の問題（読めない表記）が 1 つでもあれば意味検証はせず、構造の問題だけを返す",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/validate",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/0_layer_0.yaml": "sha256:9faa12c6c209ea8cb5e6ec37f158d05bf97a29200c5b2c278601d0e0b204fee0"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "layers/0_layer_0.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "value": "Macro('Removed')"
+        },
+        {
+          "address": {
+            "file": "layers/0_layer_0.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "Q"
+            ]
+          },
+          "value": "Macro(20)"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "diagnostics": [
+        {
+          "severity": "error",
+          "source": "structure",
+          "message": "キーコード「Macro('Removed')」を解釈できません: マクロ「Removed」が見つかりません",
+          "address": {
+            "file": "layers/0_layer_0.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 7,
+              "character": 11
+            },
+            "end": {
+              "line": 7,
+              "character": 27
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "description": "profile/open の結果に出てこない Address（position_map にない位置）は -32602",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/validate",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/0_layer_0.yaml": "sha256:9faa12c6c209ea8cb5e6ec37f158d05bf97a29200c5b2c278601d0e0b204fee0"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "layers/0_layer_0.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "nope"
+            ]
+          },
+          "value": "Escape"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "changes[0].address"
+      }
+    }
+  }
+}

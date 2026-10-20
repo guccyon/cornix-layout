@@ -247,6 +247,23 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
     end
   end
 
+  describe '#shortcut_name' do
+    it "Shortcut('名前') の形なら名前（parse と同じく、かっこの内側と名前の前後の空白・\\' を読む）" do
+      expect(notation.shortcut_name("Shortcut('前のタブへ')")).to eq('前のタブへ')
+      expect(notation.shortcut_name("  Shortcut( 'VS Code:基本操作:コマンドパレット' ) ")).to eq('VS Code:基本操作:コマンドパレット')
+      expect(notation.shortcut_name('Shortcut("It\'s")')).to eq("It's")
+      expect(notation.shortcut_name("Shortcut('It\\'s')")).to eq("It's")
+      expect(notation.shortcut_name("Shortcut(' 名前 ')")).to eq('名前')
+    end
+
+    it '定義があるかは見ない。Shortcut の形でなければ nil' do
+      expect(notation.shortcut_name("Shortcut('ないもの')")).to eq('ないもの')
+      ["Macro('Copy Selected')", 'Shortcut(3)', 'Shortcut()', 'Cmd + Q', 'A', 42, nil].each do |text|
+        expect(notation.shortcut_name(text)).to be_nil, text.inspect
+      end
+    end
+  end
+
   describe '不変条件 parse(format(k)) == k' do
     let(:named_refs) do
       Cornix::Mapping::References.new(

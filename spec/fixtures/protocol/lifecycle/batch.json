@@ -1,0 +1,5 @@
+{
+  "description": "配列（バッチ）は受け付けず -32600（InvalidRequest、id は null）",
+  "raw": "[{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"shutdown\"}]",
+  "response": { "id": null, "error": { "code": -32600 } }
+}

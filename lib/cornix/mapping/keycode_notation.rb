@@ -33,6 +33,10 @@ module Cornix
         @parser.parse(text, references)
       end
 
+      # 表記が Shortcut('名前') の形なら名前（前後の空白を除く）。そうでなければ nil。定義があるか（parse で読めるか）は見ない。
+      # VS Code 拡張が、Shortcut(...) で書いた割り当てを見分けるのに使う（parse の結果の Keycode からは分からないため）
+      def shortcut_name(text) = @parser.shortcut_name(text)
+
       # Domain::Keycode → 文字列（正規形）
       def format(keycode, references: References::NONE)
         @formatter.format(keycode, references)

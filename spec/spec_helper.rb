@@ -2,6 +2,7 @@
 
 require 'rspec'
 require_relative '../lib/cornix'
+require_relative 'support/protocol_fixtures'
 
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|

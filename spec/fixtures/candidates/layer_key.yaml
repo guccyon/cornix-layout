@@ -28,7 +28,7 @@
   expect: [LGui, RGui]
 - context: layerKey
   query: vol
-  expect: [VolumeUp, VolumeDown, Mute, KC__VOLUP, KC__VOLDOWN]
+  expect: [Vol+, Vol-, Mute, KC__VOLUP, KC__VOLDOWN]
 - context: layerKey
   query: Trans
   expect: [Trans]

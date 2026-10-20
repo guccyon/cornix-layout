@@ -12,7 +12,7 @@ module Cornix
     #     #=> [{ action: "tap", label: "Tab" }, { action: "hold", label: "Escape" }]（割り当てのある動作だけ。図で窓に分けて描く）
     #
     # 文字の決め方
-    #   基本キー・特殊キー  別名の先頭（Space、VolumeUp）。別名がなければ keycodes.yaml の name から KC_ を除いたもの（STOP）
+    #   基本キー・特殊キー  別名の先頭（Space、Vol+）。別名がなければ keycodes.yaml の name から KC_ を除いたもの（STOP）
     #   修飾キー単体        記号（⌃ ⌥ ⇧ ⌘。右側は R⇧ のように R を付ける）
     #   Modified            別名があれば別名（!）、なければ修飾キーの記号を macOS の並び（⌃⌥⇧⌘）で前に付ける（⇧⌘P）
     #   ModTap / LayerTap   2 役のキー。label と tap はタップ側のキー、hold は修飾キーの記号（⇧）か L<番号>（L1）

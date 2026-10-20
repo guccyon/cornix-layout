@@ -6,7 +6,7 @@
     "id": 1,
     "result": {
       "items": [
-        { "insertText": "VolumeUp", "category": "media" }, { "insertText": "VolumeDown", "category": "media" },
+        { "insertText": "Vol+", "category": "media" }, { "insertText": "Vol-", "category": "media" },
         { "insertText": "Mute", "category": "media" }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
         {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
       ],

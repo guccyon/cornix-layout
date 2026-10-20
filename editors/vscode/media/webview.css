@@ -1748,6 +1748,14 @@ button {
   font-size: 0.7em;
 }
 
+/* キーの欄と、その下の注記の欄（タップダンスの動作・コンボの出すキー） */
+.item-key-control {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
 .item-value-control {
   display: flex;
   flex-wrap: wrap;
@@ -1958,6 +1966,85 @@ button {
   font-family: var(--vscode-editor-font-family);
 }
 
+/* preset: を同梱のショートカットの木から選ぶ欄（アプリ → カテゴリ → ラベル） */
+.preset-picker {
+  margin: 4px 0 0 calc(7.5em + 8px);
+}
+
+.preset-picker-panel {
+  margin-top: 4px;
+  padding: 6px 8px;
+  max-width: 30em;
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: var(--radius);
+}
+
+.preset-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+}
+
+.preset-tree {
+  max-height: 18em;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.preset-app > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.preset-category {
+  margin-left: 1.5em;
+}
+
+.preset-category > summary {
+  padding: 1px 0;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.preset-count {
+  margin-left: 6px;
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.preset-items {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: 1.5em;
+}
+
+.preset-item {
+  padding: 1px 6px;
+  border: none;
+  border-radius: 2px;
+  background: none;
+  color: var(--vscode-foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+.preset-item:hover {
+  background: var(--vscode-list-hoverBackground, #8881);
+}
+
+.preset-item.selected {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
 .combo-triggers {
   display: flex;
   flex-direction: column;
@@ -1976,6 +2063,10 @@ button {
 
   .item-field {
     grid-template-columns: 6em minmax(0, 1fr) auto;
+  }
+
+  .preset-picker {
+    margin-left: 0;
   }
 
   .macro-step {

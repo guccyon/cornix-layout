@@ -1,14 +1,15 @@
 // 編集画面（Webview）から来たリクエストの中継と、「ファイルを開く」のパスの確かめ。vscode に依存しない（単体テストのため）。
 import * as path from 'node:path';
 import type { HostMessage, WebviewRequestMethod } from '../webviewMessages';
-import { isRelayedMethod } from '../webviewMessages';
+import { isRelayedMethod, PROFILE_FREE_METHODS } from '../webviewMessages';
 
-/** サーバーへのリクエスト（params は Webview の params に profileId を足したもの） */
-export type RelayRequest = (method: WebviewRequestMethod, params: object & { profileId: string }) => Promise<unknown>;
+/** サーバーへのリクエスト（params は Webview の params に profileId を足したもの。PROFILE_FREE_METHODS は {}） */
+export type RelayRequest = (method: WebviewRequestMethod, params: object) => Promise<unknown>;
 
 /**
  * Webview の request をサーバーに中継し、応答のメッセージを返す。
- * 中継するのは RELAYED_METHODS だけ（Webview から来た文字列をそのままサーバーに渡さない）。profileId はそのときのものを入れる
+ * 中継するのは RELAYED_METHODS だけ（Webview から来た文字列をそのままサーバーに渡さない）。profileId はそのときのものを入れる。
+ * プロファイルによらないメソッド（PROFILE_FREE_METHODS）は Webview の params を使わずに {} で送る
  */
 export async function relayRequest(
   message: { id: unknown; method: unknown; params: unknown },
@@ -20,7 +21,7 @@ export async function relayRequest(
   if (!isRelayedMethod(message.method)) return { type: 'response', id, method, error: `中継しないメソッドです: ${method}` };
   const params = typeof message.params === 'object' && message.params !== null ? message.params : {};
   try {
-    const result = await request(message.method, { ...params, profileId });
+    const result = await request(message.method, PROFILE_FREE_METHODS.has(message.method) ? {} : { ...params, profileId });
     return { type: 'response', id, method, result };
   } catch (error) {
     return { type: 'response', id, method, error: error instanceof Error ? error.message : String(error) };

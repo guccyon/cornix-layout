@@ -1,4 +1,4 @@
-// コンボの節（spec.md の「ファイルの種類ごと」の combos/）。同時に押すキー（追加・削除。最大 4）と出すキー。
+// コンボの節（spec.md の「ファイルの種類ごと」の combos/）。同時に押すキー（追加・削除。最大 4）と出すキー（と、その注記）。
 import type { ComboSnapshot, ProfileSnapshot } from '../protocol';
 import { h } from './dom';
 import { ItemSection, type ItemSectionOptions, type ListEntry } from './itemList';
@@ -67,7 +67,7 @@ export class ComboEditor extends ItemSection<ComboSnapshot, ComboView> {
     this.addUpdater(() => heading.classList.toggle('changed', this.current.triggers.restructured));
     body.append(
       h('div', { class: 'combo-triggers-part' }, heading, triggers, add),
-      this.keyField({ label: '出すキー', focus: 'output', context: 'comboOutput', entry: () => this.current.output }),
+      this.keyField({ label: '出すキー', focus: 'output', context: 'comboOutput', entry: () => this.current.output, note: true }),
     );
   }
 }

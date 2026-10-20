@@ -1,4 +1,4 @@
-// タップダンスの節（spec.md の「ファイルの種類ごと」の tap_dance/）。4 つの動作のキー（自分自身への参照は候補から除く）と tapping_term。
+// タップダンスの節（spec.md の「ファイルの種類ごと」の tap_dance/）。4 つの動作のキー（自分自身への参照は候補から除く）とその注記、tapping_term。
 import type { ProfileSnapshot, TapDanceSnapshot } from '../protocol';
 import { ItemSection, parseMilliseconds, type ItemSectionOptions, type ListEntry } from './itemList';
 import { TAP_DANCE_ACTIONS, tapDanceView, type TapDanceView } from './itemsModel';
@@ -50,6 +50,7 @@ export class TapDanceEditor extends ItemSection<TapDanceSnapshot, TapDanceView> 
           context: 'tapDanceAction',
           candidateParams,
           entry: () => this.current.actions[name],
+          note: true,
           remove: {
             label: `${label}の割り当てを消す`,
             onClick: () => {

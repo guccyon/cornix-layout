@@ -31,6 +31,10 @@ export type KeyEntry = {
   text: string;
   /** 足した・値を変えた・消した */
   changed: boolean;
+  /** 今の注記（なければ空。注記を書けるのはタップダンスの動作とコンボの出すキーだけで、並びの要素ではいつも空） */
+  note: string;
+  /** 注記を変えた・消した */
+  noteChanged: boolean;
 };
 
 /** 数値・文字の欄 1 つ */
@@ -108,16 +112,29 @@ export function fileHasPending(pending: readonly AnyChange[], file: string): boo
 // 並びの中を指さない値（同じ Address の最後の変更だけ）
 // ---------------------------------------------------------------------------
 
+/** Address ごとの最後の変更。注記は noteKey の鍵で別に持つ（レイヤーの欄の slotEdits と同じ畳み方） */
 type Overlay = Map<string, { op: 'set'; value: string | number | boolean } | { op: 'remove' }>;
 
 function isNote(change: AnyChange): boolean {
   return (change.op === undefined || change.op === 'set' || change.op === 'remove') && change.field === 'note';
 }
 
+function noteKey(address: Address): string {
+  return `note\u0000${addressKey(address)}`;
+}
+
 function setOverlay(overlay: Overlay, change: AnyChange): void {
-  if (isNote(change)) return;
+  if (isNote(change)) {
+    if (change.op === 'remove') overlay.set(noteKey(change.address), { op: 'remove' });
+    else if (change.op === undefined || change.op === 'set') overlay.set(noteKey(change.address), { op: 'set', value: change.value });
+    return;
+  }
   if (change.op === undefined || change.op === 'set') overlay.set(addressKey(change.address), { op: 'set', value: change.value });
-  else if (change.op === 'remove') overlay.set(addressKey(change.address), { op: 'remove' });
+  else if (change.op === 'remove') {
+    // 行ごと消すと注記も消える
+    overlay.set(addressKey(change.address), { op: 'remove' });
+    overlay.set(noteKey(change.address), { op: 'remove' });
+  }
 }
 
 function overlayFor(pending: readonly AnyChange[], file: string): Overlay {
@@ -130,7 +147,10 @@ function keyEntry(slot: KeySlot, overlay: Overlay): KeyEntry {
   const savedText = slot.value?.text ?? '';
   const entry = overlay.get(addressKey(slot.address));
   const text = entry === undefined ? savedText : entry.op === 'remove' ? '' : String(entry.value);
-  return { address: slot.address, saved: slot.value, text, changed: text !== savedText };
+  const savedNote = slot.value?.note ?? '';
+  const noteEntry = overlay.get(noteKey(slot.address));
+  const note = noteEntry === undefined ? savedNote : noteEntry.op === 'remove' ? '' : String(noteEntry.value);
+  return { address: slot.address, saved: slot.value, text, changed: text !== savedText, note, noteChanged: note !== savedNote };
 }
 
 function valueEntry<T extends string | number>(slot: ValueSlot<T>, overlay: Overlay, parse: (value: unknown) => T): ValueEntry<T> {
@@ -229,6 +249,8 @@ function finishKeys(list: WorkKeyList, address: Address): KeyListView {
       saved: key.saved,
       text: key.text,
       changed: key.savedText === null || key.text !== key.savedText,
+      note: '',
+      noteChanged: false,
     })),
   };
 }

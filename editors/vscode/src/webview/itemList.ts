@@ -12,6 +12,7 @@ import { Inspector } from './inspector';
 import { diagnosticsIn, effectivePending, nameProblem, within, type KeyEntry, type ValueEntry } from './itemsModel';
 import { KeyInput, type KeyInputOptions } from './keyInput';
 import { addressKey, severityOf } from './model';
+import { attachTooltip, describeContent, hideTooltip } from './tooltip';
 
 export type ItemSectionOptions = { host: HostClient };
 
@@ -199,7 +200,11 @@ export abstract class ItemSection<T extends { name: string }, V> {
   // ---- 編集欄 ----
 
   private disposeDetail(): void {
-    for (const input of this.inputs) input.dispose();
+    for (const input of this.inputs) {
+      // 作り直しで消える欄の説明は mouseleave が来ないので、ここで消す
+      hideTooltip(input.input);
+      input.dispose();
+    }
     this.inputs = [];
     this.updaters = [];
     this.fieldAddresses.clear();
@@ -243,9 +248,9 @@ export abstract class ItemSection<T extends { name: string }, V> {
     update();
   }
 
-  /** 値を書き換える（Change） */
-  protected set(address: Address, value: string | number | boolean): void {
-    const change: Change = { address, value };
+  /** 値を書き換える（Change）。field: 'note' は注記を書く */
+  protected set(address: Address, value: string | number | boolean, field?: 'note'): void {
+    const change: Change = { address, value, ...(field ? { field } : {}) };
     this.host.change(change);
     this.pending.push(change);
     this.render();
@@ -259,7 +264,10 @@ export abstract class ItemSection<T extends { name: string }, V> {
     if (focus) this.restoreFocus(focus);
   }
 
-  /** キーの欄。entry は描くたびに今の姿から引く */
+  /**
+   * キーの欄。entry は描くたびに今の姿から引く。説明（keycode/inspect の description）はレイヤーの欄と同じく、載せるかフォーカスすると出す。
+   * note を付けると注記の欄も置く（注記付きの形を書ける場所だけ: タップダンスの動作・コンボの出すキー。protocol.md の 12.3）
+   */
   protected keyField(options: {
     /** 入力欄の名前（読み上げ） */
     label: string;
@@ -272,6 +280,8 @@ export abstract class ItemSection<T extends { name: string }, V> {
     candidateParams?: KeyInputOptions['candidateParams'];
     placeholder?: string;
     remove?: { label: string; onClick: () => void };
+    /** 注記の欄を置く */
+    note?: boolean;
     className?: string;
   }): HTMLElement {
     const input = new KeyInput({
@@ -284,11 +294,16 @@ export abstract class ItemSection<T extends { name: string }, V> {
     });
     input.input.dataset.focus = options.focus;
     this.inputs.push(input);
+    attachTooltip(input.input, () => this.describeKey(options.context, options.entry()), {
+      focus: 'always',
+      canShow: () => !input.isOpen && !input.isEditing,
+    });
+    const note = options.note ? this.noteInput(options.label, `${options.focus}:note`, options.entry) : undefined;
     const element = h(
       'div',
       { class: `item-field ${options.className ?? ''}`.trim() },
       h('label', { class: 'field-label', for: input.inputId, title: options.label }, options.visibleLabel ?? options.label),
-      input.element,
+      note ? h('div', { class: 'item-key-control' }, input.element, note.element) : input.element,
     );
     if (options.remove) {
       const button = h('button', { type: 'button', class: 'icon-button', title: options.remove.label, 'aria-label': options.remove.label, 'data-focus': `${options.focus}:remove` }, '×');
@@ -300,9 +315,68 @@ export abstract class ItemSection<T extends { name: string }, V> {
       this.fieldAddresses.add(addressKey(entry.address));
       input.setValue(entry.text);
       input.setDiagnostics(this.keyDiagnostics(options.context, entry));
-      element.classList.toggle('changed', entry.changed);
+      note?.update(entry);
+      element.classList.toggle('changed', entry.changed || entry.noteChanged);
+      element.classList.toggle('has-note', entry.note !== '');
     });
     return element;
+  }
+
+  /**
+   * キーの欄の注記の欄（レイヤーの欄の注記と同じ: Enter か欄を離れたら決め、Escape で戻す。空にしたら注記だけを消す）。
+   * 割り当てを書いていない場所には書けない（注記は { key:, note: } の形でだけ書ける）
+   */
+  private noteInput(label: string, focus: string, entryOf: () => KeyEntry): { element: HTMLInputElement; update: (entry: KeyEntry) => void } {
+    const element = h('input', {
+      type: 'text',
+      class: 'note-input',
+      placeholder: '注記',
+      'aria-label': `${label}の注記`,
+      'data-focus': focus,
+      spellcheck: 'false',
+      autocomplete: 'off',
+    });
+    let editing = false;
+    const commit = (): void => {
+      if (!editing) return;
+      editing = false;
+      const text = element.value.trim();
+      element.value = text;
+      const entry = entryOf();
+      if (text === entry.note) return;
+      if (text === '') this.edit({ op: 'remove', address: entry.address, field: 'note' });
+      else this.set(entry.address, text, 'note');
+    };
+    element.addEventListener('input', () => (editing = true));
+    element.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commit();
+      } else if (event.key === 'Escape' && editing) {
+        event.preventDefault();
+        event.stopPropagation();
+        editing = false;
+        element.value = entryOf().note;
+      }
+    });
+    element.addEventListener('blur', commit);
+    return {
+      element,
+      update: (entry) => {
+        if (!editing && element.value !== entry.note) element.value = entry.note;
+        element.disabled = entry.text === '' && entry.note === '';
+      },
+    };
+  }
+
+  /** キーの欄の説明（レイヤーの欄の説明と同じ中身: 題・説明の行・注記・その欄の問題） */
+  private async describeKey(context: CandidateContext, entry: KeyEntry): Promise<Node | null> {
+    if (!entry.text) return null;
+    const result = await this.inspector.load(context, entry.text).catch(() => undefined);
+    const saved = entry.changed ? [] : this.diagnosticsAt(entry.address);
+    const own = result?.diagnostics ?? [];
+    const diagnostics = [...saved, ...own.filter((d) => !saved.some((s) => s.message === d.message))];
+    return describeContent(entry.text, result, { note: entry.note, diagnostics });
   }
 
   /** キーの欄の検証の結果（変えていなければ snapshot の diagnostics、変えたら keycode/inspect） */

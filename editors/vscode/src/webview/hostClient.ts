@@ -1,4 +1,4 @@
-// 画面からホスト（拡張）への口。Webview はサーバーと直接話せないので、keycode/candidates・keycode/inspect は
+// 画面からホスト（拡張）への口。Webview はサーバーと直接話せないので、keycode/candidates・keycode/inspect・keycode/shortcutTree は
 // ホストに中継してもらう（profileId はホストが入れる。webviewMessages.ts の WebviewRequest）。
 import type { AnyChange, Change, ItemEdit, Range } from '../protocol';
 import type { HostMessage, WebviewMessage, WebviewRequest, WebviewRequestMap, WebviewRequestMethod } from '../webviewMessages';
@@ -26,7 +26,7 @@ export class MessageHostClient implements HostClient {
 
   request<M extends WebviewRequestMethod>(method: M, params: WebviewRequestMap[M]['params']): Promise<WebviewRequestMap[M]['result']> {
     const id = this.nextId++;
-    // M は 2 つのうちのどれかなので、組にした形は WebviewRequest のどれかになる（TypeScript は総称のままでは絞れない）
+    // M は中継するメソッドのどれかなので、組にした形は WebviewRequest のどれかになる（TypeScript は総称のままでは絞れない）
     const message = { type: 'request', id, method, params } as WebviewRequest;
     return new Promise<WebviewRequestMap[M]['result']>((resolve, reject) => {
       this.pending.set(id, { method, resolve: (result) => resolve(result as WebviewRequestMap[M]['result']), reject });

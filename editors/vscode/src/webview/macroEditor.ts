@@ -1,11 +1,12 @@
 // マクロの節（spec.md の「ファイルの種類ごと」の macros/）。手順の並び（追加・削除・上下に動かす）と、手順ごとの
 // tap / down / up のキー（追加・削除）・delay のミリ秒・text の文字。preset: のマクロは手順を summary で読むだけにして、preset の名前を
 // 同梱のショートカットの木から選び直すか、打って直せる。
-import type { MacroSnapshot, MacroStepValue, ProfileSnapshot, ShortcutTreeResult } from '../protocol';
+// v0.3: preset: のマクロに「手順に展開」（tasks-v0.3.md の決めたことの 6）。itemEdit の expandPreset をホストに渡し、ホストが確認してすぐ書く。
+import type { MacroSnapshot, MacroStepValue, ProfileSnapshot } from '../protocol';
 import { h } from './dom';
 import { ItemSection, parseMilliseconds, type ItemSectionOptions, type ListEntry } from './itemList';
 import { macroView, type MacroView, type StepView } from './itemsModel';
-import { PresetPicker } from './presetPicker';
+import { loadShortcutTree, PresetPicker } from './presetPicker';
 
 export const STEP_ACTION_LABEL: Record<StepView['action'], string> = {
   tap: 'タップ（tap）',
@@ -39,8 +40,6 @@ export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
   /** マクロのキーの候補を「すべて出す」（レイヤー操作・マクロなども出す） */
   private showAll = false;
   private addAction: StepView['action'] = 'tap';
-  /** 同梱のショートカットの木（プロファイルによらないので 1 回だけ取る。失敗したら次に開いたときに取り直す） */
-  private tree: Promise<ShortcutTreeResult> | undefined;
 
   constructor(options: ItemSectionOptions) {
     super(options, { kind: 'macro', title: 'マクロ', namePlaceholder: 'Bracket Pair', className: 'macro-editor' });
@@ -92,26 +91,25 @@ export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
       hint: () => '同梱のマクロの名前（アプリ:カテゴリ:ラベル）',
     });
     const picker = new PresetPicker({
-      loadTree: () => this.loadTree(),
+      loadTree: () => loadShortcutTree(this.host),
       current: () => this.current.preset?.value ?? null,
       onPick: (name) => this.set(this.current.preset!.address, name),
     });
+    // 展開は保存済みの preset で書く（未保存の変更があれば、ホストが先に保存を促す）
+    const expand = h(
+      'button',
+      { type: 'button', class: 'item-button', 'data-focus': 'expand-preset', title: 'preset: の行を同梱の定義の手順（sequence:）に置き換えて、手順を直せるようにする' },
+      '手順に展開',
+    );
+    expand.addEventListener('click', () => this.host.itemEdit({ op: 'expandPreset', kind: 'macro', name: macro.name }));
     return h(
       'div',
       { class: 'macro-preset' },
       field,
       picker.element,
-      h('div', { class: 'macro-summary-title' }, '手順（同梱の定義。読むだけ）'),
+      h('div', { class: 'macro-summary-title' }, '手順（同梱の定義。読むだけ）', expand),
       h('ol', { class: 'macro-summary' }, ...macro.summary.map((line) => h('li', {}, line))),
     );
-  }
-
-  private loadTree(): Promise<ShortcutTreeResult> {
-    this.tree ??= this.host.request('keycode/shortcutTree', {}).catch((error: unknown) => {
-      this.tree = undefined;
-      throw error;
-    });
-    return this.tree;
   }
 
   private stepsPart(): HTMLElement {

@@ -542,7 +542,8 @@ class FakeServer {
 
   /**
    * profile/planItemEdit（protocol.md の 12.5）。ディスクの設定ディレクトリに対して、素朴に作る。
-   * 名前の変更で to を VERIFY_FAIL_NAME にすると -32061（reason "verify"）を返す
+   * 名前の変更で to を VERIFY_FAIL_NAME にすると -32061（reason "verify"）を返す。
+   * v0.3 の expandPreset（13.1）は preset: の行を fixtures の PRESET_SEQUENCES の手順に置き換える
    */
   private planItemEdit(params: Record<string, unknown>): PlanItemEditResult {
     requireString(params, 'profileId');
@@ -709,6 +710,22 @@ class FakeServer {
           editOf(layer.file).edits.push({ range: { start: { line: at.start.line, character: keyStart }, end: { line: at.start.line, character: keyEnd } }, newText: to });
           references.push({ file: layer.file, path: ['mapping', hand, entry.group, entry.symbol] });
         }
+        break;
+      }
+      case 'expandPreset': {
+        // protocol.md の 13.1: preset: の行を同梱の定義の sequence: に置き換える（ほかの行は変えない）
+        const name = checkName(edit.name, 'edit.name');
+        if (edit.kind !== 'macro') invalid('kind は macro です', 'edit.kind');
+        const item = itemsOf('macro').find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name');
+        const lines = read(item.file).split('\n');
+        const line = lines.findIndex((text) => /^preset:/.test(text));
+        if (line < 0) invalid(`${name} は preset: で書いたマクロではありません`, 'edit.name');
+        const preset = unquote(lines[line]!.replace(/^preset:\s*/, '').trim());
+        const steps = data.PRESET_SEQUENCES[preset] ?? invalid(`同梱にない preset です: ${preset}`, 'edit.name');
+        const sequence = ['sequence:', ...steps.flatMap((step) => [`- action: ${step.action}`, '  keys:', ...step.keys.map((key) => `  - ${key}`)])].join('\n');
+        const last = line + 1 >= lines.length;
+        const end = last ? { line, character: lines[line]!.length } : { line: line + 1, character: 0 };
+        editOf(item.file).edits.push({ range: { start: { line, character: 0 }, end }, newText: last ? sequence : `${sequence}\n` });
         break;
       }
       default:

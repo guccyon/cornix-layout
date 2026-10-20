@@ -2,6 +2,8 @@
 
 :root {
   --gap: 8px;
+  /* 位置の名前（position_map の名前）。割り当てた論理キーと分けるための色（roadmap.md の「v0.2 の候補: position_map」） */
+  --position-name: var(--vscode-charts-purple, #b180d7);
   --radius: 4px;
   --changed: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
   --error: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground, #f14c4c));
@@ -110,6 +112,32 @@ button {
   container-type: inline-size;
 }
 
+/* 図の上の道具（位置の名前の切り替え） */
+.keyboard-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.position-toggle {
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--position-name) 55%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  color: color-mix(in srgb, var(--position-name) 80%, var(--vscode-foreground));
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.position-toggle:hover {
+  background: color-mix(in srgb, var(--position-name) 12%, transparent);
+}
+
+.position-toggle.selected {
+  background: color-mix(in srgb, var(--position-name) 22%, transparent);
+  border-color: var(--position-name);
+}
+
 .board {
   position: relative;
   width: 100%;
@@ -197,6 +225,22 @@ button {
   color: var(--vscode-descriptionForeground);
 }
 
+/* KC_TRNS のキーに薄く描く、レイヤー 0 の同じ位置の値 */
+.key-label.base-value {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+/* 位置の名前の表示中: キーの面に position_map の名前を紫で */
+.key-label.position-name {
+  color: color-mix(in srgb, var(--position-name) 80%, var(--vscode-foreground));
+  font-family: var(--vscode-editor-font-family);
+}
+
+.board.show-positions .key {
+  border-color: color-mix(in srgb, var(--position-name) 45%, var(--vscode-input-border, #6668));
+}
+
 /* 2 役のキー: 上にタップ、下にホールド */
 .key.dual,
 .encoder-part.dual {
@@ -254,8 +298,9 @@ button {
   pointer-events: none;
 }
 
+/* マクロの印は橙（紫は位置の名前に使う。tasks-v0.2.md の決めたことの 1） */
 .mark-macro {
-  --mark-color: var(--vscode-charts-purple, #b180d7);
+  --mark-color: var(--vscode-charts-orange, #d18616);
 }
 
 .mark-tapDance {
@@ -738,6 +783,126 @@ button {
   text-overflow: ellipsis;
 }
 
+/* キーの欄のラベルは位置の名前（図の位置の名前の表示と同じ紫） */
+.field-label.position-label {
+  color: color-mix(in srgb, var(--position-name) 80%, var(--vscode-foreground));
+}
+
+.field-label-box {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 2px;
+}
+
+/* 位置の名前を変えるボタン（欄を選んでいるか載せたときだけ見せる） */
+.rename-position {
+  flex: none;
+  padding: 2px 3px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.85em;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.field:hover .rename-position,
+.field.selected .rename-position,
+.rename-position:focus-visible {
+  opacity: 1;
+}
+
+.rename-position:hover {
+  color: var(--position-name);
+}
+
+.position-name-edit {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.position-name-input {
+  width: 6em;
+  box-sizing: border-box;
+  padding: 2px 4px;
+  border: 1px solid var(--position-name);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: color-mix(in srgb, var(--position-name) 80%, var(--vscode-input-foreground));
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.9em;
+}
+
+.position-name-input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.position-name-message {
+  max-width: 10em;
+  font-size: 0.8em;
+  color: var(--vscode-errorForeground);
+}
+
+.field-main {
+  min-width: 0;
+}
+
+/* 注記の欄と「割り当てを消す」: 選んでいる欄・中にフォーカスのある欄・注記のある欄だけに見せる */
+.field-extra {
+  display: none;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.field.selected .field-extra,
+.field:focus-within .field-extra,
+.field.has-note .field-extra {
+  display: flex;
+}
+
+.note-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 1px 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-size: 0.85em;
+}
+
+.note-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.note-input:disabled {
+  opacity: 0.5;
+}
+
+.remove-assignment {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.remove-assignment:hover:not(:disabled) {
+  color: var(--vscode-errorForeground);
+  border-color: var(--vscode-errorForeground);
+}
+
+.remove-assignment:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .field.changed .field-label {
   color: var(--changed);
 }
@@ -787,6 +952,146 @@ button {
 .key-input-field:focus {
   outline: 1px solid var(--vscode-focusBorder);
   outline-offset: -1px;
+}
+
+/* 組み立て欄を開くボタン（入力欄の右端の中） */
+.key-input.has-builder .key-input-field {
+  padding-right: 26px;
+}
+
+.key-input-build {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.8em;
+  line-height: 1.7;
+  cursor: pointer;
+}
+
+.key-input-build:hover,
+.key-input-build[aria-expanded='true'] {
+  background: var(--vscode-toolbar-hoverBackground, #8883);
+  color: var(--vscode-foreground);
+}
+
+/* 修飾キー式・LT・Mod-Tap の組み立て欄（入力欄の下に開く） */
+.modifier-builder {
+  position: absolute;
+  z-index: 21;
+  top: calc(100% + 2px);
+  left: 0;
+  width: max(100%, 340px);
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-editorWidget-border, #8886);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+.modifier-builder[hidden],
+.builder-row[hidden] {
+  display: none;
+}
+
+.builder-kinds,
+.builder-mods,
+.builder-sides {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.builder-sides {
+  padding-left: 8px;
+  border-left: 1px solid var(--vscode-editorWidget-border, #8886);
+}
+
+.builder-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.builder-row-label {
+  width: 5em;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.builder-row .key-input {
+  flex: 1;
+}
+
+.builder-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.builder-layer {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  border: 1px solid var(--vscode-dropdown-border, transparent);
+}
+
+.builder-preview {
+  min-height: 2.6em;
+  font-size: 0.9em;
+}
+
+.builder-hint,
+.builder-meaning,
+.builder-missing {
+  color: var(--vscode-descriptionForeground);
+}
+
+.builder-text {
+  font-family: var(--vscode-editor-font-family);
+}
+
+.builder-message.error {
+  color: var(--vscode-errorForeground);
+}
+
+.builder-message.warning {
+  color: var(--vscode-editorWarning-foreground, var(--warning));
+}
+
+.builder-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.builder-actions button {
+  padding: 2px 10px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+}
+
+.builder-actions .builder-apply {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.builder-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .key-input.warning .key-input-field {
@@ -978,6 +1283,11 @@ button {
 }
 
 .tooltip-mark {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.tooltip-base {
   color: var(--vscode-descriptionForeground);
   font-size: 0.9em;
 }

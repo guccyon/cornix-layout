@@ -1,11 +1,13 @@
 // 編集画面の全体。上にキーボード図、下にレイヤーの編集画面（ADR 009）。選んでいるレイヤーと欄は上下で共有する。
 // ホストから snapshot と未保存の変更（Change の並び）を受けて描き、欄で決めた値を Change としてホストに渡す。
 // 未保存の値の表示の文字と検証は keycode/inspect で聞く（onchange の検証。ADR 012）。
+// v0.2: 割り当てを消す（remove）・注記（field: "note"）も未保存の変更として描く。ホストが snapshot と一緒に送る pending（当てる順の全部）を
+// 欄ごとに畳んで使い（model.ts の slotEdits）、v0.1 のホスト（pending なし）では changes を使う。位置の名前の変更は host.itemEdit（ホストが確認してすぐ書く）。
 //
 // 描き直し: 図と欄を作り直すのは、position_map・レイヤーの並び・ファイル・欄の Address が変わったときだけ（model.ts の structureKey）。
 // 保存や外での変更で files の版・diagnostics・値が変わっただけなら、値だけを描き直す（打っている欄のフォーカスと文字が残る）。
 // 作り直すときも、フォーカスのある欄・打ちかけの文字・下のペインのスクロール位置を戻す。
-import type { Change, Diagnostic, KeyValue, ProfileSnapshot } from '../protocol';
+import type { AnyChange, Change, Diagnostic, KeyValue, ProfileSnapshot, RemoveChange } from '../protocol';
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
@@ -13,7 +15,23 @@ import { Inspector } from './inspector';
 import type { KeyInput } from './keyInput';
 import { KeyboardView } from './keyboardView';
 import { LayerEditor } from './layerEditor';
-import { changeMap, currentText, diagnosticsByAddress, keyFaceNote, layerSlots, layerTitle, slotLabel, structureKey, type Slot } from './model';
+import {
+  addPending,
+  baseLayerValue,
+  currentNote,
+  currentText,
+  diagnosticsByAddress,
+  keyFaceNote,
+  layerSlots,
+  layerTitle,
+  slotChanged,
+  slotEdits,
+  slotLabel,
+  structureKey,
+  valueChanged,
+  type Slot,
+  type SlotEdits,
+} from './model';
 import { attachTooltip, describeContent, hideTooltip } from './tooltip';
 
 /** 画面を閉じても覚えておくもの（Webview の getState / setState。タブを裏に回すと Webview は作り直される） */
@@ -35,7 +53,9 @@ export class App {
   private snapshot: ProfileSnapshot | undefined;
   private snapshotKey = '';
   private structure = '';
-  private changes = new Map<string, Change>();
+  /** 未保存の変更（当てる順）と、それを欄ごとに畳んだもの */
+  private pending: AnyChange[] = [];
+  private edits: SlotEdits = slotEdits([]);
   private diagnostics = new Map<string, Diagnostic[]>();
   private generalDiagnostics: Diagnostic[] = [];
   private layerIndex: number | undefined;
@@ -64,11 +84,19 @@ export class App {
     this.keyboard = new KeyboardView({
       onSelect: (id) => this.reveal(id),
       decorate: (element, id) => attachTooltip(element, () => this.describe(id), { focus: 'visible' }),
+      onRenamePosition: (id) => {
+        this.select(id);
+        this.editor.startRename(id);
+      },
     });
     this.editor = new LayerEditor({
       host: options.host,
       onCommit: (id, text) => this.commit(id, text),
       onFocus: (id) => this.select(id),
+      onRemove: (id) => this.remove(id),
+      onNote: (id, note) => this.commitNote(id, note),
+      onRenamePosition: (id, to) => this.renamePosition(id, to),
+      layers: () => (this.snapshot?.layers ?? []).map((layer) => ({ index: layer.index, name: layer.name })),
       decorate: (input: KeyInput, id) =>
         attachTooltip(input.input, () => this.describe(id), { focus: 'always', canShow: () => !input.isOpen && !input.isEditing }),
     });
@@ -79,7 +107,7 @@ export class App {
 
   /** ホストからのメッセージ（応答以外） */
   receive(message: HostMessage): void {
-    if (message.type === 'snapshot') this.setSnapshot(message.snapshot, message.changes);
+    if (message.type === 'snapshot') this.setSnapshot(message.snapshot, message.changes, message.pending);
     if (message.type === 'error') {
       this.banner.textContent = message.message;
       this.banner.hidden = false;
@@ -100,8 +128,16 @@ export class App {
     return this.editor.inputs;
   }
 
-  setSnapshot(snapshot: ProfileSnapshot, changes: Change[]): void {
-    this.changes = changeMap(changes);
+  /** 図（テスト用） */
+  get keyboardView(): KeyboardView {
+    return this.keyboard;
+  }
+
+  /**
+   * changes は v0.1 の値の書き換え、pending は v0.2 の未保存の変更の全部（当てる順）。pending があればそちらを使う
+   */
+  setSnapshot(snapshot: ProfileSnapshot, changes: Change[], pending?: AnyChange[]): void {
+    this.setPending(pending ?? changes);
     const key = JSON.stringify(snapshot);
     if (key === this.snapshotKey && this.snapshot) {
       // 中身が同じ（変更・元に戻すのたび）なら、値だけを描き直す
@@ -135,6 +171,7 @@ export class App {
       this.slots = this.currentSlots();
       this.keyboard.setLayerNames(this.layerNames());
       this.keyboard.replaceSlots(this.slots);
+      this.editor.replaceSlots(this.slots);
       this.updateSlots();
       this.rendered();
       return;
@@ -173,6 +210,11 @@ export class App {
   reveal(slotId: string): void {
     this.select(slotId);
     this.editor.reveal(slotId);
+  }
+
+  private setPending(list: AnyChange[]): void {
+    this.pending = list;
+    this.edits = slotEdits(list);
   }
 
   private saveState(): void {
@@ -217,7 +259,7 @@ export class App {
   private renderHeader(): void {
     const snapshot = this.snapshot;
     if (!snapshot) return;
-    const pending = this.changes.size;
+    const pending = this.pending.length;
     this.header.replaceChildren(
       ...nodes(
         h('span', { class: 'profile-name' }, snapshot.name),
@@ -327,13 +369,17 @@ export class App {
   }
 
   private updateSlot(slot: Slot): void {
-    const text = currentText(slot, this.changes);
-    const changed = this.changes.has(slot.id);
+    const text = currentText(slot, this.edits);
+    const changed = slotChanged(slot, this.edits);
     let value: KeyValue | null | undefined = slot.saved;
     let diagnostics: readonly Diagnostic[] = this.diagnostics.get(slot.id) ?? [];
-    if (changed) {
-      const result = this.inspector.get(slot.context, text);
-      if (result) {
+    if (valueChanged(slot, this.edits)) {
+      const result = text ? this.inspector.get(slot.context, text) : undefined;
+      if (!text) {
+        // 割り当てを消した（書いていない位置になる）
+        value = null;
+        diagnostics = [];
+      } else if (result) {
         value = result.value;
         diagnostics = result.diagnostics;
       } else {
@@ -345,8 +391,9 @@ export class App {
         );
       }
     }
-    this.keyboard.update(slot.id, { text, value, diagnostics, changed });
-    this.editor.update(slot.id, text, diagnostics, changed);
+    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.layerIndex, slot) : null;
+    this.keyboard.update(slot.id, { text, value, diagnostics, changed, base });
+    this.editor.update(slot.id, { text, diagnostics, changed, note: currentNote(slot, this.edits) });
   }
 
   private refresh(slotId: string): void {
@@ -359,30 +406,75 @@ export class App {
     const slot = this.slots.find((s) => s.id === slotId);
     if (!slot) return;
     const change: Change = { address: slot.address, value: text };
-    if (text === (slot.saved?.text ?? '')) this.changes.delete(slot.id);
-    else this.changes.set(slot.id, change);
+    this.setPending(addPending(this.pending, change, slot.saved));
     this.options.host.change(change);
     this.renderHeader();
     this.updateSlot(slot);
   }
 
+  /** 「割り当てを消す」: 行ごと消して「書いていない」にする（tasks-v0.2.md の決めたことの 3） */
+  private remove(slotId: string): void {
+    const slot = this.slots.find((s) => s.id === slotId);
+    if (!slot || currentText(slot, this.edits) === '') return;
+    const change: RemoveChange = { op: 'remove', address: slot.address };
+    this.setPending(addPending(this.pending, change, slot.saved));
+    this.options.host.edit(change);
+    this.renderHeader();
+    this.updateSlot(slot);
+  }
+
+  /** 注記を決めた。空なら注記だけを消す */
+  private commitNote(slotId: string, note: string): void {
+    const slot = this.slots.find((s) => s.id === slotId);
+    if (!slot || note === currentNote(slot, this.edits)) return;
+    if (note === '') {
+      const change: RemoveChange = { op: 'remove', address: slot.address, field: 'note' };
+      this.setPending(addPending(this.pending, change, slot.saved));
+      this.options.host.edit(change);
+    } else {
+      const change: Change = { address: slot.address, value: note, field: 'note' };
+      this.setPending(addPending(this.pending, change, slot.saved));
+      this.options.host.change(change);
+    }
+    this.renderHeader();
+    this.updateSlot(slot);
+  }
+
+  /** 位置の名前を変える（ホストが確認してすぐ書く）。名前の決まりに合わなければその理由 */
+  private renamePosition(slotId: string, to: string): string | null {
+    const slot = this.slots.find((s) => s.id === slotId);
+    const key = slot?.key;
+    if (!slot || !key) return null;
+    if (to === '') return '名前を入れてください';
+    if (/^\s|\s$/.test(to)) return '名前の前後に空白は入れられません';
+    const clash = this.snapshot?.positionMap.some(
+      (entry) => entry.hand === slot.hand && entry.group === key.group && entry.symbol === to && !(entry.row === key.row && entry.col === key.col),
+    );
+    if (clash) return `同じ段に「${to}」があります`;
+    this.options.host.itemEdit({ op: 'renamePosition', hand: slot.hand, row: key.row, col: key.col, to });
+    return null;
+  }
+
   private async describe(slotId: string): Promise<Node | null> {
     const slot = this.slots.find((s) => s.id === slotId);
     if (!slot) return null;
-    const text = currentText(slot, this.changes);
+    const text = currentText(slot, this.edits);
     if (!text) return null;
-    const changed = this.changes.has(slot.id);
+    const changed = valueChanged(slot, this.edits);
     const result = await this.inspector.load(slot.context, text).catch(() => undefined);
     const saved = changed ? [] : (this.diagnostics.get(slot.id) ?? []);
     const own = result?.diagnostics ?? [];
     const diagnostics = [...saved, ...own.filter((d) => !saved.some((s) => s.message === d.message))];
     const context = slot.encoder ? slotLabel(slot) : undefined;
-    const face = keyFaceNote(result ? result.value : slot.saved);
+    const value = result ? result.value : slot.saved;
+    const face = keyFaceNote(value);
+    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.layerIndex, slot) : null;
     return describeContent(text, result, {
       context,
-      note: changed ? undefined : slot.saved?.note,
+      note: currentNote(slot, this.edits),
       diagnostics,
       ...(face ? { mark: face } : {}),
+      ...(base ? { base: `${base.display.label}（${base.canonical}）` } : {}),
     });
   }
 

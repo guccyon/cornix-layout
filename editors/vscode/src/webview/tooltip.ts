@@ -107,11 +107,11 @@ function matchesFocusVisible(element: HTMLElement): boolean {
   }
 }
 
-/** 説明の中身: どの欄か・題・図の印の意味・説明の行・注記・その欄の問題 */
+/** 説明の中身: どの欄か・題・図の印の意味・レイヤー 0 の値・説明の行・注記・その欄の問題 */
 export function describeContent(
   text: string,
   result: InspectResult | undefined,
-  options: { context?: string | undefined; note?: string | undefined; mark?: string; diagnostics?: readonly Diagnostic[] } = {},
+  options: { context?: string | undefined; note?: string | undefined; mark?: string; base?: string; diagnostics?: readonly Diagnostic[] } = {},
 ): Node | null {
   if (!text && !options.diagnostics?.length) return null;
   const root = h('div', { class: 'tooltip-body' });
@@ -121,8 +121,11 @@ export function describeContent(
   root.append(h('div', { class: 'tooltip-title' }, title));
   if (result?.value && result.value.text !== title) root.append(h('div', { class: 'tooltip-code' }, result.value.text));
   if (options.mark) root.append(h('div', { class: 'tooltip-mark' }, options.mark));
+  // KC_TRNS のキー: 図に薄く描いた、レイヤー 0 の同じ位置の値
+  if (options.base) root.append(h('div', { class: 'tooltip-base' }, `レイヤー 0 の値: ${options.base}`));
   for (const line of result?.description?.lines ?? []) root.append(h('div', { class: 'tooltip-line' }, line));
-  const note = options.note ?? result?.value?.note;
+  // note を渡したら（空でも）それを使う（未保存の注記を出すため）
+  const note = options.note !== undefined ? options.note : result?.value?.note;
   if (note) root.append(h('div', { class: 'tooltip-note' }, `注記: ${note}`));
   const diagnostics = options.diagnostics ?? result?.diagnostics ?? [];
   for (const diagnostic of diagnostics) {

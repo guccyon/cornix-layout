@@ -216,7 +216,7 @@ describe('割り当てを消す操作と注記の欄', () => {
   const thumb = slotOf('left_hand', 'thumb_keys', 'left');
   const thumbAddress = address(base, 'left_hand', 'thumb_keys', 'left');
 
-  it('「割り当てを消す」で host.edit の remove を送り、欄は空で「（なし）」、図は点線の枠（unassigned）', () => {
+  it('「割り当てを消す」で host.edit の remove を送り、欄は空（placeholder なし）、図は NoKey と同じ枠（unassigned）', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     const remove = field(q).querySelector<HTMLButtonElement>('.remove-assignment')!;
     expect(remove.getAttribute('aria-label')).toBe('左手 Qの割り当てを消す');
@@ -224,7 +224,7 @@ describe('割り当てを消す操作と注記の欄', () => {
     expect(host.edits).toEqual([{ op: 'remove', address: qAddress }]);
     const input = field(q).querySelector<HTMLInputElement>('.key-input-field')!;
     expect(input.value).toBe('');
-    expect(input.placeholder).toBe('（なし）');
+    expect(input.placeholder).toBe('');
     expect(keyElement(q).classList.contains('unassigned')).toBe(true);
     expect(keyElement(q).classList.contains('changed')).toBe(true);
     expect(keyElement(q).getAttribute('aria-label')).toBe('左手 Q: 割り当てなし');

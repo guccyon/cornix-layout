@@ -1,0 +1,28 @@
+{
+  "description": "expandPreset で preset: で書いていないマクロは -32602（field \"edit.name\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {},
+      "edit": {
+        "op": "expandPreset",
+        "kind": "macro",
+        "name": "Bracket Pair"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.name"
+      }
+    }
+  }
+}

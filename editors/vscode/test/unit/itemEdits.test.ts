@@ -1,4 +1,4 @@
-// 項目の操作（protocol.md の 12.5）の確認のダイアログの文と失敗の知らせ、テキストの波線（12.7）
+// 項目の操作（protocol.md の 12.5・13.1）の確認のダイアログの文と失敗の知らせ、テキストの波線（12.7）
 import { describe, expect, it } from 'vitest';
 import { describeItemEdit, isItemEdit, itemEditErrorMessage } from '../../src/editor/itemEdits';
 import { textDiagnostics } from '../../src/editor/textDiagnostics';
@@ -40,6 +40,19 @@ describe('describeItemEdit', () => {
       detail: '作成: combos/01_x.yml',
     });
   });
+
+  it('preset の展開（v0.3）は手順に置き換えることと、書き換えるファイル', () => {
+    const result: PlanItemEditResult = {
+      files: [{ file: 'macros/02_copy_selected.yml', baseVersion: 'sha256:c', create: false, edits: [] }],
+      references: [],
+      diagnostics: [],
+    };
+    expect(describeItemEdit({ op: 'expandPreset', kind: 'macro', name: 'Copy Selected' }, result)).toEqual({
+      message:
+        'マクロ Copy Selected の preset を手順に展開します。preset: の行を同梱の定義の手順（sequence:）に置き換えます（キーボードに書く値は変わりません）。すぐにファイルに書きます（元に戻すで戻せます）。',
+      detail: '書き換え: macros/02_copy_selected.yml',
+    });
+  });
 });
 
 describe('itemEditErrorMessage', () => {
@@ -52,7 +65,10 @@ describe('itemEditErrorMessage', () => {
 
   it('-32061 の verify は compile の結果が変わるためと書く', () => {
     const error = { code: ErrorCodes.EditNotLocal, message: '照合に失敗', data: { address: ref, reason: 'verify' } };
-    expect(itemEditErrorMessage({ op: 'rename', kind: 'macro', name: 'A', to: 'B' }, error)).toContain('compile の結果が変わるため');
+    expect(itemEditErrorMessage({ op: 'rename', kind: 'macro', name: 'A', to: 'B' }, error)).toContain('名前を変える前と後で compile の結果が変わるため');
+    expect(itemEditErrorMessage({ op: 'expandPreset', kind: 'macro', name: 'A' }, error)).toBe(
+      'マクロ A の preset を手順に展開できませんでした（展開の前と後で compile の結果が変わるため）。照合に失敗',
+    );
   });
 });
 
@@ -65,6 +81,9 @@ describe('isItemEdit', () => {
     expect(isItemEdit({ op: 'delete', kind: 'layer', name: 'Base' })).toBe(false);
     expect(isItemEdit({ op: 'renamePosition', hand: 'left', row: 0, col: 1, to: 'q' })).toBe(true);
     expect(isItemEdit({ op: 'renamePosition', hand: 'up', row: 0, col: 1, to: 'q' })).toBe(false);
+    expect(isItemEdit({ op: 'expandPreset', kind: 'macro', name: 'Copy Selected' })).toBe(true);
+    expect(isItemEdit({ op: 'expandPreset', kind: 'combo', name: 'Copy Selected' })).toBe(false);
+    expect(isItemEdit({ op: 'expandPreset', kind: 'macro' })).toBe(false);
     expect(isItemEdit(null)).toBe(false);
   });
 });

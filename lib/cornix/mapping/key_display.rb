@@ -12,9 +12,10 @@ module Cornix
     #     #=> [{ action: "tap", label: "Tab" }, { action: "hold", label: "Escape" }]（割り当てのある動作だけ。図で窓に分けて描く）
     #
     # 文字の決め方
-    #   基本キー・特殊キー  別名の先頭（Space、Vol+）。別名がなければ keycodes.yaml の name から KC_ を除いたもの（STOP）
+    #   基本キー・特殊キー  別名の先頭（Space、Vol+）。別名がなければ keycodes.yaml の name から KC_ を除いたもの（STOP）。
+    #                       矢印キー（KC_UP / KC_LEFT / KC_RIGHT / KC_DOWN）は ↑ ← → ↓（表記と decompile の名前は Up などのまま）
     #   修飾キー単体        記号（⌃ ⌥ ⇧ ⌘。右側は R⇧ のように R を付ける）
-    #   Modified            別名があれば別名（!）、なければ修飾キーの記号を macOS の並び（⌃⌥⇧⌘）で前に付ける（⇧⌘P）
+    #   Modified            別名があれば別名（!）、なければ修飾キーの記号を macOS の並び（⌃⌥⇧⌘）で前に付ける（⇧⌘P、⇧↑）
     #   ModTap / LayerTap   2 役のキー。label と tap はタップ側のキー、hold は修飾キーの記号（⇧）か L<番号>（L1）
     #   LayerAction         図の下の帯にレイヤー（hold: L3）、上の面に操作の名前（tap: TG）。MO は面を空けて帯だけ（tap なし）。
     #                       label は 1 行の形（MO は L3、ほかは TG L3）
@@ -52,6 +53,9 @@ module Cornix
         to: 'TO', momentary: 'MO', default: 'DF', toggle: 'TG',
         one_shot: 'OSL', tap_toggle: 'TT', persistent_default: 'PDF'
       }.freeze
+
+      # 矢印キーの文字（別名の先頭 Up などより図で見分けやすい。data/aliases.yaml の別名にもある）
+      ARROW_LABELS = { 0x0052 => '↑', 0x0050 => '←', 0x004F => '→', 0x0051 => '↓' }.freeze
 
       NO_KEY_LABEL = ''
       TRANSPARENT_LABEL = '▽'
@@ -133,13 +137,13 @@ module Cornix
         end
       end
 
-      # 基本キー・特殊キーの文字（修飾キー単体は記号）
+      # 基本キー・特殊キーの文字（修飾キー単体は記号、矢印キーは矢印）
       def key_label(keycode)
         code = @codec.encode(keycode)
         side, mod = MODIFIER_KEYS[code]
         return "#{side == :right ? RIGHT_PREFIX : ''}#{MODIFIER_SYMBOLS.fetch(mod)}" if mod
 
-        @catalog.preferred_alias(code) || @catalog.name(code)&.delete_prefix(QMK_PREFIX) || hex(code)
+        ARROW_LABELS[code] || @catalog.preferred_alias(code) || @catalog.name(code)&.delete_prefix(QMK_PREFIX) || hex(code)
       end
 
       def modified_label(keycode)

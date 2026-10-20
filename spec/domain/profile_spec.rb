@@ -10,7 +10,9 @@ RSpec.describe Cornix::Domain::Profile do
   let(:tap_dances) { [build_tap_dance(index: 4, name: 'Tab Escape')] }
   let(:combos) { [build_combo(index: 0, name: 'Bracket')] }
   let(:profile) do
-    build_profile(layers: [build_layer(index: 0), build_layer(index: 1)], macros: macros, tap_dances: tap_dances,
+    # コンボのトリガー（KC_K と KC_L）はレイヤー 0 にある（押せないコンボの警告を出さない）
+    triggers = { key_position(:right, 1, 2) => basic(0x0E), key_position(:right, 1, 3) => basic(0x0F) }
+    build_profile(layers: [build_layer(index: 0, keys: triggers), build_layer(index: 1)], macros: macros, tap_dances: tap_dances,
                   combos: combos)
   end
 

@@ -1,6 +1,6 @@
 {
-  "description": "1.0 になるまでは major.minor 全体が一致しなければ -32051 で断る（v0.1 の拡張も断る）",
+  "description": "1.0 になるまでは major.minor 全体が一致しなければ -32051 で断る（v0.2 の拡張も断る）",
   "setup": { "initialize": false },
-  "request": { "id": 1, "method": "initialize", "params": { "protocolVersion": "0.1" } },
-  "response": { "id": 1, "error": { "code": -32051, "data": { "supported": ["0.2"] } } }
+  "request": { "id": 1, "method": "initialize", "params": { "protocolVersion": "0.2" } },
+  "response": { "id": 1, "error": { "code": -32051, "data": { "supported": ["0.3"] } } }
 }

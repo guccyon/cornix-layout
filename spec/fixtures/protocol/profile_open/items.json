@@ -192,7 +192,7 @@
             "down: ⇧",
             "tap: [ ]",
             "up: ⇧",
-            "tap: Left"
+            "tap: ←"
           ],
           "steps": [
             {
@@ -367,7 +367,7 @@
                     "code": 80,
                     "kind": "basic",
                     "display": {
-                      "label": "Left"
+                      "label": "←"
                     }
                   }
                 }
@@ -569,21 +569,29 @@
                 "label": "Bracket Pair"
               }
             }
-          }
+          },
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         }
       ],
       "shortcuts": [

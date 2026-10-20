@@ -29,7 +29,7 @@ describe('偽のサーバー', () => {
   it('initialize の前は -32002、shutdown の後は -32600', async () => {
     const { send, next } = start();
     send({ id: 1, method: 'profile/list', params: {} });
-    send({ id: 2, method: 'initialize', params: { protocolVersion: '0.2', clientInfo: { name: 't', version: '0' } } });
+    send({ id: 2, method: 'initialize', params: { protocolVersion: '0.3', clientInfo: { name: 't', version: '0' } } });
     send({ id: 3, method: 'shutdown' });
     send({ id: 4, method: 'profile/list', params: {} });
     const messages = await next(4);
@@ -40,12 +40,12 @@ describe('偽のサーバー', () => {
     const { send, next } = start();
     send({ id: 1, method: 'initialize', params: { protocolVersion: '9.9', clientInfo: { name: 't', version: '0' } } });
     const [message] = await next(1);
-    expect(message).toMatchObject({ id: 1, error: { code: ErrorCodes.ProtocolVersionMismatch, data: { supported: ['0.2'] } } });
+    expect(message).toMatchObject({ id: 1, error: { code: ErrorCodes.ProtocolVersionMismatch, data: { supported: ['0.3'] } } });
   });
 
   it('知らないメソッドは -32601、JSON でなければ -32700', async () => {
     const { input, send, next } = start();
-    send({ id: 1, method: 'initialize', params: { protocolVersion: '0.2', clientInfo: { name: 't', version: '0' } } });
+    send({ id: 1, method: 'initialize', params: { protocolVersion: '0.3', clientInfo: { name: 't', version: '0' } } });
     send({ id: 2, method: 'profile/nothing', params: {} });
     input.write('Content-Length: 3\r\n\r\n{x}');
     const messages = await next(3);
@@ -57,11 +57,11 @@ describe('偽のサーバー', () => {
 
   it('枠が途中で切れて届いても読める', async () => {
     const { input, next } = start();
-    const body = Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.2', clientInfo: { name: '日本語', version: '0' } } }));
+    const body = Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.3', clientInfo: { name: '日本語', version: '0' } } }));
     const frame = Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`), body]);
     for (let i = 0; i < frame.length; i += 7) input.write(frame.subarray(i, i + 7));
     const [message] = await next(1);
-    expect(message).toMatchObject({ id: 1, result: { protocolVersion: '0.2' } });
+    expect(message).toMatchObject({ id: 1, result: { protocolVersion: '0.3' } });
   });
 });
 
@@ -74,7 +74,7 @@ describe('偽のサーバーの profile/open・keycode/*', () => {
     fs.writeFileSync(path.join(root, 'profiles/default/layers/0_base.yaml'), 'name: Base\n');
     fs.writeFileSync(path.join(root, 'profiles/default/notes.yaml'), 'x\n');
     const server = start(root);
-    server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.2', clientInfo: { name: 't', version: '0' } } });
+    server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.3', clientInfo: { name: 't', version: '0' } } });
     server.send({ id: 2, method: 'profile/open', params: { dir: 'profiles/default' } });
     const messages = await server.next(2);
     fs.rmSync(root, { recursive: true, force: true });
@@ -126,7 +126,7 @@ describe('偽のサーバーの profile/validate・planEdits・saved・didChange
       for (let i = 0; i < 50 && !messages.some((m) => m.id === id); i++) await new Promise((r) => setTimeout(r, 5));
       return messages.find((m) => m.id === id)!;
     };
-    server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.2', clientInfo: { name: 't', version: '0' } } });
+    server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.3', clientInfo: { name: 't', version: '0' } } });
     await server.next(1);
     const open = await call('profile/open', { dir: 'profiles/default' });
     const snapshot = open.result as { profileId: string; files: Record<string, string> };
@@ -200,7 +200,7 @@ describe('偽のサーバーの profile/validate・planEdits・saved・didChange
       fs.writeFileSync(path.join(root, 'profiles/default/metadata.yaml'), 'keyboard: cornix\n');
       fs.writeFileSync(path.join(root, 'profiles/default', base), 'name: Base\nmapping:\n  left_hand:\n    row0:\n      Q: Tab\n');
       const server = start(root);
-      server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.2', clientInfo: { name: 't', version: '0' } } });
+      server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.3', clientInfo: { name: 't', version: '0' } } });
       server.send({ id: 2, method: 'profile/open', params: { dir: 'profiles/default' } });
       const snapshot = (await server.next(2))[1]?.result as { layers: { keys: { address: { path: string[] }; value: { text: string } | null }[] }[] };
       const keys = snapshot.layers[0]?.keys ?? [];

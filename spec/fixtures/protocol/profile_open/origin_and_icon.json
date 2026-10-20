@@ -62,7 +62,36 @@
         "macros": [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, { "index": 12, "name": "Figma:ツール:フレームツール", "icon": "simple-icons:figma" }],
         "shortcuts": [{ "name": "前のタブへ", "text": "Command + Shift + [" }]
       },
-      "diagnostics": []
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": { "file": "combos/00_combo.yaml", "path": ["trigger_keys"] },
+          "range": { "start": { "line": 5, "character": 0 }, "end": { "line": 8, "character": 7 } }
+        },
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": { "file": "combos/01_combo.yaml", "path": ["trigger_keys"] },
+          "range": { "start": { "line": 5, "character": 0 }, "end": { "line": 8, "character": 7 } }
+        },
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": { "file": "combos/02_combo.yaml", "path": ["trigger_keys"] },
+          "range": { "start": { "line": 5, "character": 0 }, "end": { "line": 8, "character": 7 } }
+        },
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": { "file": "combos/03_combo.yaml", "path": ["trigger_keys"] },
+          "range": { "start": { "line": 5, "character": 0 }, "end": { "line": 8, "character": 7 } }
+        }
+      ]
     }
   }
 }

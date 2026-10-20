@@ -1,0 +1,53 @@
+{
+  "description": "expandPreset（13.1）は preset: の行を同梱の定義の手順の sequence: に置き換える（ほかの行とコメントは変えない。表記は decompile の正規形、keys はいつもリスト）。references は []",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/macros/10_capture.yml": "# 画面のキャプチャ\nindex: 10\nname: Capture\npreset: 'macOS:システム:ウィンドウキャプチャ'\ndescription: ウィンドウを撮る\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "macros/10_capture.yml": "sha256:721d1bc4ae1d56b41b44fdbf4939fccd7d1a5e432a435763ce8ee6b37d8799e4"
+      },
+      "edit": {
+        "op": "expandPreset",
+        "kind": "macro",
+        "name": "Capture"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "macros/10_capture.yml",
+          "baseVersion": "sha256:721d1bc4ae1d56b41b44fdbf4939fccd7d1a5e432a435763ce8ee6b37d8799e4",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 3,
+                  "character": 0
+                },
+                "end": {
+                  "line": 4,
+                  "character": 0
+                }
+              },
+              "newText": "sequence:\n- action: down\n  keys:\n  - LGui\n  - LShift\n- action: tap\n  keys:\n  - '4'\n- action: up\n  keys:\n  - LShift\n  - LGui\n- action: tap\n  keys:\n  - Space\n"
+            }
+          ]
+        }
+      ],
+      "references": [],
+      "diagnostics": []
+    }
+  }
+}

@@ -317,6 +317,8 @@ trigger_keys: [Left, Down]   # up to 4 keys
 output_key: MouseButton1
 ```
 
+Triggers are written as keycodes, not key positions. A combo whose trigger keys are not all present on any single layer cannot be pressed, so `validate` warns about it (a `Trans` position counts as the layer 0 value).
+
 ### QMK Settings
 
 ```yaml
@@ -580,19 +582,22 @@ Open it with the Cornix icon in the activity bar or the command "Cornix: プロ�
 | File | What you can do on screen |
 |---|---|
 | `layers/` | Keys and encoders, notes, removing an assignment, the layer's name and description |
-| `macros/` | Steps (add, delete, move up and down), the keys of tap / down / up, `delay`, `text`, `preset` |
+| `macros/` | Steps (add, delete, move up and down), the keys of tap / down / up, `delay`, `text`, `preset`, expanding a `preset` into steps |
 | `tap_dance/` | The four actions and their notes, `tapping_term` |
-| `combos/` | The keys pressed together (up to 4), the output key and its note |
-| `shortcuts.yaml` | The values |
+| `combos/` | The keys pressed together (up to 4; can be picked from the diagram), the output key and its note |
+| `shortcuts.yaml` | The values, copying a bundled shortcut |
 | `settings/qmk_settings.yaml` | Each setting (with a description and the default value) |
 | `position_map.yaml` | The key names (position names) |
 | `metadata.yaml` | Shown read-only |
 
-- **Key input**: candidates are searched by name, alias, QMK name, and the Japanese labels and app names of the bundled shortcuts. The builder next to the field puts together modifier expressions (`Shift + Command + P`), `LT(2, Escape)` and Mod-Tap (`RSFT_T(Up)`). A value is validated as soon as you enter it, and hovering shows what it means
-- **The diagram**: a toggle button above it (or holding Alt) shows the position names in purple instead of the assignments. A `Trans` key faintly shows the layer 0 key at the same position. Macros get an orange `M`, your own shortcuts a `★`, and bundled shortcuts the app's icon. A position with no assignment has a dotted outline
+- **Key input**: candidates are searched by name, alias, QMK name, and the Japanese labels and app names of the bundled shortcuts. When nothing matches as a prefix or substring, entries that contain the typed characters in order (fuzzy matches; `lbr` → `[`) are listed below. Among equally good matches, the keys used most in the profile come first. "同梱から選ぶ…" (Choose from bundled) at the bottom of the candidate list lets you pick a bundled shortcut by app → category → label and enters `Shortcut('…')`. The builder next to the field puts together modifier expressions (`Shift + Command + P`), `LT(2, Escape)` and Mod-Tap (`RSFT_T(Up)`). A value is validated as soon as you enter it, and hovering shows what it means
+- **The diagram**: the "位置の名前" (Position names) button above it (click to keep it on; temporarily while hovering over it or holding Alt) shows the position names in purple instead of the assignments. The names come from `position_map.yaml`, and while they are shown you can click a key to change its name there. The "全レイヤー" (All layers) button lists each key's value on every layer as `number label` lines (lines for `Trans`, `NoKey` and unwritten positions are left out). A `Trans` key faintly shows the layer 0 key at the same position. Arrow keys are shown as `↑` `←` `→` `↓`. Macros get an orange `M`, your own shortcuts a `★`, and bundled shortcuts the app's icon. A position with no assignment looks like `NoKey`: an outline with nothing inside
+- **Combos**: while a combo's number button above the diagram is pressed (kept on) or hovered (temporary), the trigger keys of that combo are highlighted on the current layer. A combo that cannot be pressed (no layer has all of its trigger keys) gets a ⚠. "図から選ぶ" (Pick from diagram) in the combos section adds a trigger by clicking a key in the diagram
+- **Sections**: the sections other than layers (macros, tap dances, combos, shortcuts, QMK settings) start collapsed (`▶` / `▼`)
 - **Removing an assignment**: ✕ next to a field deletes that line from the YAML. A position with no assignment is written as `NoKey` (see [Layers](#layers))
 - **Saving**: changes stay unsaved until Cmd+S (Ctrl+S), and undo works. Saving rewrites only the changed values and keeps comments and order. If Claude or another tool changes the files while they are open, the screen reloads when nothing is unsaved, and otherwise asks which side to keep
 - **Adding, deleting and renaming**: macros, tap dances, combos and shortcuts can be added, deleted and renamed (layers can be renamed) from the screen. These are written to the files right after a confirmation dialog (if there are unsaved changes, you are asked to save them first). Renaming also rewrites references such as `Macro('old name')` in every file and the file name, and stops if the compile result would change. Deleting leaves references as they are; the dialog shows how many there are, and the referring side shows an error
+- **Copying bundled shortcuts and expanding presets**: "同梱からコピー" (Copy from bundled) in the shortcuts section adds the chosen bundled shortcut to `shortcuts.yaml` (named after its label; existing references are left as they are). "手順に展開" (Expand into steps) on a macro replaces its `preset:` line with the steps of the bundled definition. Both are written right after a confirmation dialog, and expanding stops if the compile result would change
 - **Text editor**: when you open a settings file as text, the same validation results appear as squiggles
 
 ## Using it as an MCP server

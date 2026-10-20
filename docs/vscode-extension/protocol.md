@@ -947,3 +947,51 @@ type ItemEdit =
 - `KC_TRNS` のキー: レイヤー 0 の同じ位置の値の `display.label` を薄く描き、説明に「レイヤー 0 の値」と書く（snapshot の `layers[0]` から拡張が引く）
 - 候補の行のアイコン: `Candidate.icon`（v0.1 からある）を候補の行に描く
 - テキストの波線: `profile/open` と `profile/didChange` の `diagnostics` の `range` を `DiagnosticCollection` に入れる（`address` も `file` もないものは出さない）
+
+## 13. v0.3 で足すもの
+
+[tasks-v0.3.md](tasks-v0.3.md) の「決めたこと」を約束にしたもの。v0.2 の形は変えず、項目を足す（v0.2 の拡張が知らない項目は無視できる）。
+**状態: 決定。** 約束の版（`protocolVersion`）は段 3 で `"0.3"` に上げた（段 2 の間は `"0.2"` のまま足した）。
+`"0.3"` のサーバーは、1.0 になるまでの決まり（[4.](#initialize)）のとおり `"0.2"` の拡張を `-32051` で断る。
+
+### 13.1 `profile/planItemEdit` に足すもの
+
+```ts
+type ItemEdit =
+  | /* 12.5 のもの */
+  | { op: "expandPreset"; kind: "macro"; name: string };
+```
+
+- **expandPreset**: `preset:` で書いたマクロの `preset:` の行を、同梱の定義（`data/shortcuts/` の `macro: true` の項目）の手順の `sequence:` に置き換える。
+  ほかの行（`name` `description` `index` やコメント）は変えない。手順の書き方は `Schema::MacroFile.write` と同じ形
+- 前後の compile の結果（16bit 値）が同じでなければ、書かずに `-32061`（reason `"verify"`）
+- `preset:` で書いていないマクロ・知らない名前は `-32602`（`data: { "field": "edit.name" }`）
+- 結果の形は 12.5 と同じ（`files` は書き換える 1 ファイル、`references` は `[]`）。拡張は確認のダイアログのあとすぐ当てて保存する
+
+### 13.2 `profile/open` に足すもの
+
+```jsonc
+{
+  "combos": [
+    { "index": 0, "name": "Left Bracket", "...": "12.2 と同じ",
+      "reachable": true }               // 足す: トリガーのキーがすべてそろうレイヤーがある
+  ]
+}
+```
+
+- `reachable` は、どれかのレイヤーで、そのレイヤーに割り当てたキーコード（`KC_TRNS` の位置はレイヤー 0 の値）にトリガーのキーがすべて入っていれば `true`。
+  トリガーが `KC_NO` だけのコンボは `true`（作ったばかりのものに印を付けない）
+- 同じ判定で、意味検証の警告「押せないコンボ」を出す（`address` はそのコンボの `["trigger_keys"]`。validate にも出る）
+
+### 13.3 振る舞いだけ変えるもの
+
+形は変えない。
+
+- `keycode/candidates`: 前方一致・部分一致の下に、query の文字を順に含むもの（あいまい一致）を出す。大文字小文字・`_`・空白は区別しない。
+  当てはまり方が同じ候補の中では、そのプロファイルで使っている回数の多いものを上にする（context ごとに上に出すものは今までどおり先）
+- `KeyValue.display`: `KC_UP` / `KC_LEFT` / `KC_RIGHT` / `KC_DOWN` の `label`（と `tap`）を `↑` / `←` / `→` / `↓` にする。`text`（表記）は変えない
+
+### 13.4 拡張だけで作るもの
+
+約束は変えない。[tasks-v0.3.md](tasks-v0.3.md) の決めたことの 1〜3 と、申し送りの見た目の直し（`（なし）` を出さない、節を畳む、書いていない位置を NoKey と同じ枠に）。
+同梱のショートカットの選択は `keycode/shortcutTree`（v0.2 からある）を使い、コピーは `create`・`kind: "shortcut"`（12.5）で足す。

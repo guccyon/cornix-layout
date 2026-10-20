@@ -218,6 +218,82 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
     end
   end
 
+  describe 'expandPreset' do
+    let(:preset) { 'macOS:システム:ウィンドウキャプチャ' }
+
+    it 'preset: の行を同梱の定義の手順の sequence: にし（表記は decompile の正規形）、ほかの行とコメントは保つ' do
+      write('macros/20_capture.yaml', "# 画面\nindex: 20\nname: Capture\npreset: '#{preset}' # 同梱\ndescription: 撮る\n")
+      result = plan(op: 'expandPreset', kind: 'macro', name: 'Capture')
+      expect(result[:files].map { |f| f.slice(:file, :create) }).to eq([{ file: 'macros/20_capture.yaml', create: false }])
+      expect(applied(result, 'macros/20_capture.yaml')).to eq(<<~YAML)
+        # 画面
+        index: 20
+        name: Capture
+        sequence:
+        - action: down
+          keys:
+          - LGui
+          - LShift
+        - action: tap
+          keys:
+          - '4'
+        - action: up
+          keys:
+          - LShift
+          - LGui
+        - action: tap
+          keys:
+          - Space
+        description: 撮る
+      YAML
+      expect(result[:references]).to eq([])
+      expect(result[:diagnostics]).to eq([])
+    end
+
+    it 'name を省いていれば name の行を足し（名前を変えない）、最後の行の preset: も置き換える' do
+      name = 'Fusion 360:スケッチ:スプライン'
+      write('macros/20_spline.yaml', "index: 20\npreset: '#{name}'")
+      result = plan(op: 'expandPreset', kind: 'macro', name: name)
+      expect(YAML.safe_load(applied(result, 'macros/20_spline.yaml')))
+        .to eq('index' => 20, 'name' => name, 'sequence' => [{ 'action' => 'tap', 'keys' => %w[S P] }])
+    end
+
+    it '1 シーケンスの定義は、押して離す手順（修飾キーを押す → キー → 修飾キーを離す）にする' do
+      write('macros/20_lock.yaml', "index: 20\nname: Lock\npreset: 'macOS:システム:画面ロック'\n")
+      result = plan(op: 'expandPreset', kind: 'macro', name: 'Lock')
+      expect(YAML.safe_load(applied(result, 'macros/20_lock.yaml'))['sequence'])
+        .to eq([{ 'action' => 'down', 'keys' => %w[LCtrl LGui] }, { 'action' => 'tap', 'keys' => ['Q'] },
+                { 'action' => 'up', 'keys' => %w[LGui LCtrl] }])
+    end
+
+    it 'preset: で書いていないマクロ・ないマクロは InvalidChange（field "edit.name"）' do
+      expect { plan(op: 'expandPreset', kind: 'macro', name: 'Macro 0') }
+        .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.name') }
+      expect { plan(op: 'expandPreset', kind: 'macro', name: 'Nope') }
+        .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.name') }
+    end
+
+    it 'フロー表記で書いたファイルは NotLocal' do
+      write('macros/20_capture.yaml', "{ index: 20, name: Capture, preset: '#{preset}' }\n")
+      expect { plan(op: 'expandPreset', kind: 'macro', name: 'Capture') }.to raise_error(plan_edits::NotLocal)
+    end
+
+    it '前後の compile の結果が違えば Unverified（address は preset: の場所）' do
+      write('macros/20_capture.yaml', "index: 20\nname: Capture\npreset: '#{preset}'\n")
+      mapper = opened.env.mapper
+      allow(mapper).to receive(:to_image).and_wrap_original do |original, profile|
+        image = original.call(profile)
+        profile.macros.any? { |m| m.name == 'Capture' && m.preset.nil? } ? nil : image
+      end
+      expect { plan(op: 'expandPreset', kind: 'macro', name: 'Capture') }
+        .to raise_error(described_class::Unverified) { |e|
+          expect(e.reason).to eq('verify')
+          expect(e.message).to include('preset を手順に展開すると')
+          expect(e.address).to eq({ file: 'macros/20_capture.yaml', path: ['preset'] })
+        }
+    end
+  end
+
   describe 'baseVersions' do
     it '書き換えないファイルの版は比べない' do
       versions = all_versions.merge('layers/5_layer_5.yaml' => 'sha256:0000')

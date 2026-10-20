@@ -270,6 +270,26 @@ describe('App の描き直し', () => {
     expect(host.changes).toEqual([]);
   });
 
+  it('欄の中のほかの入力（絞り込みなど）にフォーカスがあるときは、作り直してもキーの欄の打ちかけ・フォーカスにしない', () => {
+    const snapshot = fixtureSnapshot();
+    app.receive({ type: 'snapshot', snapshot, changes: [] });
+    const qId = slotOf('left_hand', 'row0', 'Q');
+    const before = field(qId).querySelector('input')!.value;
+    const other = document.createElement('input');
+    field(qId).append(other);
+    other.focus();
+    other.value = 'figma';
+
+    const grown = structuredClone(snapshot);
+    grown.layers.push({ ...structuredClone(snapshot.layers[1]!), index: 2, name: 'Extra', file: 'layers/2_extra.yml' });
+    app.receive({ type: 'snapshot', snapshot: grown, changes: [] });
+
+    const input = field(qId).querySelector('input')!;
+    expect(input.value).toBe(before);
+    expect(document.activeElement).not.toBe(input);
+    expect(host.changes).toEqual([]);
+  });
+
   it('選んだレイヤーと欄を覚え、作り直した画面で戻す', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     const id = slotOf('left_hand', 'row1', 'A');

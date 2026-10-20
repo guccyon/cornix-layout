@@ -3,7 +3,7 @@
 // protocol.md を変えたら、ここも同じ PR で変える。
 
 /** 約束の版（protocol.md の 4.）。1.0 になるまでは major.minor 全体が一致しなければ話せない */
-export const PROTOCOL_VERSION = '0.2';
+export const PROTOCOL_VERSION = '0.3';
 
 // ---------------------------------------------------------------------------
 // 2. 共通の型
@@ -262,6 +262,8 @@ export type ComboSnapshot = ItemHeader & {
   triggersAddress: Address;
   triggers: KeySlot[];
   output: KeySlot;
+  /** v0.3: トリガーのキーがすべてそろうレイヤーがある（protocol.md の 13.2。v0.2 のサーバーは返さない） */
+  reachable?: boolean;
 };
 
 export type ShortcutSnapshot = { name: string; address: Address; value: KeyValue | null };
@@ -446,7 +448,9 @@ export type ItemEdit =
   | { op: 'create'; kind: 'shortcut'; name: string; value: string }
   | { op: 'delete'; kind: ItemKind; name: string }
   | { op: 'rename'; kind: ItemKind | 'layer'; name: string; to: string }
-  | { op: 'renamePosition'; hand: Hand; row: number; col: number; to: string };
+  | { op: 'renamePosition'; hand: Hand; row: number; col: number; to: string }
+  /** v0.3: preset: のマクロを同梱の定義の手順に置き換える（protocol.md の 13.1） */
+  | { op: 'expandPreset'; kind: 'macro'; name: string };
 
 export type PlanItemEditParams = {
   profileId: string;

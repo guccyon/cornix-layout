@@ -17,7 +17,8 @@
    - 件数の上限（レイヤー 10、マクロ・タップダンス・コンボ 32、コンボのトリガー 4）
    - 番号・名前の重複、参照先（M(n) / TD(n)）の存在、レイヤー番号の範囲
    - 警告: 番号の抜けたレイヤー、定義されていないレイヤーを指す MO(n) など、
-     Cornix が対応していないとみられる特殊キー（data/unsupported_keycodes.yaml。QK_REPEAT_KEY、USER08 以降など）
+     Cornix が対応していないとみられる特殊キー（data/unsupported_keycodes.yaml。QK_REPEAT_KEY、USER08 以降など）、
+     押せないコンボ（下の「押せないコンボ」）
    - `Domain::Diagnostic(severity, path, message)` の path（`layers[0].left_hand.row0.tab` の形）は
      `Storage::DiagnosticLocator` がファイル上の位置に直す
 
@@ -34,7 +35,21 @@ Error: layers/2_layer.yaml: index: レイヤーの番号が重複しています
 Error: macros/01_macro.yaml: name: マクロの名前が重複しています: Macro 0
 Error: layers/1_layer.yaml: mapping.left_hand.row0.T: マクロ M40 が定義されていません
 Error: layers/: レイヤーは 10 枚までです: 11 枚
+Warning: combos/03_combo.yaml: trigger_keys: 押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）
 ```
+
+## 押せないコンボ
+
+コンボのトリガーはキーの位置ではなくキーコードなので、トリガーのキーがどのレイヤーでも同時にそろわないと、そのコンボは押せない。
+`Domain::ComboReachability` が判定し、意味検証の警告（path は `combos[i].trigger_keys`）と、エディタの snapshot のコンボの
+`reachable`（[protocol.md](vscode-extension/protocol.md) の 13.2）の両方がこれを使う。
+
+- レイヤーごとに、そのレイヤーで押せるキーコードを集める: 位置の割り当てと、エンコーダのプッシュ（マトリクスのキー）。
+  回転（ccw / cw）は数えない。割り当てのない位置は KC_NO なので数えない
+- `KC_TRNS` の位置は、レイヤー 0（番号 0 のレイヤー）の同じ位置の値で見る（レイヤーの重なりは見ない）
+- どれかのレイヤーに、トリガーのキー（`KC_NO` を除く）がすべて入っていれば押せる。キーコードは値そのもので比べる
+  （`LT1(Space)` の位置では `Space` のトリガーはそろわない）
+- トリガーが `KC_NO` だけのコンボ（エディタで作ったばかりのもの）は押せる扱いで、警告しない
 
 ## 新しい項目を足すとき
 

@@ -1,0 +1,30 @@
+{
+  "description": "同梱にない preset は -32602（field \"edit.preset\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "macro",
+        "name": "X",
+        "preset": "No:Such:Preset"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.preset"
+      }
+    }
+  }
+}

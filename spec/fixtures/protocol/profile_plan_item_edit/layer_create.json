@@ -1,0 +1,29 @@
+{
+  "description": "レイヤーは rename だけ（create の kind に layer は使えない。-32602 field \"edit.kind\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "layer",
+        "name": "New"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.kind"
+      }
+    }
+  }
+}

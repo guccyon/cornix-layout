@@ -21,6 +21,8 @@ module Cornix
       TIMESTAMP = '%Y%m%d_%H%M%S'
       # 名前参照の関数（Macro('名前') / TapDance('名前')）
       REFERENCE_FUNCTIONS = %w[Macro TapDance].freeze
+      # テキストの中の参照を扱える関数（replace_references_in / reference_pattern。Shortcut('名前') も）
+      TEXT_REFERENCE_FUNCTIONS = %w[Macro TapDance Shortcut].freeze
       # 名前を囲む引用符（YAML の中で引用符を重ねた '' と \" も）。長いものから試す
       QUOTES = ["''", '\\"', "'", '"'].freeze
 
@@ -104,16 +106,37 @@ module Cornix
         raise ArgumentError, "知らない参照です: #{function}" unless REFERENCE_FUNCTIONS.include?(function)
         return [] if old_name == new_name
 
-        pattern = /\b#{function}\(\s*(#{QUOTES.map { |q| Regexp.escape(q) }.join('|')})#{Regexp.escape(old_name)}\1\s*\)/
         yaml_files.filter_map do |file|
           text = File.read(file, encoding: 'UTF-8')
-          edited = text.gsub(pattern) { "#{function}(#{quoted(new_name, Regexp.last_match(1))})" }
+          edited = self.class.replace_references_in(text, function, old_name, new_name)
           next if edited == text
 
           File.write(file, edited)
           relative(file)
         end
       end
+
+      # テキストの中の function('old_name') / function("old_name") を new_name にしたテキスト（ファイルは書かない。
+      # replace_references とエディタのサーバーの名前の変更が使う）。function は TEXT_REFERENCE_FUNCTIONS のどれか
+      def self.replace_references_in(text, function, old_name, new_name)
+        return text if old_name == new_name
+
+        text.gsub(reference_pattern(function, old_name)) { "#{function}(#{quoted(new_name, Regexp.last_match(1))})" }
+      end
+
+      # function('name') の参照に合う正規表現（1 番目のグループが引用符）
+      def self.reference_pattern(function, name)
+        raise ArgumentError, "知らない参照です: #{function}" unless TEXT_REFERENCE_FUNCTIONS.include?(function)
+
+        /\b#{function}\(\s*(#{QUOTES.map { |q| Regexp.escape(q) }.join('|')})#{Regexp.escape(name)}\1\s*\)/
+      end
+
+      # 名前に同じ引用符が含まれていれば、もう一方の引用符で囲む
+      def self.quoted(name, quote)
+        quote = { "'" => '"', '"' => "'" }.fetch(quote, quote) if name.include?(quote.delete('\\')[0])
+        "#{quote}#{name}#{quote}"
+      end
+      private_class_method :quoted
 
       private
 
@@ -124,12 +147,6 @@ module Cornix
       end
 
       def yaml_files = Dir.glob(File.join(@dir, '**', '*.{yaml,yml}')).select { |f| File.file?(f) }.sort
-
-      # 名前に同じ引用符が含まれていれば、もう一方の引用符で囲む
-      def quoted(name, quote)
-        quote = { "'" => '"', '"' => "'" }.fetch(quote, quote) if name.include?(quote.delete('\\')[0])
-        "#{quote}#{name}#{quote}"
-      end
 
       # "key: 値" の 1 行（次の行が字下げされていない）を置き換える。置き換えられなければ nil
       def replace_line(text, key, value)

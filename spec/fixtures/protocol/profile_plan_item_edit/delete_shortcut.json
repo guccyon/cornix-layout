@@ -1,0 +1,132 @@
+{
+  "description": "ショートカットを消す: shortcuts.yaml のその行を消し、Shortcut('名前') の参照を references に返す",
+  "setup": {
+    "files": {
+      "profiles/default/metadata.yaml": "keyboard: cornix\nversion: 1\n",
+      "profiles/default/position_map.yaml": "---\nleft_hand:\n  row0: [tab, Q, W, E, R, T]\n  row1: [caps, A, S, D, F, G]\n  row2: [lshift, Z, X, C, V, B]\n  row3: [lctrl, command, option]\n  thumb_keys: [left, middle, right]\nright_hand:\n  row0: [Y, U, I, O, P, backspace]\n  row1: [H, J, K, L, colon, enter]\n  row2: [N, M, comma, dot, up, rshift]\n  row3: [left, down, right]\n  thumb_keys: [left, middle, right]\nencoders:\n  left:\n    push: push\n    ccw: ccw\n    cw: cw\n  right:\n    push: push\n    ccw: ccw\n    cw: cw\n",
+      "profiles/default/layers/0_base.yaml": "name: Base\nindex: 0\nmapping:\n  left_hand:\n    row0:\n      tab: Shortcut('Mine')  # 自分のショートカット\n      Q: Shortcut('Android Studio:一般:ビルド')\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n      Y: Shortcut(\"Mine\")\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n",
+      "profiles/default/shortcuts.yaml": "shortcuts:\n  # よく使うもの\n  Mine: KC_A\n  前のタブへ: Command + Shift + [\n"
+    },
+    "before": [
+      {
+        "id": "b1",
+        "method": "profile/open",
+        "params": {
+          "dir": "profiles/default"
+        }
+      }
+    ]
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "shortcuts.yaml": "sha256:296801510291f9677c2d5a73bcbb37289911551a349e1736b8bc63220d5f51fb"
+      },
+      "edit": {
+        "op": "delete",
+        "kind": "shortcut",
+        "name": "Mine"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "shortcuts.yaml",
+          "baseVersion": "sha256:296801510291f9677c2d5a73bcbb37289911551a349e1736b8bc63220d5f51fb",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 2,
+                  "character": 0
+                },
+                "end": {
+                  "line": 3,
+                  "character": 0
+                }
+              },
+              "newText": ""
+            }
+          ]
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/0_base.yaml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "tab"
+          ]
+        },
+        {
+          "file": "layers/0_base.yaml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "row0",
+            "Y"
+          ]
+        }
+      ],
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "キーコード「Shortcut('Mine')」を解釈できません: ショートカット「Mine」は shortcuts.yaml にも同梱のショートカット（data/shortcuts/）にも定義されていません",
+          "source": "structure",
+          "address": {
+            "file": "layers/0_base.yaml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 5,
+              "character": 11
+            },
+            "end": {
+              "line": 5,
+              "character": 27
+            }
+          }
+        },
+        {
+          "severity": "error",
+          "message": "キーコード「Shortcut(\"Mine\")」を解釈できません: ショートカット「Mine」は shortcuts.yaml にも同梱のショートカット（data/shortcuts/）にも定義されていません",
+          "source": "structure",
+          "address": {
+            "file": "layers/0_base.yaml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "row0",
+              "Y"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 13,
+              "character": 9
+            },
+            "end": {
+              "line": 13,
+              "character": 25
+            }
+          }
+        }
+      ]
+    }
+  }
+}

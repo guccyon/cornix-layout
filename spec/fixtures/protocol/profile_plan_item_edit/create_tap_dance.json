@@ -1,0 +1,53 @@
+{
+  "description": "タップダンスを足す: 動作なし。名前から英数字が残らなければ tap_dance のファイル名",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "tapDance",
+        "name": "タブと戻る"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "tap_dance/05_tap_dance.yml",
+          "baseVersion": null,
+          "create": true,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 0
+                }
+              },
+              "newText": "---\nindex: 5\nname: タブと戻る\ndescription: ''\n"
+            }
+          ]
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

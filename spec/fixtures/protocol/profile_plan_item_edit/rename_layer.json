@@ -1,0 +1,56 @@
+{
+  "description": "レイヤーの名前を変える: 名前で参照されないので name の行とファイル名だけ",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/1_symbols.yml": "sha256:b764c12bb8a31ed4f248a20bb80dd6e62c11936635676161a02b1aeacc88a926"
+      },
+      "edit": {
+        "op": "rename",
+        "kind": "layer",
+        "name": "Symbols",
+        "to": "Signs"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "layers/1_symbols.yml",
+          "baseVersion": "sha256:b764c12bb8a31ed4f248a20bb80dd6e62c11936635676161a02b1aeacc88a926",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 1,
+                  "character": 6
+                },
+                "end": {
+                  "line": 1,
+                  "character": 13
+                }
+              },
+              "newText": "Signs"
+            }
+          ],
+          "renameTo": "layers/1_signs.yml"
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

@@ -32,6 +32,9 @@ module Cornix
             { title: title, lines: lines + [code_line(keycode, value[:code])] }
           end
 
+          # マクロの手順の行（tap: [ ] ← のように 1 手順 1 行）。profile/open の macros の summary も同じ文（protocol.md の 12.2）
+          def step_lines(macro) = macro.steps.map { |step| step_line(step) }
+
           private
 
           def code_line(keycode, code)
@@ -64,7 +67,7 @@ module Cornix
             return ["マクロ M#{index}", ['定義されていません']] unless macro
 
             lines = [macro.description, macro.preset && "同梱のショートカット: #{macro.preset}"].compact.reject(&:empty?)
-            ["マクロ #{macro.name}（M#{index}）", lines + macro.steps.map { |step| step_line(step) }]
+            ["マクロ #{macro.name}（M#{index}）", lines + step_lines(macro)]
           end
 
           def step_line(step)

@@ -1,0 +1,45 @@
+{
+  "description": "comboTrigger はベースレイヤー（レイヤー 0）に割り当ててある値を上に出す（一致の強さが同じものの中で）",
+  "setup": {
+    "profile": "test_config",
+    "files": {
+      "profiles/default/layers/0_layer_0.yaml": "name: Layer 0\nindex: 0\nmapping:\n  left_hand:\n    row0: { tab: KC_F13 }\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/candidates",
+    "params": {
+      "profileId": "p1",
+      "context": "comboTrigger",
+      "query": "F1",
+      "limit": 3
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        {
+          "insertText": "F1",
+          "label": "F1",
+          "detail": "KC_F1",
+          "category": "basic"
+        },
+        {
+          "insertText": "F13",
+          "label": "F13",
+          "detail": "KC_F13",
+          "category": "basic"
+        },
+        {
+          "insertText": "F10",
+          "label": "F10",
+          "detail": "KC_F10",
+          "category": "basic"
+        }
+      ],
+      "truncated": true
+    }
+  }
+}

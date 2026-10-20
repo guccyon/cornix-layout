@@ -116,7 +116,29 @@ RSpec.describe Cornix::Application::Editor::Inspect do
     expect(result[:diagnostics]).to eq([])
   end
 
+  it 'macroKey はマクロのファイルと同じく名前参照を読まず、正規形も名前参照を使わない' do
+    result = inspect_text("Macro('Macro 0')", context: 'macroKey')
+    expect(result[:value]).to be_nil
+    expect(result[:diagnostics]).to match([{ severity: 'error', source: 'structure', message: a_string_including('Macro 0') }])
+    expect(inspect_text('Macro(0)', context: 'macroKey')[:value]).to include(canonical: 'M0', kind: 'macro')
+    expect(inspect_text('Macro(0)', context: 'layerKey')[:value]).to include(canonical: "Macro('Macro 0')")
+  end
+
+  it 'shortcutValue は Shortcut(...) を読まない（読み込みと同じ文）' do
+    write('shortcuts.yaml', "shortcuts:\n  前のタブへ: Command + Shift + [\n")
+    result = inspect_text("Shortcut('前のタブへ')", context: 'shortcutValue')
+    expect(result[:value]).to be_nil
+    expect(result[:diagnostics].first[:message]).to eq("shortcuts.yaml の値には Shortcut(...) は書けません: Shortcut('前のタブへ')")
+    expect(inspect_text("Macro('Macro 0')", context: 'shortcutValue')[:value]).to include(canonical: "Macro('Macro 0')")
+  end
+
+  it 'v0.2 のほかの context はレイヤーのキーと同じ読み方' do
+    %w[tapDanceAction comboTrigger comboOutput].each do |context|
+      expect(inspect_text("TapDance('TapDance 1')", context: context)[:value]).to include(kind: 'tapDance')
+    end
+  end
+
   it '知らない context は UnknownContext' do
-    expect { inspect_text('A', context: 'comboTrigger') }.to raise_error(Cornix::Application::Editor::UnknownContext)
+    expect { inspect_text('A', context: 'unknown') }.to raise_error(Cornix::Application::Editor::UnknownContext)
   end
 end

@@ -1,0 +1,28 @@
+{
+  "description": "shortcutValue は Shortcut(...) を出さず、typed も読まない（shortcuts.yaml の値には書けない）",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/shortcuts.yaml": "shortcuts:\n  前のタブへ: Command + Shift + [\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/candidates",
+    "params": {
+      "profileId": "p1",
+      "context": "shortcutValue",
+      "query": "Shortcut('前のタブへ')"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+
+      ],
+      "typed": null,
+      "truncated": false
+    }
+  }
+}

@@ -115,7 +115,8 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
 
   it 'positionMap は論理位置とグループ・記号' do
     expect(snapshot[:positionMap].size).to eq(48)
-    expect(snapshot[:positionMap][21]).to eq(hand: 'left', row: 3, col: 3, group: 'thumb_keys', symbol: 'left')
+    expect(snapshot[:positionMap][21]).to eq(hand: 'left', row: 3, col: 3, group: 'thumb_keys', symbol: 'left',
+                                             address: { file: 'position_map.yaml', path: ['left_hand', 'thumb_keys', 0] })
   end
 
   it 'references はレイヤー・マクロ・タップダンス・自分のショートカット（ファイルに書いた表記）' do

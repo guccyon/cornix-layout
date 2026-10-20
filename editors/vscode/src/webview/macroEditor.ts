@@ -1,9 +1,11 @@
 // マクロの節（spec.md の「ファイルの種類ごと」の macros/）。手順の並び（追加・削除・上下に動かす）と、手順ごとの
-// tap / down / up のキー（追加・削除）・delay のミリ秒・text の文字。preset: のマクロは手順を summary で読むだけにして、preset の名前を直せる。
-import type { MacroSnapshot, MacroStepValue, ProfileSnapshot } from '../protocol';
+// tap / down / up のキー（追加・削除）・delay のミリ秒・text の文字。preset: のマクロは手順を summary で読むだけにして、preset の名前を
+// 同梱のショートカットの木から選び直すか、打って直せる。
+import type { MacroSnapshot, MacroStepValue, ProfileSnapshot, ShortcutTreeResult } from '../protocol';
 import { h } from './dom';
-import { ItemSection, parseMilliseconds, withCandidateParams, type ItemSectionOptions, type ListEntry } from './itemList';
+import { ItemSection, parseMilliseconds, type ItemSectionOptions, type ListEntry } from './itemList';
 import { macroView, type MacroView, type StepView } from './itemsModel';
+import { PresetPicker } from './presetPicker';
 
 export const STEP_ACTION_LABEL: Record<StepView['action'], string> = {
   tap: 'タップ（tap）',
@@ -36,12 +38,12 @@ let nextToggleId = 1;
 export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
   /** マクロのキーの候補を「すべて出す」（レイヤー操作・マクロなども出す） */
   private showAll = false;
-  private readonly keyHost;
   private addAction: StepView['action'] = 'tap';
+  /** 同梱のショートカットの木（プロファイルによらないので 1 回だけ取る。失敗したら次に開いたときに取り直す） */
+  private tree: Promise<ShortcutTreeResult> | undefined;
 
   constructor(options: ItemSectionOptions) {
     super(options, { kind: 'macro', title: 'マクロ', namePlaceholder: 'Bracket Pair', className: 'macro-editor' });
-    this.keyHost = withCandidateParams(options.host, () => ({ all: this.showAll }));
   }
 
   protected items(snapshot: ProfileSnapshot): MacroSnapshot[] | undefined {
@@ -81,21 +83,35 @@ export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
   }
 
   private presetPart(macro: MacroSnapshot): HTMLElement {
-    // 同梱のマクロの選び直しは keycode/shortcutTree の中継が要る（webviewMessages.ts の WebviewRequestMap にない）ので、名前を打って直す
+    const field = this.valueField<string>({
+      label: 'preset',
+      focus: 'preset',
+      type: 'text',
+      entry: () => this.current.preset!,
+      parse: (text) => (text.trim() === '' ? { problem: '同梱のマクロの名前を入れてください' } : { value: text.trim() }),
+      hint: () => '同梱のマクロの名前（アプリ:カテゴリ:ラベル）',
+    });
+    const picker = new PresetPicker({
+      loadTree: () => this.loadTree(),
+      current: () => this.current.preset?.value ?? null,
+      onPick: (name) => this.set(this.current.preset!.address, name),
+    });
     return h(
       'div',
       { class: 'macro-preset' },
-      this.valueField<string>({
-        label: 'preset',
-        focus: 'preset',
-        type: 'text',
-        entry: () => this.current.preset!,
-        parse: (text) => (text.trim() === '' ? { problem: '同梱のマクロの名前を入れてください' } : { value: text.trim() }),
-        hint: () => '同梱のマクロの名前（アプリ:カテゴリ:ラベル）',
-      }),
+      field,
+      picker.element,
       h('div', { class: 'macro-summary-title' }, '手順（同梱の定義。読むだけ）'),
       h('ol', { class: 'macro-summary' }, ...macro.summary.map((line) => h('li', {}, line))),
     );
+  }
+
+  private loadTree(): Promise<ShortcutTreeResult> {
+    this.tree ??= this.host.request('keycode/shortcutTree', {}).catch((error: unknown) => {
+      this.tree = undefined;
+      throw error;
+    });
+    return this.tree;
   }
 
   private stepsPart(): HTMLElement {
@@ -172,7 +188,7 @@ export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
             visibleLabel: `キー ${j + 1}`,
             focus: `step:${index}:key:${j}`,
             context: 'macroKey',
-            host: this.keyHost,
+            candidateParams: () => ({ all: this.showAll }),
             entry: () => keysOf().keys[j]!,
             className: 'step-key',
             remove: {

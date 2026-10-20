@@ -38,7 +38,7 @@ import * as data from './fixtures';
 import { NotLocal, applyChange, quote } from './yamlLines';
 
 /** 偽のサーバーの profile/validate・planEdits の params（changes は v0.2 の AnyChange。protocol.md の 12.3） */
-type Draft = Omit<DraftParams, 'changes'> & { changes: AnyChange[] };
+type Draft = DraftParams;
 
 /** 名前の変更でこの名前にすると、compile の照合に失敗したことにする（-32061 の reason "verify" を試すため） */
 export const VERIFY_FAIL_NAME = 'VerifyFail';

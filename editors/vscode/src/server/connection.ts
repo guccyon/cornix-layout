@@ -37,16 +37,42 @@ const DEFAULT_INITIALIZE_TIMEOUT_MS = 10_000;
 
 export type Disposable = { dispose(): void };
 
-/** 約束の版が合わない（サーバーが -32051 で断った、または違う版を返した） */
+/**
+ * 約束の版が合わない（サーバーが -32051 で断った、または違う版を返した）。
+ * 古い版のサーバーにはつながない（v0.2 の画面は v0.1 のサーバーが返さない中身を前提にするため）。
+ * 古いのがどちらかを版の数で比べ、新しくするほうを言う
+ */
 export class ProtocolVersionError extends Error {
   constructor(
     readonly serverVersion: string | undefined,
     readonly supported: string[] | undefined,
   ) {
-    const detail = serverVersion ? `サーバーの版 ${serverVersion}` : `サーバーが使える版 ${supported?.join(', ') ?? '不明'}`;
-    super(`cornix のサーバーと拡張の約束の版が合いません（拡張の版 ${PROTOCOL_VERSION}、${detail}）。拡張か cornix を新しくしてください。`);
+    const versions = serverVersion ? [serverVersion] : supported ?? [];
+    const detail = serverVersion ? `サーバーの版 ${serverVersion}` : `サーバーが使える版 ${supported?.join(', ') || '不明'}`;
+    super(`cornix のサーバーと拡張の約束の版が合いません（拡張の版 ${PROTOCOL_VERSION}、${detail}）。${updateAdvice(versions)}`);
     this.name = 'ProtocolVersionError';
   }
+}
+
+/** サーバーの版がどれも拡張より古ければ cornix を、どれも新しければ拡張を新しくするよう言う。分からなければ両方 */
+function updateAdvice(serverVersions: string[]): string {
+  const ours = parseVersion(PROTOCOL_VERSION);
+  const theirs = serverVersions.map(parseVersion);
+  if (ours && theirs.length > 0 && theirs.every((version) => version !== undefined)) {
+    const order = theirs.map((version) => compareVersions(version!, ours));
+    if (order.every((sign) => sign < 0)) return 'cornix を新しくしてください。';
+    if (order.every((sign) => sign > 0)) return '拡張を新しくしてください。';
+  }
+  return '拡張か cornix を新しくしてください。';
+}
+
+function parseVersion(version: string): [number, number] | undefined {
+  const match = /^(\d+)\.(\d+)$/.exec(version);
+  return match ? [Number(match[1]), Number(match[2])] : undefined;
+}
+
+function compareVersions(a: [number, number], b: [number, number]): number {
+  return a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1];
 }
 
 export class CornixConnection {

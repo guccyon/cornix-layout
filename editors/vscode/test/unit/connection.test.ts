@@ -36,7 +36,7 @@ describe('CornixConnection と偽のサーバー', () => {
   it('initialize で版とできることを受け取る', async () => {
     const { connection } = await connect();
     expect(connection.initializeResult).toMatchObject({
-      protocolVersion: '0.1',
+      protocolVersion: '0.2',
       serverInfo: { name: 'cornix' },
       capabilities: { semanticValidation: true, keycodeCode: true },
     });
@@ -109,18 +109,33 @@ describe('CornixConnection と偽のサーバー', () => {
     }
   });
 
-  it('サーバーが約束の版を断ったら（-32051）ProtocolVersionError', async () => {
-    const io = streams({ supportedVersions: ['0.2'] });
+  it('v0.1 のサーバーに断られたら（-32051）ProtocolVersionError で、cornix を新しくするよう言う', async () => {
+    const io = streams({ supportedVersions: ['0.1'] });
     const error = await CornixConnection.connect(io, { clientName: 'test', clientVersion: '0.0.0' }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ProtocolVersionError);
-    expect(error).toMatchObject({ supported: ['0.2'] });
+    expect(error).toMatchObject({ supported: ['0.1'] });
     expect((error as Error).message).toContain('約束の版が合いません');
+    expect((error as Error).message).toContain('cornix を新しくしてください');
+    expect((error as Error).message).not.toContain('拡張か');
+  });
+
+  it('新しい版だけのサーバーに断られたら、拡張を新しくするよう言う', async () => {
+    const io = streams({ supportedVersions: ['0.3', '1.0'] });
+    const error = await CornixConnection.connect(io, { clientName: 'test', clientVersion: '0.0.0' }).catch((e: unknown) => e);
+    expect((error as Error).message).toContain('拡張を新しくしてください');
   });
 
   it('サーバーが違う版を返したら ProtocolVersionError', async () => {
     const io = streams({ respondVersion: '0.9' });
     const error = await CornixConnection.connect(io, { clientName: 'test', clientVersion: '0.0.0' }).catch((e: unknown) => e);
     expect(error).toMatchObject({ name: 'ProtocolVersionError', serverVersion: '0.9' });
+    expect((error as Error).message).toContain('拡張を新しくしてください');
+  });
+
+  it('サーバーが使える版を言わなければ、両方の側を挙げる', async () => {
+    const io = streams({ supportedVersions: [] });
+    const error = await CornixConnection.connect(io, { clientName: 'test', clientVersion: '0.0.0' }).catch((e: unknown) => e);
+    expect((error as Error).message).toContain('拡張か cornix を新しくしてください');
   });
 
   it('initialize に応えなければ時間切れにする', async () => {

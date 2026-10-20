@@ -6,6 +6,7 @@ VS Code 拡張（以下「拡張」）と、プロファイルを読んで解釈
 差し替えられるように、約束には Ruby のクラス名や内部の形を出さない。
 
 **状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。v0.2 で足すもの（2026-10-20 決定）は「[12. v0.2 で足すもの](#12-v02-で足すもの)」。
+今の約束の版（`protocolVersion`）は `"0.2"`。
 
 起動・終了とプロファイルの一覧（`initialize`、`profile/list` など）のほかに、中身のメソッドとして次の 5 つを決める。
 
@@ -181,10 +182,10 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 
 ```jsonc
 // params
-{ "protocolVersion": "0.1", "clientInfo": { "name": "cornix-vscode", "version": "0.1.0" } }
+{ "protocolVersion": "0.2", "clientInfo": { "name": "cornix-vscode", "version": "0.2.0" } }
 // result
 {
-  "protocolVersion": "0.1",
+  "protocolVersion": "0.2",
   "serverInfo": { "name": "cornix", "version": "1.0.0", "implementation": "ruby" },   // version は Cornix::VERSION（約束の版 protocolVersion とは別）
   "capabilities": {
     "semanticValidation": true,   // Profile#diagnostics に当たる意味検証をする
@@ -195,6 +196,9 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 
 - 版は `major.minor`。1.0 になるまでは `major.minor` 全体が一致しなければ、サーバーは `-32051`（[9. エラー](#9-エラー)）で断る。
   1.0 からは major が違えば断り、minor の違いは知らない項目を無視して続ける
+- 拡張も、返った `protocolVersion` が自分の版と違えばつながない（v0.2 の拡張は v0.1 のサーバーを使わない。中身の画面が v0.1 のサーバーの返さない項目を前提にするため）。
+  断られたとき・違う版が返ったときは、サーバーの版（`-32051` なら `data.supported`）と自分の版を比べて、
+  サーバーのほうが古ければ「cornix を新しく」、新しければ「拡張を新しく」、分からなければ両方を挙げて知らせる
 - 拡張は `capabilities` が false の機能を画面に出さない（意味検証がなければ、構造の検証の結果だけを出す）
 
 ### `shutdown` / `exit`
@@ -673,7 +677,7 @@ Ruby の RSpec と、将来の TypeScript の vitest の両方から同じデー
     "open": false,                     // profile を置くだけで開かない（profile/open 自体を確かめるとき）
     "profiles": { "profiles/ipad": "test_config", "config": null },   // ほかの設定ディレクトリ（null なら空のディレクトリ。profile と重ねない）
     "files": { ".cornix.yml": "profile: ipad\n" },   // ワークスペースに書くファイル（ワークスペースからの相対パス）
-    "initialize": false,               // initialize（protocolVersion "0.1"）と initialized を先に送らない
+    "initialize": false,               // initialize（protocolVersion "0.2"）と initialized を先に送らない
     "before": [{ "id": "b1", "method": "shutdown" }]  // request の前に送るメッセージ（応答は確かめない）
   },
   "request": { "id": 1, "method": "profile/list", "params": {} },   // jsonrpc は省くと "2.0"。"jsonrpc": null なら項目ごと外す。id がなければ通知
@@ -713,7 +717,7 @@ JSON-RPC のエラーで返す。`message` は利用者に見せてよい日本�
 | -32603 | InternalError | サーバーの不具合、検証の結果にならない `Cornix::Error`（message にその文を入れる） | — |
 | -32002 | ServerNotInitialized | `initialize` の前のリクエスト（LSP と同じ code） | — |
 | -32050 | ProfileNotFound | `dir` や `profileId` が分からない | `{ "dir": "profiles/ipad" }` か `{ "profileId": "p9" }` |
-| -32051 | ProtocolVersionMismatch | 約束の版が合わない（[4.](#initialize)） | `{ "supported": ["0.1"] }` |
+| -32051 | ProtocolVersionMismatch | 約束の版が合わない（[4.](#initialize)） | `{ "supported": ["0.2"] }` |
 | -32052 | NotSupported | capabilities にない機能を呼んだ（v0.1 では使わない。TypeScript 版が持たないコマンドを足すとき用） | `{ "capability": "…" }` |
 | -32060 | VersionConflict | `baseVersions` が今のファイルと違う | `{ "files": { "layers/0_base.yml": "sha256:e1d4…" } }`（今の版） |
 | -32061 | EditNotLocal | 値の部分だけでは書き換えられない | `{ "address": { … }, "reason": "multiline" }`（reason: `"multiline"` \| `"anchor"` \| `"flowInsert"`） |
@@ -750,7 +754,8 @@ JSON-RPC のエラーで返す。`message` は利用者に見せてよい日本�
 ## 12. v0.2 で足すもの
 
 [tasks-v0.2.md](tasks-v0.2.md) の「決めたこと」を約束にしたもの。v0.1 の形は変えず、項目とメソッドを足す（v0.1 の拡張が知らない項目は無視できる）。
-約束の版（`protocolVersion`）は段 3 の通しの確認で `"0.2"` に上げる（それまでは `"0.1"` のまま足していく）。
+**状態: 決定。** 約束の版（`protocolVersion`）は段 3 で `"0.2"` に上げた（段 2 の間は `"0.1"` のまま足した）。
+`"0.2"` のサーバーは、1.0 になるまでの決まり（[4.](#initialize)）のとおり `"0.1"` の拡張を `-32051` で断る。
 
 ### 12.1 KeySlot（キーを入れる欄 1 つ）
 

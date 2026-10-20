@@ -13,7 +13,7 @@ type Node =
 export class NotLocal extends Error {}
 
 export function quote(value: string): string {
-  return /^[\w()' +\-]+$/u.test(value) && !/^[-?:,]/.test(value) ? value : JSON.stringify(value);
+  return /^[\p{L}\p{N}_()' +\-]+$/u.test(value) && !/^[-?:,]/.test(value) ? value : JSON.stringify(value);
 }
 
 function indentOf(line: string): number {

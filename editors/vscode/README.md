@@ -132,7 +132,7 @@ editors/vscode/
       profileFiles.ts     設定ディレクトリのファイルの場所と、テキストで開くこと
       profileWatcher.ts   設定ディレクトリの見張り → workspace/didChangeFiles
       profileEditorProvider.ts  カスタムエディタ（CustomEditorProvider）。画面への snapshot と pending、DiagnosticCollection（cornix）
-      webviewRelay.ts     画面からのリクエストの中継（keycode/candidates・keycode/inspect だけ）と「ファイルを開く」のパスの確かめ
+      webviewRelay.ts     画面からのリクエストの中継（keycode/candidates・keycode/inspect・keycode/shortcutTree だけ。shortcutTree はプロファイルによらないので params を使わない）と「ファイルを開く」のパスの確かめ
     webview/              編集画面（素の TypeScript。上にキーボード図、下にレイヤーの欄と節）
       main.ts             入口（ホストとのメッセージをつなぐ。下のペインの節を sections に並べる）
       app.ts              画面の全体（レイヤーの選択・欄の選択を上下で共有、Change をホストに渡す）
@@ -146,14 +146,15 @@ editors/vscode/
       itemList.ts         マクロ・タップダンス・コンボ・ショートカットの節の共通の部品（一覧と編集欄、追加・削除・名前の変更の入口）
       itemsModel.ts       節に描くものを snapshot と pending から組み立てる（並びの Change を当てる。DOM に依存しない）
       macroEditor.ts      マクロの節（手順の追加・削除・上下、手順のキー、delay・text、preset）
-      tapDanceEditor.ts   タップダンスの節（4 つの動作、tapping_term）
-      comboEditor.ts      コンボの節（同時に押すキー・出すキー）
+      presetPicker.ts     マクロの preset を同梱のショートカットの木（アプリ → カテゴリ → ラベル）から選び直す
+      tapDanceEditor.ts   タップダンスの節（4 つの動作と注記、tapping_term）
+      comboEditor.ts      コンボの節（同時に押すキー・出すキーと注記）
       shortcutEditor.ts   自分のショートカットの節（名前ごとの値）
       settingsEditor.ts   QMK 設定の欄（整数は数値、真偽値はチェックボックス。説明と既定値）
       metadataView.ts     metadata.yaml と position_map の表示（読むだけ）
       inspector.ts        keycode/inspect の結果のとっておき（同じ表記は 1 回だけ聞く）
       tooltip.ts          説明の吹き出し（マウスを載せた要素かフォーカスした要素の下に 1 つ）
-      hostClient.ts       ホストへのリクエストの中継（keycode/candidates・keycode/inspect）
+      hostClient.ts       ホストへのリクエストの中継（keycode/candidates・keycode/inspect・keycode/shortcutTree）と、変更・項目の操作の送り口
       icons/              アイコン ID → 要素（manifest.ts は media/icons/extract.mjs が作る。badges.ts は自前のバッジ）
   media/                  画面の CSS（webview.css）と同梱のアイコン（SVG とライセンス表記。media/icons/NOTICE.md）
   resources/              アクティビティバーのアイコン

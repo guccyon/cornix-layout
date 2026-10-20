@@ -48,3 +48,9 @@ v0.2（すべての設定ファイルを画面だけで編集できる）の作�
 - undo・redo は編集の前後の並び（配列そのもの）に戻す。保存や外での変更で並びが変わったあとは、並びの外は値で当て直し、並びの `insert` / `move` は逆の Change を足す
   （要素の `set` / `remove` は前の値が分からないので戻さない）。外で変わったファイルに並びの Change があれば、そのファイルの Change はまとめて「当て直せないもの」
 - 画面へは snapshot と一緒に `pending`（全部）を送り、`changes` は v0.1 の形（並びの外の `set` だけ）のまま残した
+
+## 統合テストで外からファイルを書くとき（J1 で分かったこと）
+
+- サーバーを止めている間でも、画面の要求（keycode/inspect の中継など）が来ると `ensureStarted` がサーバーを起こし、`profile/open` が走る
+- `vscode.workspace.fs.writeFile` は書いている途中（切り詰めた直後）の中身を読まれうる。外での変更は一時ファイルに書いてから置き換える（`support.ts` の `replaceOutside`）。
+  決まった時間を待つのではなく、見張りがそのファイルの知らせを送り終えるのを待つ（`ProfileWatcher#onDidSend`）

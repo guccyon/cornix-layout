@@ -21,7 +21,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Serve do
   it 'cornix serve --root DIR は標準入出力で JSON-RPC を話し、shutdown → exit で 0 を返す' do
     Dir.mktmpdir do |root|
       FileUtils.mkdir_p(File.join(root, 'profiles', 'default'))
-      input = framed({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.2' } },
+      input = framed({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.3' } },
                      { jsonrpc: '2.0', id: 2, method: 'profile/list', params: {} },
                      { jsonrpc: '2.0', id: 3, method: 'shutdown' }, { jsonrpc: '2.0', method: 'exit' })
       out = StringIO.new(+'')

@@ -2,7 +2,8 @@
 // v0.3:
 // - 「図から選ぶ」: 上の図のキーを押して、同時に押すキーに足す（App#pickKey。選んでいる間はボタンの文字が変わり、もう一度押すか Esc で抜ける）。
 //   まだ NoKey の欄（作ったばかりのコンボ）があればそこに入れ、なければ末尾に足す（insert）
-// - 押せないコンボ（snapshot の reachable が false。protocol.md の 13.2）は、一覧の行と詳細に ⚠ を付ける
+// - 押せないコンボ（snapshot の reachable が false。protocol.md の 13.2）は、一覧の行に ⚠ を付ける。
+//   詳細の説明はサーバーの警告（問題の欄）が出すので、ここでは重ねない
 import type { ComboSnapshot, ProfileSnapshot } from '../protocol';
 import { h, nodes } from './dom';
 import { ItemSection, type ItemSectionOptions, type ListEntry } from './itemList';
@@ -70,7 +71,6 @@ export class ComboEditor extends ItemSection<ComboSnapshot, ComboView> {
   protected buildDetail(combo: ComboSnapshot, body: HTMLElement): void {
     body.append(
       ...nodes(
-        combo.reachable === false && h('div', { class: 'combo-unreachable', role: 'note' }, h('span', { class: 'item-mark', 'aria-hidden': 'true' }, '⚠'), UNREACHABLE_MESSAGE),
         this.valueField<string>({
           label: '説明',
           focus: 'description',

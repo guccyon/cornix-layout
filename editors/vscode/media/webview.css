@@ -2245,6 +2245,7 @@ button {
 
 .board.picking .key.unassigned {
   cursor: not-allowed;
+}
 
 /* v0.3 欄 */
 
@@ -2281,14 +2282,6 @@ button {
   grid-area: mark;
   color: var(--warning);
   font-size: 0.9em;
-}
-
-.combo-unreachable {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin: 4px 0;
-  color: var(--warning);
 }
 
 /* コンボの「キーを足す」「図から選ぶ」 */

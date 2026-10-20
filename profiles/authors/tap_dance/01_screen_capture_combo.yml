@@ -4,8 +4,8 @@ description: タップで範囲スクリーンショット (Shift+Cmd+4)、ホ�
 enabled: true
 index: 1
 actions:
-  on_tap: SGUI(KC_4)
-  on_hold: SGUI(KC_5)
+  on_tap: { key: SGUI(KC_4), note: 範囲スクリーンショット（Shift + Cmd + 4） }
+  on_hold: { key: SGUI(KC_5), note: 画面収録（Shift + Cmd + 5） }
   on_double_tap: KC_NO
   on_tap_hold: KC_NO
 tapping_term: 250

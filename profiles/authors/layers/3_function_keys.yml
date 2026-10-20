@@ -19,27 +19,27 @@ mapping:
       R: F4
       T: NoKey
     row1:
-      lctrl: BT2
+      lctrl: { key: BT2, note: Bluetooth プロファイル 2 に切り替え }
       A: F5
       S: F6
       D: F7
       F: F8
       G: NoKey
     row2:
-      lshift: BT1
+      lshift: { key: BT1, note: Bluetooth プロファイル 1 に切り替え }
       Z: F9
       X: F10
       C: F11
       V: F12
-      B: ClearBT
+      B: { key: ClearBT, note: 現在の Bluetooth プロファイルのペアリングを消去 }
     row3:
-      caps: BT0
+      caps: { key: BT0, note: Bluetooth プロファイル 0 に切り替え }
       fn: Trans
       option: Trans
     thumb_keys:
       left: Trans
       middle: NoKey
-      right: TapDance('Screen Capture')
+      right: { key: TapDance('Screen Capture'), note: タップで範囲スクリーンショット、長押しで画面収録 }
   right_hand:
     row0:
       Y: NoKey

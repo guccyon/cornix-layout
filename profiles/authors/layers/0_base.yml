@@ -5,7 +5,7 @@ description: Base layer with standard QWERTY layout and layer switching
 mapping:
   left_hand:
     row0:
-      tab: TapDance('Tab Escape')
+      tab: { key: TapDance('Tab Escape'), note: タップで Tab、長押しで Escape }
       Q: Q
       W: W
       E: E
@@ -27,12 +27,12 @@ mapping:
       B: B
     row3:
       caps: CapsLock
-      fn: MO(3)
+      fn: { key: MO(3), note: 押している間 Function Keys レイヤー }
       option: LAlt
     thumb_keys:
-      left: LGUI_T(KC_LANG2)
-      middle: LT1(Space)
-      right: MO(2)
+      left: { key: LGUI_T(KC_LANG2), note: タップで英数、長押しで Command }
+      middle: { key: LT1(Space), note: タップで Space、長押しで Symbols レイヤー }
+      right: { key: MO(2), note: 押している間 Numbers レイヤー }
   right_hand:
     row0:
       Y: Y
@@ -60,15 +60,15 @@ mapping:
       down: Down
       right: Right
     thumb_keys:
-      left: MO(3)
-      middle: MO(1)
-      right: LT2(KC_LANG1)
+      left: { key: MO(3), note: 押している間 Function Keys レイヤー }
+      middle: { key: MO(1), note: 押している間 Symbols レイヤー }
+      right: { key: LT2(KC_LANG1), note: タップでかな、長押しで Numbers レイヤー }
   encoders:
     left:
       push: Mute
       ccw: VolumeDown
       cw: VolumeUp
     right:
-      push: TapDance('Layer 3 Toggle')
+      push: { key: TapDance('Layer 3 Toggle'), note: タップで Function Keys レイヤーをトグル、長押しで一時切り替え }
       ccw: Up
       cw: Down

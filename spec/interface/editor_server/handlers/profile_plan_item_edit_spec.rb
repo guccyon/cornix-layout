@@ -43,6 +43,8 @@ RSpec.describe Cornix::Interface::EditorServer::Handlers::ProfilePlanItemEdit do
       { 'op' => 'rename', 'kind' => 'macro', 'name' => 'Macro 0' } => 'edit.to',
       { 'op' => 'renamePosition', 'hand' => 'center', 'row' => 0, 'col' => 0, 'to' => 'x' } => 'edit.hand',
       { 'op' => 'renamePosition', 'hand' => 'left', 'row' => 0, 'to' => 'x' } => 'edit.col',
+      { 'op' => 'expandPreset', 'kind' => 'combo', 'name' => 'Combo 0' } => 'edit.kind',
+      { 'op' => 'expandPreset', 'kind' => 'macro' } => 'edit.name',
       { 'op' => 1 } => 'edit.op',
       { 'kind' => 'macro' } => 'edit.op'
     }.each do |edit, field|
@@ -59,6 +61,21 @@ RSpec.describe Cornix::Interface::EditorServer::Handlers::ProfilePlanItemEdit do
     response = item_edit({ 'op' => 'delete', 'kind' => 'shortcut', 'name' => 'a' }, files)
     expect(response[:error]).to include(code: -32_061, data: { address: { file: 'shortcuts.yaml', path: %w[shortcuts a] },
                                                                reason: 'flowInsert' })
+  end
+
+  it 'expandPreset: preset: で書いていないマクロは -32602（edit.name）、compile の結果が変われば -32061（reason "verify"）' do
+    File.write(path('macros/20_capture.yaml'), "index: 20\nname: Capture\npreset: 'macOS:システム:ウィンドウキャプチャ'\n")
+    files = open[:files]
+    expect(item_edit({ 'op' => 'expandPreset', 'kind' => 'macro', 'name' => 'Macro 0' }, files)[:error])
+      .to include(code: -32_602, data: { field: 'edit.name' })
+
+    mapper = workbench.fetch('p1').env.mapper
+    allow(mapper).to receive(:to_image).and_wrap_original do |original, profile|
+      image = original.call(profile)
+      profile.macros.any? { |m| m.name == 'Capture' && m.preset.nil? } ? nil : image
+    end
+    expect(item_edit({ 'op' => 'expandPreset', 'kind' => 'macro', 'name' => 'Capture' }, files)[:error])
+      .to include(code: -32_061, data: { address: { file: 'macros/20_capture.yaml', path: ['preset'] }, reason: 'verify' })
   end
 
   it '返した書き換えを当てて保存し profile/saved で知らせると、新しい名前で読める' do

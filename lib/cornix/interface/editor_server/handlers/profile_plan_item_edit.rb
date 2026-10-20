@@ -6,11 +6,11 @@ module Cornix
   module Interface
     module EditorServer
       module Handlers
-        # profile/planItemEdit: 項目の追加・削除・名前の変更・位置の名前の変更を、ファイルの作成・削除・改名と書き換えにする
-        # （protocol.md の 12.5）。
+        # profile/planItemEdit: 項目の追加・削除・名前の変更・位置の名前の変更・preset の展開を、ファイルの作成・削除・改名と書き換えにする
+        # （protocol.md の 12.5 と 13.1）。
         #   params: { profileId, baseVersions?: { file => FileVersion | null }（省けば {}）, edit: ItemEdit }
         #   VersionConflict → -32060（data: { files: }）、InvalidChange → -32602（data: { field: }）、
-        #   NotLocal と Unverified → -32061（data: { address:, reason: }。名前の変更の照合は reason "verify"）
+        #   NotLocal と Unverified → -32061（data: { address:, reason: }。名前の変更・preset の展開の照合は reason "verify"）
         # params の形の誤り（op・kind の値、項目の型、row / col が整数でないなど）は読むときに -32602 にするので、版の食い違いより先に返る
         class ProfilePlanItemEdit < Handler
           ItemEdits = Application::Editor::ItemEdits
@@ -19,7 +19,8 @@ module Cornix
           KINDS = {
             'create' => ITEM_KINDS,
             'delete' => ITEM_KINDS,
-            'rename' => ITEM_KINDS + ['layer']
+            'rename' => ITEM_KINDS + ['layer'],
+            'expandPreset' => %w[macro]
           }.freeze
           HANDS = %w[left right].freeze
 
@@ -54,7 +55,7 @@ module Cornix
             name = text(edit, 'name')
             case op
             when 'create' then create_edit(edit, kind, name)
-            when 'delete' then ItemEdits::Edit.new(op: op, kind: kind, name: name)
+            when 'delete', 'expandPreset' then ItemEdits::Edit.new(op: op, kind: kind, name: name)
             else ItemEdits::Edit.new(op: op, kind: kind, name: name, to: text(edit, 'to'))
             end
           end

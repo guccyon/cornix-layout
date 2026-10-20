@@ -11,8 +11,9 @@ module Cornix
         #   Edit.new(op: 'delete', kind: 'tapDance', name: 'Tab Escape')
         #   Edit.new(op: 'rename', kind: 'layer', name: 'Layer 1', to: 'Symbols')
         #   Edit.new(op: 'renamePosition', hand: 'left', row: 0, col: 0, to: 'esc')
+        #   Edit.new(op: 'expandPreset', kind: 'macro', name: 'Capture')
         #
-        # op は "create" | "delete" | "rename" | "renamePosition"、kind は "macro" | "tapDance" | "combo" | "shortcut" | "layer"、
+        # op は "create" | "delete" | "rename" | "renamePosition" | "expandPreset"、kind は "macro" | "tapDance" | "combo" | "shortcut" | "layer"、
         # hand は "left" | "right"（約束の文字列のまま。形の検査は Interface が行う）
         Edit = Data.define(:op, :kind, :name, :to, :preset, :value, :hand, :row, :col) do
           def initialize(op:, kind: nil, name: nil, to: nil, preset: nil, value: nil, hand: nil, row: nil, col: nil) = super

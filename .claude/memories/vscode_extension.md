@@ -1,6 +1,6 @@
 # VS Code 拡張の作業の知見
 
-設計は docs/vscode-extension/（spec / adr / roadmap / protocol / tasks）。作業は統合ブランチ `feature/vscode-extension` に PR で集める。
+設計は docs/vscode-extension/（spec / adr / roadmap / protocol / tasks）。v0.1 は統合ブランチ `feature/vscode-extension` に作業ごとの PR を集めて main に入れた。v0.2 からも版ごとに同じ統合ブランチに PR を集め、版ができたら main への PR にする（docs/vscode-extension/tasks.md の「v0.2 からの進め方」）。
 
 ## QMK 設定の既定値は RMK の値
 - Cornix の実機は RMK 0.8 系。`data/qmk_settings.yaml` の `default` は vial-qmk や QMK ではなく RMK v0.8.3 の
@@ -18,7 +18,7 @@
 ## CI と必須チェック
 - main の ruleset は `rspec` を必須チェックにしている。ワークフローを `paths-ignore` で丸ごと飛ばすとチェックが待ちのままになり PR がマージできないので、
   rspec.yml はいつも動かし、ジョブの中で変わったパスを見て手順を飛ばす形にした
-- 拡張の CI（vscode.yml、ジョブ名 `node`）は必須チェックになっていない（ruleset の変更はユーザーの判断）
+- 拡張の CI（vscode.yml、ジョブ名 `node`）も 2026-10-20 に必須チェックに足した。rspec と同じく、いつも報告し関係のない PR では手順を飛ばして成功で終える
 - vscode.yml の node ジョブは、本物のサーバーでの統合テスト（`npm run test:integration:ruby`）のために Ruby を入れる（gem は使わないので bundle install しない）。
   そのため lib/ と bin/cornix の変更でも動かす
 

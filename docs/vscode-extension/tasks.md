@@ -2,10 +2,11 @@
 
 [roadmap.md](roadmap.md) の「v0.1 の進め方」2〜10 を、責務の境界で分けた作業にしたもの。
 同じ段の作業は**同じファイルを編集しない**ので並列に進められる。次の段は、前の段のうち依存する作業がマージされてから始める。
+v0.1 は段 1〜4 を終えて main に入った（PR #49）。この文書の段 1〜4 はその記録で、v0.2 からの進め方は最後の「v0.2 からの進め方」。
 
 ## 共通ルール
 
-- 統合ブランチは `feature/vscode-extension`。作業ごとに `<repo-root>/<ブランチ名>` の worktree を作り、PR はすべて `feature/vscode-extension` 向けに出す。main には直接入れない
+- v0.1 のときは、統合ブランチ `feature/vscode-extension` に作業ごとの PR を集めた（作業ごとに `<repo-root>/<ブランチ名>` の worktree を作り、PR はすべて `feature/vscode-extension` 向け。main には直接入れない）
 - コミット前に `LANG=ja_JP.UTF-8 bundle exec rspec` がすべて通ること（拡張の作業は `editors/vscode/` のテストも）。新しいクラスには spec を書く
 - [architecture.md](../architecture.md) の層と依存の向きを守る（Interface は Application だけを参照する。`spec/architecture_spec.rb` が検査する）
 - 約束は [protocol.md](protocol.md)。**ここに書いた契約（クラスと公開メソッドの形）は勝手に変えない。** 変える必要があれば PR の説明で提案する
@@ -184,7 +185,7 @@ Application::Editor::ProfileReading#text(rel) / #with_files({ rel => text })   #
 dirty と Ctrl+S（protocol.md の 6.2）、外での変更の扱い（7.3）、QMK 設定とメタデータの表示。
 触るファイル: `editors/vscode/src/`（`webview/` の QMK 設定・メタデータの部品を含む）。G の画面の部品は使うが書き換えない（要るときは相談）
 
-- E からの申し送り（`editors/vscode/src/editor/profileDocument.ts` の TODO）
+- E からの申し送り（`editors/vscode/src/editor/profileDocument.ts` に書いてあった TODO。I で済み、TODO はもう残っていない）
   - 保存: `ProfileDocument#save` に 6.2 の流れを入れる。3〜4 の間は `document.watcher.hold()` で見張りの知らせを溜める
   - 元に戻す: 編集ごとに前の値と新しい値を持ち、snapshot の値と同じになれば変更から外す作りにしてある。保存のあとの undo はディスクの値に対する変更として残る
   - 外での変更（7.3）: 「外の変更を残す」は `changes.clear()` ではなく revert を通す（CustomEditor の dirty は保存か revert でしか消えない）
@@ -195,4 +196,13 @@ dirty と Ctrl+S（protocol.md の 6.2）、外での変更の扱い（7.3）、
 ### J. 通しの確認（roadmap の 10）
 
 .vsix を作って手元で入れ、自分のプロファイルで「レイヤーを画面だけで直して保存でき、compile の結果が手で直したときと同じ、変えていない行が変わらない」を確かめる。
-直しが要れば小さな PR にする。そのあと `feature/vscode-extension` → main の PR を作る
+直しが要れば小さな PR にする。そのあと `feature/vscode-extension` → main の PR を作る（PR #49）
+
+## v0.2 からの進め方
+
+main に作業をそのまま入れていかず、版ごとに統合ブランチで作る。
+
+- 版ごとに統合ブランチ `feature/vscode-extension` に作業ごとの PR を集め、版ができたら `feature/vscode-extension` → main の PR にする
+- 版を始めるときは `feature/vscode-extension` を main の先端にそろえる（統合ブランチに main を取り込む側は、スカッシュではなくふつうのマージコミットで。スカッシュにすると merge-base が古いままになり、main への PR がぶつかる）
+- 作業の分け方（同じ段の作業は同じファイルを編集しない・契約を勝手に変えない・触るファイルを決める）は v0.1 と同じ。版ごとの作業の分け方は、この文書に段を足すか版ごとの文書にする
+- コミット前に `LANG=ja_JP.UTF-8 bundle exec rspec` と、拡張を触ったときは `cd editors/vscode && npm ci && npm run typecheck && npm test` が通ること

@@ -38,7 +38,7 @@ v0.1 ではメタデータの節での表示を外した（欄の名前として
 
 ## v0.1 の進め方
 
-最初にリクエストの約束を文書で決め、Ruby 側と画面側をその約束に沿って作る。PR は下の単位で分ける想定。
+最初にリクエストの約束を文書で決め、Ruby 側と画面側をその約束に沿って作った（v0.1 の記録。実際の分け方と PR は [tasks.md](tasks.md)）。
 
 1. このドキュメントをリポジトリの `docs/vscode-extension/` に置き、リクエストの約束（メソッド名・引数・戻り値・エラー）を文書にする（[protocol.md](protocol.md)）
 2. Ruby: 常駐のサブコマンドと JSON-RPC の土台（MCP サーバー `Interface::Mcp` の標準入出力の扱いを参考に）。位置づけは Interface 層、中身は Application 層のユースケース（[architecture.md](../architecture.md) の依存の向きを守る）

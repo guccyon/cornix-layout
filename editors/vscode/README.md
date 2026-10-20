@@ -1,6 +1,6 @@
 # Cornix Layout（VS Code 拡張）
 
-cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 画面で見て、候補から選びながら編集する VS Code 拡張。作っている途中（v0.1）。
+cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 画面で見て、候補から選びながら編集する VS Code 拡張（v0.1）。
 仕様・決定・約束は [docs/vscode-extension/](../../docs/vscode-extension/README.md)。
 
 拡張は `cornix serve`（Ruby のサーバー）を子プロセスとして起動し、標準入出力の JSON-RPC（[protocol.md](../../docs/vscode-extension/protocol.md)）だけで話す。
@@ -8,7 +8,7 @@ cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 
 
 ## 必要なもの
 
-- Node.js 24 以上と npm（CI は Node 24）
+- Node.js 22（22.12 以上）か 24 と npm（CI は Node 24）。Node 25 では `npm ci` が vitest の engines（`^22.12 || ^24 || >=26`）に合わず警告（EBADENGINE）を出す（動きはする）。26 以上は警告なし
 - VS Code 1.120 以上（CI は 1.120.0 と stable の両方で統合テストを動かす）。ワークスペースはフォルダを 1 つだけ開いたもの（マルチルートでは最初のフォルダを `--root` にする。v0.1 では対象外）
 - 本物のサーバーで動かすときは、このリポジトリの Ruby の環境（`bundle install` 済み）。サーバーがなくても、テスト用の偽のサーバーで画面の作業ができる
 
@@ -44,12 +44,12 @@ Marketplace には出していないので、.vsix を作って自分の VS Code
    入れ直すときも同じ（版が同じなら上書き）。外すときは `code --uninstall-extension guccyon.cornix-vscode`
 3. プロファイルのあるフォルダを開く。たとえば authors-keymap の worktree（`.cornix.yml` に `profile: authors`）をフォルダとして開き、
    ワークスペースを信頼する（Restricted Mode では動かない）
-4. 設定 `cornix.path` に、`cornix serve` のある `bin/cornix` の絶対パスを入れる。空なら開いたフォルダの `bin/cornix`、なければ `PATH` の `cornix` を使うが、
-   そのブランチに `cornix serve` がなければ起動できない（まだ main に入っていないうちは、`feature/vscode-extension` などの worktree の `bin/cornix` を指す）。
-   ワークスペースの `.vscode/settings.json` に書くと、そのフォルダだけに効く
+4. 設定 `cornix.path` は、`cornix serve` のある `bin/cornix` を指す。`cornix serve` は main に入っているので、authors-keymap を main に rebase してあれば
+   空のまま（開いたフォルダの `bin/cornix`、なければ `PATH` の `cornix`）でよい。開いたフォルダのブランチが古く `cornix serve` がないときは、
+   main の worktree などの `bin/cornix` の絶対パスを入れる。ワークスペースの `.vscode/settings.json` に書くと、そのフォルダだけに効く
 
    ```jsonc
-   { "cornix.path": "/Users/<you>/src/github.com/guccyon/cornix-layout/feature/vscode-extension/bin/cornix" }
+   { "cornix.path": "/path/to/cornix-layout/main/bin/cornix" }
    ```
 
 5. アクティビティバーの Cornix のアイコンか、コマンドパレットの「Cornix: プロファイルを開く」で開く。保存は Ctrl+S（Cmd+S）。
@@ -63,8 +63,15 @@ Dock から起動した VS Code はログインシェルから環境を読むの
 ```sh
 #!/bin/sh
 # ~/bin/cornix-vscode（chmod +x する）
-exec "$HOME/.local/share/mise/installs/ruby/latest/bin/ruby" /path/to/cornix-layout/feature/vscode-extension/bin/cornix "$@"
+exec "$HOME/.local/share/mise/installs/ruby/latest/bin/ruby" /path/to/cornix-layout/main/bin/cornix "$@"
 ```
+
+### 同梱する依存のライセンス
+
+`out/extension.js` には実行時の依存（いまは `vscode-jsonrpc` だけ）が esbuild でまとめて入り、元のファイルの著作権表示は残らない。
+そのライセンス文は `ThirdPartyNotices.txt` に写して .vsix に入れている（`.vscodeignore` の `!ThirdPartyNotices.txt`）。
+`dependencies` を足したり版を上げたりしたら、`node_modules/<パッケージ>/` のライセンス文をここに足し、`npx vsce ls --no-dependencies` で入ることを確かめる。
+devDependencies（ビルドとテストの道具）は .vsix に入らないので要らない。アイコンの素材は `media/icons/NOTICE.md`
 
 ### 設定
 
@@ -96,6 +103,7 @@ exec "$HOME/.local/share/mise/installs/ruby/latest/bin/ruby" /path/to/cornix-lay
 ```
 editors/vscode/
   package.json            拡張の manifest（表示は日本語だけ）
+  ThirdPartyNotices.txt   .vsix に入る依存（out/extension.js）のライセンス文
   esbuild.mjs             ビルド（out/ に出す）
   src/
     extension.ts          入口（コマンド・一覧・編集画面・設定の変更をつなぐ）

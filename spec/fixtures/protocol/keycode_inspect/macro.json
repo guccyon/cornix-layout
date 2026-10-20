@@ -13,7 +13,7 @@
         "display": { "label": "Bracket Pair" }
       },
       "diagnostics": [],
-      "description": { "title": "マクロ Bracket Pair（M0）", "lines": ["角括弧ペア [] を挿入してカーソルを内側に配置", "tap: [ ] Left", "QMK: QK_MACRO_0（0x7700）"] }
+      "description": { "title": "マクロ Bracket Pair（M0）", "lines": ["角括弧ペア [] を挿入してカーソルを内側に配置", "tap: [ ] ←", "QMK: QK_MACRO_0（0x7700）"] }
     }
   }
 }

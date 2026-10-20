@@ -2077,3 +2077,119 @@ button {
     grid-column: 2 / 4;
   }
 }
+
+/* v0.3 欄 */
+
+/* 節の開閉の印（最初はレイヤー以外の節を畳む。summary は flex なので既定の印は出ない） */
+.section-details > summary {
+  list-style: none;
+}
+
+.section-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.section-details > summary::before {
+  content: '▶';
+  flex: none;
+  width: 1em;
+  font-size: 0.75em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.section-details[open] > summary::before {
+  content: '▼';
+}
+
+/* 一覧の行の印（押せないコンボの ⚠）。名前と問題の印の間の列 */
+.item-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'index name mark severity'
+    'index detail mark severity';
+}
+
+.item-mark {
+  grid-area: mark;
+  color: var(--warning);
+  font-size: 0.9em;
+}
+
+.combo-unreachable {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 4px 0;
+  color: var(--warning);
+}
+
+/* コンボの「キーを足す」「図から選ぶ」 */
+.combo-trigger-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.combo-pick.picking {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+/* マクロの「手順に展開」（手順の見出しの横） */
+.macro-summary-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 同梱のショートカットの行のキーの組 */
+.preset-item-text {
+  margin-left: 8px;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* キー入力欄の候補の下の「同梱から選ぶ…」 */
+.candidate.presets-row {
+  border-top: 1px solid var(--vscode-editorWidget-border, #8884);
+}
+
+.candidate.presets-row .candidate-label {
+  color: var(--vscode-textLink-foreground);
+}
+
+/* キー入力欄から開く同梱のショートカットの選択（候補の一覧と同じく欄の下に重ねる） */
+.preset-picker.key-input-presets {
+  position: absolute;
+  z-index: 21;
+  top: calc(100% + 2px);
+  left: 0;
+  width: max(100%, 340px);
+  max-width: calc(100vw - 32px);
+  margin: 0;
+}
+
+.key-input-presets .preset-picker-panel,
+.shortcut-copy .preset-picker-panel {
+  margin-top: 0;
+  background: var(--vscode-editorWidget-background);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+/* ショートカットの節の「同梱からコピー」（「追加」の横。選択は下に重ねる） */
+.preset-picker.shortcut-copy {
+  position: relative;
+  margin: 0;
+}
+
+.shortcut-copy .preset-picker-panel {
+  position: absolute;
+  z-index: 21;
+  top: calc(100% + 2px);
+  left: 0;
+  width: 30em;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+}

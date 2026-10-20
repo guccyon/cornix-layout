@@ -30,8 +30,14 @@ const styled = new Promise<void>((resolve) => {
 document.head.append(stylesheet);
 
 const host = new MessageHostClient((message) => vscode.postMessage(message));
-// v0.2 の中身の節（サーバーが snapshot に macros などを返さなければ出さない）
-const items = [new MacroEditor({ host }), new TapDanceEditor({ host }), new ComboEditor({ host }), new ShortcutEditor({ host })];
+// v0.2 の中身の節（サーバーが snapshot に macros などを返さなければ出さない）。
+// コンボの「図から選ぶ」は上の図で選ぶ（v0.3。app は下で作るので、押されたときに読む）
+const items = [
+  new MacroEditor({ host }),
+  new TapDanceEditor({ host }),
+  new ComboEditor({ host, pickKey: (onPick) => app.pickKey(onPick) }),
+  new ShortcutEditor({ host }),
+];
 const settings = new SettingsEditor({ onCommit: (change) => host.change(change) });
 const metadata = new MetadataView();
 const app = new App(document.getElementById('app') as HTMLElement, {

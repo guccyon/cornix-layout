@@ -1,4 +1,5 @@
 // metadata.yaml の表示（読むだけ。spec.md の「ファイルの種類ごと」）。入れ子の Hash は表の中の表、配列は番号を振った表で見せる。
+// 節は最初は畳んでおく（v0.3。ほかの節と同じく summary に ▶ / ▼ の印）。
 // position_map.yaml は出さない（欄の名前として下のレイヤーの欄に出ている。名前を画面から直すのは roadmap.md の v0.2 の候補）。
 import type { ProfileSnapshot } from '../protocol';
 import { h } from './dom';

@@ -1,4 +1,4 @@
-// 項目の追加・削除・名前の変更（protocol.md の 12.5）で、確認のダイアログに出す文と、失敗の知らせの文を作る。vscode に依存しない。
+// 項目の追加・削除・名前の変更（protocol.md の 12.5）と preset の展開（13.1）で、確認のダイアログに出す文と、失敗の知らせの文を作る。vscode に依存しない。
 import { ErrorCodes, type ItemEdit, type ItemFileEdits, type PlanItemEditResult } from '../protocol';
 
 const KIND_NAMES: Record<string, string> = {
@@ -25,6 +25,8 @@ export function isItemEdit(value: unknown): value is ItemEdit {
       return kind && typeof edit.name === 'string' && typeof edit.to === 'string';
     case 'renamePosition':
       return (edit.hand === 'left' || edit.hand === 'right') && Number.isInteger(edit.row) && Number.isInteger(edit.col) && typeof edit.to === 'string';
+    case 'expandPreset':
+      return edit.kind === 'macro' && typeof edit.name === 'string';
     default:
       return false;
   }
@@ -65,6 +67,8 @@ export function describeItemEdit(edit: ItemEdit, result: PlanItemEditResult): { 
     references = count > 0 ? `この項目への参照が ${count} 件あり、削除すると参照している側がエラーになります。` : 'この項目への参照はありません。';
   } else if (edit.op === 'rename' || edit.op === 'renamePosition') {
     references = count > 0 ? `参照 ${count} 件も書き換えます。` : '';
+  } else if (edit.op === 'expandPreset') {
+    references = 'preset: の行を同梱の定義の手順（sequence:）に置き換えます（キーボードに書く値は変わりません）。';
   }
   const lines = result.files.map(fileLine);
   return {
@@ -80,7 +84,10 @@ export function itemEditErrorMessage(edit: ItemEdit, error: unknown): string {
   const reason = typeof message === 'string' ? message : error instanceof Error ? error.message : String(error);
   if (code === ErrorCodes.EditNotLocal) {
     const why = (data as { reason?: string } | undefined)?.reason;
-    if (why === 'verify') return `${what}（名前を変える前と後で compile の結果が変わるため）。${reason}`;
+    if (why === 'verify') {
+      const when = edit.op === 'expandPreset' ? '展開の前と後' : '名前を変える前と後';
+      return `${what}（${when}で compile の結果が変わるため）。${reason}`;
+    }
     return `${what}（値の部分だけでは書き換えられないため）。${reason}`;
   }
   if (code === ErrorCodes.InvalidParams) return `${what}（${reason}）`;

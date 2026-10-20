@@ -173,6 +173,27 @@ describe('偽のサーバーの profile/planItemEdit（12.5）', () => {
     }
   });
 
+  it('preset の展開（13.1）は preset: の行を同梱の定義の sequence: に置き換える。preset: でないマクロは -32602', async () => {
+    const { result, dir, cleanup } = await plan({ op: 'expandPreset', kind: 'macro', name: 'Copy Selected' });
+    try {
+      expect(result.files.map((f) => f.file)).toEqual(['macros/02_copy_selected.yml']);
+      const text = apply(fs.readFileSync(path.join(dir, 'macros/02_copy_selected.yml'), 'utf-8'), result.files[0]!.edits);
+      expect(text).toBe(
+        '---\nname: Copy Selected\nindex: 2\nsequence:\n' +
+          ['down', 'tap', 'up', 'down', 'tap', 'up'].map((action, i) => `- action: ${action}\n  keys:\n  - ${['LGui', 'K', 'LGui', 'LGui', 'S', 'LGui'][i]}\n`).join(''),
+      );
+      expect(result.references).toEqual([]);
+    } finally {
+      cleanup();
+    }
+    const plain = await plan({ op: 'expandPreset', kind: 'macro', name: 'Bracket Pair' });
+    try {
+      expect(plain.response.error).toMatchObject({ code: ErrorCodes.InvalidParams, data: { field: 'edit.name' } });
+    } finally {
+      plain.cleanup();
+    }
+  });
+
   it('照合に失敗する名前は -32061（verify）', async () => {
     const { response, cleanup } = await plan({ op: 'rename', kind: 'macro', name: 'Bracket Pair', to: VERIFY_FAIL_NAME });
     try {

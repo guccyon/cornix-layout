@@ -560,6 +560,18 @@ export const CANDIDATES: Candidate[] = [
   },
 ];
 
+/** 同梱の preset の手順（data/shortcuts/ の macro:。偽のサーバーの expandPreset が sequence: に書く） */
+export const PRESET_SEQUENCES: Record<string, { action: 'tap' | 'down' | 'up'; keys: string[] }[]> = {
+  'VS Code:基本操作:キーボードショートカット': [
+    { action: 'down', keys: ['LGui'] },
+    { action: 'tap', keys: ['K'] },
+    { action: 'up', keys: ['LGui'] },
+    { action: 'down', keys: ['LGui'] },
+    { action: 'tap', keys: ['S'] },
+    { action: 'up', keys: ['LGui'] },
+  ],
+};
+
 export const SHORTCUT_TREE: ShortcutTreeResult = {
   apps: [
     {

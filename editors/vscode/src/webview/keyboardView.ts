@@ -123,6 +123,7 @@ export class KeyboardView {
     const toolbar = h('div', { class: 'keyboard-toolbar' }, this.comboBar, h('div', { class: 'keyboard-toggles' }, this.layersToggle, this.toggle));
     this.pickBanner = h('div', { class: 'pick-banner', role: 'status', hidden: true }, 'キーを押して選ぶ（Esc で戻る）');
     this.positionHint = h('div', { class: 'position-hint', hidden: true });
+    this.renderHint();
     this.element = h('div', { class: 'keyboard', role: 'group', 'aria-label': 'キーボード図' }, toolbar, this.pickBanner, this.board, this.positionHint);
     const win = options.window ?? window;
     win.addEventListener('keydown', (event) => {

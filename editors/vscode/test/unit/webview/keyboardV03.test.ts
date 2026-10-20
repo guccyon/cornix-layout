@@ -103,6 +103,7 @@ describe('位置の名前のボタンのホバーと出所の説明', () => {
     toggle.dispatchEvent(new MouseEvent('mouseleave'));
     expect(q.querySelector('.position-name')).toBeNull();
     expect(hint.hidden).toBe(true);
+    expect(hint.textContent).toBe('名前は position_map.yaml のもの。キーを押すとここで名前を変えられる');
 
     // 固定・Alt と共存する（固定中は離れても出したまま）
     toggle.click();

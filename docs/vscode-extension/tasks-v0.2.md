@@ -60,11 +60,12 @@ v0.3 に回すもの（roadmap のまま）: コンボのキーを図から選�
 
 ### P. 約束を決める（ブランチは作業ごと、PR は `feature/vscode-extension` 向け）
 
-protocol.md を v0.2 に上げ、上の「約束に足すもの」を型・決まり・エラーまで書く。合わせて `editors/vscode/src/protocol.ts` の型と、
-`spec/fixtures/protocol/` に新しいメソッドと context の適合テストのデータを足す（Ruby の実装がないうちは `pending`）。
-段 2 の全作業がこの PR の型とデータを前提にする。
+protocol.md に「12. v0.2 で足すもの」を足し、上の「約束に足すもの」を型・決まり・エラーまで書く。合わせて `editors/vscode/src/protocol.ts` に型を足す
+（v0.1 の型は壊さない。snapshot の新しい項目は省ける形にし、Change の `op` 付きの形は `AnyChange` として別に足す）。
+適合テストのデータ（`spec/fixtures/protocol/`）は、そのメソッドを作る段 2 の作業が足す。約束の版（`protocolVersion`）は段 3 で `"0.2"` に上げる。
+段 2 の全作業がこの PR の約束と型を前提にする。
 
-触るファイル: `docs/vscode-extension/protocol.md`、`editors/vscode/src/protocol.ts`、`spec/fixtures/protocol/**`
+触るファイル: `docs/vscode-extension/protocol.md`、`editors/vscode/src/protocol.ts`
 
 ## 段 2（並列）
 

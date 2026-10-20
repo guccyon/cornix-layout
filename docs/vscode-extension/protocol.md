@@ -1,11 +1,11 @@
-# バックエンドとのリクエストの約束（v0.1）
+# バックエンドとのリクエストの約束（v0.1・v0.2）
 
 VS Code 拡張（以下「拡張」）と、プロファイルを読んで解釈するバックエンド（以下「サーバー」）の間の約束。
 拡張はこの約束だけでサーバーと話し、`cornix` コマンドを直接叩かない（[ADR 003](adr.md)）。
 今のサーバーは Ruby（`cornix` のサブコマンド）だが、将来は同梱の TypeScript 版（B 案、[roadmap.md](roadmap.md) の「将来の拡張」）に
 差し替えられるように、約束には Ruby のクラス名や内部の形を出さない。
 
-**状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。
+**状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。v0.2 で足すもの（2026-10-20 決定）は「[12. v0.2 で足すもの](#12-v02-で足すもの)」。
 
 起動・終了とプロファイルの一覧（`initialize`、`profile/list` など）のほかに、中身のメソッドとして次の 5 つを決める。
 
@@ -724,9 +724,9 @@ JSON-RPC のエラーで返す。`message` は利用者に見せてよい日本�
 ## 10. v0.1 のこの案に入れないもの
 
 - compile / validate / status をエディタから実行するコマンド（v0.1 の後半で `command/compile` などとして足す。status は読むだけ）
-- マクロ・タップダンス・コンボ・ショートカットの中身の画面と、その `context`（v0.2）
-- 項目の追加・削除・名前の変更（v0.2。名前の変更は `cornix rename`）
-- 注記の編集（v0.2。`Change` の `address` に `note` を指す道筋を足す）
+- マクロ・タップダンス・コンボ・ショートカットの中身の画面と、その `context`（v0.2。[12.2](#122-profileopen-に足すもの)・[12.4](#124-中身の画面の-context)）
+- 項目の追加・削除・名前の変更（v0.2。[12.5](#125-profileplanitemedit)）
+- 注記の編集（v0.2。Address ではなく Change の `field: "note"` で指す。[12.3](#123-change-に足すもの)）
 - 実機への書き込み（入れない。[ADR 014](adr.md)）
 
 ## 11. 決めたこと
@@ -740,9 +740,205 @@ JSON-RPC のエラーで返す。`message` は利用者に見せてよい日本�
 5. **値の部分だけでは書き換えられないとき**: 書かずにエラーにする。コメントを壊さないことを優先し、画面には「テキストで直してください」とファイルを開くボタンを出す（そのファイルだけ作り直す）
 6. **構造検証で読めないプロファイルを開いたとき**: エラーの一覧だけを出す。Claude が書きかけのときは、直れば `profile/didChange` で描き直る（読めたファイルだけを描く）。
    今の読み込みはキー 1 つの読めない表記でも全体を止めるので、外で 1 か所書き間違えると画面では直せない。画面から構造の error を作って保存することは止める（[6.2](#62-保存の流れ)）
-7. **割り当てを消す操作**: v0.1 では入れず、`NoKey`（KC_NO）を選んでもらう。行の削除は v0.2 の項目の削除と一緒に決める（空の値にする、行を消す）
+7. **割り当てを消す操作**: v0.1 では入れず、`NoKey`（KC_NO）を選んでもらう。行の削除は v0.2 の項目の削除と一緒に決める（空の値にする、行を消す）。v0.2 では Change の `op: "remove"`（[12.3](#123-change-に足すもの)）
 8. **候補を絞る場所**: 打つたびにサーバーに聞く。並べ方がサーバー 1 か所に集まり、適合テストで両方の実装を縛れる（最初に全部もらって画面で絞る）。
    これはサーバーを別のプロセスに置く今の作り（LSP と同じ形）での決め。将来サーバーを不要にする（拡張だけで動かす）ときは、候補のデータと絞り込みのロジックを拡張の側に持つ
 9. **画面の作り**: プロファイルを 1 つの仮想ドキュメント（`cornix-profile:` のスキーム）に見立て、カスタムエディタ（`CustomEditorProvider`）に乗せる。
    dirty の印・Ctrl+S・閉じるときの確認を VS Code に任せられる。元に戻す・やり直しの中身は、拡張が Change を `onDidChangeCustomDocument` の編集として渡して作る
    （ふつうの Webview パネルでこれらを自前で作る）。[ADR 015](adr.md)
+
+## 12. v0.2 で足すもの
+
+[tasks-v0.2.md](tasks-v0.2.md) の「決めたこと」を約束にしたもの。v0.1 の形は変えず、項目とメソッドを足す（v0.1 の拡張が知らない項目は無視できる）。
+約束の版（`protocolVersion`）は段 3 の通しの確認で `"0.2"` に上げる（それまでは `"0.1"` のまま足していく）。
+
+### 12.1 KeySlot（キーを入れる欄 1 つ）
+
+v0.1 のレイヤーのキー・エンコーダの操作と同じ「Address と値」の組に名前を付け、中身の画面でも使う。
+
+```ts
+type KeySlot = {
+  address: Address;             // その値を書く場所（まだ書いていなければ、書くときの場所）
+  value: KeyValue | null;       // 書いていなければ null。注記は KeyValue.note
+};
+```
+
+`LayerKey` と `EncoderAction` は KeySlot に位置（hand / row / col）を足したもの・KeySlot そのものとして読み替えてよい（形は v0.1 と同じ）。
+
+### 12.2 `profile/open` に足すもの
+
+```jsonc
+{
+  "positionMap": [
+    { "hand": "left", "row": 0, "col": 0, "group": "row0", "symbol": "tab",
+      "address": { "file": "position_map.yaml", "path": ["left_hand", "row0", 0] } }       // 足す: 名前を書いている場所
+  ],
+  "layers": [
+    { "index": 0, "name": "Base", "...": "v0.1 と同じ",
+      "descriptionAddress": { "file": "layers/0_base.yml", "path": ["description"] } }   // 足す
+  ],
+  "macros": [
+    {
+      "index": 0, "name": "Bracket Pair", "description": "角括弧ペア", "file": "macros/00_bracket_pair.yml",
+      "descriptionAddress": { "file": "macros/00_bracket_pair.yml", "path": ["description"] },
+      "icon": null,                       // preset: のマクロの元のアプリのアイコン（なければ null）
+      "preset": null,                     // preset: の名前（sequence で書いていれば null）
+      "presetAddress": null,              // preset: で書いていれば ["preset"] の Address（同梱のマクロの選び直しに使う）
+      "summary": ["tap: [ ] ←"],         // 手順を 1 行ずつ（keycode/inspect の説明の手順の行と同じ文。preset でも出す）
+      "steps": [                          // sequence の手順（preset で書いていれば []）
+        {
+          "address": { "file": "macros/00_bracket_pair.yml", "path": ["sequence", 0] },
+          "action": "tap",                // "tap" | "down" | "up" | "delay" | "text"
+          "keysAddress": { "file": "…", "path": ["sequence", 0, "keys"] },          // tap / down / up だけ
+          "keys": [ { "address": { "file": "…", "path": ["sequence", 0, "keys", 0] }, "value": { "text": "KC_LBRACKET", "...": "KeyValue" } } ]
+        },
+        { "address": { "…": "…" }, "action": "delay",
+          "duration": { "address": { "file": "…", "path": ["sequence", 1, "duration"] }, "value": 100 } },
+        { "address": { "…": "…" }, "action": "text",
+          "content": { "address": { "file": "…", "path": ["sequence", 2, "content"] }, "value": "hello" } }
+      ]
+    }
+  ],
+  "tapDances": [
+    {
+      "index": 4, "name": "Tab Escape", "description": null, "file": "tap_dance/04_tab_escape.yml",
+      "descriptionAddress": { "…": "…" },
+      "actions": { "tap": KeySlot, "hold": KeySlot, "doubleTap": KeySlot, "tapHold": KeySlot },
+      "tappingTerm": { "address": { "file": "…", "path": ["tapping_term"] }, "value": 200 }   // 書いていなければ value は null（読み込みでは 250）
+    }
+  ],
+  "combos": [
+    {
+      "index": 0, "name": "Left Bracket", "description": null, "file": "combos/00_left_bracket.yml",
+      "descriptionAddress": { "…": "…" },
+      "triggersAddress": { "file": "…", "path": ["trigger_keys"] },
+      "triggers": [KeySlot, KeySlot],     // trigger_keys に書いてある数だけ（KC_NO の詰め物も書いてあれば出す）
+      "output": KeySlot
+    }
+  ],
+  "shortcuts": [
+    { "name": "前のタブへ", "address": { "file": "shortcuts.yaml", "path": ["shortcuts", "前のタブへ"] },
+      "value": { "text": "Command + Shift + [", "...": "KeyValue" } }
+  ]
+}
+```
+
+- 並びは `references` と同じ（マクロ・タップダンス・コンボは番号の順、ショートカットはファイルの順）。`status: "invalid"` のときは 4 つとも `[]`
+- `description` は書いていなければ `null`。`descriptionAddress` はいつもある（書いていなければ挿入の場所）
+- 名前（`name`）の Address は返さない。名前を変えるのは参照の書き換えを伴うので Change ではなく [12.5](#125-profileplanitemedit) で行う
+- マクロの手順の `keys` は、ファイルが 1 つの値（`keys: KC_A`）で書いていれば要素 1 つで、その Address は `["sequence", i, "keys"]`
+- タップダンスの動作の Address は、ファイルが `actions:` の下に書いていれば `["actions", "on_tap"]`、上の階層なら `["on_tap"]`。
+  動作をどちらにも書いていなければ `actions:` の下（`Schema::TapDanceFile.write` と同じ形）
+- コンボの `triggers` の要素の Address は `["trigger_keys", i]`、`output` は `["output_key"]`
+- ショートカットの `path` は `["shortcuts", 名前]`（名前に `.` があってもそのまま 1 つの要素）
+
+### 12.3 Change に足すもの
+
+`op` を省けば v0.1 と同じ値の書き換え（`set`）。
+
+```ts
+type Change =
+  | { op?: "set"; address: Address; value: string | number | boolean; field?: "key" | "note" }
+  | { op: "remove"; address: Address; field?: "key" | "note" }
+  | { op: "insert"; address: Address; index: number; value: string | MacroStepValue }
+  | { op: "move"; address: Address; from: number; to: number };
+
+type MacroStepValue =
+  | { action: "tap" | "down" | "up"; keys: string[] }
+  | { action: "delay"; duration: number }
+  | { action: "text"; content: string };
+```
+
+- **set**: `field: "note"` は注記を書く（`field` を省くか `"key"` なら割り当て）。注記のない形（`tab: Escape`）に注記を書くと
+  フロー表記の `{ key: Escape, note: 注記 }` にする（ブロック表記の行の中で値の部分だけを置き換える）。注記を書けるのは注記付きの形を書ける場所
+  （レイヤーのキー・エンコーダの操作・タップダンスの動作・コンボの `output_key`。[notation.md](../notation.md)）だけで、ほかは `-32602`
+- **remove**: 宛先の行（Hash の 1 項目）か並びの要素を消す。`field: "note"` は注記だけを消して `key` の値だけの形に戻す。
+  消せる宛先: レイヤーのキー（行を消す。消したあとの読み込みでは「割り当てなし」）、エンコーダの操作、タップダンスの動作、`description`、
+  `tapping_term`、マクロの手順（`["sequence", i]`）、手順のキー（`["sequence", i, "keys", j]`）、コンボのキー（`["trigger_keys", i]`）。
+  消したあとの中身が構造の問題になるとき（手順のキーが 0 個など）も書き換えは作り、検証の結果で知らせる（[6.2](#62-保存の流れ) のとおり保存は止まる）
+- **insert**: 宛先は並び（`["sequence"]`、`["sequence", i, "keys"]`、`["trigger_keys"]`）で、`index` の前に足す（並びの長さなら末尾）。
+  手順の値は MacroStepValue、キーは表記の文字列。1 つの値で書いた `keys`（`keys: KC_A`）に足すときは、フロー表記の並び（`keys: [KC_A, KC_B]`）に置き換える
+- **move**: 並びの中で `from` の要素を `to` の位置へ動かす（ほかの要素の順は保つ）。要素の行（コメントを含む）ごと動かす
+- 並び（`sequence`・`keys`・`trigger_keys`）の中を指す Address は、それより前の Change を当てたあとの位置で数える。
+  そのため拡張は、並びの要素を指す Change と並びへの `insert` / `remove` / `move` を畳まずに並びの順のまま持つ
+  （v0.1 の「同じ Address は最後の値だけ」は、並びの中を指さない `set` にだけ使う）
+- フロー表記の並びの中への挿入・移動は、並び全体を 1 行のフロー表記として書き直す（並びの中のコメントはないものとする。
+  並びが複数行のフロー表記なら `-32061`（reason `"flowInsert"`））
+- 拡張の当て直し（[7.3](#73-拡張の扱い)）: 並びを指す Change（`insert` / `remove` / `move` と、並びの要素を指す `set`）があるファイルが外で変わったら、
+  そのファイルの Change はまとめて「当て直せないもの」として扱う（並びの位置がずれているかもしれないため）
+
+### 12.4 中身の画面の context
+
+`keycode/candidates` と `keycode/inspect` の `context` に足す。上に出すものは `data/keycode_categories.yaml` の `contexts` に書く（[spec.md](spec.md) の「ファイルの種類ごと」）。
+
+| context | 欄 | 候補から除くもの | 上に出すもの |
+|---|---|---|---|
+| `macroKey` | マクロの手順のキー | レイヤー操作・マクロ・タップダンス・ショートカット（「すべて出す」は `all: true`） | 基本キー・修飾キー・メディア |
+| `tapDanceAction` | タップダンスの動作 | そのタップダンス自身（params の `exclude: "TapDance('名前')"`） | 基本キー・レイヤー操作 |
+| `comboTrigger` | コンボの同時に押すキー | レイヤー操作・マクロ・タップダンス・ショートカット | ベースレイヤー（レイヤー 0）にあるキー |
+| `comboOutput` | コンボの出すキー | — | マクロ・基本キー |
+| `shortcutValue` | `shortcuts.yaml` の値 | ショートカット（`Shortcut(...)`） | 修飾キー式の候補・基本キー |
+
+- params に足す: `all?: boolean`（`macroKey` で除くものも出す。既定 `false`）、`exclude?: string`（その表記と同じ値の候補を除く）
+- 修飾キー式の組み立て欄（[tasks-v0.2.md](tasks-v0.2.md) の 6）は拡張が表記を組み立て、`keycode/inspect` で解釈を確かめる（サーバーに組み立てのメソッドは足さない）
+
+### 12.5 `profile/planItemEdit`
+
+項目の追加・削除・名前の変更を、ファイルの作成・削除・改名と書き換えにして返す。[tasks-v0.2.md](tasks-v0.2.md) の決めたことの 2 のとおり、
+拡張は確認のダイアログを出してからすぐに当てて保存する（未保存の変更には積まない）。未保存の変更があるときは、拡張が先に保存を促す。
+
+```jsonc
+// params
+{ "profileId": "p1", "baseVersions": { /* snapshot.files をそのまま */ }, "edit": ItemEdit }
+// result
+{
+  "files": [
+    { "file": "macros/05_new_macro.yml", "baseVersion": null, "create": true,
+      "edits": [{ "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 0 } }, "newText": "---\nindex: 5\n…" }] },
+    { "file": "macros/03_old.yml", "baseVersion": "sha256:…", "renameTo": "macros/03_new_name.yml", "edits": [ /* name の行 */ ] },
+    { "file": "macros/04_unused.yml", "baseVersion": "sha256:…", "delete": true, "edits": [] }
+  ],
+  "references": [ /* Address[]。削除・名前の変更で書き換える（削除なら壊れる）参照の場所 */ ],
+  "diagnostics": []
+}
+```
+
+```ts
+type ItemKind = "macro" | "tapDance" | "combo" | "shortcut";   // rename だけ "layer" も使える
+type ItemEdit =
+  | { op: "create"; kind: "macro" | "tapDance" | "combo"; name: string; preset?: string }
+  | { op: "create"; kind: "shortcut"; name: string; value: string }
+  | { op: "delete"; kind: ItemKind; name: string }
+  | { op: "rename"; kind: ItemKind | "layer"; name: string; to: string }
+  | { op: "renamePosition"; hand: "left" | "right"; row: number; col: number; to: string };
+```
+
+- **create**: 番号は空いているいちばん小さい番号（上限を超えれば `-32602`、`data: { "field": "edit" }`）。ファイル名は `<2 桁の番号>_<名前から作った slug>.<拡張子>`
+  （slug は ASCII の英数字を小文字にして、ほかを `_` にまとめたもの。残らなければ `macro` / `tap_dance` / `combo`。拡張子はそのディレクトリでいちばん多いもの、なければ `yaml`）。
+  中身は `Schema::*File.write` と同じ形の最小のもの（マクロは `action: tap`・`keys: [KC_NO]` の手順 1 つか `preset:`、タップダンスは動作なし、コンボは `trigger_keys: [KC_NO, KC_NO]` と `output_key: KC_NO`）。
+  ショートカットは `shortcuts.yaml` の `shortcuts:` の末尾に `名前: 値` の行を足す（ファイルがなければ作る）。同じ名前がすでにあれば `-32602`
+- **delete**: ファイルを消す（ショートカットは行を消す）。参照は書き換えず、`references` に壊れる参照の場所を返す（拡張は確認のダイアログに件数を出す）。
+  `diagnostics` は消したあとの検証の結果（参照している側にエラー）
+- **rename**: `name` の行を書き換え、参照（`Macro('旧名')` / `TapDance('旧名')` / `Shortcut('旧名')`）をすべての設定ファイルでテキストとして置き換え、
+  ファイル名の slug を新しい名前に合わせて `renameTo` にする（番号の接頭辞は保つ）。前後の compile の結果（16bit 値）が同じでなければ、書かずに `-32061`（reason `"verify"`）。
+  `Application::RenameFiles` と同じ手順だが、ファイルは書かずに書き換えとして返す。レイヤーは名前で参照されないので、`name` の行とファイル名だけを変える
+- **renamePosition**: `position_map.yaml` のその位置の名前と、すべてのレイヤーのファイルの `mapping` の下のその名前のキーを書き換える（compile の結果は変わらない）。
+  同じグループに同じ名前があれば `-32602`。フロー表記の position_map（`row0: [tab, Q, …]`）は並びの中の 1 要素だけを置き換える
+- 名前の決まり（空でない・前後の空白なし・既存の名前と重ならない）に合わなければ `-32602`（`data: { "field": "edit.name" }` か `"edit.to"`）。知らない名前は `-32050` ではなく `-32602`
+- 拡張は `files` を 1 つの `WorkspaceEdit`（`createFile` / `deleteFile` / `renameFile` と `replace`）にして当て、書き換えたファイルを保存し、
+  `profile/saved` に新しい版（消したファイルは `null`、改名したファイルは古い名前に `null`・新しい名前に版）を送る。VS Code の元に戻す（ファイルの undo）で戻せる
+- `baseVersions` の照合と `-32060` は [6.1](#61-profileplanedits) と同じ（書き換えるファイルだけを比べる）
+
+### 12.6 エラーに足すもの
+
+- `-32061` の reason に `"verify"`（名前の変更の前後で compile の結果が変わる）を足す
+
+### 12.7 拡張だけで作るもの
+
+約束は変えない。
+
+- 位置の名前の表示: 図の上のトグルボタンで固定の切り替え、Alt を押している間だけ一時表示。名前は紫（`--vscode-charts-purple`）、マクロの `M` の印は橙（`--vscode-charts-orange`）に変える。
+  下のペインのレイヤーの欄のラベルも同じ紫
+- `KC_TRNS` のキー: レイヤー 0 の同じ位置の値の `display.label` を薄く描き、説明に「レイヤー 0 の値」と書く（snapshot の `layers[0]` から拡張が引く）
+- 候補の行のアイコン: `Candidate.icon`（v0.1 からある）を候補の行に描く
+- テキストの波線: `profile/open` と `profile/didChange` の `diagnostics` の `range` を `DiagnosticCollection` に入れる（`address` も `file` もないものは出さない）

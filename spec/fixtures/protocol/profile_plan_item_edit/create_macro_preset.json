@@ -1,0 +1,54 @@
+{
+  "description": "preset 付きのマクロを足すと、sequence の代わりに preset を書く",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "macro",
+        "name": "Capture",
+        "preset": "macOS:システム:ウィンドウキャプチャ"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "macros/10_capture.yml",
+          "baseVersion": null,
+          "create": true,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 0
+                }
+              },
+              "newText": "---\nindex: 10\nname: Capture\ndescription: ''\npreset: macOS:システム:ウィンドウキャプチャ\n"
+            }
+          ]
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

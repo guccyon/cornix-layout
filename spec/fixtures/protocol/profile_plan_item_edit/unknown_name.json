@@ -1,0 +1,29 @@
+{
+  "description": "知らない名前は -32050 ではなく -32602（field \"edit.name\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "delete",
+        "kind": "tapDance",
+        "name": "Removed"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.name"
+      }
+    }
+  }
+}

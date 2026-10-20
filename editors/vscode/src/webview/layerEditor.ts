@@ -1,6 +1,7 @@
 // 下のペイン: 選んでいるレイヤーの編集画面。左手の節の下に右手の節を置き、手ごとにグループ（段・親指）ごとのキー入力欄を並べ、最後にエンコーダ。
 // 欄の並べ方（広ければ横 1 列、狭ければ折り返す）は media/webview.css の .fields。
 // 欄ごとに、キー入力欄（組み立て欄付き）・注記の 1 行の欄・「割り当てを消す」を置く（注記の欄と消すボタンは、選んでいる欄と注記のある欄だけに見せる。CSS）。
+// 割り当てのない欄は空白のまま（placeholder を出さない）。キー入力欄の候補の下には「同梱から選ぶ…」（v0.3）。
 // キーの欄のラベルは位置の名前（position_map の名前。紫）で、名前を書いている場所の分かる位置（v0.2 のサーバー）は「名前を変える」で書き換えられる。
 import type { Diagnostic } from '../protocol';
 import { h } from './dom';
@@ -100,9 +101,10 @@ export class LayerEditor {
       context: slot.context,
       host: this.options.host,
       label: slotLabel(slot),
-      placeholder: '（なし）',
+      // 割り当てのない欄は空白のまま（v0.3。図の書いていない位置と同じく何も出さない）
       onCommit: (text) => this.options.onCommit(slot.id, text),
       builder: this.options.layers ? { layers: this.options.layers } : {},
+      presetShortcuts: true,
       ...(removable ? { emptyHint: '割り当てを消すには、欄の ✕（割り当てを消す）を押してください' } : {}),
     });
     const label = h(

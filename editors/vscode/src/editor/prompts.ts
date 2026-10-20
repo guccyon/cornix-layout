@@ -1,4 +1,4 @@
-// 保存と外での変更（protocol.md の 6.2・7.3）と項目の操作（12.5）で利用者に聞くこと・知らせること。
+// 保存と外での変更（protocol.md の 6.2・7.3）と項目の操作（12.5・13.1 の preset の展開）で利用者に聞くこと・知らせること。
 // 統合テストは通知のボタンを押せないので、ProfileEditorProvider#prompts を差し替えて答える。
 import * as vscode from 'vscode';
 
@@ -85,7 +85,7 @@ export const vscodePrompts: ProfilePrompts = {
     const save = '保存して続ける';
     const choice = await vscode.window.showWarningMessage(
       `${profile}: 未保存の変更が ${pending} 件あります。`,
-      { modal: true, detail: '項目の追加・削除・名前の変更はすぐファイルに書くので、先に未保存の変更を保存します。' },
+      { modal: true, detail: '項目の追加・削除・名前の変更と preset の展開はすぐファイルに書くので、先に未保存の変更を保存します。' },
       save,
     );
     return choice === save;

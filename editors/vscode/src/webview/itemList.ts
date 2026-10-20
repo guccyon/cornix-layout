@@ -5,7 +5,9 @@
 // 姿の形（並びの長さ・手順の種類・項目）が変わったときだけで、値が変わっただけなら欄はそのまま値・印・メッセージだけを描き直す
 // （打っている欄の文字を残す）。欄で決めた変更はホストに渡すと同時に手元の pending にも足し、ホストの snapshot を待たずに描く。
 // 検証の表示はレイヤーの欄と同じ: 変えていない値は snapshot の diagnostics、変えた値は keycode/inspect（onchange の検証）。
-import type { Address, AnyChange, CandidateContext, Change, Diagnostic, ItemKind, ProfileSnapshot } from '../protocol';
+// v0.3: 節は最初は畳んでおく（開閉は details のまま。snapshot の描き直しでは details を作り直さないので、開いた状態は残る）。
+// キーの欄は割り当てがなければ空白（placeholder なし）で、Shortcut(...) を書ける欄の候補の下には「同梱から選ぶ…」。
+import type { Address, AnyChange, CandidateContext, Change, Diagnostic, ItemEdit, ItemKind, ProfileSnapshot } from '../protocol';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
 import { Inspector } from './inspector';
@@ -27,10 +29,11 @@ export type ItemSectionMeta = {
   className: string;
 };
 
-/** 一覧の 1 行に出すもの */
-export type ListEntry = { name: string; index?: number; detail?: string | null; file: string; prefix?: Address };
+/** 一覧の 1 行に出すもの。mark は名前の横の印（押せないコンボの ⚠ など。title はその説明） */
+export type ListEntry = { name: string; index?: number; detail?: string | null; file: string; prefix?: Address; mark?: { text: string; title: string } | null };
 
-type NameForm = { mode: 'create' | 'rename'; name: string };
+/** 追加・名前の変更の欄。value はショートカットの値の初めの文字、message は開いたときに出すエラー */
+type NameForm = { mode: 'create' | 'rename'; name: string; value?: string; message?: string };
 
 /**
  * 節 1 つ。T は snapshot の項目、V は未保存の変更を当てた姿。
@@ -49,6 +52,10 @@ export abstract class ItemSection<T extends { name: string }, V> {
   private readonly detailElement = h('div', { class: 'item-detail' });
   private readonly formElement = h('div', { class: 'item-name-form-slot' });
   private readonly countElement = h('span', { class: 'item-count' });
+  /** 「追加」のボタンの並び（作るほうがボタンを足す） */
+  protected readonly toolbar: HTMLElement;
+  /** 節の開閉（最初は畳む） */
+  readonly details: HTMLDetailsElement;
   private snapshotKey = '';
   private selectedName: string | undefined;
   /** 追加・名前の変更をホストに頼んだ名前（次の snapshot に現れたら選ぶ。ホストの確認でやめたら現れない） */
@@ -83,18 +90,16 @@ export abstract class ItemSection<T extends { name: string }, V> {
     this.namePlaceholder = meta.namePlaceholder;
     const add = h('button', { type: 'button', class: 'item-button', 'data-focus': 'add' }, '追加');
     add.addEventListener('click', () => this.openForm({ mode: 'create', name: '' }));
-    this.element = h(
-      'section',
-      { class: `item-section ${meta.className}`, 'aria-label': this.title },
-      h(
-        'details',
-        { class: 'section-details', open: true },
-        h('summary', {}, h('h2', {}, this.title), this.countElement),
-        h('div', { class: 'item-toolbar' }, add),
-        this.formElement,
-        h('div', { class: 'item-body' }, this.listElement, this.detailElement),
-      ),
+    this.toolbar = h('div', { class: 'item-toolbar' }, add);
+    this.details = h(
+      'details',
+      { class: 'section-details' },
+      h('summary', {}, h('h2', {}, this.title), this.countElement),
+      this.toolbar,
+      this.formElement,
+      h('div', { class: 'item-body' }, this.listElement, this.detailElement),
     );
+    this.element = h('section', { class: `item-section ${meta.className}`, 'aria-label': this.title }, this.details);
     this.listElement.setAttribute('aria-label', `${this.title}の一覧`);
     this.element.hidden = true;
   }
@@ -183,6 +188,7 @@ export abstract class ItemSection<T extends { name: string }, V> {
         ...nodes(
           entry.index !== undefined && h('span', { class: 'item-index' }, String(entry.index)),
           h('span', { class: 'item-name' }, item.name),
+          entry.mark && h('span', { class: 'item-mark', title: entry.mark.title, 'aria-label': entry.mark.title }, entry.mark.text),
           entry.detail ? h('span', { class: 'item-row-detail' }, entry.detail) : null,
           severity && h('span', { class: `item-severity ${severity}`, 'aria-label': severity === 'error' ? 'エラー' : '警告' }, severity === 'error' ? '●' : '▲'),
         ),
@@ -289,7 +295,9 @@ export abstract class ItemSection<T extends { name: string }, V> {
       host: this.host,
       label: options.label,
       ...(options.candidateParams ? { candidateParams: options.candidateParams } : {}),
-      placeholder: options.placeholder ?? '（なし）',
+      // 割り当てのない欄は空白のまま（v0.3）
+      placeholder: options.placeholder ?? '',
+      presetShortcuts: true,
       onCommit: (text) => this.set(options.entry().address, text),
     });
     input.input.dataset.focus = options.focus;
@@ -497,9 +505,25 @@ export abstract class ItemSection<T extends { name: string }, V> {
 
   // ---- 追加・名前の変更 ----
 
+  /** 項目を足す（ホストが確認してすぐ書く）。足したものが次の snapshot に現れたら選ぶ */
+  protected createItem(edit: Extract<ItemEdit, { op: 'create' }>): void {
+    this.host.itemEdit(edit);
+    this.wantedName = edit.name;
+  }
+
+  /** 今の項目の名前（追加の名前が重ならないかを見る） */
+  protected itemNames(): string[] {
+    return (this.snapshot && this.items(this.snapshot)?.map((i) => i.name)) ?? [];
+  }
+
+  /** 追加の欄を、名前（とショートカットの値）を入れた形で開く。message は開いたときに出すエラー */
+  protected openCreateForm(name: string, value?: string, message?: string): void {
+    this.openForm({ mode: 'create', name, ...(value === undefined ? {} : { value }), ...(message === undefined ? {} : { message }) });
+  }
+
   private openForm(form: NameForm): void {
     this.form = form;
-    const names = (this.snapshot && this.items(this.snapshot)?.map((i) => i.name)) ?? [];
+    const names = this.itemNames();
     const nameInput = h('input', {
       type: 'text',
       class: 'item-name-input',
@@ -515,9 +539,10 @@ export abstract class ItemSection<T extends { name: string }, V> {
       form.mode === 'create' && this.kind === 'shortcut'
         ? new KeyInput({ context: 'shortcutValue', host: this.host, label: '新しいショートカットの値', placeholder: '値（Command + Shift + [ など）', onCommit: () => undefined })
         : undefined;
+    if (valueInput && form.value !== undefined) valueInput.setValue(form.value);
     const submit = h('button', { type: 'button', class: 'item-button primary' }, form.mode === 'create' ? '追加する' : '名前を変える');
     const cancel = h('button', { type: 'button', class: 'item-button' }, 'やめる');
-    this.formMessage.replaceChildren();
+    this.formMessage.replaceChildren(...(form.message ? [h('div', { class: 'message-line error' }, form.message)] : []));
     const close = (): void => {
       valueInput?.dispose();
       this.form = undefined;
@@ -542,11 +567,9 @@ export abstract class ItemSection<T extends { name: string }, V> {
           this.formMessage.replaceChildren(h('div', { class: 'message-line error' }, '値を入れてください'));
           return;
         }
-        this.host.itemEdit({ op: 'create', kind: 'shortcut', name, value });
-        this.wantedName = name;
+        this.createItem({ op: 'create', kind: 'shortcut', name, value });
       } else {
-        this.host.itemEdit({ op: 'create', kind: this.kind, name });
-        this.wantedName = name;
+        this.createItem({ op: 'create', kind: this.kind as 'macro' | 'tapDance' | 'combo', name });
       }
       close();
     };

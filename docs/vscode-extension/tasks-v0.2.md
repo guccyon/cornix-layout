@@ -24,11 +24,14 @@ v0.3 に回すもの（roadmap のまま）: コンボのキーを図から選�
 
 ## 決めたこと
 
-2026-10-20 に Tetsuro に確認して、3 つとも推した案に決まった。
+2026-10-20 に Tetsuro に確認して、どれも推した案に決まった。
 
 1. **位置の名前の表示の切り替えと色**（図の上のトグルボタンで固定の切り替え＋ Alt を押している間だけ一時表示。名前は紫、マクロの `M` の印は橙に変える）
 2. **項目の追加・削除・名前の変更**（確認のダイアログのあとすぐファイルに書く。未保存の変更があるときは先に保存を促す。中身の編集はこれまでどおり未保存に積む）
 3. **レイヤーの割り当てを消す操作**（YAML の行ごと消して「書いていない」状態にする。図は点線の枠）
+4. **書いていない位置の compile**（3 の確認のときに、今の compile が書いていない位置を NoKey ではなく .vil の `-1` にしていると分かった。
+   `-1` は `cornix device apply` が飛ばし（前の値が残る）、vial-gui の読み込みは `-1` をそのまま 16bit で送ろうとして失敗しうる。
+   2026-10-20 決定: position_map にある位置で書いていないものは compile で KC_NO（0）にする。キーのない枠は今までどおり `-1`。下の R0）
 
 自分で決めたこと（違えば言ってもらう）:
 
@@ -68,6 +71,14 @@ protocol.md に「12. v0.2 で足すもの」を足し、上の「約束に足�
 触るファイル: `docs/vscode-extension/protocol.md`、`editors/vscode/src/protocol.ts`
 
 ## 段 2（並列）
+
+### R0. 書いていない位置を NoKey にする（Ruby）
+
+決めたことの 4。`Mapping::ProfileMapper#to_image` で、position_map にある位置の割り当てがなければ `-1`（nil）ではなく KC_NO にする。
+decompile はこれまでどおり NoKey を書く（往復は変わらない）。利用者に見える変更なので CHANGELOG.md の `[Unreleased]` に書き、
+docs/domain-model.md の「割り当てのない位置も nil にする」の記述を直す。end_to_end の保存した .vil との差が出れば、その差が書いていない位置だけかを確かめて更新する。
+
+触るファイル: `lib/cornix/mapping/profile_mapper*`、`spec/mapping/profile_mapper*`、`spec/fixtures/`（保存した .vil を更新するときだけ）、`docs/domain-model.md`、`CHANGELOG.md`
 
 ### R1. 中身を読む（Ruby）
 

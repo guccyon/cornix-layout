@@ -30,9 +30,15 @@ mapping:
       fn: MO(8)
       option: LAlt
     thumb_keys:
-      left: { key: LGUI_T(KC_LANG2), note: タップで英数、長押しで Command }
-      middle: { key: LT1(Space), note: タップで Space、長押しで Symbols レイヤー }
-      right: { key: LT2(Escape), note: タップで Escape、長押しで Numbers レイヤー }
+      left:
+        key: LGUI_T(KC_LANG2)
+        note: タップで英数、長押しで Command
+      middle:
+        key: LT1(Space)
+        note: タップで Space、長押しで Symbols レイヤー
+      right:
+        key: LT2(Escape)
+        note: タップで Escape、長押しで Numbers レイヤー
   right_hand:
     row0:
       Y: Y
@@ -54,15 +60,21 @@ mapping:
       comma: ","
       dot: .
       up: /
-      rshift: { key: RSFT_T(Up), note: タップで ↑、長押しで Shift }
+      rshift:
+        key: RSFT_T(Up)
+        note: タップで ↑、長押しで Shift
     row3:
       left: Left
       down: Down
       right: Right
     thumb_keys:
-      left: { key: LT2(Enter), note: タップで Enter、長押しで Numbers レイヤー }
+      left:
+        key: LT2(Enter)
+        note: タップで Enter、長押しで Numbers レイヤー
       middle: MO(1)
-      right: { key: LT3(KC_LANG1), note: タップでかな、長押しで Function Keys レイヤー }
+      right:
+        key: LT3(KC_LANG1)
+        note: タップでかな、長押しで Function Keys レイヤー
   encoders:
     left:
       push: Mute

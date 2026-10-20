@@ -7,7 +7,9 @@ description: |-
 mapping:
   left_hand:
     row0:
-      tab: { key: Ctrl + Option + Space, note: Parallels の IME 切り替え }
+      tab:
+        key: Ctrl + Option + Space
+        note: Parallels の IME 切り替え
       Q: '1'
       W: '2'
       E: '3'
@@ -19,13 +21,17 @@ mapping:
       S: NoKey
       D: NoKey
       F: NoKey
-      G: { key: MouseButton1, note: 左クリック }
+      G:
+        key: MouseButton1
+        note: 左クリック
     row2:
       lshift: Trans
       Z: NoKey
       X: NoKey
       C: NoKey
-      V: { key: Macro('Clipboard History'), note: Spotlight のクリップボード履歴（Cmd + Space → Cmd + 4） }
+      V:
+        key: Macro('Clipboard History')
+        note: Spotlight のクリップボード履歴（Cmd + Space → Cmd + 4）
       B: NoKey
     row3:
       caps: NoKey
@@ -71,6 +77,8 @@ mapping:
       ccw: Home
       cw: End
     right:
-      push: { key: MouseButton3, note: 中クリック }
+      push:
+        key: MouseButton3
+        note: 中クリック
       ccw: PageDown
       cw: PageUp

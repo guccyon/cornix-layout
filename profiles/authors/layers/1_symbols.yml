@@ -64,12 +64,22 @@ mapping:
       up: Slash
       rshift: Trans
     row3:
-      left: { key: Ctrl + Option + Shift + Command + Left, note: ウインドウを左半分に配置（Hyper + ←） }
-      down: { key: Ctrl + Option + Shift + Command + Enter, note: ウインドウを最大化（Hyper + Enter） }
-      right: { key: Ctrl + Option + Shift + Command + Right, note: ウインドウを右半分に配置（Hyper + →） }
+      left:
+        key: Ctrl + Option + Shift + Command + Left
+        note: ウインドウを左半分に配置（Hyper + ←）
+      down:
+        key: Ctrl + Option + Shift + Command + Enter
+        note: ウインドウを最大化（Hyper + Enter）
+      right:
+        key: Ctrl + Option + Shift + Command + Right
+        note: ウインドウを右半分に配置（Hyper + →）
     thumb_keys:
-      left: { key: Shift + Command + Enter, note: Alfred の呼び出し }
-      middle: { key: Command + Space, note: Spotlight の呼び出し }
+      left:
+        key: Shift + Command + Enter
+        note: Alfred の呼び出し
+      middle:
+        key: Command + Space
+        note: Spotlight の呼び出し
       right: NoKey
   encoders:
     left:
@@ -77,6 +87,12 @@ mapping:
       ccw: Rewind
       cw: FastForward
     right:
-      push: { key: LGUI(KC_0), note: 拡大率をリセット（Cmd + 0） }
-      ccw: { key: Command + Minus, note: 縮小（Cmd + -） }
-      cw: { key: Command + Plus, note: 拡大（Cmd + +） }
+      push:
+        key: LGUI(KC_0)
+        note: 拡大率をリセット（Cmd + 0）
+      ccw:
+        key: Command + Minus
+        note: 縮小（Cmd + -）
+      cw:
+        key: Command + Plus
+        note: 拡大（Cmd + +）

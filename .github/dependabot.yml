@@ -14,3 +14,10 @@ updates:
     groups:
       github-actions:
         patterns: ['*']
+  - package-ecosystem: npm
+    directory: /editors/vscode
+    schedule:
+      interval: monthly
+    groups:
+      npm:
+        patterns: ['*']

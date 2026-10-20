@@ -3,6 +3,7 @@
 require_relative 'profile_reading'
 require_relative 'key_values'
 require_relative 'unknown_context'
+require_relative 'key_usage'
 
 module Cornix
   module Application
@@ -23,6 +24,7 @@ module Cornix
       # 知らない context は UnknownContext。
       # v0.2 の context（protocol.md の 12.4）: 除くもの・上に出すものは data/keycode_categories.yaml の contexts。all: true は除くものも出す。
       # exclude（表記）は読めればその 16bit 値と同じ候補を除く（読めなければ何も除かない）。comboTrigger はレイヤー 0 に割り当ててある値を上に出す。
+      # v0.3（protocol.md の 13.3）: 当てはまり方が同じ候補の中では、保存済みのプロファイルで使っている回数（KeyUsage。16bit 値で数える）の多いものを上に。
       # 読める名前参照は欄ごとに違う（KeyValues の context）。typed もその欄の読み方で読む。shortcut_tree は同梱のデータだけから作るので、アイコンの表ごとに 1 回だけ作って持つ
       class Candidates
         DEFAULT_LIMIT = Mapping::CandidateCatalog::DEFAULT_LIMIT
@@ -43,7 +45,8 @@ module Cornix
           result = catalog.search(query: query.to_s, context: context, references: values.listing_references(context),
                                   format_references: values.references_for(context),
                                   layer_names: values.layer_names, limit: limit || DEFAULT_LIMIT, all: all,
-                                  exclude: excluded_code(values, exclude, context), base_codes: base_codes(reading.profile, values))
+                                  exclude: excluded_code(values, exclude, context), base_codes: base_codes(reading.profile, values),
+                                  usage: KeyUsage.count(reading.profile, env.codec))
           macro_icons = macro_icons(reading.profile, values, context)
           {
             items: result.items.map { |candidate| item(candidate, macro_icons) },

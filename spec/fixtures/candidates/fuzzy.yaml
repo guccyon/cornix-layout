@@ -1,0 +1,25 @@
+# あいまい一致（protocol.md の 13.3）。前方一致・部分一致に当たらないとき、query の文字を順に含むもの（間を飛ばしてよい）を、それらの下に出す。
+# 大文字小文字・_・空白は区別しない。飛ばした文字の少ないものを上に
+- context: layerKey
+  query: lbrkt
+  expect: ['[']
+- context: layerKey
+  query: KC_L BRACKET
+  expect: ['[']
+- context: layerKey
+  query: kc up
+  expect: [Up, PageUp, MouseUp]
+- context: layerKey
+  query: pgdn
+  expect: [PageDown]
+- context: layerKey
+  query: vlup
+  expect: [Vol+]
+# 部分一致（kc_mply の mply）が先、あいまい一致はその下
+- context: layerKey
+  query: mply
+  expect: [MediaPlayPause, DynamicMacroPlay1, DynamicMacroPlay2]
+# 順に含まなければ出さない
+- context: layerKey
+  query: brktl
+  expect: []

@@ -32,7 +32,7 @@ RSpec.describe Cornix::Application::Editor::Snapshot::Items do
       file = 'macros/00_macro.yaml'
       expect(macro).to include(index: 0, name: 'Macro 0', description: nil, file: file,
                                descriptionAddress: address(file, 'description'), icon: nil, preset: nil, presetAddress: nil,
-                               summary: ['tap: [ ] Left'])
+                               summary: ['tap: [ ] ←'])
       step = macro[:steps].first
       expect(step).to include(address: address(file, 'sequence', 0), action: 'tap', keysAddress: address(file, 'sequence', 0, 'keys'))
       expect(step[:keys].first).to match(address: address(file, 'sequence', 0, 'keys', 0),

@@ -37,6 +37,12 @@ RSpec.describe Cornix::Application::Editor::Candidates do
     expect(result[:typed]).to be_nil
   end
 
+  it '当てはまり方が同じなら、保存済みのプロファイルで使っている回数の多いものを上に（v0.3）' do
+    # test_config は Left・C・Right をよく使う。使っていなければ A, B, C, ... の順
+    expect(search('', limit: 3)[:items].map { |i| i[:insertText] }).to eq(%w[Left C Right])
+    expect(search('Left', limit: 1)[:items].first[:insertText]).to eq('Left')
+  end
+
   it 'プロファイルのレイヤーの名前・マクロ・タップダンスを候補にする' do
     expect(search('Layer 1', limit: 1)[:items].first).to include(insertText: 'MO(1)', detail: 'Layer 1', category: 'layer')
     expect(search('Macro 0', limit: 1)[:items].first).to include(insertText: "Macro('Macro 0')", category: 'macro')

@@ -133,3 +133,39 @@ export function describeContent(
   }
   return root;
 }
+
+/** v0.3: 図の上のコンボのボタンの説明に出すもの（表記は未保存の変更を重ねた今のもの） */
+export type ComboDescription = {
+  index: number;
+  name: string;
+  description: string | null;
+  /** 同時に押すキーの表記（書いていないものは省く） */
+  triggers: string[];
+  /** 出すキーの表記（書いていなければ空） */
+  output: string;
+  /** false なら押せない（サーバーが返さなければ undefined） */
+  reachable?: boolean | undefined;
+  /** 今のレイヤーで強調する位置の数 */
+  matches: number;
+};
+
+/** コンボのボタンの説明: 名前・説明・同時に押すキー・出すキー・押せない印・このレイヤーで強調する位置の数 */
+export function comboContent(combo: ComboDescription): Node {
+  const root = h('div', { class: 'tooltip-body' });
+  root.append(h('div', { class: 'tooltip-context' }, `コンボ ${combo.index}`));
+  root.append(h('div', { class: 'tooltip-title' }, combo.name));
+  if (combo.description) root.append(h('div', { class: 'tooltip-line' }, combo.description));
+  root.append(h('div', { class: 'tooltip-line' }, `同時に押すキー: ${combo.triggers.length > 0 ? combo.triggers.join(' + ') : '書いていない'}`));
+  root.append(h('div', { class: 'tooltip-line' }, `出すキー: ${combo.output || '書いていない'}`));
+  if (combo.reachable === false) {
+    root.append(h('div', { class: 'tooltip-diagnostic warning' }, '警告: 押せないコンボ（同時に押すキーがすべてそろうレイヤーがない）'));
+  }
+  root.append(
+    h(
+      'div',
+      { class: 'tooltip-mark' },
+      combo.matches > 0 ? `このレイヤーで同時に押すキーの位置 ${combo.matches} か所を強調` : 'このレイヤーには同時に押すキーの位置がない',
+    ),
+  );
+  return root;
+}

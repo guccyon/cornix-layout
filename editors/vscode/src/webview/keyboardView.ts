@@ -202,11 +202,12 @@ export class KeyboardView {
     for (const id of this.elements.keys()) this.render(id);
   }
 
-  /** 位置の名前を出している間、図の下に名前の出所を 1 行（名前を変えられるなら、その入口も） */
+  /**
+   * 位置の名前を出している間、図の下に名前の出所を 1 行（名前を変えられるなら、その入口も）。
+   * 出していない間も文は入れておき、CSS で見えなくするだけにして行の高さを残す（ホバーで下の欄がずれないように）
+   */
   private renderHint(): void {
-    const show = this.showingPositions;
-    this.positionHint.hidden = !show;
-    if (!show) return;
+    this.positionHint.hidden = !this.showingPositions;
     const renamable = !!this.options.onRenamePosition && [...this.slots.values()].some((slot) => slot.key?.positionAddress);
     this.positionHint.textContent = renamable
       ? '名前は position_map.yaml のもの。キーを押すとここで名前を変えられる'

@@ -2110,7 +2110,7 @@ button {
   border-color: var(--vscode-button-background);
 }
 
-/* 位置の名前の出所（表示中だけ図の下に 1 行） */
+/* 位置の名前の出所（表示中だけ図の下に 1 行）。隠している間も場所は取っておき、出し入れで下の欄を動かさない */
 .position-hint {
   margin-top: 4px;
   color: color-mix(in srgb, var(--position-name) 70%, var(--vscode-descriptionForeground));
@@ -2118,7 +2118,11 @@ button {
   text-align: center;
 }
 
-.position-hint[hidden],
+.position-hint[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
 .pick-banner[hidden],
 .combo-buttons[hidden] {
   display: none;

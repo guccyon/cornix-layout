@@ -90,6 +90,8 @@ describe('位置の名前のボタンのホバーと出所の説明', () => {
     expect(toggle.title).toContain('position_map.yaml');
     expect(toggle.title).toContain('ファイルを変えるとラベルが変わる');
     expect(hint.hidden).toBe(true);
+    // 隠している間も文は入れておく（CSS で見えなくするだけで行の高さを残し、ホバーで下の欄をずらさない）
+    expect(hint.textContent).toBe('名前は position_map.yaml のもの。キーを押すとここで名前を変えられる');
 
     toggle.dispatchEvent(new MouseEvent('mouseenter'));
     expect(q.querySelector('.position-name')?.textContent).toBe('Q');

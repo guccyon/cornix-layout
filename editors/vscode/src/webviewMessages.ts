@@ -1,5 +1,5 @@
 // 拡張（ホスト）と編集画面（Webview）の間のメッセージ。画面の作業（段 2 の G）はここに種類を足していく。
-import type { CandidatesParams, CandidatesResult, Change, InspectParams, InspectResult, ProfileSnapshot, Range } from './protocol';
+import type { AnyChange, CandidatesParams, CandidatesResult, Change, InspectParams, InspectResult, ItemEdit, ProfileSnapshot, Range } from './protocol';
 
 /**
  * Webview からホストに中継してもらうリクエスト（Webview はサーバーと直接話せない）。
@@ -25,7 +25,14 @@ export type WebviewRequest = {
 /** ホスト → Webview */
 export type HostMessage =
   /** 描くもの。開いたとき・読み直したとき・変更のたびに送る */
-  | { type: 'snapshot'; snapshot: ProfileSnapshot; changes: Change[] }
+  | {
+      type: 'snapshot';
+      snapshot: ProfileSnapshot;
+      /** v0.1 の値の書き換え（同じ Address は最後の値だけ） */
+      changes: Change[];
+      /** v0.2: 未保存の変更の全部を当てる順に（並びを指す Change を含む。protocol.md の 12.3）。v0.2 のホストは必ず送る */
+      pending?: AnyChange[];
+    }
   /** 読めなかったときなど */
   | { type: 'error'; message: string }
   /** WebviewRequest の応答（id と method は要求と同じ）。失敗したら error にその文 */
@@ -38,6 +45,10 @@ export type WebviewMessage =
   | { type: 'ready' }
   /** 値を変えた。ホストは未保存の変更に足し、VS Code の編集の履歴に載せる */
   | { type: 'change'; change: Change }
+  /** v0.2: 並びの操作・行の削除・注記（protocol.md の 12.3）。ホストは未保存の変更の末尾に足す */
+  | { type: 'edit'; change: AnyChange }
+  /** v0.2: 項目の追加・削除・名前の変更（protocol.md の 12.5）。ホストが確認のダイアログを出してすぐ書く */
+  | { type: 'itemEdit'; edit: ItemEdit }
   /** サーバーへのリクエストの中継 */
   | WebviewRequest
   /** 設定ディレクトリのファイルをテキストで開く（file は設定ディレクトリからの相対パス。range があればそこを選ぶ） */

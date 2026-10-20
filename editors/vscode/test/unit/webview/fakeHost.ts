@@ -1,6 +1,6 @@
 // 画面の部品のテスト用の HostClient。偽のサーバーのデータ（test/fake-server/fixtures.ts）で候補と解釈を返す。
 // 返事を止めておいて（hold）、好きな順で返す（release）こともできる。
-import type { CandidatesResult, Change, KeyValue, ProfileSnapshot, Range } from '../../../src/protocol';
+import type { AnyChange, CandidatesResult, Change, ItemEdit, KeyValue, ProfileSnapshot, Range } from '../../../src/protocol';
 import type { HostClient } from '../../../src/webview/hostClient';
 import type { WebviewRequestMap, WebviewRequestMethod } from '../../../src/webviewMessages';
 import * as data from '../../fake-server/fixtures';
@@ -10,6 +10,8 @@ type Call = { method: WebviewRequestMethod; params: unknown; resolve: () => void
 export class FakeHost implements HostClient {
   readonly requests: { method: WebviewRequestMethod; params: unknown }[] = [];
   readonly changes: Change[] = [];
+  readonly edits: AnyChange[] = [];
+  readonly itemEdits: ItemEdit[] = [];
   readonly opened: { file: string; range?: Range }[] = [];
   /** true の間は返事を溜める */
   holding = false;
@@ -30,6 +32,14 @@ export class FakeHost implements HostClient {
 
   change(change: Change): void {
     this.changes.push(change);
+  }
+
+  edit(change: AnyChange): void {
+    this.edits.push(change);
+  }
+
+  itemEdit(edit: ItemEdit): void {
+    this.itemEdits.push(edit);
   }
 
   openFile(file: string, range?: Range): void {

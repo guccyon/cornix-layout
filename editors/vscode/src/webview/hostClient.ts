@@ -1,12 +1,16 @@
 // 画面からホスト（拡張）への口。Webview はサーバーと直接話せないので、keycode/candidates・keycode/inspect は
 // ホストに中継してもらう（profileId はホストが入れる。webviewMessages.ts の WebviewRequest）。
-import type { Change, Range } from '../protocol';
+import type { AnyChange, Change, ItemEdit, Range } from '../protocol';
 import type { HostMessage, WebviewMessage, WebviewRequest, WebviewRequestMap, WebviewRequestMethod } from '../webviewMessages';
 
 export interface HostClient {
   request<M extends WebviewRequestMethod>(method: M, params: WebviewRequestMap[M]['params']): Promise<WebviewRequestMap[M]['result']>;
   /** 値を変えた（ホストが未保存の変更に足す） */
   change(change: Change): void;
+  /** v0.2: 並びの操作・行の削除・注記（ホストが未保存の変更の末尾に足す） */
+  edit(change: AnyChange): void;
+  /** v0.2: 項目の追加・削除・名前の変更（ホストが確認してすぐ書く） */
+  itemEdit(edit: ItemEdit): void;
   /** そのファイルをテキストで開く（構造の問題の一覧から） */
   openFile(file: string, range?: Range): void;
 }
@@ -32,6 +36,14 @@ export class MessageHostClient implements HostClient {
 
   change(change: Change): void {
     this.post({ type: 'change', change });
+  }
+
+  edit(change: AnyChange): void {
+    this.post({ type: 'edit', change });
+  }
+
+  itemEdit(edit: ItemEdit): void {
+    this.post({ type: 'itemEdit', edit });
   }
 
   openFile(file: string, range?: Range): void {

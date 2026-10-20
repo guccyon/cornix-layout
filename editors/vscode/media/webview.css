@@ -170,10 +170,7 @@ button {
   border-color: var(--selected);
 }
 
-.key.unassigned {
-  background: transparent;
-  border-style: dashed;
-}
+/* 書いていない位置（.key.unassigned）は NoKey と同じ見た目（枠はあって中は空白）。v0.2 までは背景を抜いた点線で、図から消えて見えた */
 
 .key.changed,
 .encoder-part.changed {
@@ -2076,4 +2073,176 @@ button {
   .macro-step .step-content {
     grid-column: 2 / 4;
   }
+}
+
+/* v0.3 図 */
+
+/* 図の上の道具: 左にコンボのボタン、右に表示の切り替え */
+.keyboard-toolbar {
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.keyboard-toggles {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.layers-toggle {
+  padding: 1px 8px;
+  border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border, #555));
+  border-radius: 10px;
+  background: transparent;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.layers-toggle:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+
+.layers-toggle.selected {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+
+/* 位置の名前の出所（表示中だけ図の下に 1 行） */
+.position-hint {
+  margin-top: 4px;
+  color: color-mix(in srgb, var(--position-name) 70%, var(--vscode-descriptionForeground));
+  font-size: 0.85em;
+  text-align: center;
+}
+
+.position-hint[hidden],
+.pick-banner[hidden],
+.combo-buttons[hidden] {
+  display: none;
+}
+
+/* コンボのボタン（番号。押せないものには ⚠） */
+.combo-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+
+.combo-buttons-label {
+  margin-right: 2px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.85em;
+}
+
+.combo-button {
+  min-width: 2em;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 55%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.combo-button:hover,
+.combo-button.active {
+  background: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 14%, transparent);
+}
+
+.combo-button.selected {
+  background: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 28%, transparent);
+  border-color: var(--vscode-charts-blue, #3794ff);
+}
+
+.combo-button.unreachable {
+  border-color: var(--warning);
+}
+
+.combo-warning {
+  margin-right: 2px;
+  color: var(--warning);
+}
+
+/* コンボを選んでいる間: トリガーのキーを強調し、ほかのキーを少し沈める */
+.board.combo-active .key:not(.combo-trigger),
+.board.combo-active .encoder-part {
+  opacity: 0.45;
+}
+
+.key.combo-trigger {
+  box-shadow: inset 0 0 0 2px var(--vscode-charts-blue, #3794ff);
+  background: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 18%, var(--vscode-keybindingLabel-background, var(--vscode-input-background)));
+}
+
+/* 全レイヤーの表示: キーの面に「番号 ラベル」の小さな行を上から */
+.key.layer-lines {
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 1px 2px;
+}
+
+.layer-lines-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  font-size: 0.72em;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.layer-line {
+  display: flex;
+  gap: 0.3em;
+  min-width: 0;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+.layer-line-index {
+  flex: none;
+  opacity: 0.7;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.layer-line-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-line.current {
+  color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
+  font-weight: 600;
+  background: color-mix(in srgb, var(--selected) 18%, transparent);
+  border-radius: 2px;
+}
+
+/* 図からキーを選ぶ状態: 上に案内、図の枠を強調 */
+.pick-banner {
+  margin-bottom: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--selected);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--selected) 12%, transparent);
+  text-align: center;
+}
+
+.board.picking {
+  outline: 2px dashed var(--selected);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.board.picking .key,
+.board.picking .encoder-part {
+  cursor: crosshair;
+}
+
+.board.picking .key.unassigned {
+  cursor: not-allowed;
 }

@@ -14,7 +14,7 @@ module Cornix
       #   2. 参照 Macro(...) / TapDance(...) / Shortcut('名前') / Combo(...)
       #   3. 旧形式のマクロ M3
       #   4. 生の値 0xHHHH
-      #   5. 修飾キー式（"修飾名 +" で始まる）
+      #   5. 修飾キー式（"修飾名 +" で始まる。キーは Vol+ のように + を含む別名でもよい）
       #   6. 関数形式 NAME(引数, ...)
       class Parser
         K = Domain::Keycode
@@ -142,10 +142,11 @@ module Cornix
 
         # --- 修飾キー式 ---
 
+        # 残りが別名・QMK 名そのものなら、それをキーとして読む（"Ctrl + Vol+" の Vol+ を "Vol +" と読まない）
         def modifier_expression(text, refs)
           pairs = []
           rest = text
-          while (m = MODIFIER_HEAD.match(rest))
+          while @catalog.lookup(rest.strip).nil? && (m = MODIFIER_HEAD.match(rest))
             pair = Modifiers::EXPRESSION[m[1]]
             unless pair
               fail!("修飾キー名「#{m[1]}」は使えません（使える名前: #{Modifiers::EXPRESSION.keys.join(', ')}）")

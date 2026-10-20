@@ -18,7 +18,7 @@ RSpec.describe Cornix::Mapping::KeyDisplay do
     'Space' => ['basic', 'Space'],
     'KC_ENT' => ['basic', 'Enter'],
     'KC_STOP' => ['basic', 'STOP'],
-    'VolumeUp' => ['basic', 'VolumeUp'],
+    'VolumeUp' => ['basic', 'Vol+'],
     'Cmd' => ['basic', '⌘'],
     'LShift' => ['basic', '⇧'],
     'Option' => ['basic', '⌥'],

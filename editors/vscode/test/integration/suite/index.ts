@@ -6,7 +6,7 @@ import type { ProfileDocument } from '../../../src/editor/profileDocument';
 import { snapshotValueAt } from '../../../src/editor/pendingChanges';
 import type { CornixExtensionApi } from '../../../src/extension';
 import type { Address } from '../../../src/protocol';
-import { activateExtension, FakePrompts, profileTab, readWorkspaceFile, revertProfile, saveProfile, test, waitFor, workspaceRoot, writeOutside } from './support';
+import { activateExtension, FakePrompts, profileTab, readWorkspaceFile, replaceOutside, revertProfile, saveProfile, test, waitFor, workspaceRoot, writeOutside } from './support';
 
 export { run } from './support';
 
@@ -514,9 +514,18 @@ test('サーバーが落ちている間に外で変わっていれば、再起�
   prompts.side = 'screen';
   prompts.conflicts = [0];
   document.applyChange({ address: rightKey('row0', 'Y'), value: 'Tab' });
-  await api.server.stop();
-  await writeOutside(BASE, '      Y: Y\n', '      Y: Enter\n');
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  // 止めている間に画面の要求（keycode/inspect など）がサーバーを起こすことがある。起きたサーバーが書きかけのファイルを
+  // 読まないように、書き換えは置き換えで当てる（#63 で、空のファイルを読んで外の値が「割り当てなし」になった）
+  const sent: string[] = [];
+  const watching = document.watcher.onDidSend(({ changes }) => sent.push(...changes.map((change) => change.path)));
+  try {
+    await api.server.stop();
+    await replaceOutside(BASE, '      Y: Y\n', '      Y: Enter\n');
+    // 見張りが変更に気づいて知らせを送り終える（止まっていれば捨てられる）のを待ってから起動する
+    await waitFor('見張りの知らせ', async () => sent.includes(BASE));
+  } finally {
+    watching.dispose();
+  }
   await api.server.restart();
   await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
   await document.settled();

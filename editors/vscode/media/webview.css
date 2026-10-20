@@ -271,8 +271,9 @@ button {
   margin-top: 0.7em;
 }
 
-/* タップダンスの窓: キーの面を割り当てのある動作の数で分ける（1 つは面全体、2 つは左右、3 つは上 1・下 2、4 つは 2×2）。
-   順はタップ・ホールド・ダブルタップ・タップホールドで、後ろの窓ほど背景を少しずつ濃くする */
+/* タップダンスの窓: キーの面を割り当てのある動作の数で分ける（1 つは面全体、2 つと 3 つはキーの横幅いっぱいの窓を上から順に
+   重ね、4 つは 2×2）。順はタップ・ホールド・ダブルタップ・タップホールドで、後ろの窓ほど背景を少しずつ濃くする。
+   横幅いっぱいに取るのは、キーの名前を省略せずに入れるため */
 .key.windowed {
   padding: 0;
 }
@@ -282,7 +283,7 @@ button {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   grid-auto-rows: 1fr;
 }
 
@@ -293,8 +294,8 @@ button {
   overflow: hidden;
 }
 
-.td-1 {
-  grid-template-columns: 1fr;
+.td-4 {
+  grid-template-columns: 1fr 1fr;
 }
 
 .td-window {
@@ -303,7 +304,7 @@ button {
   justify-content: center;
   min-width: 0;
   min-height: 0;
-  padding: 0 1px;
+  padding: 0 2px;
   overflow: hidden;
   /* 読めることを優先: 小さくしても 8.5px より下げない */
   font-size: max(8.5px, 0.8em);
@@ -316,9 +317,14 @@ button {
 }
 
 .td-1 .td-window,
-.td-2 .td-window,
-.td-3 .td-window-1 {
+.td-2 .td-window {
   font-size: max(9px, 0.9em);
+}
+
+/* 上下に重ねる窓（2 つ・3 つ）は、2 つ目から上に区切りの線 */
+.td-2 .td-window + .td-window,
+.td-3 .td-window + .td-window {
+  border-top-width: 1px;
 }
 
 .td-window-1 {
@@ -327,22 +333,29 @@ button {
 
 .td-window-2 {
   background: color-mix(in srgb, var(--td-color) 18%, transparent);
-  border-left-width: 1px;
 }
 
 .td-window-3 {
   background: color-mix(in srgb, var(--td-color) 26%, transparent);
-  border-top-width: 1px;
 }
 
 .td-window-4 {
   background: color-mix(in srgb, var(--td-color) 34%, transparent);
-  border-top-width: 1px;
+}
+
+/* 4 つ（2×2）: 左上タップ・右上ホールド・左下ダブルタップ・右下タップホールド */
+.td-4 .td-window-2,
+.td-4 .td-window-4 {
   border-left-width: 1px;
 }
 
+.td-4 .td-window-3,
+.td-4 .td-window-4 {
+  border-top-width: 1px;
+}
+
 /* 窓の文字: 1 語なら 1 行で、入りきらない分は「…」（語の途中で折らない）。2 語以上なら語の切れ目で 2 行まで折り返し、
-   それでも入らない分は「…」（全部は説明で見せる） */
+   それでも入らない分は「…」（全部は説明で見せる）。窓の高さが 1 行分しかない 3 つは 1 行で「…」 */
 .td-label {
   display: block;
   max-width: 100%;
@@ -360,50 +373,14 @@ button {
   -webkit-box-orient: vertical;
 }
 
+.td-3 .td-label.multi {
+  display: block;
+  white-space: nowrap;
+}
+
 /* 「+残りの数」はエンコーダの帯でだけ見せる */
 .td-more {
   display: none;
-}
-
-/* 3 つ: 上にタップを横いっぱい、下にホールドとダブルタップ（タップホールド） */
-.td-3 .td-window-1 {
-  grid-column: 1 / -1;
-}
-
-.td-3 .td-window-2 {
-  border-left-width: 0;
-  border-top-width: 1px;
-}
-
-.td-3 .td-window-3 {
-  border-left-width: 1px;
-}
-
-/* 図が狭いとき（キーが 50px ほどより小さい）は、窓を横に割ると 1 語も入らないので、上から順の横長の窓に並べ替える。
-   順（タップ → ホールド → ダブルタップ → タップホールド）と濃さは同じ。1 つの窓が 1 行なら「…」で省略 */
-@container (max-width: 880px) {
-  .key .td-windows {
-    grid-template-columns: 1fr;
-  }
-
-  .key .td-3 .td-window-1 {
-    grid-column: auto;
-  }
-
-  .key .td-window {
-    border-width: 0;
-    border-top-width: 1px;
-  }
-
-  .key .td-window-1 {
-    border-top-width: 0;
-  }
-
-  .key .td-4 .td-label,
-  .key .td-3 .td-label {
-    display: block;
-    white-space: nowrap;
-  }
 }
 
 /* エンコーダ: 丸いつまみ。円を上・中・下の帯に分け、左回し・押し込み・右回しの欄にする。

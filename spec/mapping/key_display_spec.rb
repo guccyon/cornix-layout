@@ -27,7 +27,12 @@ RSpec.describe Cornix::Mapping::KeyDisplay do
     'Shift + Command + P' => ['modified', '⇧⌘P'],
     'Command + Shift + P' => ['modified', '⇧⌘P'],
     'Ctrl + Option + Shift + Command + T' => ['modified', '⌃⌥⇧⌘T'],
-    'Option + Up' => ['modified', '⌥Up'],
+    'Up' => ['basic', '↑'],
+    'KC_LEFT' => ['basic', '←'],
+    'Right' => ['basic', '→'],
+    'ArrowDown' => ['basic', '↓'],
+    'Option + Up' => ['modified', '⌥↑'],
+    'Shift + Command + Left' => ['modified', '⇧⌘←'],
     'RCtrl + RShift + A' => ['modified', 'R⌃⇧A'],
     '!' => ['modified', '!'],
     'LSFT(KC_1)' => ['modified', '!'],
@@ -68,11 +73,20 @@ RSpec.describe Cornix::Mapping::KeyDisplay do
     'LT1(Space)' => ['layerTap', 'Space', 'L1'],
     'LT(2, Escape)' => ['layerTap', 'Escape', 'L2'],
     'LGUI_T(Lang2)' => ['modTap', 'Lang2', '⌘'],
-    'RSFT_T(Up)' => ['modTap', 'Up', 'R⇧'],
+    'RSFT_T(Up)' => ['modTap', '↑', 'R⇧'],
+    'LT1(Down)' => ['layerTap', '↓', 'L1'],
     'MT(MOD_LCTL|MOD_LSFT, A)' => ['modTap', 'A', '⌃⇧']
   }.each do |text, (kind, tap, hold)|
     it "#{text} は 2 役のキーで tap「#{tap}」hold「#{hold}」" do
       expect(show(text)).to eq([kind, { label: tap, tap: tap, hold: hold }])
+    end
+  end
+
+  it '矢印キーの文字は ↑ ← → ↓ でも、表記（decompile の名前）は Up / Left / Right / Down のまま' do
+    { 'Up' => '↑', 'Left' => '←', 'Right' => '→', 'Down' => '↓' }.each do |name, arrow|
+      keycode = notation.parse(name)
+      expect(key_display.display(keycode)[:label]).to eq(arrow)
+      expect(notation.format(keycode)).to eq(name)
     end
   end
 

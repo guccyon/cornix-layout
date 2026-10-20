@@ -21,17 +21,13 @@ mapping:
       S: NoKey
       D: NoKey
       F: NoKey
-      G:
-        key: MouseButton1
-        note: 左クリック
+      G: MouseButton1
     row2:
       lshift: Trans
       Z: NoKey
       X: NoKey
       C: NoKey
-      V:
-        key: Macro('Clipboard History')
-        note: Spotlight のクリップボード履歴（Cmd + Space → Cmd + 4）
+      V: Macro('Clipboard History')
       B: NoKey
     row3:
       caps: NoKey
@@ -77,8 +73,6 @@ mapping:
       ccw: Home
       cw: End
     right:
-      push:
-        key: MouseButton3
-        note: 中クリック
+      push: MouseButton3
       ccw: PageDown
       cw: PageUp

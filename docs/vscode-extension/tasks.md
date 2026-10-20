@@ -203,7 +203,6 @@ dirty と Ctrl+S（protocol.md の 6.2）、外での変更の扱い（7.3）、
 main に作業をそのまま入れていかず、版ごとに統合ブランチで作る。
 
 - 版ごとに統合ブランチ `feature/vscode-extension` に作業ごとの PR を集め、版ができたら `feature/vscode-extension` → main の PR にする
-- 版を始めるときは `feature/vscode-extension` を main の先端にそろえる（main を取り込むときはふつうのマージコミットで。スカッシュにすると merge-base が古いままになり、main への PR がぶつかる）
+- 版を始めるときは `feature/vscode-extension` を main の先端にそろえる（統合ブランチに main を取り込む側は、スカッシュではなくふつうのマージコミットで。スカッシュにすると merge-base が古いままになり、main への PR がぶつかる）
 - 作業の分け方（同じ段の作業は同じファイルを編集しない・契約を勝手に変えない・触るファイルを決める）は v0.1 と同じ。版ごとの作業の分け方は、この文書に段を足すか版ごとの文書にする
 - コミット前に `LANG=ja_JP.UTF-8 bundle exec rspec` と、拡張を触ったときは `cd editors/vscode && npm ci && npm run typecheck && npm test` が通ること
-

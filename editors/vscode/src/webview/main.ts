@@ -1,10 +1,14 @@
 // 編集画面（Webview）の入口。ホストとのメッセージ（webviewMessages.ts）をつなぎ、App に描かせる。
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
 import { App, type ViewState } from './app';
+import { ComboEditor } from './comboEditor';
 import { MessageHostClient } from './hostClient';
 import { mediaUrl, setMediaBase } from './icons';
+import { MacroEditor } from './macroEditor';
 import { MetadataView } from './metadataView';
 import { SettingsEditor } from './settingsEditor';
+import { ShortcutEditor } from './shortcutEditor';
+import { TapDanceEditor } from './tapDanceEditor';
 
 declare function acquireVsCodeApi(): {
   postMessage(message: WebviewMessage): void;
@@ -26,11 +30,13 @@ const styled = new Promise<void>((resolve) => {
 document.head.append(stylesheet);
 
 const host = new MessageHostClient((message) => vscode.postMessage(message));
+// v0.2 の中身の節（サーバーが snapshot に macros などを返さなければ出さない）
+const items = [new MacroEditor({ host }), new TapDanceEditor({ host }), new ComboEditor({ host }), new ShortcutEditor({ host })];
 const settings = new SettingsEditor({ onCommit: (change) => host.change(change) });
 const metadata = new MetadataView();
 const app = new App(document.getElementById('app') as HTMLElement, {
   host,
-  sections: [settings.element, metadata.element],
+  sections: [...items.map((item) => item.element), settings.element, metadata.element],
   onRendered: (message) => vscode.postMessage(message),
   state: { get: () => vscode.getState(), set: (state) => vscode.setState(state) },
 });
@@ -38,6 +44,7 @@ const app = new App(document.getElementById('app') as HTMLElement, {
 window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
   if (host.handle(event.data)) return;
   if (event.data.type === 'snapshot') {
+    for (const item of items) item.update(event.data.snapshot, event.data.changes, event.data.pending);
     settings.update(event.data.snapshot, event.data.changes);
     metadata.update(event.data.snapshot);
   }

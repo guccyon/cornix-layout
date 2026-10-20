@@ -1,0 +1,29 @@
+{
+  "description": "macroKey はマクロのファイルと同じく名前参照を読まない（読み込みと同じ文の構造の error）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/inspect",
+    "params": {
+      "profileId": "p1",
+      "context": "macroKey",
+      "text": "Macro('Bracket Pair')"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "value": null,
+      "description": null,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "source": "structure",
+          "message": "キーコード「Macro('Bracket Pair')」を解釈できません: マクロ「Bracket Pair」が見つかりません"
+        }
+      ]
+    }
+  }
+}

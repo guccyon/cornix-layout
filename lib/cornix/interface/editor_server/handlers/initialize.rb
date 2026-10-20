@@ -11,7 +11,7 @@ module Cornix
         class Initialize < Handler
           rpc 'initialize'
 
-          PROTOCOL_VERSION = '0.1'
+          PROTOCOL_VERSION = '0.2'
           SUPPORTED = [PROTOCOL_VERSION].freeze
           VERSION_PATTERN = /\A(\d+)\.(\d+)\z/
 

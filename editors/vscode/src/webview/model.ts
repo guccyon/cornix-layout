@@ -2,6 +2,7 @@
 // 1 つのレイヤーの「欄」（キー 1 つ、エンコーダの操作 1 つ）を Slot として並べ、未保存の変更と検証の結果を重ねる。
 import type {
   Address,
+  AnyChange,
   CandidateContext,
   Change,
   Diagnostic,
@@ -11,6 +12,7 @@ import type {
   TapDanceAction,
   PositionMapEntry,
   ProfileSnapshot,
+  RemoveChange,
 } from '../protocol';
 import { addressKey } from '../editor/pendingChanges';
 
@@ -24,8 +26,8 @@ export type Slot = {
   /** 欄の名前（position_map の記号、エンコーダは「押し込み」など） */
   label: string;
   hand: Hand;
-  /** キーのときの論理位置とグループ */
-  key?: { row: number; col: number; group: string };
+  /** キーのときの論理位置とグループ。positionAddress は位置の名前を書いている場所（v0.2 のサーバーだけ。なければ名前を変えられない） */
+  key?: { row: number; col: number; group: string; positionAddress?: Address };
   encoder?: EncoderOp;
   /** 保存済みの値（割り当てがなければ null） */
   saved: KeyValue | null;
@@ -64,7 +66,7 @@ export function layerSlots(layer: LayerSnapshot, positionMap: PositionMapEntry[]
       context: 'layerKey',
       label: entry.symbol,
       hand: entry.hand,
-      key: { row: entry.row, col: entry.col, group: entry.group },
+      key: { row: entry.row, col: entry.col, group: entry.group, ...(entry.address ? { positionAddress: entry.address } : {}) },
       saved: key.value,
     });
   }
@@ -86,11 +88,77 @@ export function layerSlots(layer: LayerSnapshot, positionMap: PositionMapEntry[]
   return slots;
 }
 
-/** 欄の今の表記（未保存の変更があればその値、なければ保存済みの表記、どちらもなければ空） */
-export function currentText(slot: Slot, changes: ReadonlyMap<string, Change>): string {
-  const change = changes.get(slot.id);
-  if (change) return String(change.value);
+/**
+ * 未保存の変更を欄ごとに畳んだもの。values は割り当て（null は消した）、notes は注記（null は消した）。
+ * 並び（insert / move）の変更はレイヤーの欄には来ないので無視する
+ */
+export type SlotEdits = { values: Map<string, string | null>; notes: Map<string, string | null> };
+
+/** 未保存の変更（当てる順）を欄ごとに畳む。行を消す remove は注記も消す */
+export function slotEdits(list: readonly AnyChange[]): SlotEdits {
+  const values = new Map<string, string | null>();
+  const notes = new Map<string, string | null>();
+  for (const change of list) {
+    const id = addressKey(change.address);
+    if (change.op === undefined || change.op === 'set') {
+      if (change.field === 'note') notes.set(id, String(change.value));
+      else values.set(id, String(change.value));
+    } else if (change.op === 'remove') {
+      if (change.field === 'note') notes.set(id, null);
+      else {
+        values.set(id, null);
+        notes.set(id, null);
+      }
+    }
+  }
+  return { values, notes };
+}
+
+/** 欄の今の表記（未保存の変更があればその値、消したなら空、なければ保存済みの表記、どれもなければ空） */
+export function currentText(slot: Slot, edits: SlotEdits): string {
+  if (edits.values.has(slot.id)) return edits.values.get(slot.id) ?? '';
   return slot.saved?.text ?? '';
+}
+
+/** 欄の今の注記（なければ空） */
+export function currentNote(slot: Slot, edits: SlotEdits): string {
+  if (edits.notes.has(slot.id)) return edits.notes.get(slot.id) ?? '';
+  return slot.saved?.note ?? '';
+}
+
+/** 割り当てか注記に未保存の変更がある */
+export function slotChanged(slot: Slot, edits: SlotEdits): boolean {
+  return edits.values.has(slot.id) || edits.notes.has(slot.id);
+}
+
+/** 割り当てに未保存の変更がある（解釈を聞き直すのはこちらだけ） */
+export function valueChanged(slot: Slot, edits: SlotEdits): boolean {
+  return edits.values.has(slot.id);
+}
+
+/**
+ * 未保存の変更の並びに 1 つ足す（ホストからの snapshot を待たずに描くため。ホストの pending が来たら置き換わる）。
+ * - set: 同じ Address・同じ field の前の set は外す。保存済みと同じ値で、前に行を消していなければ足さない
+ * - remove: 同じ Address の前の set（field が同じもの。行を消すなら割り当ても注記も）を外す。保存済みに何もなければ足さない
+ */
+export function addPending(list: readonly AnyChange[], change: Change | RemoveChange, saved: KeyValue | null): AnyChange[] {
+  const id = addressKey(change.address);
+  const field = change.field ?? 'key';
+  const removingLine = change.op === 'remove' && field === 'key';
+  const at = (c: AnyChange) => addressKey(c.address) === id;
+  const isSet = (c: AnyChange) => c.op === undefined || c.op === 'set';
+  const fieldOf = (c: AnyChange) => (c.op === undefined || c.op === 'set' || c.op === 'remove' ? (c.field ?? 'key') : 'key');
+  const result = list.filter((c) => !(at(c) && isSet(c) && (removingLine || fieldOf(c) === field)));
+  const lineRemoved = result.some((c) => at(c) && c.op === 'remove' && fieldOf(c) === 'key');
+  if (change.op === 'remove') {
+    const savedValue = field === 'note' ? saved?.note : saved?.text;
+    if (savedValue === undefined || lineRemoved) return result;
+    if (result.some((c) => at(c) && c.op === 'remove' && fieldOf(c) === field)) return result;
+    return [...result, change];
+  }
+  const savedValue = field === 'note' ? (saved?.note ?? '') : (saved?.text ?? '');
+  if (!lineRemoved && String(change.value) === savedValue) return result;
+  return [...result, change];
 }
 
 export function changeMap(changes: Change[]): Map<string, Change> {
@@ -117,6 +185,25 @@ export function severityOf(diagnostics: readonly Diagnostic[]): 'error' | 'warni
   if (diagnostics.some((d) => d.severity === 'error')) return 'error';
   if (diagnostics.length > 0) return 'warning';
   return null;
+}
+
+/**
+ * レイヤー 0（ベースレイヤー）の同じ位置の値。KC_TRNS のキーに薄く出す（protocol.md の 12.7）。
+ * レイヤー 0 そのもの・レイヤー 0 がない・値がない・何もしない（NoKey）か同じく下へ落とす（Trans）ときは null
+ */
+export function baseLayerValue(snapshot: ProfileSnapshot, layerIndex: number | undefined, slot: Slot): KeyValue | null {
+  if (layerIndex === 0) return null;
+  const base = snapshot.layers.find((layer) => layer.index === 0);
+  if (!base) return null;
+  let value: KeyValue | null = null;
+  if (slot.key) {
+    const { row, col } = slot.key;
+    value = base.keys.find((key) => key.hand === slot.hand && key.row === row && key.col === col)?.value ?? null;
+  } else if (slot.encoder) {
+    value = base.encoders[slot.hand][slot.encoder].value;
+  }
+  if (!value || value.kind === 'transparent' || value.kind === 'noKey' || !value.display.label) return null;
+  return value;
 }
 
 /** レイヤーの見出し（"0 Base"） */
@@ -200,9 +287,11 @@ export function keyAccessibleName(
   value: KeyValue | null | undefined,
   diagnostics: readonly Diagnostic[],
   layerNames: ReadonlyMap<number, string> = new Map(),
+  base?: KeyValue | null,
 ): string {
   let content: string;
   if (text === '') content = '割り当てなし';
+  else if (value?.kind === 'transparent' && base) content = `${value.display.label || text}（レイヤー 0 の値 ${base.display.label}）`;
   else if (value?.display.tap && value.display.hold && (value.kind === 'layerTap' || value.kind === 'modTap'))
     content = `タップ ${value.display.tap}、ホールド ${value.display.hold}`;
   // レイヤー操作は図では帯に番号だけなので、読み上げは表記の形とレイヤーの名前で（MO(3)（Function Keys））

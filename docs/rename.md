@@ -34,8 +34,20 @@ ruby bin/rename_file --batch tmp/rename_plans.json [--dry-run] [--cleanup-backup
   5. 変更後の DeviceImage が変更前と同じことを確かめる（16bit 値の比較）
   6. どこかで失敗したらバックアップから元に戻す（バックアップは残す）
 - `Storage::ConfigEditor`: ファイル操作・行単位の書き換え（コメントや書式を保つ）・バックアップと復元
+  - 参照の置き換えは、ファイルを書かずにテキストの上でも呼べる（VS Code 拡張 v0.2 で分けた）。
+    `ConfigEditor.reference_pattern(function, name)` は `function('name')` の参照に合う正規表現（引用符は `'` `"` と YAML の中で重ねた `''` `\"`。1 番目のグループが引用符）、
+    `ConfigEditor.replace_references_in(text, function, old_name, new_name)` はテキストの中の参照を置き換えた文字列を返す（名前に同じ引用符があれば、もう一方の引用符で囲む）。
+    どちらも `Macro` / `TapDance` に加えて `Shortcut` を扱える。ファイルに書く `#replace_references` はこれを呼ぶだけで、振る舞いは変わらない（`Macro` / `TapDance` だけ）
+- `Application::Editor::ItemEdits`（`cornix serve` の `profile/planItemEdit`。[protocol.md](vscode-extension/protocol.md) の 12.5）: VS Code 拡張の項目の名前の変更。
+  `RenameFiles` と同じ考え方（参照をテキストで置き換え、前後の compile の結果を 16bit 値で照合する）だが、ファイルは書かずに書き換え（範囲と新しい文字）として返す
+  - 設定ディレクトリを読み、操作をメモリの上の `ItemEdits::Changeset` に積む。`name` の行を書き換え、全設定ファイルの `Macro` / `TapDance` / `Shortcut('旧名')` を
+    `reference_pattern` で探して参照 1 つずつの範囲を `replace_references_in` で置き換え、ファイル名の slug を変える（`renameTo`。番号の接頭辞と拡張子は保つ）
+  - 当てたあとの中身を compile して前の 16bit 値と違えば `ItemEdits::Unverified`（`-32061` の reason `"verify"`）で、何も返さない。
+    レイヤーとコンボは名前で参照されないので `name` の行とファイル名だけ、位置の名前の変更（`RenamePosition`）は `position_map.yaml` と全レイヤーの `mapping` のキーを書き換える
+  - 削除（`ItemEdits::Delete`）は参照を書き換えず、壊れる参照の場所を返す（`reference_pattern` で表記を探すほか、16bit 値で番号の参照も数える）
 - パスは `Environment#root` 基準で解決する
 
 ## テスト
 
-`spec/application/rename_spec.rb`, `spec/storage/config_editor_spec.rb`, `spec/end_to_end_spec.rb`（bin/rename_file の実行）
+`spec/application/rename_spec.rb`, `spec/storage/config_editor_spec.rb`, `spec/end_to_end_spec.rb`（bin/rename_file の実行）。
+`ItemEdits` は `spec/application/editor/item_edits_spec.rb`・`spec/application/editor/item_edits/`・`spec/fixtures/protocol/profile_plan_item_edit/`

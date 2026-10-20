@@ -12,10 +12,17 @@ module Cornix
       #   categories.position(name)            同じ分類の中での並び（categories に書いた順。書いていなければ nil）
       #   categories.order                     分類の並び
       #   categories.contexts                  場面の名前
-      #   categories.prefer?(context, category, name)  その場面で上に出すものか
+      #   categories.prefer?(context, category, name)  その場面で上に出すものか（分類かキーの名前で）
+      #   categories.prefer_base_layer?(context)       ベースレイヤーに割り当ててある値を上に出す場面か
+      #   categories.exclude?(context, category)       その場面で出さない分類か（params の all: true なら出す）
+      #
+      # contexts の分類には order の分類のほか、表ではなくプロファイルと入力から作る分類（EXTRA_CATEGORIES）も書ける
       class Categories
         PATH = File.join(Cornix::DATA_DIR, 'keycode_categories.yaml')
         SECTIONS = %i[special basic quantum modified].freeze
+        EXTRA_CATEGORIES = %w[layer macro tapDance shortcut presetShortcut raw].freeze
+        CONTEXT_KEYS = %w[prefer exclude].freeze
+        PREFER_KEYS = %w[categories keys baseLayer].freeze
 
         def self.load(path = PATH)
           table = YAML.safe_load_file(path)
@@ -55,10 +62,20 @@ module Cornix
 
         def context?(context) = @contexts.key?(context)
 
-        def prefer?(context, category, name)
-          prefer = @contexts.fetch(context) { raise ArgumentError, "知らない context です: #{context.inspect}" }
-          prefer[:categories].include?(category) || (!name.nil? && prefer[:keys].include?(name))
+        def prefer?(context, category, name) = !prefer_rank(context, category, name).nil?
+
+        # 上に出すものどうしの順（prefer.categories に書いた順、そのあとに prefer.keys のキー）。上に出さないものは nil
+        def prefer_rank(context, category, name)
+          prefer = fetch(context)
+          rank = prefer[:categories].index(category)
+          return rank if rank
+
+          prefer[:categories].size if !name.nil? && prefer[:keys].include?(name)
         end
+
+        def prefer_base_layer?(context) = fetch(context)[:base_layer]
+
+        def exclude?(context, category) = fetch(context)[:exclude].include?(category)
 
         private
 
@@ -81,11 +98,33 @@ module Cornix
           end.freeze
         end
 
+        def fetch(context) = @contexts.fetch(context) { raise ArgumentError, "知らない context です: #{context.inspect}" }
+
         def prefer!(context, value)
-          prefer = hash!(hash!(value, "contexts.#{context}")['prefer'] || {}, "contexts.#{context}.prefer")
-          categories = strings!(prefer['categories'] || [], "contexts.#{context}.prefer.categories")
-          categories.each { |category| check_category!(category, "contexts.#{context}.prefer.categories") }
-          { categories: categories.freeze, keys: strings!(prefer['keys'] || [], "contexts.#{context}.prefer.keys").freeze }
+          where = "contexts.#{context}"
+          table = known_keys!(hash!(value, where), CONTEXT_KEYS, where)
+          prefer = known_keys!(hash!(table['prefer'] || {}, "#{where}.prefer"), PREFER_KEYS, "#{where}.prefer")
+          exclude = known_keys!(hash!(table['exclude'] || {}, "#{where}.exclude"), %w[categories], "#{where}.exclude")
+          base_layer = prefer.fetch('baseLayer', false)
+          raise ConfigError, "#{where}.prefer.baseLayer は true か false にしてください" unless [true, false].include?(base_layer)
+
+          { categories: context_categories!(prefer, "#{where}.prefer.categories"),
+            keys: strings!(prefer['keys'] || [], "#{where}.prefer.keys").freeze,
+            base_layer: base_layer,
+            exclude: context_categories!(exclude, "#{where}.exclude.categories") }.freeze
+        end
+
+        def context_categories!(table, where)
+          categories = strings!(table['categories'] || [], where)
+          categories.each { |category| check_category!(category, where) unless EXTRA_CATEGORIES.include?(category) }
+          categories.freeze
+        end
+
+        def known_keys!(table, allowed, where)
+          unknown = table.keys - allowed
+          raise ConfigError, "#{where} に知らない項目があります: #{unknown.join(', ')}" unless unknown.empty?
+
+          table
         end
 
         def check_category!(category, where)

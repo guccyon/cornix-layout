@@ -17,6 +17,20 @@ describe('relayRequest', () => {
     expect(response).toEqual({ type: 'response', id: 3, method: 'keycode/inspect', result: { value: null } });
   });
 
+  it('keycode/shortcutTree はプロファイルによらないので、Webview の params を使わずに {} で送る', async () => {
+    const calls: unknown[] = [];
+    const response = await relayRequest(
+      { id: 6, method: 'keycode/shortcutTree', params: { profileId: 'p9', extra: 1 } },
+      async (method, params) => {
+        calls.push([method, params]);
+        return { apps: [] };
+      },
+      'p1',
+    );
+    expect(calls).toEqual([['keycode/shortcutTree', {}]]);
+    expect(response).toEqual({ type: 'response', id: 6, method: 'keycode/shortcutTree', result: { apps: [] } });
+  });
+
   it('ほかのメソッドは中継せずに error で返す', async () => {
     let called = false;
     const response = await relayRequest(

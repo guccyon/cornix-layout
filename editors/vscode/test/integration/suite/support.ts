@@ -61,6 +61,21 @@ export class FakePrompts implements ProfilePrompts {
   saveFailed(message: string, openFile?: () => void) {
     this.calls.push({ method: 'saveFailed', args: [message, openFile !== undefined] });
   }
+  /** 項目の操作の前に保存するか（12.5） */
+  saveFirst = true;
+  /** 項目の操作を書くか */
+  itemEdit = true;
+  confirmSaveFirst(...args: unknown[]) {
+    this.calls.push({ method: 'confirmSaveFirst', args });
+    return Promise.resolve(this.saveFirst);
+  }
+  confirmItemEdit(...args: unknown[]) {
+    this.calls.push({ method: 'confirmItemEdit', args });
+    return Promise.resolve(this.itemEdit);
+  }
+  itemEditFailed(message: string, openFile?: () => void) {
+    this.calls.push({ method: 'itemEditFailed', args: [message, openFile !== undefined] });
+  }
   of(method: string): PromptLog[] {
     return this.calls.filter((call) => call.method === method);
   }
@@ -81,6 +96,18 @@ export async function writeOutside(rel: string, from: string, to: string): Promi
   const text = readWorkspaceFile(rel);
   assert.ok(text.includes(from), `${rel} に ${from} がない`);
   await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(workspaceRoot(), rel), new TextEncoder().encode(text.replace(from, to)));
+}
+
+/**
+ * writeOutside と同じ書き換えを、一時ファイルに書いてから置き換える形で当てる（読む側が途中の中身を読まない）。
+ * 一時ファイルはワークスペースの直下（プロファイルの見張りの外）に置く
+ */
+export async function replaceOutside(rel: string, from: string, to: string): Promise<void> {
+  const text = readWorkspaceFile(rel);
+  assert.ok(text.includes(from), `${rel} に ${from} がない`);
+  const temp = vscode.Uri.joinPath(workspaceRoot(), '.replace-outside.tmp');
+  await vscode.workspace.fs.writeFile(temp, new TextEncoder().encode(text.replace(from, to)));
+  await vscode.workspace.fs.rename(temp, vscode.Uri.joinPath(workspaceRoot(), rel), { overwrite: true });
 }
 
 export function profileTab(): vscode.Tab | undefined {

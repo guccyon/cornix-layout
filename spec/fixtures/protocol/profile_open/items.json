@@ -1,0 +1,615 @@
+{
+  "description": "マクロ・タップダンス・コンボ・ショートカットの中身（12.2）。手順のキーは 1 つの値（keys: KC_LSHIFT）なら要素 1 つで Address は keys、タップダンスの動作は actions: の下、コンボの triggers は書いてある数だけ、ショートカットは [\"shortcuts\", 名前]。positionMap の各位置に名前を書いている場所、レイヤーに descriptionAddress",
+  "setup": {
+    "profile": "authors_config",
+    "open": false,
+    "files": {
+      "profiles/default/shortcuts.yaml": "shortcuts:\n  前のタブへ: Command + Shift + [\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/open",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "status": "ok",
+      "positionMap": [
+        {
+          "hand": "left",
+          "row": 0,
+          "col": 0,
+          "group": "row0",
+          "symbol": "tab",
+          "address": {
+            "file": "position_map.yaml",
+            "path": [
+              "left_hand",
+              "row0",
+              0
+            ]
+          }
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+          "hand": "left",
+          "row": 3,
+          "col": 3,
+          "group": "thumb_keys",
+          "symbol": "left",
+          "address": {
+            "file": "position_map.yaml",
+            "path": [
+              "left_hand",
+              "thumb_keys",
+              0
+            ]
+          }
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        }
+      ],
+      "layers": [
+        {
+          "index": 0,
+          "descriptionAddress": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "description"
+            ]
+          }
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        }
+      ],
+      "macros": [
+        {
+        },
+        {
+          "index": 1,
+          "name": "Curly Brace Pair",
+          "description": "波括弧ペア {} を挿入してカーソルを内側に配置",
+          "file": "macros/01_curly_brace_pair.yml",
+          "descriptionAddress": {
+            "file": "macros/01_curly_brace_pair.yml",
+            "path": [
+              "description"
+            ]
+          },
+          "icon": null,
+          "preset": null,
+          "presetAddress": null,
+          "summary": [
+            "down: ⇧",
+            "tap: [ ]",
+            "up: ⇧",
+            "tap: Left"
+          ],
+          "steps": [
+            {
+              "address": {
+                "file": "macros/01_curly_brace_pair.yml",
+                "path": [
+                  "sequence",
+                  0
+                ]
+              },
+              "action": "down",
+              "keysAddress": {
+                "file": "macros/01_curly_brace_pair.yml",
+                "path": [
+                  "sequence",
+                  0,
+                  "keys"
+                ]
+              },
+              "keys": [
+                {
+                  "address": {
+                    "file": "macros/01_curly_brace_pair.yml",
+                    "path": [
+                      "sequence",
+                      0,
+                      "keys"
+                    ]
+                  },
+                  "value": {
+                    "text": "KC_LSHIFT",
+                    "canonical": "LShift",
+                    "code": 225,
+                    "kind": "basic",
+                    "display": {
+                      "label": "⇧"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "address": {
+                "file": "macros/01_curly_brace_pair.yml",
+                "path": [
+                  "sequence",
+                  1
+                ]
+              },
+              "action": "tap",
+              "keysAddress": {
+                "file": "macros/01_curly_brace_pair.yml",
+                "path": [
+                  "sequence",
+                  1,
+                  "keys"
+                ]
+              },
+              "keys": [
+                {
+                  "address": {
+                    "file": "macros/01_curly_brace_pair.yml",
+                    "path": [
+                      "sequence",
+                      1,
+                      "keys",
+                      0
+                    ]
+                  },
+                  "value": {
+                    "text": "KC_LBRACKET",
+                    "canonical": "[",
+                    "code": 47,
+                    "kind": "basic",
+                    "display": {
+                      "label": "["
+                    }
+                  }
+                },
+                {
+                  "address": {
+                    "file": "macros/01_curly_brace_pair.yml",
+                    "path": [
+                      "sequence",
+                      1,
+                      "keys",
+                      1
+                    ]
+                  },
+                  "value": {
+                    "text": "KC_RBRACKET",
+                    "canonical": "]",
+                    "code": 48,
+                    "kind": "basic",
+                    "display": {
+                      "label": "]"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "address": {
+                "file": "macros/01_curly_brace_pair.yml",
+                "path": [
+                  "sequence",
+                  2
+                ]
+              },
+              "action": "up",
+              "keysAddress": {
+                "file": "macros/01_curly_brace_pair.yml",
+                "path": [
+                  "sequence",
+                  2,
+                  "keys"
+                ]
+              },
+              "keys": [
+                {
+                  "address": {
+                    "file": "macros/01_curly_brace_pair.yml",
+                    "path": [
+                      "sequence",
+                      2,
+                      "keys"
+                    ]
+                  },
+                  "value": {
+                    "text": "KC_LSHIFT",
+                    "canonical": "LShift",
+                    "code": 225,
+                    "kind": "basic",
+                    "display": {
+                      "label": "⇧"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "address": {
+                "file": "macros/01_curly_brace_pair.yml",
+                "path": [
+                  "sequence",
+                  3
+                ]
+              },
+              "action": "tap",
+              "keysAddress": {
+                "file": "macros/01_curly_brace_pair.yml",
+                "path": [
+                  "sequence",
+                  3,
+                  "keys"
+                ]
+              },
+              "keys": [
+                {
+                  "address": {
+                    "file": "macros/01_curly_brace_pair.yml",
+                    "path": [
+                      "sequence",
+                      3,
+                      "keys",
+                      0
+                    ]
+                  },
+                  "value": {
+                    "text": "KC_LEFT",
+                    "canonical": "Left",
+                    "code": 80,
+                    "kind": "basic",
+                    "display": {
+                      "label": "Left"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        }
+      ],
+      "tapDances": [
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+          "index": 4,
+          "name": "Tab Escape",
+          "description": "タップで Tab、長押しで Escape",
+          "file": "tap_dance/04_tab_escape.yml",
+          "descriptionAddress": {
+            "file": "tap_dance/04_tab_escape.yml",
+            "path": [
+              "description"
+            ]
+          },
+          "actions": {
+            "tap": {
+              "address": {
+                "file": "tap_dance/04_tab_escape.yml",
+                "path": [
+                  "actions",
+                  "on_tap"
+                ]
+              },
+              "value": {
+                "text": "KC_TAB",
+                "canonical": "Tab",
+                "code": 43,
+                "kind": "basic",
+                "display": {
+                  "label": "Tab"
+                }
+              }
+            },
+            "hold": {
+              "address": {
+                "file": "tap_dance/04_tab_escape.yml",
+                "path": [
+                  "actions",
+                  "on_hold"
+                ]
+              },
+              "value": {
+                "text": "KC_ESCAPE",
+                "canonical": "Escape",
+                "code": 41,
+                "kind": "basic",
+                "display": {
+                  "label": "Escape"
+                }
+              }
+            },
+            "doubleTap": {
+              "address": {
+                "file": "tap_dance/04_tab_escape.yml",
+                "path": [
+                  "actions",
+                  "on_double_tap"
+                ]
+              },
+              "value": {
+                "text": "KC_NO",
+                "canonical": "NoKey",
+                "code": 0,
+                "kind": "noKey",
+                "display": {
+                  "label": ""
+                }
+              }
+            },
+            "tapHold": {
+              "address": {
+                "file": "tap_dance/04_tab_escape.yml",
+                "path": [
+                  "actions",
+                  "on_tap_hold"
+                ]
+              },
+              "value": {
+                "text": "KC_NO",
+                "canonical": "NoKey",
+                "code": 0,
+                "kind": "noKey",
+                "display": {
+                  "label": ""
+                }
+              }
+            }
+          },
+          "tappingTerm": {
+            "address": {
+              "file": "tap_dance/04_tab_escape.yml",
+              "path": [
+                "tapping_term"
+              ]
+            },
+            "value": 200
+          }
+        }
+      ],
+      "combos": [
+        {
+          "index": 0,
+          "name": "Bracket Pair",
+          "description": "K + L で角括弧ペア [] を入力",
+          "file": "combos/00_bracket_pair.yml",
+          "descriptionAddress": {
+            "file": "combos/00_bracket_pair.yml",
+            "path": [
+              "description"
+            ]
+          },
+          "triggersAddress": {
+            "file": "combos/00_bracket_pair.yml",
+            "path": [
+              "trigger_keys"
+            ]
+          },
+          "triggers": [
+            {
+              "address": {
+                "file": "combos/00_bracket_pair.yml",
+                "path": [
+                  "trigger_keys",
+                  0
+                ]
+              },
+              "value": {
+                "text": "KC_K",
+                "canonical": "K",
+                "code": 14,
+                "kind": "basic",
+                "display": {
+                  "label": "K"
+                }
+              }
+            },
+            {
+              "address": {
+                "file": "combos/00_bracket_pair.yml",
+                "path": [
+                  "trigger_keys",
+                  1
+                ]
+              },
+              "value": {
+                "text": "KC_L",
+                "canonical": "L",
+                "code": 15,
+                "kind": "basic",
+                "display": {
+                  "label": "L"
+                }
+              }
+            }
+          ],
+          "output": {
+            "address": {
+              "file": "combos/00_bracket_pair.yml",
+              "path": [
+                "output_key"
+              ]
+            },
+            "value": {
+              "text": "Macro('Bracket Pair')",
+              "canonical": "Macro('Bracket Pair')",
+              "code": 30464,
+              "kind": "macro",
+              "display": {
+                "label": "Bracket Pair"
+              }
+            }
+          }
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        }
+      ],
+      "shortcuts": [
+        {
+          "name": "前のタブへ",
+          "address": {
+            "file": "shortcuts.yaml",
+            "path": [
+              "shortcuts",
+              "前のタブへ"
+            ]
+          },
+          "value": {
+            "text": "Command + Shift + [",
+            "canonical": "Shift + Command + [",
+            "code": 2607,
+            "kind": "modified",
+            "display": {
+              "label": "⇧⌘["
+            }
+          }
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

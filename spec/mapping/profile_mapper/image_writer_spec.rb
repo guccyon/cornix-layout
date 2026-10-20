@@ -31,10 +31,24 @@ RSpec.describe Cornix::Mapping::ProfileMapper::ImageWriter do
       expect(image.layers[0][4][5]).to eq(0x5223)
     end
 
-    it '割り当てのない位置とキーのない位置は nil（旧 compile の -1）' do
-      expect(image.layers[0][0][1]).to be_nil
+    it 'position_map にある位置で割り当てのないものは KC_NO（0）、キーのない位置は nil（.vil の -1）' do
+      expect(image.layers[0][0][1]).to eq(0)
+      expect(image.layers[0][7][0]).to eq(0)
       expect(image.layers[0][0][6]).to be_nil
-      expect(image.layers[0].flatten.compact.size).to eq(4)
+      expect(image.layers[0][3][6]).to be_nil
+      # キーの位置 48 とエンコーダのプッシュ 2。nil はプッシュ以外の col 6 の 6 か所
+      expect(image.layers[0].flatten.compact.size).to eq(50)
+      expect(image.layers[0].flatten.count(0)).to eq(46)
+      expect(image.layers[0].map { |row| row[6] }.each_with_index.reject { |_, r| [2, 5].include?(r) }.map(&:first))
+        .to all(be_nil)
+    end
+
+    it '割り当てのないレイヤーでも position_map にある位置は KC_NO、エンコーダは KC_NO' do
+      empty = build_layer(index: 0, encoders: { left: encoder_binding, right: encoder_binding })
+      result = mapper.to_image(build_profile(layers: [empty]))
+      expect(result.layers[0].flatten.compact).to all(eq(0))
+      expect(result.layers[0].flatten.compact.size).to eq(50)
+      expect(result.encoders[0]).to eq([img::EncoderRecord.new(ccw: 0, cw: 0)] * 2)
     end
 
     it 'エンコーダのプッシュはマトリクス、回転は encoders に置く' do
@@ -53,7 +67,7 @@ RSpec.describe Cornix::Mapping::ProfileMapper::ImageWriter do
       profile = build_profile(layers: [build_layer(index: 2, keys: keys), build_layer(index: 0)])
       result = mapper.to_image(profile)
       expect(result.layers[2][0][0]).to eq(0x2B)
-      expect(result.layers[0][0][0]).to be_nil
+      expect(result.layers[0][0][0]).to eq(0)
       expect(result.layers[1].flatten).to all(be_nil)
     end
 

@@ -4,10 +4,13 @@ import * as crypto from 'node:crypto';
 import * as vscode from 'vscode';
 import type { CornixServer } from '../server/cornixServer';
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
+import type { ProfileSnapshot } from '../protocol';
+import { isItemEdit } from './itemEdits';
 import { ProfileDocument } from './profileDocument';
 import { PROFILE_EDITOR_VIEW_TYPE, profileDirOf } from './profileUri';
-import { openProfileFile } from './profileFiles';
+import { openProfileFile, profileFileUri } from './profileFiles';
 import { vscodePrompts, type ProfilePrompts } from './prompts';
+import { textDiagnostics } from './textDiagnostics';
 import { relayRequest } from './webviewRelay';
 
 export class ProfileEditorProvider implements vscode.CustomEditorProvider<ProfileDocument>, vscode.Disposable {
@@ -24,12 +27,17 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
   /** 保存と外での変更で利用者に聞くこと（統合テストが差し替える） */
   prompts: ProfilePrompts = vscodePrompts;
   private readonly disposables: vscode.Disposable[] = [];
+  /** テキストで開いたときの波線（protocol.md の 12.7）。保存済みのファイルの検証の結果（snapshot の diagnostics）を出す */
+  readonly diagnostics = vscode.languages.createDiagnosticCollection('cornix');
+  /** ドキュメントごとの、波線を出したファイルと、そのときの snapshot（同じ snapshot なら出し直さない） */
+  private readonly published = new Map<ProfileDocument, { snapshot: ProfileSnapshot; uris: vscode.Uri[] }>();
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly server: CornixServer,
   ) {
     this.disposables.push(
+      this.diagnostics,
       server.onNotification('profile/didChange', (params) => {
         for (const document of this.documents) document.handleExternalChange(params);
       }),
@@ -64,8 +72,48 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     const document = await ProfileDocument.open(uri, dir, env, openContext.backupId);
     this.documents.add(document);
     document.onDidEdit((edit) => this.onDidChangeEmitter.fire(edit));
-    document.onDidDispose(() => this.documents.delete(document));
+    document.onDidChangeContent(() => this.publishDiagnostics(document));
+    document.onDidDispose(() => {
+      this.documents.delete(document);
+      this.clearDiagnostics(document);
+    });
+    this.publishDiagnostics(document);
     return document;
+  }
+
+  /**
+   * snapshot（profile/open・profile/saved・profile/didChange）の diagnostics をファイルごとの波線にする。
+   * 未保存の変更の検証の結果（画面だけのもの）は、ファイルの中身と位置が合わないので出さない
+   */
+  private publishDiagnostics(document: ProfileDocument): void {
+    const snapshot = document.snapshot;
+    const previous = this.published.get(document);
+    if (previous?.snapshot === snapshot) return;
+    const uris: vscode.Uri[] = [];
+    for (const [file, entries] of textDiagnostics(snapshot)) {
+      const uri = profileFileUri(document.dir, file);
+      if (!uri) continue;
+      uris.push(uri);
+      this.diagnostics.set(
+        uri,
+        entries.map((entry) => {
+          const { start, end } = entry.range;
+          const severity = entry.severity === 'error' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
+          const diagnostic = new vscode.Diagnostic(new vscode.Range(start.line, start.character, end.line, end.character), entry.message, severity);
+          diagnostic.source = 'cornix';
+          return diagnostic;
+        }),
+      );
+    }
+    const current = new Set(uris.map((uri) => uri.toString()));
+    for (const uri of previous?.uris ?? []) if (!current.has(uri.toString())) this.diagnostics.delete(uri);
+    this.published.set(document, { snapshot, uris });
+  }
+
+  /** プロファイルを閉じたら波線を消す */
+  private clearDiagnostics(document: ProfileDocument): void {
+    for (const uri of this.published.get(document)?.uris ?? []) this.diagnostics.delete(uri);
+    this.published.delete(document);
   }
 
   async resolveCustomEditor(
@@ -80,7 +128,13 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
 
     let disposed = false;
     const post = () => {
-      const message: HostMessage = { type: 'snapshot', snapshot: document.viewSnapshot, changes: document.changes.list() };
+      // changes は v0.1 の値の書き換え（set だけ）、pending は未保存の変更の全部を当てる順に（12.3）
+      const message: HostMessage = {
+        type: 'snapshot',
+        snapshot: document.viewSnapshot,
+        changes: document.changes.plainSets(),
+        pending: document.changes.list(),
+      };
       void panel.webview.postMessage(message);
     };
     const subscriptions = [
@@ -92,7 +146,13 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
             post();
             return;
           case 'change':
+          case 'edit':
+            // v0.1 の値の書き換えも v0.2 の並びの操作・削除・注記も、同じ未保存の変更の並びに足す（形の違うものは足さない）
             document.applyChange(message.change);
+            return;
+          case 'itemEdit':
+            // 確認のダイアログのあとすぐファイルに書く（結果は snapshot で描き直す。失敗は通知で知らせる）
+            if (isItemEdit(message.edit)) void document.applyItemEdit(message.edit);
             return;
           case 'request':
             // サーバーへの中継（RELAYED_METHODS だけ。profileId はそのときのもの（再起動で変わる）を入れる）。

@@ -1,0 +1,266 @@
+{
+  "description": "位置の名前を変える: position_map.yaml の並びの 1 要素と、すべてのレイヤーの mapping のキー",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "position_map.yaml": "sha256:5de01fed693ad471b615b6b498e2737fa502376efc8494c643135cbb1ab9d00f",
+        "layers/0_layer_0.yaml": "sha256:9faa12c6c209ea8cb5e6ec37f158d05bf97a29200c5b2c278601d0e0b204fee0",
+        "layers/1_layer_1.yaml": "sha256:dbbf2271b2f8f41277c53da525724d77918d5a54ab222d78b7a8f26e86b6d189",
+        "layers/2_layer_2.yaml": "sha256:f46b741dff858f475b85dfce5210cb1f34d4317106456c2b5869bf2b1dcceeb2",
+        "layers/3_layer_3.yaml": "sha256:b3c51d5ab08a500e5f02b57dbb6464ccef59d118e81d77fc4664a8fecab37016",
+        "layers/4_layer_4.yaml": "sha256:8c3c3f9ec3dc294169e86461eb625f86b8223d16f0348b6f50b00fbb4eece3d5",
+        "layers/5_layer_5.yaml": "sha256:2572eb48c27fa9e866749b37bc086a14680cb96ab9cb9292ada0451d6a0a5903",
+        "layers/6_layer_6.yaml": "sha256:4177883031b4f6f314fc30e5f98bff2a1935c2c4b5644eeaf00b3cd1f7dcb7a9",
+        "layers/7_layer_7.yaml": "sha256:f3682867442cc4dfb03d0b205adaf357b5e41b709613202fecd815357528364c",
+        "layers/8_layer_8.yaml": "sha256:971c91cd1ca44a5f3b4101a31b02791a47779c6a0900a283f8b10aa6af12942a",
+        "layers/9_layer_9.yaml": "sha256:b7b345ade359be8a2c459fe9b24e31b38f4989d04e399e9ebc433bb3c6e6f9cf"
+      },
+      "edit": {
+        "op": "renamePosition",
+        "hand": "left",
+        "row": 0,
+        "col": 0,
+        "to": "esc"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "position_map.yaml",
+          "baseVersion": "sha256:5de01fed693ad471b615b6b498e2737fa502376efc8494c643135cbb1ab9d00f",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 2,
+                  "character": 9
+                },
+                "end": {
+                  "line": 2,
+                  "character": 12
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/0_layer_0.yaml",
+          "baseVersion": "sha256:9faa12c6c209ea8cb5e6ec37f158d05bf97a29200c5b2c278601d0e0b204fee0",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/1_layer_1.yaml",
+          "baseVersion": "sha256:dbbf2271b2f8f41277c53da525724d77918d5a54ab222d78b7a8f26e86b6d189",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/2_layer_2.yaml",
+          "baseVersion": "sha256:f46b741dff858f475b85dfce5210cb1f34d4317106456c2b5869bf2b1dcceeb2",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/3_layer_3.yaml",
+          "baseVersion": "sha256:b3c51d5ab08a500e5f02b57dbb6464ccef59d118e81d77fc4664a8fecab37016",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/4_layer_4.yaml",
+          "baseVersion": "sha256:8c3c3f9ec3dc294169e86461eb625f86b8223d16f0348b6f50b00fbb4eece3d5",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/5_layer_5.yaml",
+          "baseVersion": "sha256:2572eb48c27fa9e866749b37bc086a14680cb96ab9cb9292ada0451d6a0a5903",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/6_layer_6.yaml",
+          "baseVersion": "sha256:4177883031b4f6f314fc30e5f98bff2a1935c2c4b5644eeaf00b3cd1f7dcb7a9",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/7_layer_7.yaml",
+          "baseVersion": "sha256:f3682867442cc4dfb03d0b205adaf357b5e41b709613202fecd815357528364c",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/8_layer_8.yaml",
+          "baseVersion": "sha256:971c91cd1ca44a5f3b4101a31b02791a47779c6a0900a283f8b10aa6af12942a",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        },
+        {
+          "file": "layers/9_layer_9.yaml",
+          "baseVersion": "sha256:b7b345ade359be8a2c459fe9b24e31b38f4989d04e399e9ebc433bb3c6e6f9cf",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 6
+                },
+                "end": {
+                  "line": 7,
+                  "character": 9
+                }
+              },
+              "newText": "esc"
+            }
+          ]
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

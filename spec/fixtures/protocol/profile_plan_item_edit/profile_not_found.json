@@ -1,0 +1,26 @@
+{
+  "description": "知らない profileId は -32050",
+  "setup": {
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p9",
+      "edit": {
+        "op": "delete",
+        "kind": "macro",
+        "name": "X"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32050,
+      "data": {
+        "profileId": "p9"
+      }
+    }
+  }
+}

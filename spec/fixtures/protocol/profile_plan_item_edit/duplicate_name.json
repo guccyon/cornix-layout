@@ -1,0 +1,30 @@
+{
+  "description": "ほかの項目と同じ名前への変更は -32602（field \"edit.to\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "rename",
+        "kind": "macro",
+        "name": "Bracket Pair",
+        "to": "Copy Selected"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.to"
+      }
+    }
+  }
+}

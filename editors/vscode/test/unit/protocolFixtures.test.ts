@@ -21,9 +21,10 @@ const SUPPORTED = [
   'profile_plan_edits',
   'profile_saved',
   'workspace_did_change_files',
+  'profile_plan_item_edit',
 ];
 /** 応答が error のデータだけを流すディレクトリ（keycode_shortcut_tree は error のデータがないので流さない） */
-const ERRORS_ONLY = new Set(['profile_open', 'keycode_candidates', 'keycode_inspect', 'profile_validate', 'profile_plan_edits', 'profile_saved']);
+const ERRORS_ONLY = new Set(['profile_open', 'keycode_candidates', 'keycode_inspect', 'profile_validate', 'profile_plan_edits', 'profile_saved', 'profile_plan_item_edit']);
 /** 偽のサーバーでは比べない項目（偽のサーバーの implementation は "fake"） */
 const IGNORED = new Set(['$.result.serverInfo.implementation']);
 
@@ -65,7 +66,7 @@ async function run(fixture: Fixture) {
     prepare(root, setup);
     const before: JsonObject[] = [];
     if (setup.initialize !== false) {
-      before.push(message({ id: 'setup:initialize', method: 'initialize', params: { protocolVersion: '0.1' } }), message({ method: 'initialized' }));
+      before.push(message({ id: 'setup:initialize', method: 'initialize', params: { protocolVersion: '0.2' } }), message({ method: 'initialized' }));
     }
     if (setup.profile) before.push(message({ id: 'setup:open', method: 'profile/open', params: { dir: 'profiles/default' } }));
     before.push(...(setup.before ?? []).map(message));

@@ -1,0 +1,48 @@
+{
+  "description": "macroKey はレイヤー操作・マクロ・タップダンス・ショートカットを出さない",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/candidates",
+    "params": {
+      "profileId": "p1",
+      "context": "macroKey",
+      "query": "Bracket"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        {
+          "insertText": "[",
+          "label": "[",
+          "detail": "LBracket · KC_LBRACKET",
+          "category": "basic"
+        },
+        {
+          "insertText": "]",
+          "label": "]",
+          "detail": "RBracket · KC_RBRACKET",
+          "category": "basic"
+        },
+        {
+          "insertText": "<",
+          "label": "<",
+          "detail": "LessThan · LAngleBracket · LeftAngleBracket · KC_LT",
+          "category": "basic"
+        },
+        {
+          "insertText": ">",
+          "label": ">",
+          "detail": "GreaterThan · RAngleBracket · RightAngleBracket · KC_GT",
+          "category": "basic"
+        }
+      ],
+      "typed": null,
+      "truncated": false
+    }
+  }
+}

@@ -2,14 +2,20 @@
 // 16bit 値・QMK の名前・表示の文字はそれらしい値で、Ruby のサーバーの結果と一致するとは限らない（画面を作るための仮のデータ）。
 import type {
   Candidate,
+  ComboSnapshot,
   EncoderBinding,
+  KeySlot,
   KeyValue,
   LayerKey,
   LayerSnapshot,
+  MacroSnapshot,
+  MacroStepSnapshot,
   PositionMapEntry,
   ProfileReferences,
   QmkSettingSnapshot,
+  ShortcutSnapshot,
   ShortcutTreeResult,
+  TapDanceSnapshot,
 } from '../../src/protocol';
 
 export const SERVER_VERSION = '1.0.0';
@@ -21,6 +27,13 @@ export const FALLBACK_FILES = [
   'layers/0_base.yml',
   'layers/1_symbols.yml',
   'settings/qmk_settings.yaml',
+  'shortcuts.yaml',
+  'macros/00_bracket_pair.yml',
+  'macros/01_curly_brace_pair.yml',
+  'macros/02_copy_selected.yml',
+  'tap_dance/03_layer_3_toggle.yml',
+  'tap_dance/04_tab_escape.yml',
+  'combos/00_left_bracket.yml',
 ];
 
 export const METADATA = { keyboard: 'cornix', version: 1, vial_protocol: 6, via_protocol: 9 };
@@ -145,6 +158,26 @@ const KEYS: Record<string, KeyInfo> = {
     code: 0x0a13,
     kind: 'modified',
     display: { label: '⇧⌘P' },
+  },
+  'Command + Shift + [': {
+    canonical: 'Shift + Command + [',
+    code: 0x0a2f,
+    kind: 'modified',
+    display: { label: '⇧⌘[' },
+  },
+  "Macro('Curly Brace Pair')": {
+    canonical: "Macro('Curly Brace Pair')",
+    code: 30465,
+    kind: 'macro',
+    display: { label: 'Curly Brace Pair' },
+  },
+  "Macro('Copy Selected')": {
+    canonical: "Macro('Copy Selected')",
+    code: 30466,
+    kind: 'macro',
+    origin: 'presetMacro',
+    icon: 'material-icon-theme:vscode',
+    display: { label: 'Copy Selected' },
   },
 };
 
@@ -341,6 +374,130 @@ export const SETTINGS: QmkSettingSnapshot[] = (
   description,
   address: { file: 'settings/qmk_settings.yaml', path: [group, name] },
 }));
+
+// ---------------------------------------------------------------------------
+// マクロ・タップダンス・コンボ・ショートカットの中身（protocol.md の 12.2。v0.2）
+// ---------------------------------------------------------------------------
+
+const slot = (file: string, path: (string | number)[], text: string | null): KeySlot => ({
+  address: { file, path },
+  value: text === null ? null : interpret(text),
+});
+
+/** keys が文字列なら 1 つの値で書いたもの（keys: Left。要素の Address は ["sequence", i, "keys"]） */
+type StepSource = { action: 'tap' | 'down' | 'up'; keys: string[] | string } | { action: 'delay'; duration: number } | { action: 'text'; content: string };
+
+function macroSteps(file: string, steps: StepSource[]): MacroStepSnapshot[] {
+  return steps.map((step, i): MacroStepSnapshot => {
+    const address = { file, path: ['sequence', i] };
+    if (step.action === 'delay') return { address, action: 'delay', duration: { address: { file, path: ['sequence', i, 'duration'] }, value: step.duration } };
+    if (step.action === 'text') return { address, action: 'text', content: { address: { file, path: ['sequence', i, 'content'] }, value: step.content } };
+    return {
+      address,
+      action: step.action,
+      keysAddress: { file, path: ['sequence', i, 'keys'] },
+      keys: typeof step.keys === 'string' ? [slot(file, ['sequence', i, 'keys'], step.keys)] : step.keys.map((key, j) => slot(file, ['sequence', i, 'keys', j], key)),
+    };
+  });
+}
+
+/** マクロのファイルの中身（統合テストのワークスペースの macros/ と同じ） */
+export const MACRO_SOURCES: { index: number; name: string; description: string | null; file: string; steps: StepSource[]; summary: string[] }[] = [
+  {
+    index: 0,
+    name: 'Bracket Pair',
+    description: '角括弧ペア',
+    file: 'macros/00_bracket_pair.yml',
+    steps: [
+      { action: 'tap', keys: ['LBracket', 'RBracket'] },
+      { action: 'tap', keys: 'Left' },
+    ],
+    summary: ['tap: [ ]', 'tap: ←'],
+  },
+  {
+    index: 1,
+    name: 'Curly Brace Pair',
+    description: null,
+    file: 'macros/01_curly_brace_pair.yml',
+    steps: [
+      { action: 'down', keys: ['LShift'] },
+      { action: 'tap', keys: ['LBracket', 'RBracket'] },
+      { action: 'up', keys: ['LShift'] },
+      { action: 'delay', duration: 50 },
+      { action: 'text', content: 'hello' },
+    ],
+    summary: ['down: ⇧', 'tap: [ ]', 'up: ⇧', 'delay: 50ms', 'text: hello'],
+  },
+];
+
+export const MACROS: MacroSnapshot[] = [
+  ...MACRO_SOURCES.map(
+    (source): MacroSnapshot => ({
+      index: source.index,
+      name: source.name,
+      description: source.description,
+      file: source.file,
+      descriptionAddress: { file: source.file, path: ['description'] },
+      icon: null,
+      preset: null,
+      presetAddress: null,
+      summary: source.summary,
+      steps: macroSteps(source.file, source.steps),
+    }),
+  ),
+  {
+    index: 2,
+    name: 'Copy Selected',
+    description: null,
+    file: 'macros/02_copy_selected.yml',
+    descriptionAddress: { file: 'macros/02_copy_selected.yml', path: ['description'] },
+    icon: 'material-icon-theme:vscode',
+    preset: 'VS Code:基本操作:キーボードショートカット',
+    presetAddress: { file: 'macros/02_copy_selected.yml', path: ['preset'] },
+    summary: ['tap: ⌘K', 'tap: ⌘S'],
+    steps: [],
+  },
+];
+
+function tapDance(index: number, name: string, file: string, actions: [string | null, string | null, string | null, string | null], tappingTerm: number | null): TapDanceSnapshot {
+  const [tap, hold, doubleTap, tapHold] = actions;
+  return {
+    index,
+    name,
+    description: null,
+    file,
+    descriptionAddress: { file, path: ['description'] },
+    actions: {
+      tap: slot(file, ['actions', 'on_tap'], tap),
+      hold: slot(file, ['actions', 'on_hold'], hold),
+      doubleTap: slot(file, ['actions', 'on_double_tap'], doubleTap),
+      tapHold: slot(file, ['actions', 'on_tap_hold'], tapHold),
+    },
+    tappingTerm: { address: { file, path: ['tapping_term'] }, value: tappingTerm },
+  };
+}
+
+export const TAP_DANCES: TapDanceSnapshot[] = [
+  tapDance(3, 'Layer 3 Toggle', 'tap_dance/03_layer_3_toggle.yml', ['TG(3)', 'MO(3)', null, null], null),
+  tapDance(4, 'Tab Escape', 'tap_dance/04_tab_escape.yml', ['Tab', 'Escape', null, null], 200),
+];
+
+export const COMBOS: ComboSnapshot[] = [
+  {
+    index: 0,
+    name: 'Left Bracket',
+    description: 'J と K で [',
+    file: 'combos/00_left_bracket.yml',
+    descriptionAddress: { file: 'combos/00_left_bracket.yml', path: ['description'] },
+    triggersAddress: { file: 'combos/00_left_bracket.yml', path: ['trigger_keys'] },
+    triggers: [slot('combos/00_left_bracket.yml', ['trigger_keys', 0], 'J'), slot('combos/00_left_bracket.yml', ['trigger_keys', 1], 'K')],
+    output: slot('combos/00_left_bracket.yml', ['output_key'], 'LBracket'),
+  },
+];
+
+export const SHORTCUTS: ShortcutSnapshot[] = [
+  { name: '前のタブへ', address: { file: 'shortcuts.yaml', path: ['shortcuts', '前のタブへ'] }, value: interpret('Command + Shift + [') },
+];
 
 export const REFERENCES: ProfileReferences = {
   layers: [

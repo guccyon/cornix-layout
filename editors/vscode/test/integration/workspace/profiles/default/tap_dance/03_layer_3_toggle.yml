@@ -1,0 +1,6 @@
+---
+name: Layer 3 Toggle
+index: 3
+actions:
+  on_tap: TG(3)
+  on_hold: MO(3)

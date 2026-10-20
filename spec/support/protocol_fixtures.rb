@@ -100,7 +100,7 @@ module ProtocolFixtures
   def setup_messages(workbench, setup)
     list = []
     unless setup['initialize'] == false
-      list << message('id' => 'setup:initialize', 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.1' })
+      list << message('id' => 'setup:initialize', 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.2' })
       list << message('method' => 'initialized')
     end
     if setup['profile'] && setup['open'] != false

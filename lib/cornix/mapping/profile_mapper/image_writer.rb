@@ -6,8 +6,8 @@ module Cornix
       # Profile → DeviceImage（旧 VialConfig#to_qmk と同じ配置・パディング）。
       #
       #   layers      capabilities.layers 枚。レイヤーは index の位置に置き、定義のないレイヤーはすべて nil。
-      #               割り当てのない位置とキーのない位置は nil、エンコーダのプッシュはマトリクスの
-      #               PositionMap#encoder_push_matrix の位置
+      #               position_map にある位置で割り当てのないものは KC_NO（0）、キーのない位置（col 6 など）は nil。
+      #               エンコーダのプッシュはマトリクスの PositionMap#encoder_push_matrix の位置
       #   encoders    [layer][左, 右] の EncoderRecord（定義のないレイヤーは ccw / cw とも nil）
       #   macros      capabilities.macros 個。未使用は []
       #   tap_dances  capabilities.tap_dances 個。未使用は KC_NO × 4 と DEFAULT_TAPPING_TERM
@@ -62,8 +62,15 @@ module Cornix
 
         def empty_encoders = ENCODER_SIDES.map { Image::EncoderRecord.new(ccw: nil, cw: nil) }
 
+        # 割り当てのない位置を nil（.vil の -1）にすると、cornix device apply はその位置を飛ばして前の値が残り、
+        # Vial の読み込みも -1 をそのまま 16bit で送ろうとして失敗しうる。そのため KC_NO で埋める
         def layer_grid(layer)
           grid = empty_grid
+          no_key = encode(Domain::Keycode::NO_KEY)
+          position_map.positions.each do |position|
+            row, col = position_map.matrix(position)
+            grid[row][col] = no_key
+          end
           layer.keys.each do |position, keycode|
             row, col = position_map.matrix(position)
             grid[row][col] = encode(keycode)

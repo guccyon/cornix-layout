@@ -1,4 +1,4 @@
-// 保存と外での変更（protocol.md の 6.2・7.3）で利用者に聞くこと・知らせること。
+// 保存と外での変更（protocol.md の 6.2・7.3）と項目の操作（12.5）で利用者に聞くこと・知らせること。
 // 統合テストは通知のボタンを押せないので、ProfileEditorProvider#prompts を差し替えて答える。
 import * as vscode from 'vscode';
 
@@ -20,6 +20,12 @@ export interface ProfilePrompts {
   confirmLost(profile: string, items: LostItem[]): Thenable<'discard' | 'external' | undefined>;
   /** 保存できなかった。openFile があれば「ファイルを開く」のボタンを付け、押されたら呼ぶ */
   saveFailed(message: string, openFile?: () => void): void;
+  /** 項目の操作（12.5）の前に、未保存の変更を保存するか。保存するなら true（やめる・閉じたら false） */
+  confirmSaveFirst(profile: string, pending: number): Thenable<boolean>;
+  /** 項目の操作をファイルに書くか（message は見出しと参照の件数、detail はファイルごとの操作）。書くなら true */
+  confirmItemEdit(message: string, detail: string): Thenable<boolean>;
+  /** 項目の操作ができなかった。openFile は saveFailed と同じ */
+  itemEditFailed(message: string, openFile?: () => void): void;
 }
 
 export const KEEP_SCREEN = '画面の変更を残す';
@@ -72,10 +78,34 @@ export const vscodePrompts: ProfilePrompts = {
   },
 
   saveFailed(message, openFile) {
-    const open = 'ファイルを開く';
-    const buttons = openFile ? [open] : [];
-    void vscode.window.showErrorMessage(message, ...buttons).then((choice) => {
-      if (choice === open) openFile?.();
-    });
+    showError(message, openFile);
+  },
+
+  async confirmSaveFirst(profile, pending) {
+    const save = '保存して続ける';
+    const choice = await vscode.window.showWarningMessage(
+      `${profile}: 未保存の変更が ${pending} 件あります。`,
+      { modal: true, detail: '項目の追加・削除・名前の変更はすぐファイルに書くので、先に未保存の変更を保存します。' },
+      save,
+    );
+    return choice === save;
+  },
+
+  async confirmItemEdit(message, detail) {
+    const run = '実行';
+    const choice = await vscode.window.showWarningMessage(message, { modal: true, detail }, run);
+    return choice === run;
+  },
+
+  itemEditFailed(message, openFile) {
+    showError(message, openFile);
   },
 };
+
+function showError(message: string, openFile?: () => void): void {
+  const open = 'ファイルを開く';
+  const buttons = openFile ? [open] : [];
+  void vscode.window.showErrorMessage(message, ...buttons).then((choice) => {
+    if (choice === open) openFile?.();
+  });
+}

@@ -8,7 +8,12 @@
 #               quantum  data/keycodes.yaml の quantum: の節の値（キーボード定義の customKeycodes を含む）
 #               modified basic / quantum のどちらでもない名前のある値（data/aliases.yaml の modified と shifted: の名前。"!" "¥" など）
 # - order:      分類の並び（候補を並べるときの既定の順）
-# - contexts:   場面ごとに上に出すもの（categories の分類か、キーの名前）。上に出すものどうしは order と同じ規則で並べる
+# - contexts:   場面（protocol.md の 5.3・12.4 の context）ごとの候補の扱い
+#               prefer.categories  上に出す分類（order の分類か、プロファイルと入力から作る layer / macro / tapDance / shortcut / presetShortcut / raw）
+#               prefer.keys        上に出すキーの名前（data/keycodes.yaml の name）
+#               prefer.baseLayer   true ならベースレイヤー（レイヤー 0）に割り当ててある値（KC_NO・KC_TRNS を除く）と同じ値の候補を上に出す
+#               exclude.categories 出さない分類（params の all: true なら出す）
+#               上に出すものどうしは prefer.categories に書いた順（ベースレイヤーの値はその先頭、prefer.keys はそのあと）、同じなら order と同じ規則で並べる
 #
 # 分類の名前は protocol.md の CandidateCategory のうち、キーの表から作るもの（basic / modifier / media / mouse / special）。
 # layer / macro / tapDance / shortcut / presetShortcut / raw は表ではなく、プロファイルと data/shortcuts/ と入力から作る。
@@ -74,3 +79,30 @@ contexts:
     prefer:
       categories: [media]
       keys: [KC_WH_U, KC_WH_D, KC_WH_L, KC_WH_R]
+  # マクロの手順のキー。マクロのファイルは名前参照を読まないので、all: true で出すマクロ・タップダンスは M0 / TD(4) の形。
+  # Shortcut(...) はマクロのファイルでは読めないので all: true でも出さない
+  macroKey:
+    prefer:
+      categories: [basic, modifier, media]
+    exclude:
+      categories: [layer, macro, tapDance, shortcut, presetShortcut]
+  # タップダンスの動作（そのタップダンス自身は params の exclude で除く）
+  tapDanceAction:
+    prefer:
+      categories: [basic, layer]
+  # コンボの同時に押すキー
+  comboTrigger:
+    prefer:
+      baseLayer: true
+    exclude:
+      categories: [layer, macro, tapDance, shortcut, presetShortcut]
+  # コンボの出すキー
+  comboOutput:
+    prefer:
+      categories: [macro, basic]
+  # shortcuts.yaml の値（Shortcut(...) は書けない）。修飾キー式は打った文字を typed で解釈するので、候補では修飾キーと基本キーを上に出す
+  shortcutValue:
+    prefer:
+      categories: [modifier, basic]
+    exclude:
+      categories: [shortcut, presetShortcut]

@@ -1,0 +1,53 @@
+{
+  "description": "コンボを足す: trigger_keys: [KC_NO, KC_NO] と output_key: KC_NO",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "combo",
+        "name": "Escape Pair"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "combos/08_escape_pair.yml",
+          "baseVersion": null,
+          "create": true,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 0
+                }
+              },
+              "newText": "---\nindex: 8\nname: Escape Pair\ndescription: ''\ntrigger_keys:\n- KC_NO\n- KC_NO\noutput_key: KC_NO\n"
+            }
+          ]
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

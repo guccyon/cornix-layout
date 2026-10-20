@@ -1,0 +1,101 @@
+{
+  "description": "並びの中を指す Address は、前の Change を当てたあとの位置で数える",
+  "setup": {
+    "files": {
+      "profiles/default/metadata.yaml": "keyboard: cornix\nversion: 1\n",
+      "profiles/default/position_map.yaml": "left_hand:\n  row0: [tab, Q, W, E, R, T]\n  row1: [caps, A, S, D, F, G]\n  row2: [lshift, Z, X, C, V, B]\n  row3: [lctrl, command, option]\n  thumb_keys: [left, middle, right]\nright_hand:\n  row0: [Y, U, I, O, P, backspace]\n  row1: [H, J, K, L, colon, enter]\n  row2: [N, M, comma, dot, up, rshift]\n  row3: [left, down, right]\n  thumb_keys: [left, middle, right]\nencoders:\n  left: { push: push, ccw: ccw, cw: cw }\n  right: { push: push, ccw: ccw, cw: cw }\n",
+      "profiles/default/layers/0_base.yaml": "name: Base\nindex: 0\nmapping:\n  left_hand:\n    row0:\n      tab: Tab\n      Q: { key: Q, note: 注記 }\n    row1: { caps: LCtrl }\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n",
+      "profiles/default/macros/00_pair.yaml": "name: Pair\nindex: 0\nsequence:\n- action: tap\n  keys:\n  - KC_LBRACKET\n  - KC_RBRACKET\n# Shift を押したまま\n- action: down\n  keys: KC_LSHIFT # 押す\n",
+      "profiles/default/tap_dance/00_tab_escape.yaml": "name: Tab Escape\nindex: 0\nactions:\n  on_tap: KC_TAB\n  on_hold: KC_ESCAPE\ntapping_term: 200\n",
+      "profiles/default/combos/00_bracket.yaml": "name: Bracket\nindex: 0\ntrigger_keys: [KC_K, KC_L]\noutput_key: Macro('Pair')\n"
+    },
+    "before": [
+      {
+        "id": "b1",
+        "method": "profile/open",
+        "params": {
+          "dir": "profiles/default"
+        }
+      }
+    ]
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "macros/00_pair.yaml": "sha256:ea1158a2b6d4255f7e1d4658e1ad9d72cb68bb762e29c92d2f45d415dc661dc6"
+      },
+      "changes": [
+        {
+          "op": "insert",
+          "address": {
+            "file": "macros/00_pair.yaml",
+            "path": [
+              "sequence",
+              0,
+              "keys"
+            ]
+          },
+          "index": 0,
+          "value": "KC_A"
+        },
+        {
+          "op": "remove",
+          "address": {
+            "file": "macros/00_pair.yaml",
+            "path": [
+              "sequence",
+              0,
+              "keys",
+              2
+            ]
+          }
+        },
+        {
+          "address": {
+            "file": "macros/00_pair.yaml",
+            "path": [
+              "sequence",
+              0,
+              "keys",
+              1
+            ]
+          },
+          "value": "KC_B"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "macros/00_pair.yaml",
+          "baseVersion": "sha256:ea1158a2b6d4255f7e1d4658e1ad9d72cb68bb762e29c92d2f45d415dc661dc6",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 5,
+                  "character": 7
+                },
+                "end": {
+                  "line": 6,
+                  "character": 15
+                }
+              },
+              "newText": "A\n  - KC_B"
+            }
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

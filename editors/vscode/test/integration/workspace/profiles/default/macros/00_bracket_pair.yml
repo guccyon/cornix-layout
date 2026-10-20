@@ -1,0 +1,11 @@
+---
+name: Bracket Pair
+description: 角括弧ペア
+index: 0
+sequence:
+- action: tap
+  keys:
+  - LBracket
+  - RBracket
+- action: tap
+  keys: Left

@@ -1,0 +1,53 @@
+{
+  "description": "マクロを足す: 空いているいちばん小さい番号、名前の slug のファイル名、ディレクトリでいちばん多い拡張子、最小の中身（作るファイルは baseVersions に書かなくてよい）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "macro",
+        "name": "New Macro"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "macros/10_new_macro.yml",
+          "baseVersion": null,
+          "create": true,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 0
+                }
+              },
+              "newText": "---\nindex: 10\nname: New Macro\ndescription: ''\nsequence:\n- action: tap\n  keys:\n  - KC_NO\n"
+            }
+          ]
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

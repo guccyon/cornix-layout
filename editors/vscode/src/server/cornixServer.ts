@@ -5,6 +5,8 @@ import * as vscode from 'vscode';
 import type {
   ClientNotificationMap,
   ClientNotificationMethod,
+  PlanItemEditParams,
+  PlanItemEditResult,
   RequestMap,
   RequestMethod,
   ServerNotificationMap,
@@ -63,6 +65,11 @@ export class CornixServer implements vscode.Disposable {
   async request<M extends RequestMethod>(method: M, params: RequestMap[M]['params']): Promise<RequestMap[M]['result']> {
     const { connection } = await this.ensureStarted();
     return connection.request(method, params);
+  }
+
+  /** 項目の追加・削除・名前の変更を、ファイルの作成・削除・改名と書き換えにしてもらう（protocol.md の 12.5） */
+  planItemEdit(params: PlanItemEditParams): Promise<PlanItemEditResult> {
+    return this.request('profile/planItemEdit', params);
   }
 
   /** 動いていなければ送らない（profile/close などは、サーバーが止まっていれば意味がない） */

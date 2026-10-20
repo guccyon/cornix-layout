@@ -128,4 +128,92 @@ RSpec.describe 'profile/planEdits の書き換えと compile' do
     expect(compile(planned)).to eq(compile(by_hand))
     expect(compile(planned)).not_to eq(compile(File.join(@root, 'planned_before').tap { |d| prepare(d) }))
   end
+
+  # 並びの位置は前の変更を当てたあとで数える。もとの引用符は保つ（content: "abc"）
+  describe 'v0.2 の op（remove / insert / move と注記）' do
+    def prepare_v02(dir)
+      FileUtils.cp_r(File.join(__dir__, '../../fixtures/authors_config'), dir)
+      File.write(File.join(dir, 'shortcuts.yaml'), "shortcuts:\n  前のタブへ: Command + Shift + [\n  次のタブへ: Command + Shift + ]\n")
+    end
+
+    # 手で直したもの
+    def edit_v02_by_hand(dir)
+      edit(dir, 'macros/00_bracket_pair.yml') do |t|
+        t.sub(/^description: .*$/, 'description: テスト')
+         .sub("sequence:\n- action: tap\n  keys:\n  - KC_LBRACKET\n  - KC_RBRACKET\n  - KC_LEFT\n",
+              "sequence:\n- action: down\n  keys: [KC_LSHIFT]\n- action: tap\n  keys:\n  - KC_LBRACKET\n  - KC_RBRACKET\n" \
+              "- action: up\n  keys: [KC_LSHIFT]\n")
+      end
+      edit(dir, 'macros/01_curly_brace_pair.yml') do |t|
+        t.sub(/^sequence:\n(?:.*\n)*/, "sequence:\n- action: tap\n  keys:\n  - KC_LEFT\n  - KC_RIGHT\n- action: down\n  keys: KC_RSHIFT\n" \
+                                       "- action: tap\n  keys:\n  - KC_LBRACKET\n  - KC_RBRACKET\n- action: up\n  keys: KC_LSHIFT\n")
+      end
+      edit(dir, 'macros/09_code_block.yml') do |t|
+        t.sub('content: "``````"', 'content: "abc"').sub("  - KC_LEFT\n  - KC_LEFT\n  - KC_LEFT\n", "  - KC_LEFT\n")
+         .sub("- action: tap\n", "- action: delay\n  duration: 50\n- action: tap\n")
+      end
+      edit(dir, 'tap_dance/04_tab_escape.yml') do |t|
+        t.sub('on_tap: KC_TAB', 'on_tap: { key: KC_TAB, note: 注記 }').sub("  on_double_tap: KC_NO\n", '').sub("tapping_term: 200\n", '')
+      end
+      edit(dir, 'combos/00_bracket_pair.yml') do |t|
+        t.sub("- KC_K\n- KC_L\n", "- KC_J\n- KC_K\n- KC_L\n").sub("output_key: Macro('Bracket Pair')", "output_key: { key: Macro('Bracket Pair'), note: メモ }")
+      end
+      edit(dir, 'layers/0_base.yml') do |t|
+        t.sub("      tab: TapDance('Tab Escape')\n", '').sub("      cw: VolumeUp\n", '')
+      end
+      edit(dir, 'shortcuts.yaml') { |t| t.sub('Command + Shift + ]', 'Command + Option + Right') }
+    end
+
+    def v02_changes
+      change = Cornix::Application::Editor::PlanEdits::Change
+      m0 = 'macros/00_bracket_pair.yml'
+      m1 = 'macros/01_curly_brace_pair.yml'
+      m9 = 'macros/09_code_block.yml'
+      td = 'tap_dance/04_tab_escape.yml'
+      combo = 'combos/00_bracket_pair.yml'
+      layer = 'layers/0_base.yml'
+      [
+        change.new(file: m0, path: ['sequence'], op: :insert, index: 0, value: { 'action' => 'down', 'keys' => ['KC_LSHIFT'] }),
+        change.new(file: m0, path: ['sequence'], op: :insert, index: 2, value: { 'action' => 'up', 'keys' => ['KC_LSHIFT'] }),
+        change.new(file: m0, path: ['sequence', 1, 'keys', 2], op: :remove),
+        change.new(file: m0, path: ['description'], value: 'テスト'),
+        change.new(file: m1, path: ['sequence'], op: :move, from: 3, to: 0),
+        change.new(file: m1, path: ['sequence', 0, 'keys'], op: :insert, index: 1, value: 'KC_RIGHT'),
+        change.new(file: m1, path: ['sequence', 1, 'keys'], value: 'KC_RSHIFT'),
+        change.new(file: m9, path: ['sequence', 0, 'content'], value: 'abc'),
+        change.new(file: m9, path: ['sequence', 1, 'keys', 1], op: :remove),
+        change.new(file: m9, path: ['sequence', 1, 'keys', 1], op: :remove),
+        change.new(file: m9, path: ['sequence'], op: :insert, index: 1, value: { 'action' => 'delay', 'duration' => 50 }),
+        change.new(file: td, path: %w[actions on_tap], field: :note, value: '注記'),
+        change.new(file: td, path: %w[actions on_double_tap], op: :remove),
+        change.new(file: td, path: ['tapping_term'], op: :remove),
+        change.new(file: combo, path: ['trigger_keys'], op: :insert, index: 2, value: 'KC_J'),
+        change.new(file: combo, path: ['trigger_keys'], op: :move, from: 2, to: 0),
+        change.new(file: combo, path: ['output_key'], field: :note, value: 'メモ'),
+        change.new(file: layer, path: %w[mapping left_hand row0 tab], op: :remove),
+        change.new(file: layer, path: %w[mapping encoders left cw], op: :remove),
+        change.new(file: 'shortcuts.yaml', path: %w[shortcuts 次のタブへ], value: 'Command + Option + Right')
+      ]
+    end
+
+    it '書き換えを当てた設定は、手で直した設定と同じ中身になり、同じ 16bit 値に compile される' do
+      planned = File.join(@root, 'planned')
+      by_hand = File.join(@root, 'by_hand')
+      prepare_v02(planned)
+      prepare_v02(by_hand)
+      edit_v02_by_hand(by_hand)
+
+      workbench = Cornix::Application::Editor::Workbench.new(root: @root)
+      opened = workbench.open('planned')
+      snapshot = Cornix::Application::Editor::Snapshot.new(workbench).call(opened.id)
+      list = v02_changes
+      base = list.map(&:file).uniq.to_h { |file| [file, snapshot[:files].fetch(file)] }
+      result = Cornix::Application::Editor::PlanEdits.new(workbench).call(opened.id, base_versions: base, changes: list)
+      expect(result[:diagnostics]).to eq([])
+      apply_plan(planned, result)
+
+      expect(files(planned)).to eq(files(by_hand))
+      expect(compile(planned)).to eq(compile(by_hand))
+    end
+  end
 end

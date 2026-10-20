@@ -29,6 +29,19 @@ module Cornix
           end
         end
 
+        # 並び・Hash も含めた値を 1 行の表記にする（並びと Hash はフロー表記の [a, b] と { k: v }）。
+        # 並びの要素・Hash の値の中はフロー表記の中として囲む
+        def inline(value, flow: false)
+          case value
+          when Array then "[#{value.map { |v| inline(v, flow: true) }.join(', ')}]"
+          when Hash
+            return '{}' if value.empty?
+
+            "{ #{value.map { |k, v| "#{format(k.to_s, flow: true)}: #{inline(v, flow: true)}" }.join(', ')} }"
+          else format(value, flow: flow)
+          end
+        end
+
         def string(value, flow:, quote:)
           if quote
             quote = SWAP.fetch(quote) if value.include?(quote)

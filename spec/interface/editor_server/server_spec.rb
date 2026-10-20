@@ -33,7 +33,7 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
   end
 
   def initialize!(target = server)
-    target.handle(request(0, 'initialize', { 'protocolVersion' => '0.2' }))
+    target.handle(request(0, 'initialize', { 'protocolVersion' => '0.3' }))
     target.handle(notification('initialized'))
   end
 
@@ -69,20 +69,20 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
 
     it '版が合わない initialize のあとは初期化されていないまま' do
       response = server.handle(request(1, 'initialize', { 'protocolVersion' => '9.9' }))
-      expect(response[:error]).to include(code: -32_051, data: { supported: ['0.2'] })
+      expect(response[:error]).to include(code: -32_051, data: { supported: ['0.3'] })
       expect(server.handle(request(2, 'profile/list'))[:error][:code]).to eq(-32_002)
     end
 
     it 'exit で run が終わり、shutdown を受けていれば終了コード 0' do
-      code, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.2' }), request(2, 'shutdown'),
+      code, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.3' }), request(2, 'shutdown'),
                                   notification('exit'), request(3, 'profile/list'))
       expect(code).to eq(0)
       expect(received.map { |m| m['id'] }).to eq([1, 2])
     end
 
     it 'shutdown なしの exit と、exit なしで入力が終わったときは終了コード 1' do
-      expect(run_framed(request(1, 'initialize', { 'protocolVersion' => '0.2' }), notification('exit')).first).to eq(1)
-      expect(run_framed(request(1, 'initialize', { 'protocolVersion' => '0.2' })).first).to eq(1)
+      expect(run_framed(request(1, 'initialize', { 'protocolVersion' => '0.3' }), notification('exit')).first).to eq(1)
+      expect(run_framed(request(1, 'initialize', { 'protocolVersion' => '0.3' })).first).to eq(1)
     end
   end
 
@@ -122,7 +122,7 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
 
     it '通知で送るメソッドを id 付きで送られたら -32600 で、実行しない（exit でも終わらない）' do
       expect(server.handle(request(1, 'initialized'))).to include(id: 1, error: include(code: -32_600))
-      code, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.2' }), request(2, 'exit'),
+      code, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.3' }), request(2, 'exit'),
                                   request(3, 'shutdown'), notification('exit'))
       expect(code).to eq(0)
       expect(received.map { |m| [m['id'], m.key?('error')] }).to eq([[1, false], [2, true], [3, false]])
@@ -218,7 +218,7 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
     end
 
     it 'その id で -32603 を返して続け、ログにバックトレースを書く' do
-      code, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.2' }), request(2, 'test/nan'),
+      code, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.3' }), request(2, 'test/nan'),
                                   request(3, 'test/bad_utf8'), request(4, 'shutdown'), notification('exit'))
       expect(code).to eq(0)
       expect(received.drop(1).map { |m| [m['id'], m.dig('error', 'code')] }).to eq([[2, -32_603], [3, -32_603], [4, nil]])
@@ -226,7 +226,7 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
     end
 
     it '通知を JSON にできなければログだけに書き、応答は返す' do
-      _, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.2' }), request(2, 'test/emit_nan'))
+      _, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.3' }), request(2, 'test/emit_nan'))
       expect(received.drop(1)).to eq([{ 'jsonrpc' => '2.0', 'id' => 2, 'result' => { 'ok' => true } }])
       expect(error.string).to include('通知 test/value を JSON にできません')
     end
@@ -240,7 +240,7 @@ RSpec.describe Cornix::Interface::EditorServer::Server do
         { ok: true }
       end
     end
-    _, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.2' }),
+    _, received = run_framed(request(1, 'initialize', { 'protocolVersion' => '0.3' }),
                              request(2, 'test/notify', { 'profileId' => 'p1' }))
     expect(received.drop(1)).to eq([{ 'jsonrpc' => '2.0', 'method' => 'profile/didChange', 'params' => { 'profileId' => 'p1' } },
                                      { 'jsonrpc' => '2.0', 'id' => 2, 'result' => { 'ok' => true } }])

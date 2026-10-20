@@ -69,9 +69,50 @@ RSpec.describe Cornix::Application::Editor::Candidates do
     expect(search('Layer 1')[:items].map { |i| i[:category] }).not_to include('layer')
   end
 
+  describe 'v0.2 の context（protocol.md の 12.4）' do
+    def texts(query, context, **options)
+      candidates.call(id, context: context, query: query, limit: 500, **options)[:items].map { |i| i[:insertText] }
+    end
+
+    it 'macroKey はマクロ・タップダンス・レイヤー操作を出さず、all: true なら名前参照を使わない表記（M0 / TD(2)）で出す' do
+      expect(texts('Macro 0', 'macroKey')).not_to include("Macro('Macro 0')", 'M0')
+      expect(texts('Macro 0', 'macroKey', all: true)).to include('M0')
+      expect(texts('TapDance 2', 'macroKey', all: true)).to include('TD(2)')
+      expect(texts('Layer 1', 'macroKey', all: true)).to include('MO(1)')
+    end
+
+    it 'macroKey の typed はマクロのファイルと同じく名前参照を読まない' do
+      expect(candidates.call(id, context: 'macroKey', query: "Macro('Macro 0')")[:typed]).to be_nil
+      expect(candidates.call(id, context: 'macroKey', query: 'M0')[:typed]).to include(text: 'M0', canonical: 'M0', kind: 'macro')
+    end
+
+    it 'tapDanceAction の exclude はそのタップダンス自身を除く（読めない exclude は何も除かない）' do
+      expect(texts('TapDance', 'tapDanceAction')).to include("TapDance('TapDance 1')")
+      expect(texts('TapDance', 'tapDanceAction', exclude: "TapDance('TapDance 1')")).not_to include("TapDance('TapDance 1')")
+      expect(texts('TapDance', 'tapDanceAction', exclude: "TapDance('TapDance 1')")).to include("TapDance('TapDance 2')")
+      expect(texts('TapDance', 'tapDanceAction', exclude: 'Unknown(')).to include("TapDance('TapDance 1')")
+    end
+
+    it 'comboTrigger はレイヤー 0 に割り当ててある値を上に出す' do
+      layer = File.join(@root, 'profile', 'layers/0_layer_0.yaml')
+      write('layers/0_layer_0.yaml', File.read(layer, encoding: 'UTF-8').sub('tab: Tab', 'tab: KC_F13'))
+      combo = texts('F1', 'comboTrigger')
+      expect(combo.index('F13')).to be < combo.index('F12')
+      layer_key = texts('F1', 'layerKey')
+      expect(layer_key.index('F13')).to be > layer_key.index('F12')
+    end
+
+    it 'shortcutValue は Shortcut(...) を出さず、typed も Shortcut(...) を読まない' do
+      write('shortcuts.yaml', "shortcuts:\n  前のタブへ: Command + Shift + [\n")
+      expect(texts('前のタブへ', 'shortcutValue')).to be_empty
+      expect(candidates.call(id, context: 'shortcutValue', query: "Shortcut('前のタブへ')")[:typed]).to be_nil
+      expect(texts('Macro 0', 'shortcutValue')).to include("Macro('Macro 0')")
+    end
+  end
+
   it '知らない context は UnknownContext' do
-    expect { search('A', context: 'macroKey') }
-      .to raise_error(Cornix::Application::Editor::UnknownContext) { |e| expect(e.context).to eq('macroKey') }
+    expect { search('A', context: 'unknown') }
+      .to raise_error(Cornix::Application::Editor::UnknownContext) { |e| expect(e.context).to eq('unknown') }
   end
 
   it '開いていない id は ProfileNotFound' do

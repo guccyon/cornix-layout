@@ -1,0 +1,36 @@
+{
+  "description": "comboOutput はマクロを上に出す",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/candidates",
+    "params": {
+      "profileId": "p1",
+      "context": "comboOutput",
+      "query": "Pair",
+      "limit": 2
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        {
+          "insertText": "Macro('Bracket Pair')",
+          "label": "Bracket Pair",
+          "detail": "M0",
+          "category": "macro"
+        },
+        {
+          "insertText": "Macro('Curly Brace Pair')",
+          "label": "Curly Brace Pair",
+          "detail": "M1",
+          "category": "macro"
+        }
+      ],
+      "truncated": true
+    }
+  }
+}

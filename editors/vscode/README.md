@@ -2,6 +2,7 @@
 
 cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 画面で見て、候補から選びながら編集する VS Code 拡張。
 v0.1 はレイヤーと QMK 設定、v0.2 はすべての設定ファイル（マクロ・タップダンス・コンボ・ショートカット・位置の名前、項目の追加・削除・名前の変更）を画面で編集できる。
+v0.3 は使い勝手（全レイヤーの表示・コンボの強調・図からキーを選ぶ・あいまい検索・同梱のショートカットの選択とコピー・preset の展開・押せないコンボの印）。
 利用者向けの説明は [README.ja.md](../../README.ja.md) の「VS Code の画面で編集する」。
 仕様・決定・約束は [docs/vscode-extension/](../../docs/vscode-extension/README.md)。
 
@@ -111,7 +112,7 @@ editors/vscode/
   esbuild.mjs             ビルド（out/ に出す）
   src/
     extension.ts          入口（コマンド・一覧・編集画面・設定の変更をつなぐ）
-    protocol.ts           約束の型（protocol.md をそのまま TypeScript にしたもの。v0.2 の形は 12 節。約束を変えたらここも変える）
+    protocol.ts           約束の型（protocol.md をそのまま TypeScript にしたもの。v0.2 の形は 12 節、v0.3 は 13 節。約束を変えたらここも変える）
     webviewMessages.ts    拡張と編集画面（Webview）の間のメッセージ（change・edit・itemEdit、snapshot と pending など）
     server/
       locateCornix.ts     cornix の場所を決める（cornix.path → bin/cornix → PATH）
@@ -135,21 +136,22 @@ editors/vscode/
       webviewRelay.ts     画面からのリクエストの中継（keycode/candidates・keycode/inspect・keycode/shortcutTree だけ。shortcutTree はプロファイルによらないので params を使わない）と「ファイルを開く」のパスの確かめ
     webview/              編集画面（素の TypeScript。上にキーボード図、下にレイヤーの欄と節）
       main.ts             入口（ホストとのメッセージをつなぐ。下のペインの節を sections に並べる）
-      app.ts              画面の全体（レイヤーの選択・欄の選択を上下で共有、Change をホストに渡す）
+      app.ts              画面の全体（レイヤーの選択・欄の選択を上下で共有、Change をホストに渡す。図からキーを選ぶ状態 pickKey）
       model.ts            レイヤーの欄と図に描くものを snapshot と未保存の変更から組み立てる（DOM に依存しない）
       dom.ts              DOM を作る小さな道具
       cornixLayout.ts     Cornix の物理配置（論理位置 hand / row / col → 図の座標。ADR 009）。エンコーダは円を上・中・下の帯に分けて左回し・押し込み・右回しの欄にする
-      keyboardView.ts     キーボード図（2 役のキーは tap / hold を上下に、アイコン、印、位置の名前の表示、KC_TRNS の下のレイヤー 0 の値）
+      keyboardView.ts     キーボード図（2 役のキーは tap / hold を上下に、アイコン、印、位置の名前の表示、全レイヤーの表示、KC_TRNS の下のレイヤー 0 の値、コンボのボタン）
+      comboHighlight.ts   コンボのトリガーのキーを今のレイヤーで割り当てた位置を探す（図の強調。DOM に依存しない）
       layerEditor.ts      レイヤーの欄（キー入力欄・注記の欄・割り当てを消す ✕・位置の名前の変更）
       keyInput.ts         キー入力欄（候補・typed・警告。どこも同じ部品。候補の params と組み立て欄のオプション）
       modifierBuilder.ts  修飾キー式・LT・Mod-Tap の組み立て欄（keycode/inspect で確かめてから入れる）
       itemList.ts         マクロ・タップダンス・コンボ・ショートカットの節の共通の部品（一覧と編集欄、追加・削除・名前の変更の入口）
       itemsModel.ts       節に描くものを snapshot と pending から組み立てる（並びの Change を当てる。DOM に依存しない）
-      macroEditor.ts      マクロの節（手順の追加・削除・上下、手順のキー、delay・text、preset）
-      presetPicker.ts     マクロの preset を同梱のショートカットの木（アプリ → カテゴリ → ラベル）から選び直す
+      macroEditor.ts      マクロの節（手順の追加・削除・上下、手順のキー、delay・text、preset と手順に展開）
+      presetPicker.ts     同梱のショートカットの木（アプリ → カテゴリ → ラベル）から選ぶ（マクロの preset、キー入力欄の「同梱から選ぶ…」、ショートカットの「同梱からコピー」）
       tapDanceEditor.ts   タップダンスの節（4 つの動作と注記、tapping_term）
-      comboEditor.ts      コンボの節（同時に押すキー・出すキーと注記）
-      shortcutEditor.ts   自分のショートカットの節（名前ごとの値）
+      comboEditor.ts      コンボの節（同時に押すキー・出すキーと注記、図から選ぶ、押せないコンボの ⚠）
+      shortcutEditor.ts   自分のショートカットの節（名前ごとの値、同梱からコピー）
       settingsEditor.ts   QMK 設定の欄（整数は数値、真偽値はチェックボックス。説明と既定値）
       metadataView.ts     metadata.yaml と position_map の表示（読むだけ）
       inspector.ts        keycode/inspect の結果のとっておき（同じ表記は 1 回だけ聞く）

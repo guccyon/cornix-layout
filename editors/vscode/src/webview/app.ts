@@ -290,7 +290,8 @@ export class App {
     if (!(active instanceof HTMLInputElement) || !this.editor.element.contains(active)) return undefined;
     const slotId = active.closest<HTMLElement>('.field')?.dataset.slot;
     const input = slotId ? this.editor.inputs.get(slotId) : undefined;
-    if (!slotId || !input) return undefined;
+    // 欄の中のほかの入力（組み立て欄・同梱の選択の絞り込み）は、その欄の打ちかけではない
+    if (!slotId || !input || active !== input.input) return undefined;
     return { slotId, text: active.value, editing: input.isEditing, selection: [active.selectionStart, active.selectionEnd] };
   }
 

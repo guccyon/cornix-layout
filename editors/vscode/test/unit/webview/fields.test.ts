@@ -293,16 +293,13 @@ describe('コンボの「図から選ぶ」', () => {
 });
 
 describe('押せないコンボの印', () => {
-  it('reachable が false のコンボは、一覧の行と詳細に ⚠ と説明を出す（true・なしなら出さない）', () => {
+  it('reachable が false のコンボは、一覧の行に ⚠ と説明を出す（true・なしなら出さない。詳細はサーバーの警告に任せる）', () => {
     const combos = mount(new ComboEditor({ host }));
     const other: ComboSnapshot = { ...COMBO, index: 1, name: 'Right Bracket', file: 'combos/01_right_bracket.yml', reachable: true };
     combos.update(snapshot({ combos: [{ ...COMBO, reachable: false }, other] }), []);
     const rows = [...combos.element.querySelectorAll<HTMLElement>('.item-row')];
     expect(rows.map((r) => r.querySelector('.item-mark')?.textContent ?? null)).toEqual(['⚠', null]);
     expect(rows[0]!.querySelector('.item-mark')?.getAttribute('title')).toBe(UNREACHABLE_MESSAGE);
-    expect(combos.element.querySelector('.combo-unreachable')?.textContent).toContain(UNREACHABLE_MESSAGE);
-    combos.select('Right Bracket');
-    expect(combos.element.querySelector('.combo-unreachable')).toBeNull();
     combos.update(snapshot(), []);
     expect(combos.element.querySelector('.item-mark')).toBeNull();
   });

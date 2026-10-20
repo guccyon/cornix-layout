@@ -270,7 +270,8 @@ export class ProfileDocument implements vscode.CustomDocument {
   private assignValue(address: Address, field: ChangeField, value: ChangeValue | null | undefined): void {
     if (value === undefined) this.changes.discard(address, field);
     else if (value === null) this.changes.add({ op: 'remove', address, ...(field === 'note' ? { field } : {}) }, this.savedValue);
-    else this.changes.add({ op: 'set', address, value, ...(field === 'note' ? { field } : {}) }, this.savedValue);
+    // v0.1 の形（op を省けば set）のまま作る
+    else this.changes.add({ address, value, ...(field === 'note' ? { field } : {}) }, this.savedValue);
   }
 
   /** 未保存の変更が変わった: 描き直して検証し直す */

@@ -7,21 +7,29 @@
 // 描き直し: 図と欄を作り直すのは、position_map・レイヤーの並び・ファイル・欄の Address が変わったときだけ（model.ts の structureKey）。
 // 保存や外での変更で files の版・diagnostics・値が変わっただけなら、値だけを描き直す（打っている欄のフォーカスと文字が残る）。
 // 作り直すときも、フォーカスのある欄・打ちかけの文字・下のペインのスクロール位置を戻す。
-import type { AnyChange, Change, Diagnostic, KeyValue, ProfileSnapshot, RemoveChange } from '../protocol';
+//
+// v0.3（tasks-v0.3.md の E1）: 図の全レイヤーの表示の行（ほかのレイヤーも保存済みの値に未保存の変更を重ねる）、コンボのボタンと
+// トリガーのキーの強調（comboHighlight.ts。トリガーもコンボの未保存の変更を重ねる）、図からキーを選ぶ状態（pickKey）。
+import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange } from '../protocol';
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
+import { comboTargets, effectiveKey, triggerKeys } from './comboHighlight';
 import { Inspector } from './inspector';
+import { comboView } from './itemsModel';
 import type { KeyInput } from './keyInput';
 import { KeyboardView } from './keyboardView';
 import { LayerEditor } from './layerEditor';
 import {
   addPending,
+  addressKey,
   baseLayerValue,
   currentNote,
   currentText,
   diagnosticsByAddress,
+  keyAt,
   keyFaceNote,
+  layerLineLabel,
   layerSlots,
   layerTitle,
   slotChanged,
@@ -29,10 +37,11 @@ import {
   slotLabel,
   structureKey,
   valueChanged,
+  type LayerLine,
   type Slot,
   type SlotEdits,
 } from './model';
-import { attachTooltip, describeContent, hideTooltip } from './tooltip';
+import { attachTooltip, comboContent, describeContent, hideTooltip } from './tooltip';
 
 /** 画面を閉じても覚えておくもの（Webview の getState / setState。タブを裏に回すと Webview は作り直される） */
 export type ViewState = { layer?: number; selected?: string };
@@ -61,6 +70,10 @@ export class App {
   private layerIndex: number | undefined;
   private selected: string | undefined;
   private slots: Slot[] = [];
+  /** 図に描いた今の値（欄の id → 値。コンボの強調で比べる） */
+  private readonly values = new Map<string, KeyValue | null | undefined>();
+  /** 図からキーを選んでいる間の受け取り手 */
+  private picking: { onPick: (text: string) => void } | undefined;
   private readonly inspector: Inspector;
 
   private readonly keyboard: KeyboardView;
@@ -88,6 +101,10 @@ export class App {
         this.select(id);
         this.editor.startRename(id);
       },
+      comboTargets: (index) => this.comboTargets(index),
+      decorateCombo: (element, index) => attachTooltip(element, () => Promise.resolve(this.describeCombo(index)), { focus: 'visible' }),
+      onPick: (id) => this.picked(id),
+      onPickCancel: () => this.endPick(),
     });
     this.editor = new LayerEditor({
       host: options.host,
@@ -191,11 +208,37 @@ export class App {
 
   /**
    * v0.3: 図のキーを押して選ぶ状態に入る。押したキーの今のレイヤーの表記を onPick に渡して抜ける。
-   * 戻り値の関数か Esc で、選ばずに抜ける（tasks-v0.3.md の E1。今は入れ物だけ）
+   * 戻り値の関数か Esc で、選ばずに抜ける（tasks-v0.3.md の E1）
    */
   pickKey(onPick: (text: string) => void): () => void {
-    void onPick;
-    return () => {};
+    // 選んでいる途中でまた呼ばれたら、前のものは選ばずに抜けたことにする
+    const picking = { onPick };
+    this.picking = picking;
+    this.keyboard.setPicking(true);
+    return () => {
+      if (this.picking === picking) this.endPick();
+    };
+  }
+
+  /** 選ぶ状態か（テスト用） */
+  get isPicking(): boolean {
+    return this.picking !== undefined;
+  }
+
+  /** 選ぶ状態で図のキーを押した: 今のレイヤーの表記を渡して抜ける。書いていないキーは選べない（選ぶ状態のまま） */
+  private picked(slotId: string): void {
+    const picking = this.picking;
+    const slot = this.slots.find((s) => s.id === slotId);
+    if (!picking || !slot) return;
+    const text = currentText(slot, this.edits);
+    if (!text) return;
+    this.endPick();
+    picking.onPick(text);
+  }
+
+  private endPick(): void {
+    this.picking = undefined;
+    this.keyboard.setPicking(false);
   }
 
   selectLayer(index: number): void {
@@ -317,6 +360,7 @@ export class App {
     this.renderTabs();
     this.renderLayerInfo();
     this.slots = this.currentSlots();
+    this.values.clear();
     this.keyboard.setLayerNames(this.layerNames());
     this.keyboard.setSlots(this.slots);
     this.editor.setSlots(this.slots);
@@ -359,6 +403,7 @@ export class App {
     for (const diagnostic of snapshot.diagnostics) list.append(this.problemRow(diagnostic));
     this.slots = [];
     this.editor.setSlots([]);
+    this.endPick();
     this.root.replaceChildren(
       h(
         'div',
@@ -372,12 +417,15 @@ export class App {
     );
   }
 
-  /** 欄の値・印・メッセージを描き直す */
+  /** 欄の値・印・メッセージを描き直す（コンボのボタンも） */
   private updateSlots(): void {
-    for (const slot of this.slots) this.updateSlot(slot);
+    this.keyboard.setCombos((this.snapshot?.combos ?? []).map((combo) => ({ index: combo.index, name: combo.name, reachable: combo.reachable })));
+    for (const slot of this.slots) this.updateSlot(slot, false);
+    this.keyboard.refreshCombo();
   }
 
-  private updateSlot(slot: Slot): void {
+  /** refreshCombo: コンボの強調も描き直す（updateSlots はまとめて 1 回） */
+  private updateSlot(slot: Slot, refreshCombo = true): void {
     const text = currentText(slot, this.edits);
     const changed = slotChanged(slot, this.edits);
     let value: KeyValue | null | undefined = slot.saved;
@@ -401,8 +449,93 @@ export class App {
       }
     }
     const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.layerIndex, slot) : null;
-    this.keyboard.update(slot.id, { text, value, diagnostics, changed, base });
+    this.values.set(slot.id, value);
+    const layers = slot.key ? this.layerLines(slot, text, value) : undefined;
+    this.keyboard.update(slot.id, { text, value, diagnostics, changed, base, ...(layers ? { layers } : {}) });
     this.editor.update(slot.id, { text, diagnostics, changed, note: currentNote(slot, this.edits) });
+    if (refreshCombo) this.keyboard.refreshCombo();
+  }
+
+  /**
+   * 表記の今の解釈: 書いていなければ null、保存済みの表記のままなら保存済みの値、聞いてあればその値。
+   * まだ聞いていなければ聞いて（返ったら onLoaded）、それまでは undefined
+   */
+  private resolveValue(text: string, saved: KeyValue | null, context: CandidateContext, onLoaded: () => void): KeyValue | null | undefined {
+    if (!text) return null;
+    if (saved && saved.text === text) return saved;
+    const result = this.inspector.get(context, text);
+    if (result) return result.value;
+    this.inspector.load(context, text).then(onLoaded, () => undefined);
+    return undefined;
+  }
+
+  /** ほかのレイヤーの位置の今の表記と解釈（保存済みの値に未保存の変更を重ねる） */
+  private positionValue(address: Address, saved: KeyValue | null, onLoaded: () => void): { text: string; value: KeyValue | null | undefined } {
+    const target = { id: addressKey(address), saved };
+    const text = currentText(target, this.edits);
+    if (!valueChanged(target, this.edits)) return { text, value: saved };
+    return { text, value: this.resolveValue(text, saved, 'layerKey', onLoaded) };
+  }
+
+  /** 全レイヤーの表示の行（今のレイヤーは図に描く値、ほかのレイヤーは同じ位置の値） */
+  private layerLines(slot: Slot, text: string, value: KeyValue | null | undefined): LayerLine[] {
+    const lines: LayerLine[] = [];
+    for (const layer of this.snapshot?.layers ?? []) {
+      const current = layer.index === this.layerIndex;
+      let lineText = text;
+      let lineValue = value;
+      if (!current) {
+        const key = keyAt(layer, slot);
+        if (!key) continue;
+        ({ text: lineText, value: lineValue } = this.positionValue(key.address, key.value, () => this.refresh(slot.id)));
+      }
+      const label = layerLineLabel(lineText, lineValue);
+      if (label !== null) lines.push({ index: layer.index, label, current });
+    }
+    return lines;
+  }
+
+  /** レイヤー 0 の同じ位置の今の値（KC_TRNS の位置をコンボのトリガーと比べるため。未保存の変更も重ねる） */
+  private baseValueAt(slot: Slot, base: LayerSnapshot | undefined): KeyValue | null | undefined {
+    const key = base ? keyAt(base, slot) : undefined;
+    if (!key) return null;
+    return this.positionValue(key.address, key.value, () => this.keyboard.refreshCombo()).value;
+  }
+
+  /** コンボのトリガーのキーを今のレイヤーで割り当てた欄（KC_TRNS の位置はレイヤー 0 の値で見る） */
+  private comboTargets(index: number): Set<string> {
+    const snapshot = this.snapshot;
+    const combo = snapshot?.combos?.find((c) => c.index === index);
+    if (!snapshot || !combo) return new Set();
+    const triggers = triggerKeys(
+      comboView(combo, this.pending).triggers.keys.map((entry) =>
+        this.resolveValue(entry.text, entry.saved, 'comboTrigger', () => this.keyboard.refreshCombo()),
+      ),
+    );
+    const base = this.layerIndex === 0 ? undefined : snapshot.layers.find((layer) => layer.index === 0);
+    const keys = this.slots
+      .filter((slot) => slot.key)
+      .map((slot) => {
+        const value = this.values.get(slot.id);
+        return [slot.id, effectiveKey(value, value?.kind === 'transparent' ? this.baseValueAt(slot, base) : null)] as const;
+      });
+    return comboTargets(keys, triggers);
+  }
+
+  /** コンボのボタンの説明（名前・同時に押すキー・出すキー・押せない印） */
+  private describeCombo(index: number): Node | null {
+    const combo = this.snapshot?.combos?.find((c) => c.index === index);
+    if (!combo) return null;
+    const view = comboView(combo, this.pending);
+    return comboContent({
+      index: combo.index,
+      name: combo.name,
+      description: view.description.value,
+      triggers: view.triggers.keys.map((entry) => entry.text).filter((text) => text !== ''),
+      output: view.output.text,
+      reachable: combo.reachable,
+      matches: this.comboTargets(index).size,
+    });
   }
 
   private refresh(slotId: string): void {

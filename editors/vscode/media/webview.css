@@ -2245,6 +2245,7 @@ button {
 
 .board.picking .key.unassigned {
   cursor: not-allowed;
+}
 
 /* v0.3 欄 */
 

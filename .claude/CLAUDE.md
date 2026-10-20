@@ -63,6 +63,19 @@ PR の説明は、読み手が背景から結論まで追えるよう丁寧に�
 
 小さな変更（typo 修正など）では概要と対応内容だけでよい。複数の独立した修正を含む PR では、問題と対応内容を修正ごとに分けて書く。
 
+### マージ後の片付け（このリポジトリ固有）
+
+PR を main にマージしたら、共通の片付け（作業ブランチと worktree の削除、main の worktree の最新化。アカウントのスキル `post-merge-cleanup`）に続けて、次も必ず行う。
+
+- **キーマップのブランチを main に追従させる**: `authors-keymap` と `cornix-default-keymap` は、main の先端に個人のキーマップのコミットを載せたブランチ。
+  1. それぞれの worktree で未コミットの変更を確かめる（あれば退避してから）
+  2. `git rebase origin/main` し、`cornix validate` が通ることを確かめる
+  3. `git push --force-with-lease -u origin <branch>` で remote に反映する
+- キーマップのブランチで直した機能（キーマップ以外の変更）は main に取り込み、キーマップのブランチには個人のキーマップのコミットだけを残す
+- 手元の Mac で作業していないとき（クラウドのセッションなど）は、remote 側を rebase して push したうえで、手元の worktree（main・`authors-keymap`・`cornix-default-keymap`）も origin に合わせる。
+  手元に触れないなら、合わせ方を利用者に伝える
+- 新しい worktree を作ったら、起点の worktree（なければ `main`）の `.claude/settings.local.json`（Git の管理外）を作成先の `.claude/` にコピーする（あれば上書きしない）
+
 ## Project Overview
 
 Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`config/`）の双方向変換ツール。

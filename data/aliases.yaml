@@ -52,7 +52,7 @@ basic:
   KC_GRAVE: ["`", Grave]
   KC_COMMA: [",", Comma]
   KC_DOT: [".", Dot, Period]
-  KC_SLASH: ["/", Slash]
+  KC_SLASH: ["/", Slash, ForwardSlash]
   KC_F1: [F1]
   KC_F2: [F2]
   KC_F3: [F3]
@@ -154,7 +154,7 @@ basic:
   KC_NONUS_HASH: [NonUsHash]
   KC_NONUS_BSLASH: [NonUsBackslash]
   # 日本語配列。KC_KANA（0x88、カタカナひらがな）と macOS のかな（KC_LANG1、0x90）は別の値。
-  # "¥" は LALT(KC_Y)（macOS の Option + Y）、JisYen は JIS 配列の ¥ キー（0x89）
+  # "¥" / Yen は LALT(KC_Y)（macOS の Option + Y）、JisYen は JIS 配列の ¥ キー（0x89）
   KC_RO: [Ro, International1]
   KC_KANA: [KatakanaHiragana, International2]
   KC_JYEN: [JisYen, International3]
@@ -351,4 +351,4 @@ modified:
   "LSFT(KC_COMMA)": ["<", LessThan, LAngleBracket, LeftAngleBracket]
   "LSFT(KC_DOT)": [">", GreaterThan, RAngleBracket, RightAngleBracket]
   "LSFT(KC_SLASH)": ["?", Question, QuestionMark]
-  "LALT(KC_Y)": ["¥"]
+  "LALT(KC_Y)": ["¥", Yen]

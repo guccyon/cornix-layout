@@ -10,6 +10,7 @@ cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 
 | [roadmap.md](roadmap.md) | 版ごとの中身と終わったと言える条件、将来の拡張、v0.1 の進め方 |
 | [protocol.md](protocol.md) | Ruby のバックエンドと拡張の間のリクエストの約束（v0.1） |
 | [tasks.md](tasks.md) | v0.1 の作業の分け方（並列に進める単位）と、作業の間の契約、v0.2 からの進め方 |
+| [tasks-v0.2.md](tasks-v0.2.md) | v0.2 で入れるもの、決めたこと、作業の分け方と契約 |
 
 拡張のコードは `editors/vscode/`（開発の手順と .vsix の入れ方は [editors/vscode/README.md](../../editors/vscode/README.md)）、
 バックエンドは `cornix serve`（Interface 層の `Interface::EditorServer` と Application 層の `Application::Editor::*`。

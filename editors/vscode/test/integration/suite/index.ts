@@ -687,9 +687,114 @@ test('開いたままサーバーが落ちても、再起動すると profile/op
   assert.ok(tree.apps.length > 0);
 });
 
+// ---------------------------------------------------------------------------
+// v0.2（protocol.md の 12.3・12.5・12.7）
+// ---------------------------------------------------------------------------
+
+const MACRO = 'macros/00_bracket_pair.yml';
+const sequenceOf = (file: string): Address => ({ file, path: ['sequence'] });
+
+test('並びの Change（edit）を当てる順に持って保存し、snapshot のメッセージに pending を入れる', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  await document.settled();
+  prompts = new FakePrompts();
+  api.profileEditor.prompts = prompts;
+  const insert = { op: 'insert' as const, address: sequenceOf(MACRO), index: 2, value: { action: 'delay' as const, duration: 10 } };
+  const move = { op: 'move' as const, address: sequenceOf(MACRO), from: 2, to: 0 };
+  document.applyChange(insert);
+  document.applyChange(move);
+  document.applyChange({ address: { file: MACRO, path: ['description'] }, value: '角括弧' });
+  assert.deepEqual(document.changes.list(), [insert, move, { address: { file: MACRO, path: ['description'] }, value: '角括弧' }]);
+  assert.deepEqual(document.changes.plainSets(), [{ address: { file: MACRO, path: ['description'] }, value: '角括弧' }]);
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+  await saveProfile(document);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  const text = readWorkspaceFile(`profiles/default/${MACRO}`);
+  assert.ok(text.startsWith('---\nname: Bracket Pair\ndescription: 角括弧\nindex: 0\nsequence:\n- action: delay\n  duration: 10\n'), text);
+  assert.equal(document.changes.size, 0);
+});
+
+test('並びの Change のあるファイルが外で変わったら、そのファイルの Change はまとめて当て直せないものとして見せる', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  prompts.lost = 'discard';
+  document.applyChange({ op: 'remove', address: { file: MACRO, path: ['sequence', 0] } });
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Tab' });
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+  await writeOutside(`profiles/default/${MACRO}`, 'description: 角括弧\n', 'description: 外で変えた\n');
+  await waitFor('当て直せないもの', async () => prompts.of('confirmLost').length > 0);
+  await document.settled();
+  assert.deepEqual(prompts.of('confirmLost')[0]?.args, ['default', [{ label: 'マクロ Bracket Pair の手順 1', value: '消す' }]]);
+  // ほかのファイルの変更は残る
+  assert.deepEqual(document.changes.list(), [{ address: baseKey('row0', 'T'), value: 'Tab' }]);
+  await revertProfile(document);
+});
+
+test('項目の追加は、未保存の変更があれば先に保存を促し、確認のあとファイルを作って snapshot に出す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Escape' });
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+  assert.equal(await document.applyItemEdit({ op: 'create', kind: 'combo', name: 'Right Bracket' }), true);
+  assert.deepEqual(prompts.of('confirmSaveFirst').map((c) => c.args), [['default', 1]]);
+  assert.equal(prompts.of('confirmItemEdit').length, 1);
+  assert.ok(readWorkspaceFile('profiles/default/combos/01_right_bracket.yml').includes('name: Right Bracket\n'));
+  assert.ok(readWorkspaceFile(BASE).includes('      T: Escape\n'));
+  assert.ok(document.snapshot.combos?.some((c) => c.name === 'Right Bracket'));
+  assert.equal(document.snapshot.files['combos/01_right_bracket.yml']?.startsWith('sha256:'), true);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+});
+
+test('項目の名前の変更はファイルを改名し、参照も書き換える。削除はファイルを消す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  assert.equal(await document.applyItemEdit({ op: 'rename', kind: 'tapDance', name: 'Tab Escape', to: 'Tab Esc' }), true);
+  assert.ok(readWorkspaceFile('profiles/default/tap_dance/04_tab_esc.yml').includes('name: Tab Esc\n'));
+  assert.ok(readWorkspaceFile(BASE).includes("tab: TapDance('Tab Esc')\n"));
+  assert.equal(document.snapshot.files['tap_dance/04_tab_escape.yml'], undefined);
+
+  assert.equal(await document.applyItemEdit({ op: 'delete', kind: 'combo', name: 'Right Bracket' }), true);
+  assert.equal(document.snapshot.files['combos/01_right_bracket.yml'], undefined);
+  assert.ok(!document.snapshot.combos?.some((c) => c.name === 'Right Bracket'));
+});
+
+test('項目の操作の -32602 と -32061（verify）は利用者に見せ、ファイルは変えない', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  const before = readWorkspaceFile('profiles/default/position_map.yaml');
+  assert.equal(await document.applyItemEdit({ op: 'renamePosition', hand: 'left', row: 0, col: 0, to: 'Q' }), false);
+  assert.equal(await document.applyItemEdit({ op: 'rename', kind: 'macro', name: 'Bracket Pair', to: 'VerifyFail' }), false);
+  const failed = prompts.of('itemEditFailed').map((c) => String(c.args[0]));
+  assert.equal(failed.length, 2);
+  assert.ok(failed[0]?.includes('すでにあります'), failed[0]);
+  assert.ok(failed[1]?.includes('compile の結果が変わる'), failed[1]);
+  assert.equal(readWorkspaceFile('profiles/default/position_map.yaml'), before);
+  assert.equal(prompts.of('confirmItemEdit').length, 0);
+});
+
+test('snapshot の diagnostics をテキストの波線（DiagnosticCollection）に出し、閉じると消す', async () => {
+  // 偽のサーバーの BASE_DIAGNOSTICS は layers/1_symbols.yml の warning（range なし → ファイルの先頭）
+  const uri = vscode.Uri.joinPath(workspaceRoot(), 'profiles/default/layers/1_symbols.yml');
+  const diagnostics = await waitFor('波線', async () => {
+    const list = api.profileEditor.diagnostics.get(uri);
+    return list && list.length > 0 ? list : undefined;
+  });
+  assert.equal(diagnostics[0]?.severity, vscode.DiagnosticSeverity.Warning);
+  assert.equal(diagnostics[0]?.range.start.line, 0);
+});
+
 test('閉じると一覧から消える', async () => {
   await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   await waitFor('閉じる', async () => api.profileEditor.openDocuments.length === 0);
+  // プロファイルを閉じたら波線も消す（12.7）
+  const uri = vscode.Uri.joinPath(workspaceRoot(), 'profiles/default/layers/1_symbols.yml');
+  assert.equal(api.profileEditor.diagnostics.get(uri)?.length ?? 0, 0);
 });
 
 test('cornix が見つからなければ CornixUnavailableError になり、設定を直せばつながる', async () => {

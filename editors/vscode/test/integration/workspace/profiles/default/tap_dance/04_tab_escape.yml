@@ -1,0 +1,7 @@
+---
+name: Tab Escape
+index: 4
+actions:
+  on_tap: Tab
+  on_hold: Escape
+tapping_term: 200

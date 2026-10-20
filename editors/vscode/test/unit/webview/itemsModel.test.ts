@@ -186,3 +186,25 @@ describe('nameProblem', () => {
     expect(nameProblem('新しい', ['Tab Escape'])).toBeUndefined();
   });
 });
+
+describe('注記（field: "note"）', () => {
+  const tap = at(TAP_DANCE_FILE, 'actions', 'on_tap');
+  const output = at(COMBO_FILE, 'output_key');
+
+  it('注記は割り当てと別に畳む。行を消すと注記も消え、そのあとの割り当ての set では戻らない', () => {
+    const noted = structuredClone(TAP_DANCE);
+    noted.actions.tap.value = { ...noted.actions.tap.value!, note: '元の注記' };
+    expect(tapDanceView(noted, []).actions.tap).toMatchObject({ text: 'Tab', note: '元の注記', changed: false, noteChanged: false });
+    expect(tapDanceView(noted, [{ address: tap, value: '新しい注記', field: 'note' }]).actions.tap).toMatchObject({ text: 'Tab', changed: false, note: '新しい注記', noteChanged: true });
+    expect(tapDanceView(noted, [{ op: 'remove', address: tap, field: 'note' }]).actions.tap).toMatchObject({ text: 'Tab', note: '', noteChanged: true });
+    expect(tapDanceView(noted, [{ address: tap, value: 'Escape' }]).actions.tap).toMatchObject({ text: 'Escape', note: '元の注記', noteChanged: false });
+    const removed: AnyChange[] = [{ op: 'remove', address: tap }, { address: tap, value: 'Escape' }];
+    expect(tapDanceView(noted, removed).actions.tap).toMatchObject({ text: 'Escape', changed: true, note: '', noteChanged: true });
+  });
+
+  it('コンボの出すキーの注記。同時に押すキー（並びの要素）は注記を持たない', () => {
+    const view = comboView(COMBO, [{ address: output, value: 'メモ', field: 'note' }]);
+    expect(view.output).toMatchObject({ note: 'メモ', noteChanged: true });
+    expect(view.triggers.keys.map((k) => k.note)).toEqual(['', '']);
+  });
+});

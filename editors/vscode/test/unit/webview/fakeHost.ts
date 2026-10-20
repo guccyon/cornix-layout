@@ -58,6 +58,7 @@ export class FakeHost implements HostClient {
 }
 
 function answer(method: WebviewRequestMethod, params: unknown, limit: number, values: ReadonlyMap<string, KeyValue>): unknown {
+  if (method === 'keycode/shortcutTree') return data.SHORTCUT_TREE;
   if (method === 'keycode/inspect') {
     const { text } = params as { text: string };
     const value = values.get(text) ?? data.interpret(text);

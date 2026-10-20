@@ -1,18 +1,35 @@
 // 拡張（ホスト）と編集画面（Webview）の間のメッセージ。画面の作業（段 2 の G）はここに種類を足していく。
-import type { AnyChange, CandidatesParams, CandidatesResult, Change, InspectParams, InspectResult, ItemEdit, ProfileSnapshot, Range } from './protocol';
+import type {
+  AnyChange,
+  CandidatesParams,
+  CandidatesResult,
+  Change,
+  InspectParams,
+  InspectResult,
+  ItemEdit,
+  ProfileSnapshot,
+  Range,
+  ShortcutTreeParams,
+  ShortcutTreeResult,
+} from './protocol';
 
 /**
  * Webview からホストに中継してもらうリクエスト（Webview はサーバーと直接話せない）。
- * params は約束の params から profileId を除いたもの（ホストがそのときの profileId を入れる）
+ * params は約束の params から profileId を除いたもの（ホストがそのときの profileId を入れる）。
+ * keycode/shortcutTree はプロファイルによらないので params は {}（マクロの preset: を選び直す階層の選択に使う）
  */
 export interface WebviewRequestMap {
   'keycode/candidates': { params: Omit<CandidatesParams, 'profileId'>; result: CandidatesResult };
   'keycode/inspect': { params: Omit<InspectParams, 'profileId'>; result: InspectResult };
+  'keycode/shortcutTree': { params: ShortcutTreeParams; result: ShortcutTreeResult };
 }
 export type WebviewRequestMethod = keyof WebviewRequestMap;
 
 /** ホストが中継するメソッド（これ以外は中継しない。Webview から来た文字列をそのままサーバーに渡さないため） */
-export const RELAYED_METHODS: ReadonlySet<string> = new Set<WebviewRequestMethod>(['keycode/candidates', 'keycode/inspect']);
+export const RELAYED_METHODS: ReadonlySet<string> = new Set<WebviewRequestMethod>(['keycode/candidates', 'keycode/inspect', 'keycode/shortcutTree']);
+
+/** 中継するときに profileId を入れないメソッド（プロファイルによらない。params は {} にして送る） */
+export const PROFILE_FREE_METHODS: ReadonlySet<WebviewRequestMethod> = new Set<WebviewRequestMethod>(['keycode/shortcutTree']);
 
 export function isRelayedMethod(method: unknown): method is WebviewRequestMethod {
   return typeof method === 'string' && RELAYED_METHODS.has(method);

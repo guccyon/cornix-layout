@@ -98,6 +98,18 @@ export async function writeOutside(rel: string, from: string, to: string): Promi
   await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(workspaceRoot(), rel), new TextEncoder().encode(text.replace(from, to)));
 }
 
+/**
+ * writeOutside と同じ書き換えを、一時ファイルに書いてから置き換える形で当てる（読む側が途中の中身を読まない）。
+ * 一時ファイルはワークスペースの直下（プロファイルの見張りの外）に置く
+ */
+export async function replaceOutside(rel: string, from: string, to: string): Promise<void> {
+  const text = readWorkspaceFile(rel);
+  assert.ok(text.includes(from), `${rel} に ${from} がない`);
+  const temp = vscode.Uri.joinPath(workspaceRoot(), '.replace-outside.tmp');
+  await vscode.workspace.fs.writeFile(temp, new TextEncoder().encode(text.replace(from, to)));
+  await vscode.workspace.fs.rename(temp, vscode.Uri.joinPath(workspaceRoot(), rel), { overwrite: true });
+}
+
 export function profileTab(): vscode.Tab | undefined {
   return vscode.window.tabGroups.all
     .flatMap((group) => group.tabs)

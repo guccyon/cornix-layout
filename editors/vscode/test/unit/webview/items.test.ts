@@ -247,6 +247,41 @@ describe('マクロの節', () => {
     expect(host.changes).toEqual([{ address: at(PRESET_FILE, 'preset'), value: 'VS Code:編集:行をコピー' }]);
   });
 
+  it('preset は同梱のショートカットの木（手順の定義だけ）から「アプリ → カテゴリ → ラベル」で選び直せる。木は 1 回だけ取る', async () => {
+    const macros = mount(new MacroEditor({ host }));
+    macros.update(snapshot(), []);
+    macros.select('Copy Selected');
+    const pick = button(macros.element, 'preset-pick');
+    pick.click();
+    await settle(0);
+    expect(pick.getAttribute('aria-expanded')).toBe('true');
+    // 1 シーケンスの定義（コマンドパレット・フレーム）は出さず、それしかないアプリ（Figma）も出さない
+    const apps = [...macros.element.querySelectorAll('.preset-app > summary')].map((e) => e.textContent);
+    expect(apps).toEqual(['VS Code1']);
+    expect(macros.element.querySelector('.preset-app .icon')).not.toBeNull();
+    const items = [...macros.element.querySelectorAll<HTMLButtonElement>('.preset-item')];
+    expect(items.map((e) => [e.textContent, e.dataset.preset])).toEqual([['キーボードショートカット', 'VS Code:基本操作:キーボードショートカット']]);
+    // 絞り込み
+    const search = input(macros.element, 'preset-search');
+    search.value = 'figma';
+    search.dispatchEvent(new Event('input'));
+    expect(macros.element.querySelector('.preset-tree')?.textContent).toBe('合うものがありません');
+    search.value = '基本';
+    search.dispatchEvent(new Event('input'));
+    macros.element.querySelector<HTMLButtonElement>('.preset-item')!.click();
+    expect(host.changes).toEqual([{ address: at(PRESET_FILE, 'preset'), value: 'VS Code:基本操作:キーボードショートカット' }]);
+    expect(input(macros.element, 'preset').value).toBe('VS Code:基本操作:キーボードショートカット');
+    expect(pick.getAttribute('aria-expanded')).toBe('false');
+    // 開き直すと今の preset に印が付き、木は取り直さない
+    pick.click();
+    await settle(0);
+    expect(macros.element.querySelector('.preset-item.selected')?.getAttribute('aria-current')).toBe('true');
+    expect(host.requests.filter((r) => r.method === 'keycode/shortcutTree')).toHaveLength(1);
+    // Escape で閉じる
+    input(macros.element, 'preset-search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(pick.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('検証の結果: 欄の Address のものは欄に、そのほかのそのファイルのものは項目の上に出し、一覧の行に印を付ける', () => {
     const diagnostics: Diagnostic[] = [
       { severity: 'warning', source: 'semantic', message: 'Cornix は対応していません', address: at(MACRO_FILE, 'sequence', 0, 'keys', 0) },
@@ -362,6 +397,60 @@ describe('タップダンスの節', () => {
     expect(input(tapDances.element, 'action:hold').value).toBe('');
   });
 
+  it('動作ごとに注記の欄を置く（field: "note"。空にすると注記だけを消す。書いていない動作には書けない）', () => {
+    const noted = structuredClone(TAP_DANCE);
+    noted.actions.hold.value = { ...noted.actions.hold.value!, note: '押しっぱなしで Esc' };
+    const tapDances = mount(new TapDanceEditor({ host }));
+    tapDances.update(snapshot({ tapDances: [noted] }), []);
+    expect(input(tapDances.element, 'action:hold:note').value).toBe('押しっぱなしで Esc');
+    expect(input(tapDances.element, 'action:hold:note').closest('.item-field')?.classList.contains('has-note')).toBe(true);
+    expect(input(tapDances.element, 'action:doubleTap:note').disabled).toBe(true);
+    const tap = input(tapDances.element, 'action:tap:note');
+    tap.value = ' タブ ';
+    tap.dispatchEvent(new Event('input'));
+    tap.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    const hold = input(tapDances.element, 'action:hold:note');
+    hold.value = '';
+    hold.dispatchEvent(new Event('input'));
+    hold.dispatchEvent(new FocusEvent('blur'));
+    expect(host.changes).toEqual([{ address: at(TAP_DANCE_FILE, 'actions', 'on_tap'), value: 'タブ', field: 'note' }]);
+    expect(host.edits).toEqual([{ op: 'remove', address: at(TAP_DANCE_FILE, 'actions', 'on_hold'), field: 'note' }]);
+    expect(input(tapDances.element, 'action:tap:note').value).toBe('タブ');
+    expect(input(tapDances.element, 'action:tap').closest('.item-field')?.classList.contains('changed')).toBe(true);
+    // Escape は打つ前の注記に戻す（渡さない）
+    const again = input(tapDances.element, 'action:tap:note');
+    again.value = '別の注記';
+    again.dispatchEvent(new Event('input'));
+    again.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    again.dispatchEvent(new FocusEvent('blur'));
+    expect(again.value).toBe('タブ');
+    expect(host.changes).toHaveLength(1);
+  });
+
+  it('キーの欄にフォーカスすると、レイヤーの欄と同じ説明（題・説明の行・注記）を出す', async () => {
+    const noted = structuredClone(TAP_DANCE);
+    noted.actions.hold.value = { ...noted.actions.hold.value!, note: '押しっぱなしで Esc' };
+    const tapDances = mount(new TapDanceEditor({ host }));
+    tapDances.update(snapshot({ tapDances: [noted] }), []);
+    const field = input(tapDances.element, 'action:hold');
+    field.focus();
+    field.dispatchEvent(new FocusEvent('focus'));
+    await settle(10);
+    const tooltip = document.querySelector<HTMLElement>('.tooltip');
+    expect(tooltip?.hidden).toBe(false);
+    expect(field.getAttribute('aria-describedby')).toBe(tooltip?.id);
+    expect(tooltip?.querySelector('.tooltip-title')?.textContent).toBeTruthy();
+    expect(tooltip?.querySelector('.tooltip-note')?.textContent).toBe('注記: 押しっぱなしで Esc');
+    field.dispatchEvent(new FocusEvent('blur'));
+    expect(tooltip?.hidden).toBe(true);
+    // 書いていない欄には出さない
+    const empty = input(tapDances.element, 'action:doubleTap');
+    empty.focus();
+    empty.dispatchEvent(new FocusEvent('focus'));
+    await settle(10);
+    expect(tooltip?.hidden).toBe(true);
+  });
+
   it('tapping_term は数値の欄で、QMK 設定の値を添え、空にすると消す', () => {
     const tapDances = mount(new TapDanceEditor({ host }));
     tapDances.update(snapshot(), []);
@@ -396,6 +485,17 @@ describe('コンボの節', () => {
     expect(host.changes).toEqual([{ address: at(COMBO_FILE, 'output_key'), value: 'Escape' }]);
     expect([0, 1, 2].map((i) => input(combos.element, `trigger:${i}`).value)).toEqual(['W', 'NoKey', 'NoKey']);
     expect(combos.element.querySelector('.combo-triggers-part .item-subheading')?.classList.contains('changed')).toBe(true);
+  });
+
+  it('出すキーには注記の欄を置き、同時に押すキーには置かない', () => {
+    const combos = mount(new ComboEditor({ host }));
+    combos.update(snapshot(), []);
+    expect(combos.element.querySelector("[data-focus='trigger:0:note']")).toBeNull();
+    const note = input(combos.element, 'output:note');
+    note.value = '[ と ]';
+    note.dispatchEvent(new Event('input'));
+    note.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(host.changes).toEqual([{ address: at(COMBO_FILE, 'output_key'), value: '[ と ]', field: 'note' }]);
   });
 
   it('同時に押すキーは comboTrigger、出すキーは comboOutput の候補', async () => {

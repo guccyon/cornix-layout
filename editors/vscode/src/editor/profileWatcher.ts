@@ -9,6 +9,10 @@ export class ProfileWatcher implements vscode.Disposable {
   private readonly pending = new Map<string, FileChangeType>();
   private timer: ReturnType<typeof setTimeout> | undefined;
   private holds = 0;
+  private readonly onDidSendEmitter = new vscode.EventEmitter<DidChangeFilesParams>();
+
+  /** まとめた知らせを送った（サーバーが止まっていれば、送り先で捨てられる）。統合テストが「見張りが気づいた」ことを待つのに使う */
+  readonly onDidSend = this.onDidSendEmitter.event;
 
   constructor(
     private readonly workspaceRoot: vscode.Uri,
@@ -38,6 +42,7 @@ export class ProfileWatcher implements vscode.Disposable {
   dispose(): void {
     if (this.timer) clearTimeout(this.timer);
     this.watcher.dispose();
+    this.onDidSendEmitter.dispose();
   }
 
   private record(uri: vscode.Uri, type: FileChangeType): void {
@@ -62,5 +67,6 @@ export class ProfileWatcher implements vscode.Disposable {
     const changes = [...this.pending].map(([p, type]) => ({ path: p, type }));
     this.pending.clear();
     this.send({ changes });
+    this.onDidSendEmitter.fire({ changes });
   }
 }

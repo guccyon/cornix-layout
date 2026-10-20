@@ -66,6 +66,8 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       'Shift + Cmd + Vol+' => 0x0AA9, 'LT1(Vol+)' => 0x41A9, 'LSFT(Vol-)' => 0x02AA,
       '←' => 0x0050, '↓' => 0x0051, '→' => 0x004F, '↑' => 0x0052, 'Option + ←' => 0x0450, 'SingleQuote' => 0x0034,
       '◀◀' => 0x00BC, "▶\u{FE0E}▶\u{FE0E}" => 0x00BB, '▶▶' => 0x00BB, '⏯' => 0x00AE,
+      "▶\u{FE0F}▶\u{FE0F}" => 0x00BB, "▶\u{FE0E}▶" => 0x00BB, "◀\u{FE0E}◀\u{FE0E}" => 0x00BC, "Cmd + ▶\u{FE0F}▶\u{FE0F}" => 0x08BB,
+      'MT(MOD_LCTL, Vol-)' => 0x21AA, "Cmd + 'Vol+'" => 0x08A9,
       # 生の値
       '0x7C00' => 0x7C00, '0x00E8' => 0x00E8, '0x1000' => 0x1000
     }.each do |text, expected|
@@ -127,6 +129,9 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
         'OSM(MOD_LCTL|MOD_RSFT)' => /左右の修飾キーは混在できません/,
         'Hoge + A' => /修飾キー名「Hoge」は使えません/,
         'Vol + A' => /修飾キー名「Vol」は使えません/,
+        'Cmd + Vol+ + A' => /修飾キー名「Vol」は使えません/,
+        'vol+' => /「vol\+」は不明なキーコードです（もしかして: Vol\+）/,
+        'Ctrl + vol-' => /「vol-」は不明なキーコードです（もしかして: Vol-）/,
         'Cmd +' => /キーがありません/,
         'enter' => /「enter」は不明なキーコードです（もしかして: Enter）/,
         'os_lsft' => /（もしかして: OS_LSFT）/,

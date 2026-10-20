@@ -14,6 +14,7 @@
   - 解釈の順: 文字列全体が別名・QMK 名 → ワンショット名（`OS_LSFT` など。`Modifiers::ONE_SHOT_BITS`）→ 参照 → `M3` → `0xHHHH` → 修飾キー式（`修飾名 +` で始まる）→ 関数形式
   - 別名を先に見るので、`+`（`LSFT(KC_EQUAL)`）や `LCtrl` のような別名は修飾キー式より優先される
   - 修飾キー式の中でも、残りが別名・QMK 名そのものならそれをキーとして読む。`Ctrl + Vol+` の `Vol+` を `Vol +`（修飾名 `Vol`）と読まない
+  - 別名を引くときは、見つからなければ異体字セレクタ（U+FE0E / U+FE0F）を除いて引き直す（`▶️▶️` も `▶▶` と読む）
 - 修飾名・修飾関数・MOD_ 定数の表: `Mapping::KeycodeNotation::Modifiers`（`keycode_notation/modifiers.rb`）
   - `EXPRESSION`（`Cmd` / `Command` / `Option` / `RCtrl` ...）、`FUNCTIONS`（`LCTL`, `C_S`, `SGUI`, `MEH`, `HYPR` ... → ビット）、
     `FUNCTION_ALIASES`（`LCS` → `C_S`, `LSG` → `SGUI` など）、`MOD_TAP_BITS`、`ONE_SHOT_BITS`、`CONSTANTS`

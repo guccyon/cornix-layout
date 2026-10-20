@@ -38,7 +38,8 @@
 # 書き込み禁止のキーは出さない
 - context: layerKey
   query: boot
-  expect: []
+  expect: [OutputBluetooth, BrowserFavorites]   # あいまい一致（b・o・o・t を順に含む）だけ。QK_BOOT（Reset）は出ない
+  absent: [Reset, Reboot]
 - context: layerKey
   query: EEPROM
   expect: []
@@ -54,7 +55,7 @@
     Repeat: Cornix は Repeat Key に対応していません
 - context: layerKey
   query: USER0
-  expect: [BT0, BT1, BT2, NextBT, PrevBT, ClearBT, USER06, USER07, USER08, USER09]
+  expect: [BT0, BT1, BT2, NextBT, PrevBT, ClearBT, USER06, USER07, MouseAccel0, USER08, USER09]   # 対応していないキーはあいまい一致（MouseAcceleration0）よりも下
   warning:
     USER08: Cornix のユーザーキーは USER00〜USER07 の 8 個だけです
 # 同梱のショートカットは日本語のラベルとアプリ名に当てる。macro: の定義は出さない

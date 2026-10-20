@@ -82,25 +82,29 @@ afterEach(() => {
 });
 
 describe('位置の名前のボタンのホバーと出所の説明', () => {
-  it('ボタンにマウスを載せている間だけ位置の名前を出し、図の下に出所を 1 行出す', () => {
+  it('ボタンにマウスを載せている間だけ位置の名前を出し、図の下に出所を 1 行出す（行の高さはいつも取っておく）', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ positionMap: POSITION_MAP_V02 }), changes: [] });
     const toggle = root.querySelector<HTMLButtonElement>('.position-toggle')!;
     const q = keyElement(slotOf('left_hand', 'row0', 'Q'));
     const hint = root.querySelector<HTMLElement>('.position-hint')!;
     expect(toggle.title).toContain('position_map.yaml');
     expect(toggle.title).toContain('ファイルを変えるとラベルが変わる');
-    expect(hint.hidden).toBe(true);
+    expect(hint.hidden).toBe(false);
+    expect(hint.classList.contains('shown')).toBe(false);
+    expect(hint.getAttribute('aria-hidden')).toBe('true');
+    expect(hint.textContent).not.toBe('');
 
     toggle.dispatchEvent(new MouseEvent('mouseenter'));
     expect(q.querySelector('.position-name')?.textContent).toBe('Q');
-    expect(hint.hidden).toBe(false);
+    expect(hint.classList.contains('shown')).toBe(true);
+    expect(hint.getAttribute('aria-hidden')).toBe('false');
     expect(hint.textContent).toBe('名前は position_map.yaml のもの。キーを押すとここで名前を変えられる');
     // 載せているだけでは固定しない
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
 
     toggle.dispatchEvent(new MouseEvent('mouseleave'));
     expect(q.querySelector('.position-name')).toBeNull();
-    expect(hint.hidden).toBe(true);
+    expect(hint.classList.contains('shown')).toBe(false);
 
     // 固定・Alt と共存する（固定中は離れても出したまま）
     toggle.click();

@@ -65,6 +65,7 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       'Vol+' => 0x00A9, 'Vol-' => 0x00AA, 'VolumeUp' => 0x00A9, 'Ctrl + Vol+' => 0x01A9, 'Cmd+Vol-' => 0x08AA,
       'Shift + Cmd + Vol+' => 0x0AA9, 'LT1(Vol+)' => 0x41A9, 'LSFT(Vol-)' => 0x02AA,
       '←' => 0x0050, '↓' => 0x0051, '→' => 0x004F, '↑' => 0x0052, 'Option + ←' => 0x0450, 'SingleQuote' => 0x0034,
+      'ForwardSlash' => 0x0038, 'Yen' => 0x041C, 'Cmd + ForwardSlash' => 0x0838, 'Shift + Yen' => 0x061C,
       '◀◀' => 0x00BC, "▶\u{FE0E}▶\u{FE0E}" => 0x00BB, '▶▶' => 0x00BB, '⏯' => 0x00AE,
       "▶\u{FE0F}▶\u{FE0F}" => 0x00BB, "▶\u{FE0E}▶" => 0x00BB, "◀\u{FE0E}◀\u{FE0E}" => 0x00BC, "Cmd + ▶\u{FE0F}▶\u{FE0F}" => 0x08BB,
       'MT(MOD_LCTL, Vol-)' => 0x21AA, "Cmd + 'Vol+'" => 0x08A9,

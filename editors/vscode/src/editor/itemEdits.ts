@@ -41,6 +41,8 @@ export function itemEditTitle(edit: ItemEdit): string {
       return `${KIND_NAMES[edit.kind]} ${edit.name} の名前を ${edit.to} に変えます。`;
     case 'renamePosition':
       return `${HAND_NAMES[edit.hand]} row ${edit.row} col ${edit.col} の位置の名前を ${edit.to} に変えます。`;
+    case 'expandPreset':
+      return `${KIND_NAMES[edit.kind]} ${edit.name} の preset を手順に展開します。`;
   }
 }
 

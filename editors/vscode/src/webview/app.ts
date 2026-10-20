@@ -189,6 +189,15 @@ export class App {
     this.rendered();
   }
 
+  /**
+   * v0.3: 図のキーを押して選ぶ状態に入る。押したキーの今のレイヤーの表記を onPick に渡して抜ける。
+   * 戻り値の関数か Esc で、選ばずに抜ける（tasks-v0.3.md の E1。今は入れ物だけ）
+   */
+  pickKey(onPick: (text: string) => void): () => void {
+    void onPick;
+    return () => {};
+  }
+
   selectLayer(index: number): void {
     if (!this.snapshot?.layers.some((layer) => layer.index === index)) return;
     this.layerIndex = index;

@@ -102,7 +102,9 @@ export class App {
         this.editor.startRename(id);
       },
       comboTargets: (index) => this.comboTargets(index),
-      decorateCombo: (element, index) => attachTooltip(element, () => Promise.resolve(this.describeCombo(index)), { focus: 'visible' }),
+      // 説明は図の下に出す（強調したキーを隠さない）
+      decorateCombo: (element, index) =>
+        attachTooltip(element, () => Promise.resolve(this.describeCombo(index)), { focus: 'visible', avoid: () => this.keyboard.boardElement }),
       onPick: (id) => this.picked(id),
       onPickCancel: () => this.endPick(),
     });

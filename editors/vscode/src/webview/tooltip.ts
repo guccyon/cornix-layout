@@ -17,7 +17,11 @@ function element(): HTMLElement {
   return tooltip;
 }
 
-export function showTooltip(anchor: HTMLElement, content: Node): void {
+/**
+ * avoid を渡したら、その要素に重ならない所に出す（コンボのボタンの説明が、強調したキーを隠さないように）。
+ * avoid の下に入ればその下、入らなければ anchor の上、どちらも入らなければいつもの所
+ */
+export function showTooltip(anchor: HTMLElement, content: Node, avoid?: HTMLElement | null): void {
   // 作り直しで消えた要素には出さない（mouseleave が来ず、出たまま残るため）
   if (!anchor.isConnected) return;
   if (current && current !== anchor) current.removeAttribute('aria-describedby');
@@ -30,7 +34,12 @@ export function showTooltip(anchor: HTMLElement, content: Node): void {
   const width = tip.offsetWidth;
   const left = Math.max(4, Math.min(rect.left, window.innerWidth - width - 4));
   const below = rect.bottom + 6;
-  const top = below + tip.offsetHeight > window.innerHeight && rect.top > tip.offsetHeight + 6 ? rect.top - tip.offsetHeight - 6 : below;
+  let top = below + tip.offsetHeight > window.innerHeight && rect.top > tip.offsetHeight + 6 ? rect.top - tip.offsetHeight - 6 : below;
+  if (avoid?.isConnected) {
+    const area = avoid.getBoundingClientRect();
+    if (area.bottom + 6 + tip.offsetHeight <= window.innerHeight) top = area.bottom + 6;
+    else if (rect.top - tip.offsetHeight - 6 >= 0) top = rect.top - tip.offsetHeight - 6;
+  }
   tip.style.left = `${left}px`;
   tip.style.top = `${top}px`;
 }
@@ -48,6 +57,8 @@ export type TooltipOptions = {
   focus?: 'always' | 'visible';
   /** 今出してよいか（入力欄は候補の一覧を開いている間は出さない） */
   canShow?: () => boolean;
+  /** 重ねたくない要素（showTooltip の avoid） */
+  avoid?: () => HTMLElement | null;
 };
 
 /** 載せて（フォーカスして）しばらくしたら content() の結果を出す。null なら出さない */
@@ -62,7 +73,7 @@ export function attachTooltip(target: HTMLElement, content: () => Promise<Node |
       if (!wanted()) return;
       void content().then(
         (node) => {
-          if (wanted() && node) showTooltip(target, node);
+          if (wanted() && node) showTooltip(target, node, options.avoid?.());
         },
         () => undefined,
       );

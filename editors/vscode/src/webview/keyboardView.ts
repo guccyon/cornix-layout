@@ -122,7 +122,7 @@ export class KeyboardView {
     this.comboBar = h('div', { class: 'combo-buttons', role: 'group', 'aria-label': 'コンボ', hidden: true });
     const toolbar = h('div', { class: 'keyboard-toolbar' }, this.comboBar, h('div', { class: 'keyboard-toggles' }, this.layersToggle, this.toggle));
     this.pickBanner = h('div', { class: 'pick-banner', role: 'status', hidden: true }, 'キーを押して選ぶ（Esc で戻る）');
-    this.positionHint = h('div', { class: 'position-hint', hidden: true });
+    this.positionHint = h('div', { class: 'position-hint', 'aria-hidden': 'true' });
     this.element = h('div', { class: 'keyboard', role: 'group', 'aria-label': 'キーボード図' }, toolbar, this.pickBanner, this.board, this.positionHint);
     const win = options.window ?? window;
     win.addEventListener('keydown', (event) => {
@@ -138,6 +138,11 @@ export class KeyboardView {
   /** 位置の名前を出している（固定か、Alt・ボタンに載せている間の一時表示） */
   get showingPositions(): boolean {
     return this.pinned || this.held || this.hovering;
+  }
+
+  /** キーを並べた図の部分（コンボのボタンの説明をここに重ねないため） */
+  get boardElement(): HTMLElement {
+    return this.board;
   }
 
   /** 全レイヤーの表示をしている（位置の名前を出している間は位置の名前が勝つ） */
@@ -202,11 +207,14 @@ export class KeyboardView {
     for (const id of this.elements.keys()) this.render(id);
   }
 
-  /** 位置の名前を出している間、図の下に名前の出所を 1 行（名前を変えられるなら、その入口も） */
+  /**
+   * 位置の名前を出している間、図の下に名前の出所を 1 行（名前を変えられるなら、その入口も）。
+   * 出していない間も行の高さは取っておき、文字だけを隠す（ホバーで出し入れしても下の欄が動かないように）
+   */
   private renderHint(): void {
     const show = this.showingPositions;
-    this.positionHint.hidden = !show;
-    if (!show) return;
+    this.positionHint.classList.toggle('shown', show);
+    this.positionHint.setAttribute('aria-hidden', String(!show));
     const renamable = !!this.options.onRenamePosition && [...this.slots.values()].some((slot) => slot.key?.positionAddress);
     this.positionHint.textContent = renamable
       ? '名前は position_map.yaml のもの。キーを押すとここで名前を変えられる'

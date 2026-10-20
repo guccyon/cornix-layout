@@ -5,7 +5,9 @@ description: Base layer with standard QWERTY layout and layer switching
 mapping:
   left_hand:
     row0:
-      tab: TapDance('Tab Escape')
+      tab:
+        key: TapDance('Tab Escape')
+        note: 主な用途は Tab。Escape をレイヤー1 経由で押すのと、このキーの長押しで押すのと、どちらが直感的かを試している
       Q: Q
       W: W
       E: E

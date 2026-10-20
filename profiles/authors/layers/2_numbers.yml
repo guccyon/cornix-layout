@@ -21,7 +21,9 @@ mapping:
       S: NoKey
       D: NoKey
       F: NoKey
-      G: MouseButton1
+      G:
+        key: MouseButton1
+        note: 左手でクリックを押さえたまま右親指でトラックボールを動かし、ホームポジションのままドラッグする
     row2:
       lshift: Trans
       Z: NoKey
@@ -70,9 +72,9 @@ mapping:
   encoders:
     left:
       push: Mute
-      ccw: Home
-      cw: End
+      ccw: NoKey
+      cw: NoKey
     right:
-      push: MouseButton3
-      ccw: PageDown
-      cw: PageUp
+      push: NoKey
+      ccw: NoKey
+      cw: NoKey

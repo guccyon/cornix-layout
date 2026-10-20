@@ -87,6 +87,12 @@ mapping:
       ccw: Rewind
       cw: FastForward
     right:
-      push: LGUI(KC_0)
-      ccw: Command + Minus
-      cw: Command + Plus
+      push:
+        key: LGUI(KC_0)
+        note: ブラウザの表示を元のサイズに戻す
+      ccw:
+        key: Command + Minus
+        note: ブラウザの表示を縮小（エンコーダは対になる 2 つの操作に向くと考えて試している）
+      cw:
+        key: Command + Plus
+        note: ブラウザの表示を拡大

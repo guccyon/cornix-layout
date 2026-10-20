@@ -1,0 +1,32 @@
+{
+  "description": "shortcutValue は Shortcut(...) を読まない（読み込みと同じ文の構造の error）",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/shortcuts.yaml": "shortcuts:\n  前のタブへ: Command + Shift + [\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/inspect",
+    "params": {
+      "profileId": "p1",
+      "context": "shortcutValue",
+      "text": "Shortcut('前のタブへ')"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "value": null,
+      "description": null,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "source": "structure",
+          "message": "shortcuts.yaml の値には Shortcut(...) は書けません: Shortcut('前のタブへ')"
+        }
+      ]
+    }
+  }
+}

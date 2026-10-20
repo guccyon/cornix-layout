@@ -1,0 +1,85 @@
+{
+  "description": "タップダンスの名前を変える: TapDance('旧名') も置き換える",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "tap_dance/04_tab_escape.yml": "sha256:6dc2412168fc9a9760f9664872fcbdc1b43347c5e1348db23681aab88ff62fe8",
+        "layers/0_base.yml": "sha256:edc4c5b71f08783710e5bbc6723cc738ef575467b158e2e187af23c81a07a76f"
+      },
+      "edit": {
+        "op": "rename",
+        "kind": "tapDance",
+        "name": "Tab Escape",
+        "to": "Tab Esc"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "tap_dance/04_tab_escape.yml",
+          "baseVersion": "sha256:6dc2412168fc9a9760f9664872fcbdc1b43347c5e1348db23681aab88ff62fe8",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 1,
+                  "character": 6
+                },
+                "end": {
+                  "line": 1,
+                  "character": 16
+                }
+              },
+              "newText": "Tab Esc"
+            }
+          ],
+          "renameTo": "tap_dance/04_tab_esc.yml"
+        },
+        {
+          "file": "layers/0_base.yml",
+          "baseVersion": "sha256:edc4c5b71f08783710e5bbc6723cc738ef575467b158e2e187af23c81a07a76f",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 11
+                },
+                "end": {
+                  "line": 7,
+                  "character": 33
+                }
+              },
+              "newText": "TapDance('Tab Esc')"
+            }
+          ]
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "tab"
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

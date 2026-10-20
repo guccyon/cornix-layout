@@ -1,0 +1,55 @@
+{
+  "description": "macroKey で all: true なら除くものも出す。マクロのファイルは名前参照を読まないので表記は M0（label は名前）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/candidates",
+    "params": {
+      "profileId": "p1",
+      "context": "macroKey",
+      "query": "Bracket",
+      "all": true
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        {
+          "insertText": "M0",
+          "label": "Bracket Pair",
+          "detail": "M0",
+          "category": "macro"
+        },
+        {
+          "insertText": "[",
+          "label": "[",
+          "detail": "LBracket · KC_LBRACKET",
+          "category": "basic"
+        },
+        {
+          "insertText": "]",
+          "label": "]",
+          "detail": "RBracket · KC_RBRACKET",
+          "category": "basic"
+        },
+        {
+          "insertText": "<",
+          "label": "<",
+          "detail": "LessThan · LAngleBracket · LeftAngleBracket · KC_LT",
+          "category": "basic"
+        },
+        {
+          "insertText": ">",
+          "label": ">",
+          "detail": "GreaterThan · RAngleBracket · RightAngleBracket · KC_GT",
+          "category": "basic"
+        }
+      ],
+      "typed": null,
+      "truncated": false
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "description": "書き換えるファイルの baseVersions が今の版と違えば -32060（data.files は今の版）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/1_symbols.yml": "sha256:0000"
+      },
+      "edit": {
+        "op": "rename",
+        "kind": "layer",
+        "name": "Symbols",
+        "to": "Signs"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32060,
+      "data": {
+        "files": {
+          "layers/1_symbols.yml": "sha256:b764c12bb8a31ed4f248a20bb80dd6e62c11936635676161a02b1aeacc88a926"
+        }
+      }
+    }
+  }
+}

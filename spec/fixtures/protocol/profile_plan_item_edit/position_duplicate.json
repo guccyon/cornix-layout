@@ -1,0 +1,31 @@
+{
+  "description": "同じグループにある位置の名前への変更は -32602（field \"edit.to\"）",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "renamePosition",
+        "hand": "left",
+        "row": 0,
+        "col": 0,
+        "to": "Q"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.to"
+      }
+    }
+  }
+}

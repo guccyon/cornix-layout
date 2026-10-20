@@ -3,6 +3,8 @@
 require_relative 'profile_reading'
 require_relative 'key_values'
 require_relative 'diagnostics'
+require_relative 'inspect'
+require_relative 'snapshot/items'
 
 module Cornix
   module Application
@@ -11,7 +13,11 @@ module Cornix
       #
       #   Snapshot.new(workbench).call('p1')
       #   #=> { profileId:, name:, dir:, status: "ok" | "invalid", files:, metadata:, positionMap:, layers:, settings:,
-      #   #     references:, diagnostics: }
+      #   #     references:, macros:, tapDances:, combos:, shortcuts:, diagnostics: }
+      #
+      # v0.2 で足したもの（protocol.md の 12.2）: macros / tapDances / combos / shortcuts（Snapshot::Items）、
+      # positionMap の各位置の address（position_map.yaml の名前を書いている場所 [hand, group, 並びの位置]）、
+      # レイヤーの descriptionAddress（["description"]。書いていなければ挿入の場所）
       #
       # 読んだファイルの版を workbench.versions(id) の「知っている版」にする（前の中身は置き換える）。
       # 構造検証で読めなければ status: "invalid" で、files と diagnostics のほかは空（metadata は {}）。
@@ -45,26 +51,39 @@ module Cornix
 
         def empty_contents
           { metadata: {}, positionMap: [], layers: [], settings: [],
-            references: { layers: [], macros: [], tapDances: [], shortcuts: [] } }
+            references: { layers: [], macros: [], tapDances: [], shortcuts: [] },
+            macros: [], tapDances: [], combos: [], shortcuts: [] }
         end
 
         def contents(env, reading)
           profile = reading.profile
           values = KeyValues.new(env: env, profile: profile, icons: @icons)
+          description = Inspect::Description.new(values: values, profile: profile, qmk: env.qmk)
           {
             metadata: profile.metadata.to_h,
-            positionMap: position_map(profile.position_map),
+            positionMap: position_map(profile.position_map, reading),
             layers: profile.layers.each_with_index.map { |layer, i| layer(layer, i, profile.position_map, reading, values) },
             settings: settings(env.settings_catalog, profile.settings, reading),
-            references: references(profile, reading, values)
+            references: references(profile, reading, values),
+            **Items.new(reading: reading, values: values, description: description).to_h
           }
         end
 
-        def position_map(map)
+        def position_map(map, reading)
+          file = position_map_file(reading)
           map.positions.map do |pos|
             group, symbol = map.symbol(pos)
-            { hand: pos.hand.to_s, row: pos.row, col: pos.col, group: group, symbol: symbol }
+            hand_key = map.hand_key(pos)
+            path = [hand_key, group, map.symbols(hand_key, group).index(symbol)]
+            { hand: pos.hand.to_s, row: pos.row, col: pos.col, group: group, symbol: symbol,
+              address: { file: file, path: path } }
           end
+        end
+
+        # position_map.yaml（.yml も。読めたプロファイルでは必ずある）
+        def position_map_file(reading)
+          Storage::ConfigFiles::EXTENSIONS.map { |ext| "#{Storage::ConfigFiles::POSITION_MAP}#{ext}" }
+                                         .find { |rel| reading.files.key?(rel) }
         end
 
         def layer(layer, position, map, reading, values)
@@ -78,7 +97,8 @@ module Cornix
                                                      note: layer.note(pos))
             { hand: pos.hand.to_s, row: pos.row, col: pos.col, address: { file: file, path: path }, value: value }
           end
-          { index: layer.index, name: layer.name, description: layer.description, file: file, keys: keys,
+          { index: layer.index, name: layer.name, description: layer.description, file: file,
+            descriptionAddress: { file: file, path: ['description'] }, keys: keys,
             encoders: encoders(layer, file, doc, values) }
         end
 

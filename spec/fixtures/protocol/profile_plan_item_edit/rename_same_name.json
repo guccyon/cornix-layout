@@ -1,0 +1,35 @@
+{
+  "description": "今と同じ名前への変更は何もしない（files も references も空）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "rename",
+        "kind": "macro",
+        "name": "Bracket Pair",
+        "to": "Bracket Pair"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

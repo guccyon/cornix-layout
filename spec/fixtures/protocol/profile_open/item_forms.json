@@ -1,0 +1,348 @@
+{
+  "description": "書き方の違い。delay / text は値の欄、手順のキーの canonical は名前参照を使わない（M0）、preset: のマクロは steps が空で presetAddress とアイコン、タップダンスの動作を上の階層に書いていれば [\"on_tap\"]、書いていない動作と tapping_term は value: null、どちらにも書いていなければ actions: の下、注記は note、空の description は null",
+  "setup": {
+    "profile": "test_config",
+    "open": false,
+    "files": {
+      "profiles/default/macros/09_forms.yaml": "index: 9\nname: Forms\ndescription: いろいろ\nsequence:\n  - action: delay\n    duration: 100\n  - action: text\n    content: hello\n  - action: tap\n    keys: [Macro(0)]\n",
+      "profiles/default/macros/12_frame.yaml": "index: 12\npreset: 'Figma:ツール:フレームツール'\n",
+      "profiles/default/tap_dance/03_tab_escape.yaml": "index: 3\nname: Tab Escape\non_tap: { key: Tab, note: タブ }\n",
+      "profiles/default/tap_dance/04_empty.yaml": "index: 4\nname: Empty\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/open",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "status": "ok",
+      "macros": [
+        {
+          "index": 0,
+          "description": null
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+          "index": 9,
+          "name": "Forms",
+          "description": "いろいろ",
+          "file": "macros/09_forms.yaml",
+          "preset": null,
+          "presetAddress": null,
+          "summary": [
+            "delay: 100ms",
+            "text: hello",
+            "tap: Macro 0"
+          ],
+          "steps": [
+            {
+              "address": {
+                "file": "macros/09_forms.yaml",
+                "path": [
+                  "sequence",
+                  0
+                ]
+              },
+              "action": "delay",
+              "duration": {
+                "address": {
+                  "file": "macros/09_forms.yaml",
+                  "path": [
+                    "sequence",
+                    0,
+                    "duration"
+                  ]
+                },
+                "value": 100
+              }
+            },
+            {
+              "address": {
+                "file": "macros/09_forms.yaml",
+                "path": [
+                  "sequence",
+                  1
+                ]
+              },
+              "action": "text",
+              "content": {
+                "address": {
+                  "file": "macros/09_forms.yaml",
+                  "path": [
+                    "sequence",
+                    1,
+                    "content"
+                  ]
+                },
+                "value": "hello"
+              }
+            },
+            {
+              "address": {
+                "file": "macros/09_forms.yaml",
+                "path": [
+                  "sequence",
+                  2
+                ]
+              },
+              "action": "tap",
+              "keysAddress": {
+                "file": "macros/09_forms.yaml",
+                "path": [
+                  "sequence",
+                  2,
+                  "keys"
+                ]
+              },
+              "keys": [
+                {
+                  "address": {
+                    "file": "macros/09_forms.yaml",
+                    "path": [
+                      "sequence",
+                      2,
+                      "keys",
+                      0
+                    ]
+                  },
+                  "value": {
+                    "text": "Macro(0)",
+                    "canonical": "M0",
+                    "code": 30464,
+                    "kind": "macro",
+                    "display": {
+                      "label": "Macro 0"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+        },
+        {
+        },
+        {
+          "index": 12,
+          "name": "Figma:ツール:フレームツール",
+          "file": "macros/12_frame.yaml",
+          "icon": "simple-icons:figma",
+          "preset": "Figma:ツール:フレームツール",
+          "presetAddress": {
+            "file": "macros/12_frame.yaml",
+            "path": [
+              "preset"
+            ]
+          },
+          "steps": [
+
+          ]
+        }
+      ],
+      "tapDances": [
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+          "index": 3,
+          "name": "Tab Escape",
+          "description": null,
+          "file": "tap_dance/03_tab_escape.yaml",
+          "actions": {
+            "tap": {
+              "address": {
+                "file": "tap_dance/03_tab_escape.yaml",
+                "path": [
+                  "on_tap"
+                ]
+              },
+              "value": {
+                "text": "Tab",
+                "canonical": "Tab",
+                "code": 43,
+                "kind": "basic",
+                "display": {
+                  "label": "Tab"
+                },
+                "note": "タブ"
+              }
+            },
+            "hold": {
+              "address": {
+                "file": "tap_dance/03_tab_escape.yaml",
+                "path": [
+                  "on_hold"
+                ]
+              },
+              "value": null
+            },
+            "doubleTap": {
+              "address": {
+                "file": "tap_dance/03_tab_escape.yaml",
+                "path": [
+                  "on_double_tap"
+                ]
+              },
+              "value": null
+            },
+            "tapHold": {
+              "address": {
+                "file": "tap_dance/03_tab_escape.yaml",
+                "path": [
+                  "on_tap_hold"
+                ]
+              },
+              "value": null
+            }
+          },
+          "tappingTerm": {
+            "address": {
+              "file": "tap_dance/03_tab_escape.yaml",
+              "path": [
+                "tapping_term"
+              ]
+            },
+            "value": null
+          }
+        },
+        {
+          "index": 4,
+          "name": "Empty",
+          "file": "tap_dance/04_empty.yaml",
+          "actions": {
+            "tap": {
+              "address": {
+                "file": "tap_dance/04_empty.yaml",
+                "path": [
+                  "actions",
+                  "on_tap"
+                ]
+              },
+              "value": null
+            },
+            "hold": {
+              "address": {
+                "file": "tap_dance/04_empty.yaml",
+                "path": [
+                  "actions",
+                  "on_hold"
+                ]
+              },
+              "value": null
+            },
+            "doubleTap": {
+              "address": {
+                "file": "tap_dance/04_empty.yaml",
+                "path": [
+                  "actions",
+                  "on_double_tap"
+                ]
+              },
+              "value": null
+            },
+            "tapHold": {
+              "address": {
+                "file": "tap_dance/04_empty.yaml",
+                "path": [
+                  "actions",
+                  "on_tap_hold"
+                ]
+              },
+              "value": null
+            }
+          }
+        }
+      ],
+      "combos": [
+        {
+          "index": 0,
+          "triggers": [
+            {
+              "address": {
+                "file": "combos/00_combo.yaml",
+                "path": [
+                  "trigger_keys",
+                  0
+                ]
+              },
+              "value": {
+                "text": "KC_D"
+              }
+            },
+            {
+              "address": {
+                "file": "combos/00_combo.yaml",
+                "path": [
+                  "trigger_keys",
+                  1
+                ]
+              },
+              "value": {
+                "text": "KC_F"
+              }
+            },
+            {
+              "address": {
+                "file": "combos/00_combo.yaml",
+                "path": [
+                  "trigger_keys",
+                  2
+                ]
+              },
+              "value": {
+                "text": "KC_NO",
+                "kind": "noKey"
+              }
+            },
+            {
+              "address": {
+                "file": "combos/00_combo.yaml",
+                "path": [
+                  "trigger_keys",
+                  3
+                ]
+              },
+              "value": {
+                "text": "KC_NO",
+                "kind": "noKey"
+              }
+            }
+          ]
+        },
+        {
+        },
+        {
+        },
+        {
+        }
+      ],
+      "shortcuts": [
+
+      ]
+    }
+  }
+}

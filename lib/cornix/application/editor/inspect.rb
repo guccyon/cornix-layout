@@ -19,7 +19,8 @@ module Cornix
       # 規則を Domain から写さないよう、その値を出力に持つコンボを 1 件足したプロファイルを検証し、その場所の結果だけを取る。
       # これは今の規則（ProfileDiagnostics#check_keycode）がキーコードの場所によらないことに頼っている。Domain に 1 つのキーコードだけを
       # 確かめる公開メソッド（Profile#keycode_diagnostics など）ができたら置き換える（spec でレイヤーのキーに置いたときの結果と比べている）。
-      # 知らない context は UnknownContext（v0.1 の context による違いはない）
+      # 知らない context は UnknownContext。context による違いは読める名前参照だけ（KeyValues の context。
+      # macroKey は名前参照を読まず、shortcutValue は Shortcut(...) を読まない。読み込みと同じ文の構造の error になる）
       class Inspect
         PROBE_NAME = 'keycode/inspect'
 
@@ -33,8 +34,8 @@ module Cornix
           UnknownContext.check!(context)
           reading = ProfileReading.read(env)
           values = KeyValues.new(env: env, profile: reading.profile, icons: @icons)
-          keycode = values.parse(text)
-          value = values.build(keycode, text: text)
+          keycode = values.parse(text, context: context)
+          value = values.build(keycode, text: text, context: context)
           { value: value, diagnostics: semantic(reading.profile, keycode, env.capabilities),
             description: Description.new(values: values, profile: reading.profile, qmk: env.qmk).call(keycode, value) }
         rescue UnknownKeycode => e

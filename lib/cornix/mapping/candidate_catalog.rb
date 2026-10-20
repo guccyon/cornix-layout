@@ -23,9 +23,16 @@ module Cornix
     # 選んでも Shortcut('名前') にはしない（decompile ならそう書くが、選んだ表記を残す。spec.md の「手で打った表記は残す」と同じ扱い）
     #
     # 並べ方: 対応していないキー（unsupported_keycodes.yaml。warning に理由）を最後に、その前は
-    # 「完全一致 → 前方一致 → 部分一致」（大文字小文字は区別しない）、同じなら context の上に出すもの（keycode_categories.yaml の contexts）、
+    # 「完全一致 → 前方一致 → 部分一致」（大文字小文字は区別しない）、同じなら context の上に出すもの（keycode_categories.yaml の contexts。上に出すものどうしは書いた順）、
     # 同じなら分類の順（keycode_categories.yaml の order のあとに layer, macro, tapDance, shortcut, presetShortcut）と表の順。
     # query が空なら全部が一致したものとして並べる。
+    #
+    # 場面（context）ごとの扱い（protocol.md の 12.4）
+    #   exclude.categories  その分類の候補を出さない（all: true なら出す）
+    #   prefer.baseLayer    base_codes（ベースレイヤーに割り当ててある 16bit 値）と同じ値の候補を上に出す
+    #   exclude:            その 16bit 値と同じ値の候補を出さない（タップダンスの動作の欄でそのタップダンス自身を除くなど）
+    #   format_references:  候補の表記（insert_text）を作る名前参照。マクロの手順のキーは名前参照を読まないので
+    #                       References::NONE を渡すと、マクロ・タップダンスの候補は M0 / TD(4) の形になる（label は名前のまま）
     class CandidateCatalog
       Candidate = Data.define(:insert_text, :label, :detail, :category, :icon, :warning)
       Result = Data.define(:items, :truncated)
@@ -43,7 +50,8 @@ module Cornix
 
       # 候補 1 つと、当てる文字（小文字にしたもの）・並べるための値。
       # key_name はキーの表の候補の keycodes.yaml の name、shortcut は同梱のショートカットの名前
-      Entry = Data.define(:candidate, :terms, :position, :key_name, :shortcut, :unsupported)
+      # code はその候補の 16bit 値（exclude と base_codes で比べる）
+      Entry = Data.define(:candidate, :terms, :position, :key_name, :shortcut, :unsupported, :code)
       private_constant :Entry
 
       def self.default_categories = @default_categories ||= Categories.load
@@ -70,20 +78,24 @@ module Cornix
 
       # references が Shortcut(...) を使えない場面（shortcuts_available? が false。既定の NONE も）なら、
       # 選んでも読めないので shortcut / presetShortcut の候補は出さない。limit は 1 未満なら 1 にする
-      def search(query:, context:, references: References::NONE, layer_names: {}, limit: DEFAULT_LIMIT)
+      def search(query:, context:, references: References::NONE, layer_names: {}, limit: DEFAULT_LIMIT, all: false,
+                 exclude: nil, base_codes: [], format_references: references)
         raise ArgumentError, "知らない context です: #{context.inspect}" unless @categories.context?(context)
 
         limit = [limit.to_i, 1].max
 
         query = query.to_s.strip
         needle = query.downcase
-        entries = @key_entries + reference_entries(references, layer_names) + preset_entries(references)
+        base = @categories.prefer_base_layer?(context) ? base_codes.to_set : Set.new
+        entries = @key_entries + reference_entries(references, layer_names, format_references) + preset_entries(references)
         ranked = entries.filter_map do |entry|
+          next unless shown?(entry.candidate.category, entry.code, context, all, exclude)
+
           rank = match_rank(entry.terms, needle)
-          rank && [entry, sort_key(entry, rank, context)]
+          rank && [entry, sort_key(entry, rank, context, base)]
         end
         items = ranked.sort_by(&:last).map { |entry, _| entry.candidate }
-        items.unshift(*raw_candidates(query, references))
+        items.unshift(*raw_candidates(query, format_references, context, all, exclude))
         Result.new(items: items.first(limit).freeze, truncated: items.size > limit)
       end
 
@@ -107,10 +119,16 @@ module Cornix
         end.min
       end
 
-      def sort_key(entry, rank, context)
+      def sort_key(entry, rank, context, base)
         category = entry.candidate.category
-        prefer = @categories.prefer?(context, category, entry.key_name)
-        [entry.unsupported ? 1 : 0, rank, prefer ? 0 : 1, @group_order.fetch(category), entry.position]
+        prefer = @categories.prefer_rank(context, category, entry.key_name) || (base.include?(entry.code) ? 0 : nil)
+        [entry.unsupported ? 1 : 0, rank, prefer || Float::INFINITY, @group_order.fetch(category), entry.position]
+      end
+
+      def shown?(category, code, context, all, exclude)
+        return false if !exclude.nil? && code == exclude
+
+        all || !@categories.exclude?(context, category)
       end
 
       # ---- キーの表
@@ -145,7 +163,7 @@ module Cornix
         Entry.new(candidate: Candidate.new(insert_text: text, label: text, detail: join(detail), category: category,
                                            icon: nil, warning: @unsupported[code]),
                   terms: downcase(terms), position: position, key_name: name, shortcut: nil,
-                  unsupported: @unsupported.key?(code))
+                  unsupported: @unsupported.key?(code), code: code)
       end
 
       def section(code)
@@ -165,33 +183,37 @@ module Cornix
 
       # ---- プロファイルから作る候補（レイヤー・マクロ・タップダンス・利用者のショートカット）
 
-      def reference_entries(references, layer_names)
-        layer_entries(layer_names) + macro_entries(references) + tap_dance_entries(references) + shortcut_entries(references)
+      def reference_entries(references, layer_names, format_references)
+        layer_entries(layer_names) + macro_entries(references, format_references) +
+          tap_dance_entries(references, format_references) + shortcut_entries(references)
       end
 
       def layer_entries(layer_names)
         layer_names.keys.sort.flat_map do |index|
           name = layer_names[index]
           LAYER_OPS.each_with_index.map do |op, i|
-            text = @notation.format(Domain::Keycode::LayerAction.new(op: op, layer: Domain::LayerRef.new(index: index)))
-            reference_entry(text, text, name, 'layer', [i, index], [text, name, "L#{index}"])
+            keycode = Domain::Keycode::LayerAction.new(op: op, layer: Domain::LayerRef.new(index: index))
+            text = @notation.format(keycode)
+            reference_entry(text, text, name, 'layer', [i, index], [text, name, "L#{index}"], keycode)
           end
         end
       end
 
-      def macro_entries(references)
+      def macro_entries(references, format_references)
         references.macro_names.map do |name|
           index = references.macro_index(name)
-          text = @notation.format(Domain::Keycode::MacroCall.new(index: index), references: references)
-          reference_entry(text, name, "M#{index}", 'macro', [index], [name, text, "M#{index}"])
+          keycode = Domain::Keycode::MacroCall.new(index: index)
+          text = @notation.format(keycode, references: format_references)
+          reference_entry(text, name, "M#{index}", 'macro', [index], [name, text, "M#{index}"], keycode)
         end
       end
 
-      def tap_dance_entries(references)
+      def tap_dance_entries(references, format_references)
         references.tap_dance_names.map do |name|
           index = references.tap_dance_index(name)
-          text = @notation.format(Domain::Keycode::TapDanceCall.new(index: index), references: references)
-          reference_entry(text, name, "TD(#{index})", 'tapDance', [index], [name, text, "TD(#{index})"])
+          keycode = Domain::Keycode::TapDanceCall.new(index: index)
+          text = @notation.format(keycode, references: format_references)
+          reference_entry(text, name, "TD(#{index})", 'tapDance', [index], [name, text, "TD(#{index})"], keycode)
         end
       end
 
@@ -199,15 +221,16 @@ module Cornix
         return [] unless references.shortcuts_available?
 
         references.shortcut_names.each_with_index.map do |name, i|
-          detail = @notation.format(references.shortcut(name))
-          reference_entry(shortcut_text(name), name, detail, 'shortcut', [i], [name])
+          keycode = references.shortcut(name)
+          reference_entry(shortcut_text(name), name, @notation.format(keycode), 'shortcut', [i], [name], keycode)
         end
       end
 
-      def reference_entry(text, label, detail, category, position, terms)
+      def reference_entry(text, label, detail, category, position, terms, keycode)
         Entry.new(candidate: Candidate.new(insert_text: text, label: label, detail: detail, category: category,
                                            icon: nil, warning: nil),
-                  terms: downcase(terms.compact), position: position, key_name: nil, shortcut: nil, unsupported: false)
+                  terms: downcase(terms.compact), position: position, key_name: nil, shortcut: nil, unsupported: false,
+                  code: @codec.encode(keycode))
       end
 
       # ---- 同梱のショートカット
@@ -229,8 +252,15 @@ module Cornix
                                              detail: "#{app}#{PATH_SEPARATOR}#{category}#{DETAIL_SEPARATOR}#{text}",
                                              category: 'presetShortcut', icon: @icon_for.call(app), warning: nil),
                     terms: downcase([label, app, name]), position: [i], key_name: nil, shortcut: name,
-                    unsupported: false)
+                    unsupported: false, code: preset_code(text))
         end.freeze
+      end
+
+      # 同梱のショートカットの表記の 16bit 値（読めなければ nil。読めない定義は ShortcutCatalog#library が知らせる）
+      def preset_code(text)
+        @codec.encode(@notation.parse(text))
+      rescue UnknownKeycode
+        nil
       end
 
       def build_shortcut_tree
@@ -261,12 +291,12 @@ module Cornix
 
       # ---- 直接の値
 
-      def raw_candidates(query, references)
+      def raw_candidates(query, references, context, all, exclude)
         return [] unless query.match?(RAW_PREFIX)
 
         match = query.match(RAW) or return []
         code = match[1].to_i(16)
-        return [] if @catalog.dangerous?(code)
+        return [] if @catalog.dangerous?(code) || !shown?('raw', code, context, all, exclude)
 
         keycode = @codec.decode(code)
         text = @notation.format(keycode, references: references)

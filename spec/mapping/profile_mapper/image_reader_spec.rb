@@ -141,8 +141,18 @@ RSpec.describe Cornix::Mapping::ProfileMapper::ImageReader do
     end
   end
 
-  it 'to_image で元のイメージに戻る' do
-    expect(mapper.to_image(profile)).to eq(image)
+  it 'to_image で元のイメージに戻る（読み込んだレイヤーの nil だったキーの位置は KC_NO になる）' do
+    filled = layers.each_with_index.map do |g, index|
+      next g unless index.zero?
+
+      g.map(&:dup).tap do |copy|
+        position_map.positions.each do |position|
+          row, col = position_map.matrix(position)
+          copy[row][col] ||= 0
+        end
+      end
+    end
+    expect(mapper.to_image(profile)).to eq(image.with(layers: filled))
   end
 
   it 'image が DeviceImage でなければ InvalidValue' do

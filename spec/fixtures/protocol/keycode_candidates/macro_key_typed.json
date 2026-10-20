@@ -1,0 +1,30 @@
+{
+  "description": "macroKey の typed もマクロのファイルと同じ読み方（Macro('名前') は読めず、M0 は名前参照なしの正規形）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/candidates",
+    "params": {
+      "profileId": "p1",
+      "context": "macroKey",
+      "query": "Macro(0)",
+      "limit": 1
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "typed": {
+        "text": "Macro(0)",
+        "canonical": "M0",
+        "code": 30464,
+        "kind": "macro",
+        "display": {
+          "label": "Bracket Pair"
+        }
+      }
+    }
+  }
+}

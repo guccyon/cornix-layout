@@ -1,0 +1,82 @@
+{
+  "description": "マクロの名前を変える: name の行、全設定ファイルの Macro('旧名')、ファイル名の slug（renameTo）。references は置き換える参照の場所",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "macros/00_bracket_pair.yml": "sha256:9d27d8248f986aa7d20cb4091363eed5f44528d05478ce093a0499b9982ed436",
+        "combos/00_bracket_pair.yml": "sha256:200026d6aee3ec119861e207fb198e490b7f0828831960cdaf7e079681af1257"
+      },
+      "edit": {
+        "op": "rename",
+        "kind": "macro",
+        "name": "Bracket Pair",
+        "to": "Square Brackets"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "macros/00_bracket_pair.yml",
+          "baseVersion": "sha256:9d27d8248f986aa7d20cb4091363eed5f44528d05478ce093a0499b9982ed436",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 1,
+                  "character": 6
+                },
+                "end": {
+                  "line": 1,
+                  "character": 18
+                }
+              },
+              "newText": "Square Brackets"
+            }
+          ],
+          "renameTo": "macros/00_square_brackets.yml"
+        },
+        {
+          "file": "combos/00_bracket_pair.yml",
+          "baseVersion": "sha256:200026d6aee3ec119861e207fb198e490b7f0828831960cdaf7e079681af1257",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 8,
+                  "character": 12
+                },
+                "end": {
+                  "line": 8,
+                  "character": 33
+                }
+              },
+              "newText": "Macro('Square Brackets')"
+            }
+          ]
+        }
+      ],
+      "references": [
+        {
+          "file": "combos/00_bracket_pair.yml",
+          "path": [
+            "output_key"
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

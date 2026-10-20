@@ -53,8 +53,12 @@ RSpec.describe Cornix::Mapping::ProfileMapper do
       expect(profile.metadata.keyboard).to eq('Cornix')
     end
 
-    it 'previous があれば名前・説明・メタデータを引き継ぎ、元の Profile に戻る' do
-      expect(mapper.to_profile(image, position_map: position_map, previous: source)).to eq(source)
+    it 'previous があれば名前・説明・メタデータを引き継ぎ、元の Profile に戻る（書いていない位置は KC_NO になる）' do
+      no_key = Cornix::Domain::Keycode::NO_KEY
+      filled = source.layers.map do |layer|
+        layer.with(keys: position_map.positions.to_h { |pos| [pos, layer.key(pos) || no_key] })
+      end
+      expect(mapper.to_profile(image, position_map: position_map, previous: source)).to eq(source.with(layers: filled))
     end
 
     it '注記はイメージに出ず、previous があればキーコードが変わっていない場所の注記を引き継ぐ' do

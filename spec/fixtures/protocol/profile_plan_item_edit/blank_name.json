@@ -1,0 +1,29 @@
+{
+  "description": "前後に空白のある名前は -32602（field \"edit.name\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "macro",
+        "name": " Copy "
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.name"
+      }
+    }
+  }
+}

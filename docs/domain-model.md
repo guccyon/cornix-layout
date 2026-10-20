@@ -145,7 +145,7 @@ nape_pro-layout の `Assignment(keycode, label, shortcut)` のように包まな
 ### Layer
 
 - `index` は `LayerRef` の範囲（0〜31）、`name` は空でない 50 文字以内、`description` は任意
-- `keys` は割り当てのある位置だけを持つ（ない位置はデバイスで -1）
+- `keys` は割り当てのある位置だけを持つ（ない位置は compile で KC_NO（0）になる。キーのない枠だけがデバイスで -1）
 - `encoders` は `:left` / `:right` の両方が必須
 - `notes` の位置は `keys` にある位置だけ
 - 番号がレイヤー数（10）に収まるか、重複がないかは `Profile#diagnostics`
@@ -233,7 +233,8 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 - `PositionMap#position_at(row, col)` は逆変換。キーのない位置（col 6 の -1、プッシュ）は nil
 - エンコーダの回転（ccw / cw）はマトリクスではなく layout.vil の `encoder_layout[layer][左, 右]` に入る
   （`Image::EncoderRecord`）。プッシュだけがマトリクス上のキー
-- layout.vil の `-1` は `Image::DeviceImage` では nil。ProfileMapper は割り当てのない位置も nil にする
+- layout.vil の `-1` は `Image::DeviceImage` では nil。ProfileMapper は position_map にある位置で割り当てのないものを KC_NO（0）にし、nil にするのはキーのない枠（プッシュ以外の col 6）と定義のないレイヤーだけ。
+  `-1` だと `cornix device apply` がその位置を飛ばして前の値が残り、Vial の読み込みも失敗しうるため
 - テスト: `spec/domain/position_map_spec.rb`（全位置の物理座標と逆変換）、`spec/mapping/profile_mapper/*`（レイヤー・エンコーダの配置、旧 compile 結果との一致）
 
 ## 6. 意味検証（`Profile#diagnostics`）
@@ -272,7 +273,7 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 
 | Profile | DeviceImage（to_image） | to_profile で読まないもの |
 |---|---|---|
-| `layers` | 10 枚。レイヤーは index の位置に置き、定義のないレイヤーはすべて nil。割り当てのない位置も nil。エンコーダの push は `PositionMap#encoder_push_matrix` の位置 | すべての位置とエンコーダが nil のレイヤー |
+| `layers` | 10 枚。レイヤーは index の位置に置き、定義のないレイヤーはすべて nil。割り当てのない位置は KC_NO（0）、キーのない位置は nil。エンコーダの push は `PositionMap#encoder_push_matrix` の位置 | すべての位置とエンコーダが nil のレイヤー |
 | `Layer#encoders` | `[layer][左, 右]` の `EncoderRecord`（定義のないレイヤーは ccw / cw とも nil） | （nil は KC_NO として読む） |
 | `macros` | 32 個。未使用は `[]` | 動作が空の枠 |
 | `tap_dances` | 32 個。未使用は KC_NO × 4 と tapping_term 250 | KC_NO × 4 で tapping_term が 250（か nil）の枠 |

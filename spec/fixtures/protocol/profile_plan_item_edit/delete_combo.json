@@ -1,0 +1,43 @@
+{
+  "description": "コンボを消す: 参照されないので references は空",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "combos/06_left_click.yml": "sha256:78842dd9069ea2793ef98826d3868c398e45f34f36d591aef553d8c9b4ecaf9f"
+      },
+      "edit": {
+        "op": "delete",
+        "kind": "combo",
+        "name": "Left Click"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "combos/06_left_click.yml",
+          "baseVersion": "sha256:78842dd9069ea2793ef98826d3868c398e45f34f36d591aef553d8c9b4ecaf9f",
+          "create": false,
+          "edits": [
+
+          ],
+          "delete": true
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

@@ -63,7 +63,9 @@ module Cornix
             end
           end
 
+          # reachable はトリガーのキーがすべてそろうレイヤーがあるか（protocol.md の 13.2。Domain::ComboReachability）
           def combos
+            reachability = Domain::ComboReachability.new(@profile)
             @profile.combos.each_with_index.map do |combo, i|
               file = file_of('combos', i)
               doc = @reading.document(file)
@@ -71,7 +73,8 @@ module Cornix
               header(combo, file).merge(
                 triggersAddress: address(file, ['trigger_keys']),
                 triggers: triggers,
-                output: slot(file, doc, ['output_key'], combo.output_key, note: combo.output_note)
+                output: slot(file, doc, ['output_key'], combo.output_key, note: combo.output_note),
+                reachable: reachability.reachable?(combo)
               )
             end
           end

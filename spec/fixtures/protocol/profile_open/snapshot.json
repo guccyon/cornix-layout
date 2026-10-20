@@ -1,5 +1,5 @@
 {
-  "description": "プロファイルを構造で読む。keys は position_map のすべての位置（割り当てがなければ value: null）、エンコーダは書いていない操作が null、注記は note、QMK 設定は data/qmk_settings.yaml のすべて（旧 decompile の QSID の番号の形で書いていればその場所を Address にする）、意味検証の結果に Address と range",
+  "description": "プロファイルを構造で読む。keys は position_map のすべての位置（割り当てがなければ value: null）、エンコーダは書いていない操作が null、注記は note、QMK 設定は data/qmk_settings.yaml のすべて（旧 decompile の QSID の番号の形で書いていればその場所を Address にする）、意味検証の結果に Address と range（コンボのトリガーはレイヤー 0 を差し替えたのでそろわず、押せないコンボの警告になる）",
   "setup": {
     "profile": "test_config",
     "open": false,
@@ -524,6 +524,34 @@
         "shortcuts": []
       },
       "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": { "file": "combos/00_combo.yaml", "path": ["trigger_keys"] },
+          "range": { "start": { "line": 5, "character": 0 }, "end": { "line": 8, "character": 7 } }
+        },
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": { "file": "combos/01_combo.yaml", "path": ["trigger_keys"] },
+          "range": { "start": { "line": 5, "character": 0 }, "end": { "line": 8, "character": 7 } }
+        },
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": { "file": "combos/02_combo.yaml", "path": ["trigger_keys"] },
+          "range": { "start": { "line": 5, "character": 0 }, "end": { "line": 8, "character": 7 } }
+        },
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": { "file": "combos/03_combo.yaml", "path": ["trigger_keys"] },
+          "range": { "start": { "line": 5, "character": 0 }, "end": { "line": 8, "character": 7 } }
+        },
         {
           "severity": "error",
           "message": "マクロ M20 が定義されていません",

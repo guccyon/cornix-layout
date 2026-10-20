@@ -9,6 +9,7 @@ require_relative 'keycode/macro_call'
 require_relative 'keycode/tap_dance_call'
 require_relative 'keycode/quantum'
 require_relative 'encoder_binding'
+require_relative 'combo_reachability'
 
 module Cornix
   module Domain
@@ -16,7 +17,8 @@ module Cornix
     #
     #   レイヤー      枚数の上限、番号の上限・重複（error）、番号の抜け（warning）
     #   マクロ / タップダンス / コンボ   件数の上限、番号の上限・重複、名前の重複（error）
-    #   コンボ        トリガーの数の上限（error）
+    #   コンボ        トリガーの数の上限（error）、押せない（トリガーのキーがすべてそろうレイヤーがない。warning。
+    #                 判定は ComboReachability）
     #   キーコード    すべての割り当て（レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、
     #                 コンボのトリガーと出力）について
     #                 M(n) / TD(n) の参照先がない（error）、レイヤー番号がレイヤー数を超える（error）、
@@ -37,6 +39,7 @@ module Cornix
         check_items('tap_dances', profile.tap_dances, caps.tap_dances, 'タップダンス')
         check_items('combos', profile.combos, caps.combos, 'コンボ')
         check_combo_keys
+        check_combo_reachable
         keycode_entries.each { |path, keycode| check_keycode(path, keycode) }
         @result.freeze
       end
@@ -88,6 +91,16 @@ module Cornix
 
           error("combos[#{i}].trigger_keys",
                 "コンボのトリガーは #{caps.combo_keys} 個までです: #{combo.trigger_keys.size} 個")
+        end
+      end
+
+      def check_combo_reachable
+        reachability = ComboReachability.new(profile)
+        profile.combos.each_with_index do |combo, i|
+          next if reachability.reachable?(combo)
+
+          warning("combos[#{i}].trigger_keys",
+                  "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）")
         end
       end
 

@@ -569,21 +569,29 @@
                 "label": "Bracket Pair"
               }
             }
-          }
+          },
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         },
         {
+          "reachable": true
         }
       ],
       "shortcuts": [

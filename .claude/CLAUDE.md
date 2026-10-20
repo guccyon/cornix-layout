@@ -25,6 +25,7 @@
   - [named_shortcuts](memories/named_shortcuts.md) - Shortcut('名前') を nape_pro-layout から移植したときの判断
   - [keycode_coverage](memories/keycode_coverage.md) - cornixhub / QMK / vial-qmk に基づくキーコードの網羅と出典
   - [vscode_extension](memories/vscode_extension.md) - VS Code 拡張の作業で分かったこと（QMK 設定の既定値は RMK、YAML の書き換えの注意、CI と必須チェック、通しの確認で分かった古い Ruby が選ばれる件と .vscodeignore の件）
+  - [vscode_extension_v02](memories/vscode_extension_v02.md) - VS Code 拡張 v0.2 の作業の知見（コンテナでの rspec の動かし方と統合テストが CI でしか走らない件、偽のサーバーの注意、並列の PR の進め方、planItemEdit の解釈、未保存の変更の並びと畳み方）
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---

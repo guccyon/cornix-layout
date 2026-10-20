@@ -32,6 +32,7 @@ Some of the command output, including many error messages, is currently in Japan
 - [Naming (rename)](#naming-rename)
 - [Backups and restoring](#backups-and-restoring)
 - [Where the settings live and how to use the repository](#where-the-settings-live-and-how-to-use-the-repository)
+- [Editing on screen in VS Code](#editing-on-screen-in-vs-code)
 - [Using it as an MCP server](#using-it-as-an-mcp-server)
 - [Safety mechanisms](#safety-mechanisms)
 - [Troubleshooting](#troubleshooting)
@@ -139,6 +140,7 @@ cornix <command> [options]
 | `validate` | Not used | Validates the settings files |
 | `rename` | Not used | Gives the settings files meaningful names, confirming Claude's suggestions one by one |
 | `mcp` | Depends on the tool | Starts as an MCP server (see [Using it as an MCP server](#using-it-as-an-mcp-server)) |
+| `serve` | Not used | The backend of the VS Code extension (see [Editing on screen in VS Code](#editing-on-screen-in-vs-code)) |
 
 `cornix device` reads and writes with explicit files.
 
@@ -235,7 +237,7 @@ mapping:
 ```
 
 - Under `mapping` the structure is the same as `position_map.yaml`. Each hand must list all of `row0`–`row3` and `thumb_keys` (an empty value is fine)
-- Keys you leave out inside a group are unassigned. To use the layer below, write `Trans`. Encoder actions you leave out are `NoKey`
+- Keys you leave out inside a group are unassigned, and `compile` / `apply` write them as `NoKey` (KC_NO). To use the layer below, write `Trans`. Encoder actions you leave out are `NoKey`
 - To change a layer's number, change the file name and `index`, and update `MO(2)` and the like in other files
 
 ### Notes (`note`)
@@ -566,6 +568,32 @@ Each is main with settings and a `.cornix.yml` on top. So that it does not clash
 git worktree add ../cornix-default-keymap cornix-default-keymap   # in a fork without it, fetch upstream and use upstream/cornix-default-keymap
 cd ../cornix-default-keymap && cornix validate
 ```
+
+## Editing on screen in VS Code
+
+`editors/vscode/` has a VS Code extension that shows a whole settings directory on one screen and lets you edit every settings file while choosing from candidates.
+It is not on the Marketplace: build a .vsix and install it yourself (the steps, in Japanese, are in [editors/vscode/README.md](editors/vscode/README.md)).
+The extension talks only to `cornix serve` and never writes to the keyboard; run `status` / `apply` from the terminal as before.
+
+Open it with the Cornix icon in the activity bar or the command "Cornix: プロファイルを開く" (Open profile). The upper half is a diagram of the keyboard and the lower half holds the editing panes; clicking a key moves to its field.
+
+| File | What you can do on screen |
+|---|---|
+| `layers/` | Keys and encoders, notes, removing an assignment, the layer's name and description |
+| `macros/` | Steps (add, delete, move up and down), the keys of tap / down / up, `delay`, `text`, `preset` |
+| `tap_dance/` | The four actions and their notes, `tapping_term` |
+| `combos/` | The keys pressed together (up to 4), the output key and its note |
+| `shortcuts.yaml` | The values |
+| `settings/qmk_settings.yaml` | Each setting (with a description and the default value) |
+| `position_map.yaml` | The key names (position names) |
+| `metadata.yaml` | Shown read-only |
+
+- **Key input**: candidates are searched by name, alias, QMK name, and the Japanese labels and app names of the bundled shortcuts. The builder next to the field puts together modifier expressions (`Shift + Command + P`), `LT(2, Escape)` and Mod-Tap (`RSFT_T(Up)`). A value is validated as soon as you enter it, and hovering shows what it means
+- **The diagram**: a toggle button above it (or holding Alt) shows the position names in purple instead of the assignments. A `Trans` key faintly shows the layer 0 key at the same position. Macros get an orange `M`, your own shortcuts a `★`, and bundled shortcuts the app's icon. A position with no assignment has a dotted outline
+- **Removing an assignment**: ✕ next to a field deletes that line from the YAML. A position with no assignment is written as `NoKey` (see [Layers](#layers))
+- **Saving**: changes stay unsaved until Cmd+S (Ctrl+S), and undo works. Saving rewrites only the changed values and keeps comments and order. If Claude or another tool changes the files while they are open, the screen reloads when nothing is unsaved, and otherwise asks which side to keep
+- **Adding, deleting and renaming**: macros, tap dances, combos and shortcuts can be added, deleted and renamed (layers can be renamed) from the screen. These are written to the files right after a confirmation dialog (if there are unsaved changes, you are asked to save them first). Renaming also rewrites references such as `Macro('old name')` in every file and the file name, and stops if the compile result would change. Deleting leaves references as they are; the dialog shows how many there are, and the referring side shows an error
+- **Text editor**: when you open a settings file as text, the same validation results appear as squiggles
 
 ## Using it as an MCP server
 

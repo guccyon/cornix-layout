@@ -7,7 +7,9 @@ description: |-
 mapping:
   left_hand:
     row0:
-      tab: Ctrl + Option + Space
+      tab:
+        key: Ctrl + Option + Space
+        note: Parallels の IME 切り替え
       Q: '1'
       W: '2'
       E: '3'
@@ -68,9 +70,9 @@ mapping:
   encoders:
     left:
       push: Mute
-      ccw: Home
-      cw: End
+      ccw: NoKey
+      cw: NoKey
     right:
-      push: MouseButton3
-      ccw: PageDown
-      cw: PageUp
+      push: NoKey
+      ccw: NoKey
+      cw: NoKey

@@ -65,10 +65,10 @@ mapping:
       right: NoKey
   encoders:
     left:
-      push: Mute
-      ccw: VolumeDown
-      cw: VolumeUp
+      push: NoKey
+      ccw: NoKey
+      cw: NoKey
     right:
-      push: MouseButton3
-      ccw: MouseWheelUp
-      cw: MouseWheelDown
+      push: NoKey
+      ccw: NoKey
+      cw: NoKey

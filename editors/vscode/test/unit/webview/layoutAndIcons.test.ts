@@ -191,7 +191,7 @@ describe('キーの面の印・窓・帯', () => {
       { action: 'tapHold', label: 'Copy Current Line' },
     ]);
     expect([...faceOf(paste).querySelectorAll('.td-window')].map((w) => w.textContent)).toEqual(['⌘V', 'Selected', 'Word', 'Line']);
-    expect(keyFaceNote(paste)).toContain('ダブルタップ Copy Current Word');
+    expect(keyAccessibleName(slots()[0]!, paste.text, paste, [])).toContain('ダブルタップ Copy Current Word');
     expect(windowLabels(four.display.actions!)).toEqual(['⌘V', 'Selected', 'Word', 'Line']);
     // 重ならない・落とすと空になる・1 つだけなら元のまま
     expect(windowLabels([
@@ -221,12 +221,13 @@ describe('キーの面の印・窓・帯', () => {
     expect(keyMark(tapDance())?.meaning).toBe('タップダンス');
   });
 
-  it('窓の動作は読み上げと説明でも分かる', () => {
+  it('窓の動作は読み上げで分かる（説明の吹き出しには窓の行を出さない）', () => {
     const b = slots().find((slot) => slot.label === 'B')!;
     expect(keyAccessibleName(b, four.text, four, [])).toBe(
       '左手 B: タップダンス Paste Variants（タップ ⌘V、ホールド Copy Selected、ダブルタップ Copy Word、タップホールド Copy Line）',
     );
-    expect(keyFaceNote(four)).toBe('窓（タップから順に）: タップ ⌘V・ホールド Copy Selected・ダブルタップ Copy Word・タップホールド Copy Line');
+    // 説明の吹き出しには窓の行を出さない（サーバーの説明の「タップ: …」の行と重なるため）
+    expect(keyFaceNote(four)).toBeUndefined();
   });
 
   it('レイヤー操作は LT と同じ下の帯にレイヤー番号。MO は面を空け、ほかは面に操作名', () => {

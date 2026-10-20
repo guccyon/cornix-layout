@@ -184,10 +184,11 @@ export function keyMark(value: KeyValue | null | undefined): KeyMark | null {
   return null;
 }
 
-/** 図の印・窓の説明（説明の吹き出しに出す 1 行。なければ undefined） */
+/**
+ * 図の印の説明（説明の吹き出しに出す 1 行。なければ undefined）。窓に分けたタップダンスは、吹き出しの「タップ: Tab」などの行と
+ * 重なるので出さない（窓の中身は読み上げの keyAccessibleName が伝える）
+ */
 export function keyFaceNote(value: KeyValue | null | undefined): string | undefined {
-  const windows = tapDanceWindows(value);
-  if (windows) return `窓（タップから順に）: ${windows.map((a) => `${TAP_DANCE_ACTION_LABEL[a.action]} ${a.label}`).join('・')}`;
   const mark = keyMark(value);
   return mark ? `印「${mark.text}」: ${mark.meaning}` : undefined;
 }

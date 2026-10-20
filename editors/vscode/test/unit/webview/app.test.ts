@@ -176,7 +176,7 @@ describe('App の変更', () => {
     expect(tooltip?.querySelector('.tooltip-context')).toBeNull();
   });
 
-  it('説明には図の印・窓の意味を出す（保存済みの値と、書き換えて解釈が返ったあとの値で変わる）', async () => {
+  it('説明には図の印の意味を出し、窓に分けたタップダンスには出さない（保存済みの値と、書き換えて解釈が返ったあとの値で変わる）', async () => {
     const b = slotOf('left_hand', 'row2', 'B');
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     keyElement(b).dispatchEvent(new Event('mouseenter'));
@@ -187,8 +187,18 @@ describe('App の変更', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [{ address, value: "TapDance('Tab Escape')" }] });
     keyElement(b).dispatchEvent(new Event('mouseenter'));
     await settle(400);
-    expect(document.querySelector('.tooltip .tooltip-mark')?.textContent).toBe('窓（タップから順に）: タップ Tab・ホールド Escape');
+    // 窓に分けたタップダンスは印の行を出さない（「タップ: Tab」などの説明の行と重なるため）
+    expect(document.querySelector('.tooltip')?.hasAttribute('hidden')).toBe(false);
+    expect(document.querySelector('.tooltip .tooltip-mark')).toBeNull();
     expect(keyElement(b).querySelector('.td-windows')).not.toBeNull();
+    keyElement(b).dispatchEvent(new Event('mouseleave'));
+    // 動作の分からない（窓に分けない）タップダンスは TD の印なので、印の行を出す
+    host.values.set("TapDance('Unknown')", { text: "TapDance('Unknown')", canonical: "TapDance('Unknown')", code: 0x5705, kind: 'tapDance', display: { label: 'Unknown' } });
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [{ address, value: "TapDance('Unknown')" }] });
+    keyElement(b).dispatchEvent(new Event('mouseenter'));
+    await settle(400);
+    expect(document.querySelector('.tooltip .tooltip-mark')?.textContent).toBe('印「TD」: タップダンス');
+    expect(keyElement(b).querySelector('.td-windows')).toBeNull();
     keyElement(b).dispatchEvent(new Event('mouseleave'));
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [{ address, value: 'A' }] });
     keyElement(b).dispatchEvent(new Event('mouseenter'));

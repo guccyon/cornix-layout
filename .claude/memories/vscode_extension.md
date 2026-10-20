@@ -1,6 +1,6 @@
 # VS Code 拡張の作業の知見
 
-設計は docs/vscode-extension/（spec / adr / roadmap / protocol / tasks）。作業は統合ブランチ `feature/vscode-extension` に PR で集める。
+設計は docs/vscode-extension/（spec / adr / roadmap / protocol / tasks）。v0.1 は統合ブランチ `feature/vscode-extension` に作業ごとの PR を集めて main に入れた。v0.2 からも版ごとに同じ統合ブランチに PR を集め、版ができたら main への PR にする（docs/vscode-extension/tasks.md の「v0.2 からの進め方」）。
 
 ## QMK 設定の既定値は RMK の値
 - Cornix の実機は RMK 0.8 系。`data/qmk_settings.yaml` の `default` は vial-qmk や QMK ではなく RMK v0.8.3 の

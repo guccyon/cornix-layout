@@ -22,8 +22,8 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompil
 | `planning/` | `Planning::*` | `ImageDiff` の差分、`Plan` の token、マクロの一覧 |
 | `storage/` | `Storage::*` | `ConfigRepository` の読み書きと問題の報告、`VilFile`、`BackupStore`、`ConfigEditor`、`YamlFile`、`DiagnosticLocator` |
 | `device/` | `Device::*` | `Protocol` の範囲検査、`Session` / `Reader` / `Planner` / `Writer`、`HidBridge`（`CORNIX_HID_BRIDGE` で差し替え） |
-| `application/` | `Application::*` | 設定のユースケース（Validate / Compile / Decompile / Cleanup）、rename、デバイスのユースケース、`Environment` |
-| `interface/` | `Interface::*` | CLI（`Main` とコマンドの出力・終了コード）、MCP サーバー（ツール一覧と応答） |
+| `application/` | `Application::*` | 設定のユースケース（Validate / Compile / Decompile / Cleanup）、rename、デバイスのユースケース、`Environment`、エディタのユースケース（`editor/`。`Application::Editor::*`） |
+| `interface/` | `Interface::*` | CLI（`Main` とコマンドの出力・終了コード）、MCP サーバー（ツール一覧と応答）、エディタのサーバー（`editor_server/`。`cornix serve` の枠・振り分け・適合テスト） |
 
 層をまたぐもの:
 
@@ -43,6 +43,7 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompil
 | `application/device_environment_context.rb` | `FakeRmkDevice` を開く `device_opener` を渡した `Environment` |
 | `device/fake_rmk_device.rb` | RMK 0.8 の Vial 応答を模したデバイス（ファームウェアがパニックする範囲外の書き込みは例外にする） |
 | `planning/planning_images_context.rb` | 差分の spec で使う DeviceImage |
+| `support/protocol_fixtures.rb` | `cornix serve` の適合テストのヘルパー（`fixtures/protocol/` のリクエストと期待する応答の組を読み、サーバーに流して比べる。`spec_helper.rb` が読み込む） |
 
 ## fixtures
 
@@ -56,6 +57,8 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompil
 | `fixtures/vial_keycodes_v6.yaml` | 旧 `lib/cornix/device/via_keycodes.yaml`（vial-gui から抽出した表）。`data/keycodes.yaml` との照合に使う |
 | `fixtures/position_map.yaml` | position_map のサンプル |
 | `fixtures/expected/` | 旧実装を消す前に、旧実装で求めて保存した期待値（下表） |
+| `fixtures/protocol/` | `cornix serve` の適合テストのデータ（メソッドごとのディレクトリに、リクエストと期待する応答の組の JSON。`interface/editor_server/conformance_spec.rb` が読み、拡張の偽のサーバーも一部を流す。形は docs/vscode-extension/protocol.md の 8.2） |
+| `fixtures/candidates/` | 「この入力ならこの候補」のデータ（`keycode/candidates` の並び。`mapping/candidate_catalog_spec.rb` が読む。読み方は `fixtures/candidates/README.md`） |
 
 `fixtures/expected/`:
 
@@ -68,6 +71,7 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompil
 | `macro_buffers.json` | `Device::MacroCodec` が書いたマクロのバイト列 | `mapping/macro_codec_spec.rb` |
 | `fake_device_snapshot.json` | `Device::Keyboard` が FakeRmkDevice から読んだ状態 | `device/reader_spec.rb` |
 | `mcp_tools.json` | `Device::McpServer` の tools/list と instructions | `interface/mcp/server_spec.rb` |
+| `qmk_names.yaml` | （旧実装ではなく）`Mapping::QmkNotation` が名前付きの値に選ぶ QMK の名前。QMK の公式の名前と突き合わせたもの | `mapping/qmk_notation_spec.rb` |
 
 旧実装は削除済みなので、これらの期待値は作り直せない。振る舞いを意図的に変えるときは、変えた理由を spec とコミットに書いてから期待値を更新する。
 

@@ -1,0 +1,8 @@
+---
+name: Left Bracket
+description: J と K で [
+index: 0
+trigger_keys:
+- J
+- K
+output_key: LBracket

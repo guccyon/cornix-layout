@@ -61,6 +61,21 @@ export class FakePrompts implements ProfilePrompts {
   saveFailed(message: string, openFile?: () => void) {
     this.calls.push({ method: 'saveFailed', args: [message, openFile !== undefined] });
   }
+  /** 項目の操作の前に保存するか（12.5） */
+  saveFirst = true;
+  /** 項目の操作を書くか */
+  itemEdit = true;
+  confirmSaveFirst(...args: unknown[]) {
+    this.calls.push({ method: 'confirmSaveFirst', args });
+    return Promise.resolve(this.saveFirst);
+  }
+  confirmItemEdit(...args: unknown[]) {
+    this.calls.push({ method: 'confirmItemEdit', args });
+    return Promise.resolve(this.itemEdit);
+  }
+  itemEditFailed(message: string, openFile?: () => void) {
+    this.calls.push({ method: 'itemEditFailed', args: [message, openFile !== undefined] });
+  }
   of(method: string): PromptLog[] {
     return this.calls.filter((call) => call.method === method);
   }

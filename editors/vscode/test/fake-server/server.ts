@@ -985,7 +985,11 @@ function readItems<T extends { file: string; name: string; index: number }>(base
       const name = unquote(/^name:\s*(.*?)\s*$/m.exec(text)?.[1] ?? entry);
       const index = Number(/^index:\s*(\d+)/m.exec(text)?.[1] ?? /^(\d+)/.exec(entry)?.[1] ?? 0);
       const fixture = fixtures.find((item) => item.file === file && item.name === name);
-      return fixture ?? make(file, name, index);
+      const item = fixture ?? make(file, name, index);
+      // 説明はディスクの値を出す（保存したあとの snapshot で、書いた説明が未保存の変更として残らないように）
+      if (!('description' in item)) return item;
+      const description = /^description:\s*(.*?)\s*$/m.exec(text)?.[1];
+      return { ...item, description: description === undefined ? null : unquote(description) };
     })
     .sort((a, b) => a.index - b.index);
 }

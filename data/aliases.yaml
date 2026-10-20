@@ -154,7 +154,7 @@ basic:
   KC_NONUS_HASH: [NonUsHash]
   KC_NONUS_BSLASH: [NonUsBackslash]
   # 日本語配列。KC_KANA（0x88、カタカナひらがな）と macOS のかな（KC_LANG1、0x90）は別の値。
-  # "¥" は LALT(KC_Y)（macOS の Option + Y）、JisYen は JIS 配列の ¥ キー（0x89）
+  # "¥" / Yen は LALT(KC_Y)（macOS の Option + Y）、JisYen は JIS 配列の ¥ キー（0x89）
   KC_RO: [Ro, International1]
   KC_KANA: [KatakanaHiragana, International2]
   KC_JYEN: [JisYen, International3]

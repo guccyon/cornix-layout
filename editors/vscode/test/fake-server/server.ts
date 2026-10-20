@@ -615,6 +615,10 @@ class FakeServer {
         if (!folder) invalid(`知らない種類です: ${String(edit.kind)}`, 'edit.kind');
         const items = itemsOf(edit.kind);
         if (items.some((item) => item.name === name)) invalid(`${name} はすでにあります`, 'edit.name');
+        if (edit.kind === 'macro' && edit.preset !== undefined) {
+          const presets = data.SHORTCUT_TREE.apps.flatMap((app) => app.categories.flatMap((c) => c.items.filter((i) => i.macro).map((i) => i.insertText)));
+          if (!presets.includes(edit.preset)) invalid(`同梱にない preset です: ${edit.preset}`, 'edit.preset');
+        }
         let index = 0;
         while (items.some((item) => item.index === index)) index += 1;
         const slugText = slug(name) || { macro: 'macro', tapDance: 'tap_dance', combo: 'combo' }[edit.kind];
@@ -652,7 +656,8 @@ class FakeServer {
           const shortcuts = snapshot.shortcuts ?? [];
           if (!shortcuts.some((s) => s.name === name)) invalid(`ショートカット ${name} はありません`, 'edit.name');
           if (shortcuts.some((s) => s.name === to)) invalid(`ショートカット ${to} はすでにあります`, 'edit.to');
-          if (to === VERIFY_FAIL_NAME) this.verifyFail({ file: 'shortcuts.yaml', path: ['shortcuts', name] });
+          // 同梱のショートカットの名前（アプリ:カテゴリ:ラベル）にすると、それを指していた参照の値が変わる（Ruby の照合と同じ結果を素朴にまねる）
+          if (to === VERIFY_FAIL_NAME || to.split(':').length === 3) this.verifyFail({ file: 'shortcuts.yaml', path: ['shortcuts', name] });
           const lines = read('shortcuts.yaml').split('\n');
           const line = lines.findIndex((text) => new RegExp(`^\\s+(["']?)${escapeRegExp(name)}\\1:`).test(text));
           const start = indentOfLine(lines[line] ?? '');
@@ -681,6 +686,9 @@ class FakeServer {
         break;
       }
       case 'renamePosition': {
+        if (edit.hand !== 'left' && edit.hand !== 'right') invalid('hand は left か right です', 'edit.hand');
+        if (!Number.isInteger(edit.row)) invalid('row は整数です', 'edit.row');
+        if (!Number.isInteger(edit.col)) invalid('col は整数です', 'edit.col');
         const to = checkName(edit.to, 'edit.to');
         const entry = data.POSITION_MAP.find((e) => e.hand === edit.hand && e.row === edit.row && e.col === edit.col) ?? invalid('position_map にない位置です', 'edit');
         if (data.POSITION_MAP.some((e) => e.hand === entry.hand && e.group === entry.group && e.symbol === to)) invalid(`${entry.group} に ${to} はすでにあります`, 'edit.to');
@@ -706,7 +714,8 @@ class FakeServer {
       default:
         invalid('edit.op が違います', 'edit.op');
     }
-    // 書き換えるファイルだけ版を比べる（protocol.md の 12.5）
+    // 書き換えるファイルだけ版を比べる（protocol.md の 12.5）。今あるファイルの版が baseVersions になければ -32602
+    if (files.some((f) => !f.create && !(f.file in baseVersions))) invalid('書き換えるファイルの版が baseVersions にありません', 'baseVersions');
     const conflicts = files.filter((f) => !f.create && f.file in baseVersions && baseVersions[f.file] !== (current[f.file] ?? null));
     if (conflicts.length > 0) {
       throw new RpcError(ErrorCodes.VersionConflict, 'ファイルが外で変わっています', {
@@ -1024,11 +1033,8 @@ function unquote(text: string): string {
 
 /** keycode/candidates の limit を省いたときの数（protocol.md の 5.3） */
 const DEFAULT_LIMIT = 50;
-/**
- * v0.1 の context（protocol.md の 5.3）。12.4 の context は、適合テストのデータ（spec/fixtures/protocol/ の unknown_context）が
- * まだ -32602 を期待しているので、R1 がデータを変えるときに足す
- */
-const CONTEXTS = new Set(['layerKey', 'encoder']);
+/** context（protocol.md の 5.3 と 12.4）。偽のサーバーは v0.2 の context でも v0.1 と同じ並びで返す */
+const CONTEXTS = new Set(['layerKey', 'encoder', 'macroKey', 'tapDanceAction', 'comboTrigger', 'comboOutput', 'shortcutValue']);
 
 /** params の文字列の項目。なければ・文字列でなければ -32602（Ruby のサーバーと同じ data: { field }） */
 function requireString(params: Record<string, unknown>, field: string): string {

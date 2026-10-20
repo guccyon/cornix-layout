@@ -14,7 +14,7 @@ module Cornix
       #   2. 参照 Macro(...) / TapDance(...) / Shortcut('名前') / Combo(...)
       #   3. 旧形式のマクロ M3
       #   4. 生の値 0xHHHH
-      #   5. 修飾キー式（"修飾名 +" で始まる）
+      #   5. 修飾キー式（"修飾名 +" で始まる。キーは Vol+ のように + を含む別名でもよい）
       #   6. 関数形式 NAME(引数, ...)
       class Parser
         K = Domain::Keycode
@@ -35,6 +35,8 @@ module Cornix
         MODIFIER_HEAD = /\A([A-Za-z][A-Za-z0-9_]*)\s*\+\s*/
         QUOTED = /\A(['"])(.+)\1\z/m
         INTEGER = /\A\d+\z/
+        # 記号の見た目を決める異体字セレクタ（▶︎ の U+FE0E、▶️ の U+FE0F）。目に見えないので、別名を引くときは除いても引く
+        VARIATION_SELECTORS = "\u{FE0E}\u{FE0F}"
 
         def initialize(catalog:, codec:)
           @catalog = catalog
@@ -60,7 +62,7 @@ module Cornix
           return nil unless input.is_a?(String)
 
           text = input.strip
-          return nil if @catalog.lookup(text)
+          return nil if lookup(text)
 
           m = REFERENCE.match(text)
           return nil unless m && m[1] == 'Shortcut'
@@ -82,7 +84,7 @@ module Cornix
           text = text.strip
           fail!('キーがありません') if text.empty?
 
-          if (code = @catalog.lookup(text)) then @codec.decode(code)
+          if (code = lookup(text)) then @codec.decode(code)
           elsif (bits = Modifiers::ONE_SHOT_BITS[text]) then K::OneShotMod.new(mods: mods(bits))
           elsif (m = REFERENCE.match(text)) then reference(m[1], m[2].strip, refs)
           elsif (m = LEGACY_MACRO.match(text)) then K::MacroCall.new(index: m[1].to_i)
@@ -142,12 +144,15 @@ module Cornix
 
         # --- 修飾キー式 ---
 
+        # 残りが別名・QMK 名そのものなら、それをキーとして読む（"Ctrl + Vol+" の Vol+ を "Vol +" と読まない）
         def modifier_expression(text, refs)
           pairs = []
           rest = text
-          while (m = MODIFIER_HEAD.match(rest))
+          while lookup(rest.strip).nil? && (m = MODIFIER_HEAD.match(rest))
             pair = Modifiers::EXPRESSION[m[1]]
             unless pair
+              hint = suggestion(rest.strip)
+              unknown!(rest.strip) if hint # vol+ → もしかして: Vol+
               fail!("修飾キー名「#{m[1]}」は使えません（使える名前: #{Modifiers::EXPRESSION.keys.join(', ')}）")
             end
 
@@ -167,7 +172,7 @@ module Cornix
         # 修飾キー式のキーと関数の引数は引用符で囲んでもよい（"Cmd + ]" と "Cmd + ']'"、LT1(',') など）
         def key_term(rest, refs)
           rest = rest.strip
-          if @catalog.lookup(rest).nil? && (m = QUOTED.match(rest))
+          if lookup(rest).nil? && (m = QUOTED.match(rest))
             rest = m[2]
           end
           term(rest, refs)
@@ -296,6 +301,11 @@ module Cornix
           end
           args << current.strip
           args == [''] ? [] : args
+        end
+
+        # 別名・QMK 名 → 値。なければ異体字セレクタを除いて引き直す（▶️▶️ も ▶▶ と読む）
+        def lookup(text)
+          @catalog.lookup(text) || (text.count(VARIATION_SELECTORS).positive? && @catalog.lookup(text.delete(VARIATION_SELECTORS))) || nil
         end
 
         def describe(key) = key.class.name.split('::').last

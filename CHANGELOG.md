@@ -23,9 +23,11 @@
 - `cornix serve [--root DIR]`: VS Code 拡張と JSON-RPC（標準入出力）で話すサーバー。約束は `docs/vscode-extension/protocol.md`。
   約束の版 0.2 で、`profile/open` がマクロ・タップダンス・コンボ・ショートカットの中身を返し、変更（Change）に行の削除・並びへの挿入と移動・注記を足し、
   項目の追加・削除・名前の変更を返す `profile/planItemEdit` を足した（どれもファイルは書かず、書き換えを返す）
+- 別名 `Vol+` / `Vol-`（音量）、`←` `↓` `→` `↑`（矢印キー）、`SingleQuote`（`'`）、`◀◀`（巻き戻し）、`▶︎▶︎` / `▶▶`（早送り）、`⏯`（再生 / 一時停止）。`Ctrl + Vol+` のように修飾キー式のキーにも書ける
 
 ### 変更
 
+- 音量のキーの正規名を `VolumeUp` / `VolumeDown` から `Vol+` / `Vol-` にした。decompile はこの名前で書き、VS Code 拡張の図もこの名前を出す（`VolumeUp` / `VolumeDown` はこれまでどおり読める）
 - `cornix compile` は、レイヤーのファイルに書いていない（割り当てのない）位置を `-1` ではなく `KC_NO`（0）にする。
   `-1` だと `cornix device apply` がその位置を飛ばして前の値が残り、Vial での読み込みも失敗しうるため。
   キーのない枠（col 6 のエンコーダのプッシュ以外）と、ファイルのないレイヤーは今までどおり `-1`

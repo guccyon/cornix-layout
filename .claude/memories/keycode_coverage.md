@@ -29,3 +29,9 @@
 - 確認方法: spec/fixtures/expected/vial_gui_codes.py（先頭に手順）で vial-gui v0.7.5 の `Keycode.serialize` を Cornix の枠で
   全 16bit 値に適用し、vial_gui_0_7_5_codes.tsv.gz に保存する。vial_notation_spec が format_code と全値で一致を検査する
 - 実機書き込み前の差分表示・警告（Environment#describer）は .vil の表記だが、16 進になる値だけ設定ファイルの表記にする
+- `+` / `-` を含む別名（`Vol+` / `Vol-`、PR #54）: 修飾キー式は `名前 +` を繰り返し読むので、`Ctrl + Vol+` の `Vol+` を
+  修飾名 `Vol` と読んでいた。`Parser#modifier_expression` は残りが別名・QMK 名そのものならそこで止める。
+  不変条件 `parse(format(k)) == k` の spec（全 16bit 値）がこの種の衝突を見つけるので、記号の別名を正規名にしたら必ず回す
+- 記号の別名と異体字セレクタ: `▶︎`（U+FE0E）/ `▶️`（U+FE0F）は目に見えないので、`Parser#lookup` はセレクタを除いても引き直す。
+  別名の表にはセレクタなしの形（`▶▶`）があれば足りる。セレクタ付きを載せるときは YAML で `"︎"` とエスケープして書く
+- `MediaPlay`（再生だけ）は QMK / Vial にない。`KC_MPLY` は再生 / 一時停止

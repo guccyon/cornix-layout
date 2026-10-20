@@ -106,7 +106,7 @@ Keycode（すべて Keycode::Value を include する）
 
 | 形式 | 例 |
 |---|---|
-| 別名 | `A`, `Enter`, `Tab`, `!`, `MouseButton1`, `VolumeUp`, `NoKey`, `Trans`（`data/aliases.yaml`） |
+| 別名 | `A`, `Enter`, `Tab`, `!`, `MouseButton1`, `Vol+`, `←`, `NoKey`, `Trans`（`data/aliases.yaml`） |
 | QMK 名 | `KC_A`, `KC_BTN1`, `QK_BOOT` |
 | 修飾キー式 | `Cmd + Shift + A`, `Ctrl + Option + Left` |
 | 関数形式 | `LSFT(KC_1)`, `SGUI(KC_4)`, `LGUI_T(KC_LANG2)`, `LT(1, KC_A)`, `LT1(Space)`, `MO(3)`, `OSM(MOD_LSFT)` |

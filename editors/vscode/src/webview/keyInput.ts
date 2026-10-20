@@ -3,11 +3,13 @@
 // - 候補はサーバーの並びのまま出す。typed（打った文字をそのまま表記として読めたときの解釈）は先頭に「入力どおり」として出す
 // - 候補を選ぶと insertText を入れる。手で打った表記は解釈できればそのまま残す（勝手に正規形に直さない）
 // - 決めた（Enter・候補を選んだ・欄を離れた）ときに onCommit を呼ぶ。検証（keycode/inspect）と表示は呼んだ側がする
+// - builder を渡すと、欄の右端に「組み立て」のボタンを置き、修飾キー式・LT・Mod-Tap の組み立て欄（modifierBuilder.ts）を開ける
 import type { Candidate, CandidateContext, CandidatesResult, Diagnostic, KeyValue } from '../protocol';
 import { h } from './dom';
 import type { HostClient } from './hostClient';
 import { iconElement } from './icons';
 import { severityOf } from './model';
+import { ModifierBuilder } from './modifierBuilder';
 import { hideTooltip } from './tooltip';
 
 export const CANDIDATE_DEBOUNCE_MS = 50;
@@ -36,6 +38,14 @@ export type KeyInputOptions = {
   label: string;
   placeholder?: string;
   debounceMs?: number;
+  /** keycode/candidates に足す params（v0.2。中身の画面の context ごとの all・exclude） */
+  candidateParams?: { all?: boolean; exclude?: string };
+  /** 空でも決める（組み立て欄のキーなど、割り当てでない欄） */
+  allowEmpty?: boolean;
+  /** 空にして決めたときの案内（省くと「割り当てを消すには NoKey を選んでください」） */
+  emptyHint?: string;
+  /** 修飾キー式・LT・Mod-Tap の組み立て欄を付ける。layers は LT のレイヤーの選び先（なければ 0〜15） */
+  builder?: { layers?: () => readonly { index: number; name: string }[] };
 };
 
 /** 候補の一覧の 1 行 */
@@ -66,6 +76,9 @@ export class KeyInput {
   private awaiting = false;
   private hint: string | undefined;
   private diagnostics: readonly Diagnostic[] = [];
+  /** 組み立て欄（options.builder を渡したときだけ） */
+  readonly builder: ModifierBuilder | undefined;
+  private readonly builderButton: HTMLButtonElement | undefined;
 
   constructor(private readonly options: KeyInputOptions) {
     this.input = h('input', {
@@ -84,6 +97,38 @@ export class KeyInput {
     this.list = h('div', { class: 'candidates', role: 'listbox', id: this.listId, hidden: true });
     this.message = h('div', { class: 'key-input-message', hidden: true });
     this.element = h('div', { class: 'key-input' }, this.input, this.list, this.message);
+    if (options.builder) {
+      const builder = new ModifierBuilder({
+        host: options.host,
+        context: options.context,
+        ...(options.builder.layers ? { layers: options.builder.layers } : {}),
+        onApply: (text) => {
+          this.editing = false;
+          this.input.value = text;
+          this.commit(text);
+        },
+        onClose: (focusBack) => {
+          this.builderButton?.setAttribute('aria-expanded', 'false');
+          document.removeEventListener('mousedown', this.outside, true);
+          if (focusBack) this.input.focus();
+        },
+      });
+      const button = h(
+        'button',
+        { type: 'button', class: 'key-input-build', title: '修飾キー・LT・Mod-Tap を組み立てる', 'aria-label': `${options.label}を組み立てる`, 'aria-expanded': 'false' },
+        '⌘+',
+      );
+      button.addEventListener('click', () => (builder.isOpen ? builder.close() : this.openBuilder()));
+      this.builder = builder;
+      this.builderButton = button;
+      this.element.classList.add('has-builder');
+      this.element.append(button, builder.element);
+      // Tab で欄の外へ出たら閉じる（フォーカスは移った先のまま）
+      builder.element.addEventListener('focusout', (event) => {
+        const next = event.relatedTarget;
+        if (next instanceof Node && !this.element.contains(next)) builder.close(false);
+      });
+    }
 
     this.input.addEventListener('input', () => {
       this.editing = true;
@@ -134,7 +179,25 @@ export class KeyInput {
   dispose(): void {
     this.disposed = true;
     this.close();
+    this.builder?.close(false);
+    this.builder?.dispose();
   }
+
+  /** 組み立て欄を今の値から開く */
+  openBuilder(): void {
+    if (!this.builder) return;
+    this.close();
+    hideTooltip(this.input);
+    this.builderButton?.setAttribute('aria-expanded', 'true');
+    this.builder.open(this.input.value);
+    document.addEventListener('mousedown', this.outside, true);
+  }
+
+  /** 組み立て欄を開いている間、欄の外を押したら閉じる */
+  private readonly outside = (event: MouseEvent): void => {
+    if (event.target instanceof Node && this.element.contains(event.target)) return;
+    this.builder?.close(false);
+  };
 
   /** この欄の検証の結果。error / warning の印とメッセージを出す */
   setDiagnostics(diagnostics: readonly Diagnostic[]): void {
@@ -183,6 +246,7 @@ export class KeyInput {
         context: this.options.context,
         query,
         limit: CANDIDATE_LIMIT,
+        ...(this.options.candidateParams ?? {}),
       });
     } catch {
       return;
@@ -328,10 +392,10 @@ export class KeyInput {
   private commit(raw: string): void {
     const text = raw.trim();
     this.editing = false;
-    if (text === '') {
-      // v0.1 には割り当てを消す操作がない（protocol.md の 11. の 7）
+    if (text === '' && !this.options.allowEmpty) {
+      // 空にしても消さない（消すのは欄の「割り当てを消す」。v0.1 の欄では NoKey を選ぶ）
       this.input.value = this.committed;
-      this.hint = this.committed ? '割り当てを消すには NoKey を選んでください' : undefined;
+      this.hint = this.committed ? (this.options.emptyHint ?? '割り当てを消すには NoKey を選んでください') : undefined;
       this.renderMessage();
       return;
     }

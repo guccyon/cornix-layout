@@ -910,7 +910,7 @@ type MacroStepValue =
 ```
 
 ```ts
-type ItemKind = "macro" | "tapDance" | "combo" | "shortcut";   // rename だけ "layer" も使える
+type ItemKind = "macro" | "tapDance" | "combo" | "shortcut";   // rename だけ "layer" も使える（v0.4 で create・delete も。14.9）
 type ItemEdit =
   | { op: "create"; kind: "macro" | "tapDance" | "combo"; name: string; preset?: string }
   | { op: "create"; kind: "shortcut"; name: string; value: string }
@@ -1000,7 +1000,8 @@ type ItemEdit =
 ## 14. v0.4 で足すもの
 
 [tasks-v0.4.md](tasks-v0.4.md) の「決めたこと」を約束にしたもの。実機の操作は、`cornix serve` とは別のプロセスの device のサーバーで行う（ADR 018）。
-**状態: 設計（実装はこれから）。** 約束の版（`protocolVersion`）は段 3 で `"0.4"` に上げる。編集のサーバー（`cornix serve`）の形は変えない。
+**状態: 設計（実装はこれから）。** ただし 14.9（レイヤーの追加と削除。issue #84）は入れた。約束の版（`protocolVersion`）は 14.9 を入れたときに `"0.4"` に上げた
+（`"0.4"` のサーバーは `"0.3"` の拡張を `-32051` で断る）。device のサーバー（14.1〜14.8）のほかは、編集のサーバー（`cornix serve`）の形は変えない。
 
 ### 14.1 device のサーバー
 
@@ -1114,3 +1115,25 @@ interface DevicePlan {
 約束は変えない。[tasks-v0.4.md](tasks-v0.4.md) の「画面」: ボタンと「実機: 同じ／違う N 件／未確認」の印（状態バーにも）、違うキーの橙の枠とレイヤーのタブの点、
 「実機との差分」の節、確認のダイアログ（件数・警告・`keyboard.name`）、バックアップの選択（QuickPick）、設定 `cornix.device.allowWrites`。
 保存したら印を「未確認」に戻す（`profile/saved` のあと）。
+
+### 14.9 `profile/planItemEdit` に足すもの（レイヤーの追加と削除。issue #84）
+
+**状態: 入れた。** 空のレイヤーのファイルを置かなくてよくなった（issue #83）ので、ファイルのないレイヤーは画面に出ない。拡張からレイヤーのファイルを作る・消す。
+
+```ts
+type ItemEdit =
+  | /* 12.5・13.1 のもの */
+  | { op: "create"; kind: "layer"; name: string; index?: number }   // index は 0〜9。省けば空いているいちばん小さい番号
+  | { op: "delete"; kind: "layer"; name: string };
+```
+
+- **create**: `layers/<番号>_<名前>.<拡張子>` を作る。名前の部分は `Storage::ConfigFiles.item_path` と同じ（decompile が書く名前とそろえる。既定の名前 `Layer N` なら `layer`）、
+  拡張子はそのディレクトリでいちばん多いもの（なければ `yaml`）。中身は `Schema::LayerFile` が受け付ける最小の形（`name`・`description: ''`・`index`・`mapping` の両手の空のグループ。エンコーダは書かない）。
+  その番号のレイヤーがもうある・範囲の外なら `-32602`（`data: { "field": "edit.index" }`）、`index` を省いて空いている番号がなければ `"edit"`。
+  名前の決まりは 12.5 と同じ（ほかのレイヤーと重ならない）。`index` はレイヤーのときだけ書ける（ほかの種類に書けば `-32602`、`"edit.index"`）
+- **delete**: そのファイルを消す。参照は書き換えず、`references` にそのレイヤーを指すレイヤー操作（`MO` / `TG` / `TO` / `OSL` / `LT` / `LM` など。
+  16bit 値で数える。消すファイルの中は入れない）の場所を返す。`diagnostics` は消したあとの検証の結果（指していた側に警告「レイヤー N が定義されていません」）。
+  compile では消したレイヤーは `KC_NO` で埋まる（#83）
+- 結果の形・確認のダイアログのあとすぐ当てて保存することは 12.5 と同じ
+- 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `create_layer*.json`・`create_index_not_layer.json`・`delete_layer.json`
+- 同じ issue の下の欄の「キーごと」の並べ方（位置ごとに全レイヤーの欄を並べる）は拡張だけで作る。欄の変更は今と同じ `Change`（そのレイヤーのファイルの `address`）で、約束は変えない

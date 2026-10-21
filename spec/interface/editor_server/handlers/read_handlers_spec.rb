@@ -17,7 +17,7 @@ RSpec.describe 'profile/open・keycode/* のハンドラ' do
   def server(workbench)
     Cornix::Interface::EditorServer::Server.new(workbench: workbench, input: StringIO.new, output: StringIO.new,
                                                 error: StringIO.new).tap do |s|
-      s.handle({ 'jsonrpc' => '2.0', 'id' => 0, 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.4' } })
+      s.handle({ 'jsonrpc' => '2.0', 'id' => 0, 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.3' } })
     end
   end
 

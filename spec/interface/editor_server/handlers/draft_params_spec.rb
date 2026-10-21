@@ -21,7 +21,7 @@ RSpec.describe 'profile/validate・planEdits の Change の params' do
     workbench = Cornix::Application::Editor::Workbench.new(root: @root)
     Cornix::Interface::EditorServer::Server.new(workbench: workbench, input: StringIO.new, output: StringIO.new(+''),
                                                 error: StringIO.new).tap do |s|
-      s.handle({ 'jsonrpc' => '2.0', 'id' => 0, 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.4' } })
+      s.handle({ 'jsonrpc' => '2.0', 'id' => 0, 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.3' } })
       s.handle({ 'jsonrpc' => '2.0', 'id' => 0, 'method' => 'profile/open', 'params' => { 'dir' => 'profiles/default' } })
     end
   end

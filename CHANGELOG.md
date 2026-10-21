@@ -35,7 +35,7 @@
   約束の版 0.2 で、`profile/open` がマクロ・タップダンス・コンボ・ショートカットの中身を返し、変更（Change）に行の削除・並びへの挿入と移動・注記を足し、
   項目の追加・削除・名前の変更を返す `profile/planItemEdit` を足した（どれもファイルは書かず、書き換えを返す）。
   約束の版 0.3 で、`profile/planItemEdit` に preset の展開（`expandPreset`）を、`profile/open` のコンボに押せるか（`reachable`）を足した。
-  約束の版 0.4 で、`profile/planItemEdit` にレイヤーの追加と削除（`kind: "layer"` の `create`（`index` 付き）と `delete`）を足した（#84）
+  約束の版は 0.3 のまま（足しただけで、今の形は変えないため）、`profile/planItemEdit` にレイヤーの追加と削除（`kind: "layer"` の `create`（`index` 付き）と `delete`）を足した（#84）
 - `cornix validate` などの意味検証に警告「押せないコンボです」を足した。トリガーのキーがすべてそろうレイヤーが 1 つもないコンボに出す（`KC_TRNS` の位置はレイヤー 0 の値で見る。トリガーが `KC_NO` だけのコンボには出さない）
 - 別名 `Vol+` / `Vol-`（音量）、`←` `↓` `→` `↑`（矢印キー）、`SingleQuote`（`'`）、`◀◀`（巻き戻し）、`▶︎▶︎` / `▶▶`（早送り）、`⏯`（再生 / 一時停止）、`ForwardSlash`（`/`）、`Yen`（`¥`。macOS の Option + Y）。`Ctrl + Vol+` のように修飾キー式のキーにも書ける
 - 共通のオプション `--json`（#26）。`validate` / `compile` / `decompile` / `pull` / `status` / `apply` / `restore` / `init` / `snapshots` / `cleanup` / `device info|read|backup|diff|apply|restore` / `version` の結果を、JSON の 1 つの値として標準出力に出す。

@@ -27,7 +27,7 @@ async function opened() {
     for (let i = 0; i < 100 && !received.some((m) => m.id === mine); i++) await new Promise((r) => setTimeout(r, 5));
     return received.find((m) => m.id === mine)!;
   };
-  await call('initialize', { protocolVersion: '0.4', clientInfo: { name: 't', version: '0' } });
+  await call('initialize', { protocolVersion: '0.3', clientInfo: { name: 't', version: '0' } });
   const snapshot = (await call('profile/open', { dir: 'profiles/default' })).result as ProfileSnapshot;
   const dir = path.join(root, 'profiles/default');
   return { root, dir, call, snapshot, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };

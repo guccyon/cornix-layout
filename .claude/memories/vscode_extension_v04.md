@@ -5,7 +5,8 @@ v0.4 のうち issue #84（下の欄の「キーごと」の並べ方・レイ�
 
 ## 約束の版
 
-- 約束の版は #84（`profile/planItemEdit` の `kind: "layer"` の `create` / `delete`）を入れたときに `"0.4"` に上げた。device のメソッドを足すときは `"0.4"` のまま
+- #84（`profile/planItemEdit` の `kind: "layer"` の `create` / `delete`）は足しただけなので、約束の版は `"0.3"` のまま（Tetsuro の指示。一度 `"0.4"` に上げたが戻した。
+  0.4 の開発が進んでいるので、版はむやみに上げない。上げるとしてもリビジョンまで）。`"0.4"` に上げるのは device のサーバーを入れる段 3
 - 上げるときに直す場所: `Handlers::Initialize::PROTOCOL_VERSION`、`editors/vscode/src/protocol.ts`、`spec/support/protocol_fixtures.rb` と
   `editors/vscode/test/unit/protocolFixtures.test.ts` の setup の initialize、`spec/fixtures/protocol/lifecycle/*.json`、
   `spec/interface/editor_server/` の各 spec と拡張の `fakeServer*.test.ts`・`connection.test.ts`（「新しい版だけのサーバー」のテストの版は今より新しくする）

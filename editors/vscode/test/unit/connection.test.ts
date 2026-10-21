@@ -36,7 +36,7 @@ describe('CornixConnection と偽のサーバー', () => {
   it('initialize で版とできることを受け取る', async () => {
     const { connection } = await connect();
     expect(connection.initializeResult).toMatchObject({
-      protocolVersion: '0.4',
+      protocolVersion: '0.3',
       serverInfo: { name: 'cornix' },
       capabilities: { semanticValidation: true, keycodeCode: true },
     });
@@ -120,7 +120,7 @@ describe('CornixConnection と偽のサーバー', () => {
   });
 
   it('新しい版だけのサーバーに断られたら、拡張を新しくするよう言う', async () => {
-    const io = streams({ supportedVersions: ['0.5', '1.0'] });
+    const io = streams({ supportedVersions: ['0.4', '1.0'] });
     const error = await CornixConnection.connect(io, { clientName: 'test', clientVersion: '0.0.0' }).catch((e: unknown) => e);
     expect((error as Error).message).toContain('拡張を新しくしてください');
   });

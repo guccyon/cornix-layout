@@ -6,6 +6,7 @@ module Cornix
       # device diff / apply / restore と、直下の status / apply / restore が共通で使う表示と流れ
       module DeviceReport
         CONFIRM = "\nこの差分をキーボードに書き込みますか？ [y/N] "
+        JSON_NEEDS_YES = '--json では書き込みの確認（y/N）ができないので --yes を付けてください（差分を見るだけなら status か device diff）'
 
         private
 
@@ -21,7 +22,10 @@ module Cornix
 
         # 1 回の接続の中で、差分を表示 → y/N（yes なら尋ねない）→ 書き込み。→ 終了コード
         #   run_apply(restore: false, yes: opts[:yes]) { |confirm| use_case(:device_apply).call(vil_path: f, confirm: confirm) }
-        def run_apply(restore:, yes:)
+        # --json のときは尋ねずに書き込んで ApplyOutcome#to_h を出す（yes が要る。wrap はその Hash を包む手続き）
+        def run_apply(restore:, yes:, wrap: ->(h) { h })
+          return json_apply(yes: yes, wrap: wrap) { yield nil } if json?
+
           label = restore ? '復元元' : '反映元'
           confirm = lambda do |plan|
             out.line("#{label}: #{plan.source}")
@@ -47,9 +51,21 @@ module Cornix
           end
         end
 
+        def json_apply(yes:, wrap:)
+          check_json_yes!(yes)
+          outcome = yield
+          emit(wrap.call(outcome.to_h))
+          outcome.written? && !outcome.success? ? Command::FAILURE : Command::SUCCESS
+        end
+
+        # --json で書き込むコマンドは、キーボードを開く前に --yes を確かめる
+        def check_json_yes!(yes)
+          raise UsageError, JSON_NEEDS_YES if json? && !yes
+        end
+
         # restore の流れ（file はスナップショットの名前・パス。nil なら最新の pre-apply）
-        def run_restore(file, yes:)
-          run_apply(restore: true, yes: yes) { |confirm| use_case(:device_restore).call(file, confirm: confirm) }
+        def run_restore(file, yes:, wrap: ->(h) { h })
+          run_apply(restore: true, yes: yes, wrap: wrap) { |confirm| use_case(:device_restore).call(file, confirm: confirm) }
         end
 
         def yes_option(parser, opts) = parser.on('--yes', '確認を省略する') { opts[:yes] = true }

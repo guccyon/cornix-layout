@@ -10,6 +10,11 @@ module Cornix
       def initialize(status:, input:, output_dir:, files: [], lock: nil, position_map: nil) = super
 
       def decompiled? = status == :decompiled
+
+      def to_h
+        { 'ok' => decompiled?, 'status' => status.to_s, 'input' => input, 'output_dir' => output_dir, 'files' => files.dup,
+          'lock' => lock, 'position_map' => position_map }
+      end
     end
   end
 end

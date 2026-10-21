@@ -7,6 +7,9 @@ module Cornix
       def initialize(report:, path: nil, image: nil) = super
 
       def compiled? = !path.nil?
+
+      # { 'ok', 'diagnostics'（ValidationReport#to_h）, 'path' }
+      def to_h = report.to_h.merge('ok' => compiled?, 'path' => path)
     end
   end
 end

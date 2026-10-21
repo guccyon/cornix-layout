@@ -12,7 +12,7 @@ module Cornix
 
         # factories: { env: ->(workspace) { Environment }, workspace: -> { Workspace },
         #              use_cases: { name => ->(env) { ... } }, mcp_server: ->(env) { ... } }
-        # global_options: 共通のオプション（{ config:, profile:, root: } のうち指定されたもの）
+        # global_options: 共通のオプション（{ config:, profile:, root:, json: } のうち指定されたもの）
         def initialize(factories:, out:, input:, global_options: {})
           @factories = factories
           @out = out
@@ -41,6 +41,9 @@ module Cornix
         def mcp_server = @factories.fetch(:mcp_server).call(env)
 
         def output = @output ||= Output.new(@out)
+
+        # --json で結果を JSON で出す
+        def json? = @global_options[:json] == true
 
         private
 

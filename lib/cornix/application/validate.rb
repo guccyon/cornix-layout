@@ -6,9 +6,9 @@ module Cornix
   module Application
     # 設定ディレクトリを検証する → ValidationReport（旧 ModelValidator#validate）。
     #
-    # 1. 構造検証: ConfigRepository#load（YAML の文法、形、キーコード、ファイル名の番号など）。問題はすべて errors
+    # 1. 構造検証: ConfigRepository#load（YAML の文法、形、キーコード、ファイル名の番号など）。問題はすべて error
     # 2. 意味検証: Profile#diagnostics(env.capabilities)（参照先、件数の上限、名前の重複、Cornix が対応していないキーなど）。位置は ConfigRepository#locate で
-    #    「ファイル: キーの位置」にし、severity に応じて errors / warnings に分ける
+    #    「ファイル: キーの位置」にする
     # 設定ディレクトリがなければ ConfigNotFound
     class Validate < UseCase
       def call
@@ -16,15 +16,18 @@ module Cornix
 
         profile = env.repository.load
         located = profile.diagnostics(env.capabilities).map { |d| env.repository.locate(d) }
-        ValidationReport.new(errors: located.select(&:error?).map { |d| text(d) },
-                             warnings: located.select(&:warning?).map { |d| text(d) }, profile: profile)
+        ValidationReport.new(diagnostics: located, profile: profile)
       rescue Storage::InvalidConfig => e
-        ValidationReport.new(errors: e.problems.map(&:to_s))
+        ValidationReport.new(diagnostics: e.problems.map { |problem| structure(problem) })
       end
 
       private
 
-      def text(diagnostic) = [diagnostic.path, diagnostic.message].reject(&:empty?).join(': ')
+      # Storage::Problem → Domain::Diagnostic（path は「ファイル: キーの位置」。空の部分は省く）
+      def structure(problem)
+        path = [problem.file, problem.location].reject { |s| s.nil? || s.empty? }.join(': ')
+        Domain::Diagnostic.error(path, problem.message)
+      end
     end
   end
 end

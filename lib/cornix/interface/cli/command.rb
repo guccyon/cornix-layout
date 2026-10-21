@@ -43,6 +43,13 @@ module Cornix
 
         def out = runtime.output
         def use_case(name) = runtime.use_case(name)
+        def json? = runtime.json?
+
+        # --json の結果を出す（JSON.parse できる 1 つの値）
+        def emit(hash) = out.json(hash)
+
+        # 使った設定ディレクトリ（Serialize.workspace）を 'config' として先頭に足す
+        def with_config(hash) = { 'config' => Application::Serialize.workspace(runtime.env.workspace) }.merge(hash)
 
         # OptionParser でオプションを解釈し、残りの位置引数を返す。位置引数が max_args を超えたら UsageError
         #   positional = parse!(args, max_args: 1) { |p, opts| p.on('--yes') { opts[:yes] = true } }

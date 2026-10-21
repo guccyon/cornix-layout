@@ -22,7 +22,7 @@ module Cornix
             when 'keyboard_info' then JSON.pretty_generate(use(:device_info).call.to_h)
             when 'read_keymap' then read_keymap(args)
             when 'backup' then "バックアップを保存しました: #{use(:device_backup).call.path}"
-            when 'list_backups' then list_backups
+            when 'list_backups' then list_backups(args)
             when 'apply_layout' then apply_layout(args)
             when 'restore_backup' then restore_backup(args)
             else
@@ -45,9 +45,12 @@ module Cornix
           "保存しました: #{path}"
         end
 
-        def list_backups
-          list = use(:list_backups).call
-          list.empty? ? 'バックアップはありません' : list.paths.join("\n")
+        # 1 行に 1 件、「日時  種類  パス」を新しい順に
+        def list_backups(args)
+          list = use(:list_snapshots).call(kind: args['kind'])
+          return 'スナップショットはありません' if list.empty?
+
+          list.snapshots.map { |s| "#{s.time.strftime('%Y-%m-%d %H:%M:%S')}  #{s.kind}  #{s.path}" }.join("\n")
         end
 
         def apply_layout(args)
@@ -58,7 +61,7 @@ module Cornix
         end
 
         def restore_backup(args)
-          source = args['backup_path'] && File.expand_path(args['backup_path'])
+          source = args['backup_path'] # 名前でも指定できるので、パスに広げない（相対パスはカレントから）
           return format_diff(use(:device_restore).call(source, dry_run: true)) if dry_run?(args)
 
           format_apply(use(:device_restore).call(source, expected_token: token!(args)))

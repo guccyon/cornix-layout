@@ -6,7 +6,8 @@ require_relative 'device_environment_context'
 RSpec.describe 'デバイスのユースケース' do
   include_context 'device environment'
 
-  def backups = env.backup_store.list
+  def snapshots(kind) = env.snapshot_store.list(kind: kind).map(&:path)
+  def backups = snapshots('pre-apply')
 
   describe Cornix::Application::DeviceInfo do
     it 'Session#info を返す' do
@@ -33,26 +34,35 @@ RSpec.describe 'デバイスのユースケース' do
       expect(File.read(path)).to eq(result.vil)
       expect(env.vil_file.read(path)).to eq(result.image)
     end
+
+    it '読んだ状態をスナップショット（read）に残す' do
+      result = described_class.new(env).call
+      expect(snapshots('read').size).to eq(1)
+      expect(env.vil_file.read(snapshots('read').first)).to eq(result.image)
+    end
   end
 
   describe Cornix::Application::DeviceBackup do
-    it 'バックアップの置き場に保存する' do
+    it 'スナップショット（backup）として保存する（read は残さない）' do
       result = described_class.new(env).call
-      expect(result.path).to start_with(env.backup_dir)
-      expect(backups).to eq([result.path])
+      expect(result.path).to start_with(env.snapshot_dir)
+      expect(snapshots('backup')).to eq([result.path])
+      expect(snapshots('read')).to be_empty
       expect(result.to_h).to eq('path' => result.path)
     end
   end
 
-  describe Cornix::Application::ListBackups do
-    it '新しい順に返す' do
+  describe Cornix::Application::ListSnapshots do
+    it '新しい順に返し、kind で絞り込める' do
       expect(described_class.new(env).call).to be_empty
       image = env.vil_file.read(write_vil { nil })
-      old = env.backup_store.save(image, time: Time.new(2026, 1, 1))
-      new = env.backup_store.save(image, time: Time.new(2026, 2, 1))
+      old = env.snapshot_store.save(image, kind: 'pre-apply', time: Time.new(2026, 1, 1))
+      new = env.snapshot_store.save(image, kind: 'read', time: Time.new(2026, 2, 1))
       list = described_class.new(env).call
       expect(list.paths).to eq([new, old])
-      expect(list.to_h).to eq('dir' => env.backup_dir, 'backups' => [new, old])
+      expect(list.to_h['dir']).to eq(env.snapshot_dir)
+      expect(list.to_h['snapshots'].map { |s| s['kind'] }).to eq(%w[read pre-apply])
+      expect(described_class.new(env).call(kind: 'pre-apply').paths).to eq([old])
     end
   end
 
@@ -99,6 +109,7 @@ RSpec.describe 'デバイスのユースケース' do
       expect(outcome.changes).to eq(['レイヤー1 (0,1): KC_NO → KC_BSPACE'])
       expect(outcome.backup).to eq(backups.first)
       expect(env.vil_file.read(outcome.backup).layers[1][0][1]).to eq(0) # 書き込む前の状態
+      expect(snapshots('read').size).to eq(2) # dry run と apply で読んだ状態
       expect(outcome.to_h).to include('written' => true, 'applied' => 1, 'remaining' => [], 'success' => true)
     end
 
@@ -120,6 +131,7 @@ RSpec.describe 'デバイスのユースケース' do
       expect(outcome.to_h).to include('cancelled' => true, 'written' => false)
       expect(device.writes).to be_empty
       expect(backups).to be_empty
+      expect(snapshots('read').size).to eq(1) # 読んだ状態は残る
       expect(opens.size).to eq(1)
     end
 
@@ -148,11 +160,11 @@ RSpec.describe 'デバイスのユースケース' do
   end
 
   describe Cornix::Application::DeviceRestore do
-    it 'バックアップがなければ ConfigError' do
-      expect { described_class.new(env).call(dry_run: true) }.to raise_error(Cornix::ConfigError, /バックアップがありません/)
+    it 'pre-apply のスナップショットがなければ ConfigError' do
+      expect { described_class.new(env).call(dry_run: true) }.to raise_error(Cornix::ConfigError, /戻す元のスナップショット/)
     end
 
-    it '既定は最新のバックアップに戻し、戻す前の状態もバックアップする' do
+    it '既定は最新の pre-apply に戻し、戻す前の状態を pre-restore に残す' do
       write_vil { |v| v['layout'][1][1][1] = 'KC_C' }
       Cornix::Application::DeviceApply.new(env).call
       expect(device.keymap[1][1][1]).to eq(0x06)
@@ -162,26 +174,37 @@ RSpec.describe 'デバイスのユースケース' do
       expect(plan.source).to eq(latest)
       expect(plan.changes).to eq(['レイヤー1 (1,1): KC_C → KC_NO'])
 
-      # 同じ秒に保存すると名前が重なるので、復元前のバックアップは別の時刻にする
-      allow(env.backup_store).to receive(:save).and_wrap_original { |m, image| m.call(image, time: Time.now + 60) }
       outcome = described_class.new(env).call(expected_token: plan.token)
       expect(device.keymap[1][1][1]).to eq(0)
       expect(outcome.source).to eq(latest)
+      expect(outcome.backup).to eq(snapshots('pre-restore').first)
       expect(env.vil_file.read(outcome.backup).layers[1][1][1]).to eq(0x06)
-      expect(backups.size).to eq(2)
+      expect(backups).to eq([latest])
+
+      # 続けて restore しても既定の戻し先は同じ pre-apply。pre-restore を指定すると復元前に戻る
+      expect(described_class.new(env).call(dry_run: true)).to be_empty
+      back = described_class.new(env).call(outcome.backup, dry_run: true)
+      expect(back.changes).to eq(['レイヤー1 (1,1): KC_NO → KC_C'])
     end
 
     it 'confirm を DeviceApply と同じく 1 回の接続の中で呼ぶ' do
-      path = env.backup_store.save(env.vil_file.read(write_vil { |v| v['layout'][1][1][1] = 'KC_C' }))
+      path = env.snapshot_store.save(env.vil_file.read(write_vil { |v| v['layout'][1][1][1] = 'KC_C' }), kind: 'pre-apply')
       outcome = described_class.new(env).call(confirm: ->(plan) { plan.source == path && false })
       expect(outcome).to be_cancelled
       expect(device.writes).to be_empty
       expect(opens.size).to eq(1)
     end
 
-    it 'ファイル名でも指定できる' do
-      path = env.backup_store.save(env.vil_file.read(write_vil { nil }), time: Time.new(2026, 1, 2, 3, 4, 5))
-      expect(described_class.new(env).call('20260102-030405', dry_run: true).source).to eq(path)
+    it 'スナップショットの名前でも指定できる' do
+      path = env.snapshot_store.save(env.vil_file.read(write_vil { nil }), kind: 'backup', time: Time.new(2026, 1, 2, 3, 4, 5))
+      expect(described_class.new(env).call('20260102-030405-backup', dry_run: true).source).to eq(path)
+    end
+
+    it '前の版の tmp/device_backups/ のバックアップも既定の戻し先になる' do
+      legacy = File.join(env.legacy_backup_dir, '20250101-000000.vil')
+      FileUtils.mkdir_p(env.legacy_backup_dir)
+      FileUtils.cp(write_vil { |v| v['layout'][1][1][1] = 'KC_C' }, legacy)
+      expect(described_class.new(env).call(dry_run: true).source).to eq(legacy)
     end
   end
 end

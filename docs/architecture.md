@@ -26,7 +26,7 @@ Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation /
 Planning        ImageDiff / Change / Plan（DeviceImage どうしの差分と書き込み計画）
 Domain          Profile 集約と値オブジェクト（Keycode, ModifierSet, LayerRef, Layer, Macro, ...）。I/O なし
 Image           DeviceImage（16bit 値とバイト列のまま）。I/O なし
-Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ BackupStore / SettingsFile（.cornix.yml）/
+Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ SnapshotStore / SettingsFile（.cornix.yml）/
                 YamlDocument・TextEdit（値の位置と値の部分だけの書き換え）/ FileSource（保存前の中身で読む）/ FileVersion
 Device          HidBridge / Protocol / Session / Reader / Writer
 ```

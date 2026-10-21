@@ -86,7 +86,7 @@ RSpec.describe 'cornix pull / status / apply / restore' do
         反映元: #{env.layout_path}
         差分 1 件:
           - レイヤー1 (0,1): KC_NO → KC_BSPACE
-        ✓ 1 件を書き込みました（反映前のバックアップ: #{env.backup_store.latest}）
+        ✓ 1 件を書き込みました（反映前のバックアップ: #{env.snapshot_store.latest(kind: 'pre-apply').path}）
         ✓ 読み戻して検証し、すべて一致しました
       TEXT
     end
@@ -106,12 +106,51 @@ RSpec.describe 'cornix pull / status / apply / restore' do
 
   it 'restore は直前の apply の前の状態に戻す' do
     cornix('apply', '--yes')
-    latest = env.backup_store.latest
+    latest = env.snapshot_store.latest(kind: 'pre-apply').path
     opens.clear
     expect(cornix('restore', '--yes')).to eq(0)
     expect(device.keymap[1][0][1]).to eq(0)
     expect(opens.size).to eq(1)
     expect(out.string).to start_with("復元元: #{latest}\n差分 1 件:\n  - レイヤー1 (0,1): KC_BSPACE → KC_NO\n")
+  end
+
+  describe 'snapshots' do
+    def line(snapshot) = "#{snapshot.time.strftime('%Y-%m-%d %H:%M:%S')}  #{snapshot.kind.ljust(9)}  #{snapshot.path}"
+
+    it 'status / apply で読んだ状態と書き込む前の状態が増え、新しい順に表示する（--kind で絞り込む）' do
+      expect(cornix('snapshots')).to eq(0)
+      expect(out.string).to eq("スナップショットはありません\n")
+
+      cornix('status')
+      cornix('apply', '--yes')
+      store = env.snapshot_store
+      expect(store.list(kind: 'read').size).to eq(2)
+      expect(store.list(kind: 'pre-apply').size).to eq(1)
+
+      expect(cornix('snapshots')).to eq(0)
+      expect(out.string).to eq(store.list.map { |s| "#{line(s)}\n" }.join)
+      expect(cornix('snapshots', '--kind', 'pre-apply')).to eq(0)
+      pre_apply = store.latest(kind: 'pre-apply')
+      expect(out.string).to eq("#{pre_apply.time.strftime('%Y-%m-%d %H:%M:%S')}  pre-apply  #{pre_apply.path}\n")
+      expect(cornix('snapshots', '--kind', 'build')).to eq(0)
+      expect(out.string).to eq("種類 build のスナップショットはありません\n")
+    end
+
+    it '知らない種類は exit 1' do
+      expect(cornix('snapshots', '--kind', 'nope')).to eq(1)
+      expect(err.string).to include('知らないスナップショットの種類です: nope')
+    end
+
+    it 'カレントの下なら相対パスで出し、そのパスを restore に渡せる' do
+      cornix('apply', '--yes')
+      Dir.chdir(@root) do
+        expect(cornix('snapshots', '--kind', 'pre-apply')).to eq(0)
+        path = out.string.split.last
+        expect(path).to match(%r{\Atmp/snapshots/\d{8}-\d{6}-pre-apply(-\d+)?/layout\.vil\z})
+        expect(cornix('restore', path, '--yes')).to eq(0)
+      end
+      expect(device.keymap[1][0][1]).to eq(0)
+    end
   end
 
   describe 'pull' do

@@ -8,7 +8,7 @@ as human-readable YAML files, and writes it directly to the connected keyboard w
 - Read the settings from the keyboard into YAML (`pull`)
 - Edit the YAML and review the differences from the keyboard (`status`)
 - Write only the differences to the keyboard (`apply`). A backup is always taken before writing, and the keyboard is read back afterwards to verify
-- If you don't like the result, restore from a backup (`restore`)
+- If you don't like the result, go back to the state before the write (`restore`). Each read, write and compile is kept as a snapshot (`snapshots`)
 
 Because the settings are plain files, you can keep them in Git to track their history or switch between setups.
 The YAML supports modifier expressions such as `Cmd + Q`, references by name such as `Macro('Bracket Pair')`, named shortcuts, notes and comments.
@@ -30,7 +30,7 @@ Some of the command output, including many error messages, is currently in Japan
 - [YAML pitfalls](#yaml-pitfalls)
 - [Validating the settings](#validating-the-settings)
 - [Naming (rename)](#naming-rename)
-- [Backups and restoring](#backups-and-restoring)
+- [Snapshots and restoring](#snapshots-and-restoring)
 - [Where the settings live and how to use the repository](#where-the-settings-live-and-how-to-use-the-repository)
 - [Editing on screen in VS Code](#editing-on-screen-in-vs-code)
 - [Using it as an MCP server](#using-it-as-an-mcp-server)
@@ -122,7 +122,7 @@ How it backs up and verifies is described in [Safety mechanisms](#safety-mechani
 cornix restore         # go back to the state before the last apply
 ```
 
-See [Backups and restoring](#backups-and-restoring) for details.
+See [Snapshots and restoring](#snapshots-and-restoring) for details.
 
 ## Commands
 
@@ -136,7 +136,8 @@ cornix <command> [options]
 | `pull` | Reads | Turns the keyboard's state into YAML in the settings directory. Stops if there are settings already |
 | `status` | Reads | Shows the differences from the keyboard. Exits with 2 when there are differences |
 | `apply [--yes]` | Writes (after confirmation) | Writes to the keyboard after you confirm the differences |
-| `restore [BACKUP] [--yes]` | Writes (after confirmation) | Goes back to a backup (default: the state before the last apply) |
+| `restore [SNAPSHOT] [--yes]` | Writes (after confirmation) | Goes back to a snapshot (default: the state before the last apply) |
+| `snapshots [--kind KIND]` | Not used | Lists the snapshots of the keyboard's state and the compile output, newest first |
 | `validate` | Not used | Validates the settings files |
 | `rename` | Not used | Gives the settings files meaningful names, confirming Claude's suggestions one by one |
 | `mcp` | Depends on the tool | Starts as an MCP server (see [Using it as an MCP server](#using-it-as-an-mcp-server)) |
@@ -148,9 +149,9 @@ cornix <command> [options]
 |---|---|
 | `device info` | Information about the connected keyboard |
 | `device read [-o FILE]` | Prints the keyboard's state in layout.vil format |
-| `device backup` | Saves the keyboard's state to `<tmp>/device_backups/` |
+| `device backup` | Saves the keyboard's state as a snapshot (kind `backup`) in `<tmp>/snapshots/` |
 | `device diff [FILE]` / `device apply [FILE] [--yes]` | Shows the differences between the given .vil and the keyboard / writes it (default: the compile output) |
-| `device restore [BACKUP] [--yes]` | Same as `restore` |
+| `device restore [SNAPSHOT] [--yes]` | Same as `restore` |
 
 `compile` / `decompile` / `cleanup` for Vial are described in [Using Vial](#using-vial-compile--decompile).
 
@@ -476,18 +477,33 @@ and updates references by name such as `Macro('old name')` (references by number
 
 Without `claude`, you can name them by hand with `ruby bin/rename_file --config-dir profiles/default ...` (see `ruby bin/rename_file --help`).
 
-## Backups and restoring
+## Snapshots and restoring
 
-Before writing, `apply` and `restore` save the keyboard's state as a timestamped .vil (such as `20261019-010203.vil`) in `<tmp>/device_backups/`.
+Each time cornix reads the keyboard, writes to it, or compiles, it keeps a timestamped copy as a snapshot in `<tmp>/snapshots/<date-time>-<kind>/layout.vil` (such as `20261019-010203-pre-apply/layout.vil`). Snapshots are never overwritten.
 `<tmp>` is the working directory of each settings directory: `tmp/profiles/default/` for `profiles/default/` (`tmp/` is not tracked by Git).
 
+| Kind | When it is taken |
+|---|---|
+| `read` | When the keyboard is read (`pull` / `init` / `status` / `apply` / `restore` / `device read` / `device diff`) |
+| `build` | The output of `compile` (also when `status` / `apply` compile) |
+| `backup` | `cornix device backup` |
+| `pre-apply` | Just before `apply` writes |
+| `pre-restore` | Just before `restore` writes |
+| `legacy` | Backups from earlier versions in `<tmp>/device_backups/` (only read) |
+
+`read` and `build` keep the newest 50 of each kind and delete older ones. The other kinds are kept until you delete them.
+
 ```bash
-cornix restore                       # go back to the newest backup (usually the state before the last apply)
-cornix restore 20261019-010203       # go back to the given backup (a file name or a path)
+cornix snapshots                             # list the snapshots, newest first (date-time, kind, path)
+cornix snapshots --kind pre-apply            # only one kind
+cornix restore                               # go back to the newest pre-apply (the state before the last apply)
+cornix restore 20261019-010203-pre-restore   # go back to the given snapshot (a name or a path)
 ```
 
-- It shows the differences from the target and writes after confirmation. A backup taken with `cornix device backup` also counts as the newest backup
-- `restore` also backs up the current state before writing, so running `restore` again right away returns to the state before the restore
+- It shows the differences from the target and writes after confirmation
+- Before writing, `restore` keeps the current state as a `pre-restore` snapshot. To undo a restore, pass that snapshot to `restore` (running `restore` again without arguments goes back to the same `pre-apply`)
+- If there is no `pre-apply` snapshot yet, `restore` uses the newest backup from earlier versions in `<tmp>/device_backups/`
+- The latest compile output is still written to `<tmp>/build/layout.vil` and what `pull` read to `<tmp>/layout.vil`, as before. A snapshot's `layout.vil` can also be passed to `cornix device diff` and `cornix decompile`
 - `restore` only changes the keyboard. Use Git to restore the settings files
 
 ## Where the settings live and how to use the repository
@@ -530,7 +546,7 @@ echo "profile: default" > .cornix.yml
 cornix validate          # the move worked if it shows "設定: profiles/default（.cornix.yml）"
 ```
 
-Backups also move from `tmp/device_backups/` to `tmp/profiles/default/device_backups/`; copy them if you want to use earlier backups with `restore`.
+Snapshots also move from `tmp/snapshots/` to `tmp/profiles/default/snapshots/` (and the backups of earlier versions from `tmp/device_backups/` to `tmp/profiles/default/device_backups/`); copy them if you want to use earlier ones with `restore`.
 
 ### Ways to use it
 
@@ -625,9 +641,9 @@ If you keep the settings in a separate repository, run `claude mcp add cornix-de
 |---|---|---|
 | `keyboard_info` | No | Information about the keyboard |
 | `read_keymap` | No | Returns or saves the current state in layout.vil format |
-| `backup` / `list_backups` | No | Saves and lists backups |
+| `backup` / `list_backups` | No | Saves a snapshot (kind `backup`) / lists the snapshots (`kind` narrows the list) |
 | `apply_layout` | Only with `dry_run: false` | Writes a .vil (default: the output of `cornix compile`). A dry run by default, returning the differences and a `confirm_token`; writes only with `dry_run: false` and the `confirm_token` |
-| `restore_backup` | Only with `dry_run: false` | Goes back to a backup, with the same two steps as `apply_layout` |
+| `restore_backup` | Only with `dry_run: false` | Goes back to a snapshot (default: the newest `pre-apply`), with the same two steps as `apply_layout` |
 
 `apply_layout` writes the `<tmp>/build/layout.vil` last written by `cornix status` / `apply` (or `compile`). After changing the YAML, run `cornix status` first.
 If the keyboard or the file changes after the review, the token no longer matches and the write is refused. Even when you let an AI assistant write, always ask it to show you the dry run result first.

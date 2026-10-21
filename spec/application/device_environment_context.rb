@@ -21,8 +21,11 @@ RSpec.shared_context 'device environment' do
     Dir.mktmpdir { |dir| (@root = dir) && example.run }
   end
 
-  # 現在のデバイスの .vil（Hash）
-  def device_vil = JSON.parse(Cornix::Application::DeviceRead.new(env).call.vil)
+  # 現在のデバイスの .vil（Hash）。準備のための読み出しは env のスナップショットに残さない
+  def device_vil
+    helper = Cornix::Application::Environment.new(root: File.join(@root, '.helper'), device_opener: opener)
+    JSON.parse(Cornix::Application::DeviceRead.new(helper).call.vil)
+  end
 
   # 現在のデバイスの .vil を変えて path に書く（準備のために開いた回数は opens に数えない）
   def write_vil(path = env.layout_path)

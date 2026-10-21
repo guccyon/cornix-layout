@@ -47,7 +47,7 @@ module Cornix
           end
         end
 
-        # restore の流れ（file はバックアップのパス・ファイル名。nil なら最新）
+        # restore の流れ（file はスナップショットの名前・パス。nil なら最新の pre-apply）
         def run_restore(file, yes:)
           run_apply(restore: true, yes: yes) { |confirm| use_case(:device_restore).call(file, confirm: confirm) }
         end

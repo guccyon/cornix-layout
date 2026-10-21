@@ -8,7 +8,7 @@ Cornix キーボードのキーマップ（レイヤー・エンコーダ・マ�
 - キーボードから設定を読み出して YAML にする（`pull`）
 - YAML を編集して、キーボードとの差分を確認する（`status`）
 - 差分だけをキーボードに書き込む（`apply`）。書く前に必ずバックアップを取り、書いたあとに読み直して確かめる
-- 気に入らなければ、バックアップから戻す（`restore`）
+- 気に入らなければ、書き込む前の状態に戻す（`restore`）。読んだ・書いた・compile した状態はスナップショットとして残る（`snapshots`）
 
 設定ファイルは Git で管理できるので、変更の履歴を残したり、用途ごとに設定を切り替えたりできます。
 YAML では `Cmd + Q` のような修飾キー表現、`Macro('Bracket Pair')` のような名前での参照、名前付きショートカット、注記、コメントが使えます。
@@ -29,7 +29,7 @@ Vial で読み書きしたいときは、`layout.vil` との相互変換もで�
 - [YAML の注意](#yaml-の注意)
 - [設定ファイルの検証](#設定ファイルの検証)
 - [名前を付ける（rename）](#名前を付けるrename)
-- [バックアップと元に戻す](#バックアップと元に戻す)
+- [スナップショットと元に戻す](#スナップショットと元に戻す)
 - [設定の置き場所と利用の形](#設定の置き場所と利用の形)
 - [VS Code の画面で編集する](#vs-code-の画面で編集する)
 - [MCP サーバーとして使う](#mcp-サーバーとして使う)
@@ -121,7 +121,7 @@ cornix apply --yes     # 確認を省略する
 cornix restore         # 直前の apply の前の状態に戻す
 ```
 
-詳しくは [バックアップと元に戻す](#バックアップと元に戻す)。
+詳しくは [スナップショットと元に戻す](#スナップショットと元に戻す)。
 
 ## コマンドの一覧
 
@@ -135,7 +135,8 @@ cornix <コマンド> [オプション]
 | `pull` | 読む | キーボードの状態を設定ディレクトリの YAML にする。設定がすでにあれば止まる |
 | `status` | 読む | キーボードとの差分を表示する。差分があれば終了コード 2 |
 | `apply [--yes]` | 書く（確認のあと） | 差分を確認してからキーボードへ書き込む |
-| `restore [BACKUP] [--yes]` | 書く（確認のあと） | バックアップ（既定は直前の apply の前の状態）に戻す |
+| `restore [SNAPSHOT] [--yes]` | 書く（確認のあと） | スナップショット（既定は直前の apply の前の状態）に戻す |
+| `snapshots [--kind KIND]` | 使わない | キーボードの状態と compile の出力のスナップショットを新しい順に一覧する |
 | `validate` | 使わない | 設定ファイルを検証する |
 | `rename` | 使わない | Claude の提案を確認しながら、設定ファイルに意味のある名前を付ける |
 | `mcp` | ツールによる | MCP サーバーとして起動する（[MCP サーバーとして使う](#mcp-サーバーとして使う)） |
@@ -147,9 +148,9 @@ cornix <コマンド> [オプション]
 |---|---|
 | `device info` | 接続中のキーボードの情報 |
 | `device read [-o FILE]` | キーボードの状態を layout.vil 形式で出力する |
-| `device backup` | キーボードの状態を `<tmp>/device_backups/` に保存する |
+| `device backup` | キーボードの状態をスナップショット（種類 `backup`）として `<tmp>/snapshots/` に保存する |
 | `device diff [FILE]` / `device apply [FILE] [--yes]` | 指定した .vil とキーボードの差分を表示する / 書き込む（既定は compile の出力） |
-| `device restore [BACKUP] [--yes]` | `restore` と同じ |
+| `device restore [SNAPSHOT] [--yes]` | `restore` と同じ |
 
 Vial 用の `compile` / `decompile` / `cleanup` は [Vial を使う場合](#vial-を使う場合compile--decompile) にあります。
 
@@ -473,18 +474,33 @@ cornix rename
 
 `claude` がないときは、`ruby bin/rename_file --config-dir profiles/default ...` で手で名前を付けられます（使い方は `ruby bin/rename_file --help`）。
 
-## バックアップと元に戻す
+## スナップショットと元に戻す
 
-`apply` と `restore` は、書き込む前にキーボードの状態を `<tmp>/device_backups/` に日時付きの .vil（`20261019-010203.vil` など）で保存します。
+キーボードを読んだとき・書き込む前・compile したときに、その状態を日時付きのスナップショットとして `<tmp>/snapshots/<日時>-<種類>/layout.vil`（`20261019-010203-pre-apply/layout.vil` など）に残します。スナップショットは上書きしません。
 `<tmp>` は設定ごとの作業用ディレクトリで、`profiles/default/` なら `tmp/profiles/default/` です（`tmp/` は Git の管理外です）。
 
+| 種類 | 残すとき |
+|---|---|
+| `read` | キーボードを読んだとき（`pull` / `init` / `status` / `apply` / `restore` / `device read` / `device diff`） |
+| `build` | `compile` の出力（`status` / `apply` が compile したときも） |
+| `backup` | `cornix device backup` |
+| `pre-apply` | `apply` が書き込む直前 |
+| `pre-restore` | `restore` が書き込む直前 |
+| `legacy` | 前の版の `<tmp>/device_backups/` のバックアップ（読むだけ） |
+
+`read` と `build` は種類ごとに新しい 50 件だけ残し、古いものは消します。ほかの種類は消すまで残ります。
+
 ```bash
-cornix restore                       # いちばん新しいバックアップ（ふつうは直前の apply の前の状態）に戻す
-cornix restore 20261019-010203       # 指定したバックアップに戻す（ファイル名だけでもパスでもよい）
+cornix snapshots                             # スナップショットを新しい順に一覧する（日時・種類・パス）
+cornix snapshots --kind pre-apply            # 種類で絞り込む
+cornix restore                               # いちばん新しい pre-apply（直前の apply の前の状態）に戻す
+cornix restore 20261019-010203-pre-restore   # 指定したスナップショットに戻す（名前でもパスでもよい）
 ```
 
-- 戻す先との差分を表示し、確認してから書き込みます。`cornix device backup` で取ったものも「いちばん新しいバックアップ」になります
-- `restore` も書き込み前に今の状態をバックアップするので、続けてもう一度 `restore` すると復元前の状態に戻ります
+- 戻す先との差分を表示し、確認してから書き込みます
+- `restore` は書き込む前に今の状態を `pre-restore` のスナップショットに残します。restore を取り消すときは、そのスナップショットを `restore` に渡してください（引数なしでもう一度 `restore` すると、同じ `pre-apply` に戻ります）
+- `pre-apply` のスナップショットがまだないときは、`restore` は前の版の `<tmp>/device_backups/` のいちばん新しいバックアップを使います
+- compile の最新の出力は今までどおり `<tmp>/build/layout.vil`、`pull` が読んだものは `<tmp>/layout.vil` にも書きます。スナップショットの `layout.vil` は `cornix device diff` や `cornix decompile` にも渡せます
 - `restore` はキーボードだけを戻します。設定ファイルは Git で戻してください
 
 ## 設定の置き場所と利用の形
@@ -527,7 +543,7 @@ echo "profile: default" > .cornix.yml
 cornix validate          # 「設定: profiles/default（.cornix.yml）」と表示されれば移せています
 ```
 
-バックアップの場所も `tmp/device_backups/` から `tmp/profiles/default/device_backups/` に変わるので、今までのバックアップを `restore` に使うときはコピーしてください。
+スナップショットの場所も `tmp/snapshots/` から `tmp/profiles/default/snapshots/` に（前の版のバックアップは `tmp/device_backups/` から `tmp/profiles/default/device_backups/` に）変わるので、今までのものを `restore` に使うときはコピーしてください。
 
 ### 利用の形
 
@@ -622,9 +638,9 @@ Marketplace には出していないので、.vsix を作って手元で入れ�
 |---|---|---|
 | `keyboard_info` | しない | キーボードの情報 |
 | `read_keymap` | しない | 今の状態を layout.vil 形式で返す・保存する |
-| `backup` / `list_backups` | しない | バックアップの保存と一覧 |
+| `backup` / `list_backups` | しない | スナップショット（種類 `backup`）の保存 / スナップショットの一覧（`kind` で絞り込める） |
 | `apply_layout` | `dry_run: false` のときだけ | .vil（既定は `cornix compile` の出力）を書き込む。既定は dry run で差分と `confirm_token` を返し、`dry_run: false` と `confirm_token` を付けたときだけ書き込む |
-| `restore_backup` | `dry_run: false` のときだけ | バックアップに戻す。`apply_layout` と同じ二段階 |
+| `restore_backup` | `dry_run: false` のときだけ | スナップショット（既定は最新の `pre-apply`）に戻す。`apply_layout` と同じ二段階 |
 
 `apply_layout` が書くのは、最後に `cornix status` / `apply`（か `compile`）が書いた `<tmp>/build/layout.vil` です。YAML を変えたら、先に `cornix status` を実行してください。
 確認したあとにキーボードやファイルが変わるとトークンが一致せず、書き込みは拒否されます。AI アシスタントに任せるときも、書き込む前に dry run の結果を見せてもらってください。

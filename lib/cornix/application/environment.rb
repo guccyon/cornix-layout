@@ -15,14 +15,15 @@ module Cornix
     # 場所の既定値: config_dir = root/config、tmp_dir = root/tmp、
     # layout_path = tmp_dir/build/layout.vil（compile の出力。status / apply / device diff などの既定の入力）、
     # decompile_input = tmp_dir/layout.vil（decompile の既定の入力。pull がデバイスから読んだ状態もここに書く）、
-    # backup_dir = tmp_dir/device_backups。
+    # snapshot_dir = tmp_dir/snapshots（キーボードの状態と compile の出力の履歴。Storage::SnapshotStore）、
+    # legacy_backup_dir = tmp_dir/device_backups（前の版のバックアップ。読むだけ）。
     # position_map のテンプレートは root によらず lib/cornix/position_map.yaml
     #
     # CLI は Environment.for(workspace) で作る（Workspace が設定ディレクトリと tmp/ の場所を決める）
     class Environment
       POSITION_MAP_TEMPLATE = File.join(Cornix::ROOT, 'lib', 'cornix', 'position_map.yaml')
 
-      attr_reader :root, :config_dir, :layout_path, :backup_dir, :tmp_dir, :decompile_input, :position_map_template,
+      attr_reader :root, :config_dir, :layout_path, :snapshot_dir, :legacy_backup_dir, :tmp_dir, :decompile_input, :position_map_template,
                   :workspace
 
       # tmp のファイルは workspace.tmp_dir の下に置く（<root>/config なら <root>/tmp のまま。
@@ -31,7 +32,7 @@ module Cornix
         new(root: workspace.root, config_dir: workspace.config_dir, tmp_dir: workspace.tmp_dir, workspace: workspace, **opts)
       end
 
-      def initialize(root: Cornix::ROOT, config_dir: nil, layout_path: nil, backup_dir: nil, tmp_dir: nil,
+      def initialize(root: Cornix::ROOT, config_dir: nil, layout_path: nil, snapshot_dir: nil, tmp_dir: nil,
                      device_opener: nil, claude: nil, position_map_template: POSITION_MAP_TEMPLATE, workspace: nil)
         @root = root.to_s
         @workspace = workspace
@@ -39,7 +40,8 @@ module Cornix
         @tmp_dir = (tmp_dir || File.join(@root, 'tmp')).to_s
         @layout_path = (layout_path || File.join(@tmp_dir, 'build', 'layout.vil')).to_s
         @decompile_input = File.join(@tmp_dir, 'layout.vil')
-        @backup_dir = (backup_dir || File.join(@tmp_dir, 'device_backups')).to_s
+        @snapshot_dir = (snapshot_dir || File.join(@tmp_dir, 'snapshots')).to_s
+        @legacy_backup_dir = File.join(@tmp_dir, 'device_backups')
         @position_map_template = position_map_template.to_s
         @claude = claude
         @device_opener = device_opener || lambda do |&blk|
@@ -61,7 +63,9 @@ module Cornix
       def macro_codec = @macro_codec ||= Mapping::MacroCodec.new
       def mapper = @mapper ||= Mapping::ProfileMapper.new(codec: codec)
       def vil_file = @vil_file ||= Storage::VilFile.new(vial: vial)
-      def backup_store = @backup_store ||= Storage::BackupStore.new(backup_dir, vil_file: vil_file)
+      def snapshot_store
+        @snapshot_store ||= Storage::SnapshotStore.new(snapshot_dir, legacy_dir: legacy_backup_dir, vil_file: vil_file)
+      end
       def repository
         @repository ||= Storage::ConfigRepository.new(config_dir, notation: notation, settings_catalog: settings_catalog,
                                                                   shortcut_catalog: shortcut_catalog)

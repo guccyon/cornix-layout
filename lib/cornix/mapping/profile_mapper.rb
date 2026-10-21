@@ -5,7 +5,7 @@ module Cornix
     # Domain::Profile ⇄ Image::DeviceImage（compile / decompile の中心）。
     #
     # - to_image: 旧 compile（VialConfig#to_qmk）と同じ配置・パディングで DeviceImage を作る。
-    #   キーのない位置と定義のないレイヤーは nil（.vil の -1）、position_map にある位置で割り当てのないものは KC_NO（0）、
+    #   キーのない位置は nil（.vil の -1）、position_map にある位置で割り当てのないものと定義のないレイヤーは KC_NO（0）、
     #   未使用のマクロは []、タップダンスは KC_NO × 4 + DEFAULT_TAPPING_TERM、コンボは 0 × (combo_keys + 1)
     # - to_profile: イメージを解釈して Profile にする。previous（設定ファイルから読んだ Profile）があれば
     #   同じ番号のレイヤー・マクロ・タップダンス・コンボの名前と説明、キーコードが変わっていない場所の注記、

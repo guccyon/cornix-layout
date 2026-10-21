@@ -28,6 +28,7 @@
   - [vscode_extension_v03](memories/vscode_extension_v03.md) - VS Code 拡張 v0.3 の作業の知見（P の squash のあとに段 2 のブランチで起きた衝突と解き方、webview.css の末尾の衝突で閉じ括弧が落ちた件、コンテナでの rspec の動かし方）
   - [snapshots](memories/snapshots.md) - スナップショットの履歴（issue #25）で決めたこと（latest の扱い、種類 backup、restore の既定、古いものの削除、device_backups の扱い）とテストの注意
   - [vscode_extension_v02](memories/vscode_extension_v02.md) - VS Code 拡張 v0.2 の作業の知見（コンテナでの rspec の動かし方と統合テストが CI でしか走らない件、偽のサーバーの注意、並列の PR の進め方、planItemEdit の解釈、未保存の変更の並びと畳み方）
+  - [empty_layers](memories/empty_layers.md) - 空のレイヤーのファイルの省略（#83）: compile の埋め方、decompile が書かない条件、authors の空のレイヤーの落とし穴
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---

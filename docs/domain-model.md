@@ -148,6 +148,7 @@ nape_pro-layout の `Assignment(keycode, label, shortcut)` のように包まな
 - `keys` は割り当てのある位置だけを持つ（ない位置は compile で KC_NO（0）になる。キーのない枠だけがデバイスで -1）
 - `encoders` は `:left` / `:right` の両方が必須
 - `notes` の位置は `keys` にある位置だけ
+- `#blank?` はすべての位置とエンコーダが KC_NO（割り当てなし）か。KC_TRNS は割り当てとみなす
 - 番号がレイヤー数（10）に収まるか、重複がないかは `Profile#diagnostics`
 
 ### Macro と MacroStep
@@ -177,6 +178,8 @@ nape_pro-layout の `Assignment(keycode, label, shortcut)` のように包まな
 - `#layer(index)` / `#macro(index)` などは番号の要素（重複していれば先のもの）
 - `#references` は名前参照の対応表（`{ macros: 名前 => 番号, tap_dances: 名前 => 番号, shortcuts: 名前 => Keycode }`）。
   Mapping の `References.new(**profile.references)` にそのまま渡せる
+- `#referenced_layer_indexes` はレイヤー操作のキー（`MO(n)` / `LT(n, kc)` / `LM(n, mod)` など）が指すレイヤーの番号。
+  レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、コンボのトリガーと出力から集める
 
 ## 5. 座標系（PositionMap）
 
@@ -233,7 +236,7 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 - `PositionMap#position_at(row, col)` は逆変換。キーのない位置（col 6 の -1、プッシュ）は nil
 - エンコーダの回転（ccw / cw）はマトリクスではなく layout.vil の `encoder_layout[layer][左, 右]` に入る
   （`Image::EncoderRecord`）。プッシュだけがマトリクス上のキー
-- layout.vil の `-1` は `Image::DeviceImage` では nil。ProfileMapper は position_map にある位置で割り当てのないものを KC_NO（0）にし、nil にするのはキーのない枠（プッシュ以外の col 6）と定義のないレイヤーだけ。
+- layout.vil の `-1` は `Image::DeviceImage` では nil。ProfileMapper は position_map にある位置で割り当てのないものと、定義のないレイヤーの position_map にある位置とエンコーダを KC_NO（0）にし、nil にするのはキーのない枠（プッシュ以外の col 6）だけ。
   `-1` だと `cornix device apply` がその位置を飛ばして前の値が残り、Vial の読み込みも失敗しうるため
 - テスト: `spec/domain/position_map_spec.rb`（全位置の物理座標と逆変換）、`spec/mapping/profile_mapper/*`（レイヤー・エンコーダの配置、旧 compile 結果との一致）
 
@@ -243,7 +246,7 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 
 | 対象 | error | warning |
 |---|---|---|
-| レイヤー | 枚数の上限、番号の上限・重複 | 番号の抜け |
+| レイヤー | 枚数の上限、番号の上限・重複 | レイヤー 0 がない（途中の番号の抜けは許す。compile が KC_NO で埋める） |
 | マクロ / タップダンス / コンボ | 件数の上限、番号の上限・重複、名前の重複 | |
 | コンボ | トリガーの数の上限 | |
 | すべての割り当て（レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、コンボのトリガーと出力） | `M(n)` / `TD(n)` の参照先がない、レイヤー番号がレイヤー数を超える | レイヤー数の内だが定義されていないレイヤーを指す、`Capabilities#unsupported_keycodes` にある特殊キー（書き込みは止めない。`Capabilities::CORNIX` の表は空で、表は `Application::Environment#capabilities` が足す） |
@@ -273,8 +276,8 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 
 | Profile | DeviceImage（to_image） | to_profile で読まないもの |
 |---|---|---|
-| `layers` | 10 枚。レイヤーは index の位置に置き、定義のないレイヤーはすべて nil。割り当てのない位置は KC_NO（0）、キーのない位置は nil。エンコーダの push は `PositionMap#encoder_push_matrix` の位置 | すべての位置とエンコーダが nil のレイヤー |
-| `Layer#encoders` | `[layer][左, 右]` の `EncoderRecord`（定義のないレイヤーは ccw / cw とも nil） | （nil は KC_NO として読む） |
+| `layers` | 10 枚。レイヤーは index の位置に置く。割り当てのない位置は KC_NO（0）、キーのない位置は nil。定義のないレイヤーも割り当てのないレイヤーと同じ（KC_NO で埋める）。エンコーダの push は `PositionMap#encoder_push_matrix` の位置 | すべての位置とエンコーダが KC_NO か nil のレイヤー（`Layer#blank?`。KC_TRNS は空ではない）。ただしレイヤー 0 と、レイヤー操作のキーが指すレイヤー（`Profile#referenced_layer_indexes`）は読む |
+| `Layer#encoders` | `[layer][左, 右]` の `EncoderRecord`（定義のないレイヤーは ccw / cw とも KC_NO） | （nil は KC_NO として読む） |
 | `macros` | 32 個。未使用は `[]` | 動作が空の枠 |
 | `tap_dances` | 32 個。未使用は KC_NO × 4 と tapping_term 250 | KC_NO × 4 で tapping_term が 250（か nil）の枠 |
 | `combos` | 32 個。トリガーは 4 個まで 0 で埋める。未使用はすべて 0 | トリガーと出力がすべて KC_NO の枠（トリガーは末尾の KC_NO だけ落とす） |
@@ -303,6 +306,10 @@ config/
   tap_dance/{番号 2 桁}_{名前}.yaml
   combos/{番号 2 桁}_{名前}.yaml
 ```
+
+レイヤー・マクロ・タップダンス・コンボは、使わない番号のファイルを置かない（ディレクトリごとなくてもよい）。
+decompile も空のもの（読まない枠。8 の表の右の列）は書かない。compile は抜けた番号を空のデータで埋め、layout.vil には全レイヤー・全枠を出す。
+レイヤーは途中の番号を省いてもよい（すべて KC_NO のレイヤーと同じになる）。KC_NO だけの既存のファイルもそのまま読める。
 
 ```yaml
 # layers/1_symbols.yaml

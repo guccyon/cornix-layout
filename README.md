@@ -171,7 +171,7 @@ Exit codes: `0` = success, `1` = error, `2` = there are differences (`status` on
 With `--json`, standard output holds only one JSON value, with no other text, and the exit codes stay the same. Errors become `{ "error": "..." }` on standard output.
 For example, `cornix status --json` prints `{ "config", "compile", "diff" }`, and `cornix validate --json` prints `{ "config", "ok", "diagnostics": [{ "severity", "path", "message" }] }`.
 `apply` / `restore` / `device apply` / `device restore` cannot ask for confirmation, so they also need `--yes` (without it they stop before touching the keyboard).
-`cleanup -f`, `rename`, `mcp` and `serve` do not support `--json`.
+`cleanup -f`, `rename`, `mcp` and `serve` do not support `--json` (`help` ignores it).
 
 ### When `pull` stops
 
@@ -651,7 +651,7 @@ If you keep the settings in a separate repository, run `claude mcp add cornix-de
 | `apply_layout` | Only with `dry_run: false` | Writes a .vil (default: the output of `cornix compile`). A dry run by default, returning the differences and a `confirm_token`; writes only with `dry_run: false` and the `confirm_token` |
 | `restore_backup` | Only with `dry_run: false` | Goes back to a snapshot (default: the newest `pre-apply`), with the same two steps as `apply_layout` |
 
-Each tool result has a short summary for people and, as a second item, the same JSON as the CLI's `--json` (`keyboard_info` and `read_keymap` without `save_path` return only the JSON itself).
+Each tool result has a short summary for people and, as a second item, the result as JSON in the same shape as `cornix device … --json` (without `config`). `keyboard_info` returns only that JSON, and `read_keymap` without `save_path` returns only the layout.vil contents.
 
 `apply_layout` writes the `<tmp>/build/layout.vil` last written by `cornix status` / `apply` (or `compile`). After changing the YAML, run `cornix status` first.
 If the keyboard or the file changes after the review, the token no longer matches and the write is refused. Even when you let an AI assistant write, always ask it to show you the dry run result first.

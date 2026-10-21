@@ -561,7 +561,7 @@ export class App {
         button('layer', 'レイヤーごと', '選んでいるレイヤーの割り当てを並べる'),
         button('key', 'キーごと', 'キーの位置ごとに、全レイヤーの割り当てを並べる（図で選んでいるレイヤーの行を強調）'),
         this.mode === 'key' &&
-          h('label', { class: 'fold-quiet', title: '▽（下のレイヤーへ）と書いていない行を隠す（図で選んでいるレイヤー・選んでいる行・未保存の行は残す）' }, fold, '▽ と空欄を畳む'),
+          h('label', { class: 'fold-quiet-toggle', title: '▽（下のレイヤーへ）と書いていない行を隠す（図で選んでいるレイヤー・選んでいる行・未保存の行は残す）' }, fold, '▽ と空欄を畳む'),
       ),
     );
     if (focused) this.modeBar.querySelector<HTMLElement>(`[data-mode="${focused}"]`)?.focus();

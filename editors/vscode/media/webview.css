@@ -952,7 +952,7 @@ button {
   border-color: var(--vscode-button-background);
 }
 
-.fold-quiet {
+.fold-quiet-toggle {
   display: inline-flex;
   align-items: center;
   gap: 4px;

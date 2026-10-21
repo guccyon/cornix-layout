@@ -612,6 +612,21 @@ class FakeServer {
           }
           break;
         }
+        if (edit.index !== undefined && edit.kind !== 'layer') invalid('index はレイヤーだけに書けます', 'edit.index');
+        if (edit.kind === 'layer') {
+          // v0.4（protocol.md の 14.9）: 選んだ番号（省けば空いているいちばん小さい番号）で layers/<番号>_<slug> を作る
+          const layers = snapshot.layers;
+          if (layers.some((layer) => layer.name === name)) invalid(`${name} はすでにあります`, 'edit.name');
+          let index = edit.index ?? 0;
+          if (edit.index === undefined) while (layers.some((layer) => layer.index === index)) index += 1;
+          if (!Number.isInteger(index) || index < 0 || index > 9) invalid('レイヤーの番号は 0〜9 です', edit.index === undefined ? 'edit' : 'edit.index');
+          if (layers.some((layer) => layer.index === index)) invalid(`レイヤー ${index} はもうあります`, 'edit.index');
+          const file = `layers/${index}_${slug(name) || 'layer'}.${extensionIn(base, 'layers')}`;
+          const groups = ['row0', 'row1', 'row2', 'row3', 'thumb_keys'].map((group) => `    ${group}: {}\n`).join('');
+          const body = `---\nname: ${quote(name)}\ndescription: ''\nindex: ${index}\nmapping:\n  left_hand:\n${groups}  right_hand:\n${groups}`;
+          files.push({ file, baseVersion: null, create: true, edits: [{ range: { start: zero, end: zero }, newText: body }] });
+          break;
+        }
         const folder = { macro: 'macros', tapDance: 'tap_dance', combo: 'combos' }[edit.kind];
         if (!folder) invalid(`知らない種類です: ${String(edit.kind)}`, 'edit.kind');
         const items = itemsOf(edit.kind);
@@ -645,6 +660,20 @@ class FakeServer {
         } else {
           const item = itemsOf(edit.kind).find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name');
           files.push({ file: item.file, baseVersion: current[item.file] ?? null, create: false, delete: true, edits: [] });
+          if (edit.kind === 'layer') {
+            // そのレイヤーを指すレイヤー操作（display.hold が "L<番号>"）。消すファイルの中は入れない
+            for (const layer of snapshot.layers) {
+              if (layer.file === item.file) continue;
+              for (const slot of [...layer.keys, ...[layer.encoders.left, layer.encoders.right].flatMap((e) => [e.push, e.ccw, e.cw])]) {
+                const kind = slot.value?.kind;
+                if ((kind === 'layerAction' || kind === 'layerTap' || kind === 'layerMod') && slot.value?.display.hold === `L${item.index}`) {
+                  references.push(slot.address);
+                  diagnostics.push({ severity: 'warning', source: 'semantic', message: `レイヤー ${item.index} が定義されていません`, address: slot.address });
+                }
+              }
+            }
+            break;
+          }
         }
         references.push(...referencesTo(referenceText(edit.kind, name)));
         for (const address of references) diagnostics.push({ severity: 'error', source: 'structure', message: `「${referenceText(edit.kind, name)}」は読めない表記です（定義がありません）`, address });

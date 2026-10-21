@@ -677,7 +677,7 @@ Ruby の RSpec と、将来の TypeScript の vitest の両方から同じデー
     "profile": "test_config",          // spec/fixtures/<名前> をワークスペースの profiles/default に置き、開いておく（profileId は "p1"）
     "open": false,                     // profile を置くだけで開かない（profile/open 自体を確かめるとき）
     "profiles": { "profiles/ipad": "test_config", "config": null },   // ほかの設定ディレクトリ（null なら空のディレクトリ。profile と重ねない）
-    "files": { ".cornix.yml": "profile: ipad\n" },   // ワークスペースに書くファイル（ワークスペースからの相対パス）
+    "files": { ".cornix.yml": "profile: ipad\n", "profiles/default/layers/5_empty.yml": null },   // ワークスペースに書くファイル（ワークスペースからの相対パス。null なら消す）
     "initialize": false,               // initialize（protocolVersion "0.2"）と initialized を先に送らない
     "before": [{ "id": "b1", "method": "shutdown" }]  // request の前に送るメッセージ（応答は確かめない）
   },

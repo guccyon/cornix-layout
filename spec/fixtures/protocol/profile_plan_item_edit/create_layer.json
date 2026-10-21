@@ -1,0 +1,57 @@
+{
+  "description": "レイヤーを足す（v0.4）: 選んだ番号で layers/<番号>_<名前> のファイルを作る（拡張子はディレクトリでいちばん多いもの）。中身は name・description・index・両手の空のグループ",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/layers/5_empty.yml": null
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "layer",
+        "name": "Mouse Keys",
+        "index": 5
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "layers/5_mouse_keys.yml",
+          "baseVersion": null,
+          "create": true,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 0
+                }
+              },
+              "newText": "---\nname: Mouse Keys\ndescription: ''\nindex: 5\nmapping:\n  left_hand:\n    row0: {}\n    row1: {}\n    row2: {}\n    row3: {}\n    thumb_keys: {}\n  right_hand:\n    row0: {}\n    row1: {}\n    row2: {}\n    row3: {}\n    thumb_keys: {}\n"
+            }
+          ]
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

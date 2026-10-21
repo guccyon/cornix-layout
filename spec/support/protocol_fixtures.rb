@@ -79,6 +79,9 @@ module ProtocolFixtures
     profiles.each { |dir, source| copy_profile(root, dir, source) }
     (setup['files'] || {}).each do |rel, text|
       path = File.join(root, rel)
+      # null は消す（profile で置いたファイルを除くとき）
+      next FileUtils.rm_f(path) if text.nil?
+
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, text)
     end
@@ -100,7 +103,7 @@ module ProtocolFixtures
   def setup_messages(workbench, setup)
     list = []
     unless setup['initialize'] == false
-      list << message('id' => 'setup:initialize', 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.3' })
+      list << message('id' => 'setup:initialize', 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.4' })
       list << message('method' => 'initialized')
     end
     if setup['profile'] && setup['open'] != false

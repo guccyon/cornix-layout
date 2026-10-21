@@ -3,7 +3,7 @@
 // protocol.md を変えたら、ここも同じ PR で変える。
 
 /** 約束の版（protocol.md の 4.）。1.0 になるまでは major.minor 全体が一致しなければ話せない */
-export const PROTOCOL_VERSION = '0.3';
+export const PROTOCOL_VERSION = '0.4';
 
 // ---------------------------------------------------------------------------
 // 2. 共通の型
@@ -444,9 +444,11 @@ export type PlanEditsResult = {
 export type ItemKind = 'macro' | 'tapDance' | 'combo' | 'shortcut';
 
 export type ItemEdit =
-  | { op: 'create'; kind: 'macro' | 'tapDance' | 'combo'; name: string; preset?: string }
-  | { op: 'create'; kind: 'shortcut'; name: string; value: string }
-  | { op: 'delete'; kind: ItemKind; name: string }
+  | { op: 'create'; kind: 'macro' | 'tapDance' | 'combo'; name: string; preset?: string; index?: undefined }
+  | { op: 'create'; kind: 'shortcut'; name: string; value: string; index?: undefined }
+  /** v0.4: レイヤーを足す（protocol.md の 14.9）。index を省けば空いているいちばん小さい番号 */
+  | { op: 'create'; kind: 'layer'; name: string; index?: number }
+  | { op: 'delete'; kind: ItemKind | 'layer'; name: string }
   | { op: 'rename'; kind: ItemKind | 'layer'; name: string; to: string }
   | { op: 'renamePosition'; hand: Hand; row: number; col: number; to: string }
   /** v0.3: preset: のマクロを同梱の定義の手順に置き換える（protocol.md の 13.1） */

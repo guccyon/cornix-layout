@@ -1,12 +1,13 @@
-# バックエンドとのリクエストの約束（v0.1・v0.2）
+# バックエンドとのリクエストの約束（v0.1〜v0.4）
 
 VS Code 拡張（以下「拡張」）と、プロファイルを読んで解釈するバックエンド（以下「サーバー」）の間の約束。
 拡張はこの約束だけでサーバーと話し、`cornix` コマンドを直接叩かない（[ADR 003](adr.md)）。
 今のサーバーは Ruby（`cornix` のサブコマンド）だが、将来は同梱の TypeScript 版（B 案、[roadmap.md](roadmap.md) の「将来の拡張」）に
 差し替えられるように、約束には Ruby のクラス名や内部の形を出さない。
 
-**状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。v0.2 で足すもの（2026-10-20 決定）は「[12. v0.2 で足すもの](#12-v02-で足すもの)」。
-今の約束の版（`protocolVersion`）は `"0.2"`。
+**状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。v0.2 で足すもの（2026-10-20 決定）は「[12. v0.2 で足すもの](#12-v02-で足すもの)」、
+v0.3 で足すもの（2026-10-20 決定）は「[13. v0.3 で足すもの](#13-v03-で足すもの)」、v0.4 で足す実機の操作（2026-10-21 設計。実装はこれから）は「[14. v0.4 で足すもの](#14-v04-で足すもの)」。
+今の約束の版（`protocolVersion`）は `"0.3"`。
 
 起動・終了とプロファイルの一覧（`initialize`、`profile/list` など）のほかに、中身のメソッドとして次の 5 つを決める。
 
@@ -995,3 +996,121 @@ type ItemEdit =
 
 約束は変えない。[tasks-v0.3.md](tasks-v0.3.md) の決めたことの 1〜3 と、申し送りの見た目の直し（`（なし）` を出さない、節を畳む、書いていない位置を NoKey と同じ枠に）。
 同梱のショートカットの選択は `keycode/shortcutTree`（v0.2 からある）を使い、コピーは `create`・`kind: "shortcut"`（12.5）で足す。
+
+## 14. v0.4 で足すもの
+
+[tasks-v0.4.md](tasks-v0.4.md) の「決めたこと」を約束にしたもの。実機の操作は、`cornix serve` とは別のプロセスの device のサーバーで行う（ADR 018）。
+**状態: 設計（実装はこれから）。** 約束の版（`protocolVersion`）は段 3 で `"0.4"` に上げる。編集のサーバー（`cornix serve`）の形は変えない。
+
+### 14.1 device のサーバー
+
+```
+cornix serve --device [--allow-writes]
+```
+
+- 枠（Content-Length）・JSON-RPC・ライフサイクル（`initialize` / `shutdown` / `exit`）は [1.](#1-通信) と [4.](#4-ライフサイクルのメソッド) と同じ。登録するメソッドは `device/*` だけ（ほかは `-32601`）
+- `initialize` の `capabilities` に `"device": true` と `"deviceWrites": <--allow-writes を付けたか>` を返す
+- 拡張は設定 `cornix.device.allowWrites` が `true` のときだけ `--allow-writes` を付ける。付けずに起動したサーバーは `device/apply` と `device/restore` を `-32074` で断る（ADR 019）
+- 拡張は必要になったときに起動し、使い終わっても残す。`allowWrites` が変わったら起動し直す。キーボードへの接続はメソッドごとに開いて閉じる（今の `Environment#open_device` と同じ）
+- リクエストは 1 つずつ処理する。実機を読むのに BLE で約 10 秒かかる（[device.md](../device.md)）が、編集のサーバーとは別のプロセスなので候補や検証は止まらない
+- プロファイルは各メソッドの `dir`（[5.1](#51-profilelist) の `dir`）で指す。compile の出力はそのプロファイルの tmp（`Application::Workspace` の決まり）
+
+### 14.2 共通の型
+
+```ts
+// 実機との違い 1 件
+interface DeviceChange {
+  kind: "key" | "encoder" | "macro" | "tapDance" | "combo" | "setting" | "other";
+  layer?: number;            // kind が key / encoder のとき
+  position?: string;         // kind が key のとき。position_map の位置（図と欄で使う）
+  encoder?: { side: "left" | "right"; direction: "cw" | "ccw" | "push" };
+  index?: number;            // macro / tapDance / combo の番号
+  name?: string;             // 名前がある項目（マクロなど）・設定の名前
+  device: string;            // 実機の今の値の表記（キーは VialNotation の表記。項目は短い要約）
+  profile: string;           // このプロファイルの値の表記
+  text: string;              // 1 行の説明（Device::ChangeDescriber と同じ文）
+}
+
+interface DevicePlan {
+  token: string;             // Planning::Plan#token。device/apply・device/restore に渡す
+  empty: boolean;
+  changes: DeviceChange[];
+  warnings: string[];        // RMK 未対応のキーコードなど（Device::ChangePolicy）
+  keyboard: { name: string; uid: string };   // 書き込み先（確認のダイアログに出す）
+}
+```
+
+- マトリクスの座標 → `position` は `Domain::PositionMap` で直す。位置に名前がない（`position_map.yaml` にない）キーは `kind: "other"` にして `text` だけを使う
+
+### 14.3 `device/compare`（読むだけ）
+
+```jsonc
+// params
+{ "dir": "profiles/default" }
+// result
+{ "plan": DevicePlan, "source": "tmp/profiles/default/build/layout.vil" }
+```
+
+- 保存済みのファイルを compile し、その出力と実機の差分を返す（`Application::Compile` → `Application::DeviceDiff`）。未保存の変更は見ない（拡張は先に保存を促す）
+- プロファイルが検証のエラーで compile できないときは、何も読まずに `-32075` CompileFailed（message に compile のエラーの文、`data: { "diagnostics": Diagnostic[] }`）
+
+### 14.4 `device/apply`
+
+```jsonc
+// params
+{ "dir": "profiles/default", "token": "…" }   // token は直前の device/compare の plan.token
+// result
+{ "applied": 12, "backup": "tmp/profiles/default/device_backups/20261021-101500.vil", "remaining": DeviceChange[] }
+```
+
+- サーバーは compile し直して計画し直し、`token` が違えば何も書かずに `-32071`（直前の比べたあとで、ファイルか実機が変わった）
+- 差分がなければ何も書かず、バックアップも取らない（`applied: 0`・`backup: null`）
+- 書く前に今の状態をバックアップし、1 件ずつ書き、読み直して検証する（`Application::DeviceApply` の `expected_token`）。`remaining` は読み直しで残った違い（ふつうは `[]`）
+- 書いている途中で切れたら `-32072`（`data: { "applied": 5, "backup": "…" }`）。もう一度比べて反映すれば続きからそろう
+
+### 14.5 `device/backups` と `device/compareBackup`・`device/restore`
+
+```jsonc
+// device/backups の params / result
+{ "dir": "profiles/default" }
+{ "backups": [ { "name": "20261021-101500", "path": "tmp/…/20261021-101500.vil", "createdAt": "2026-10-21T10:15:00+09:00" } ] }   // 新しい順
+
+// device/compareBackup（読むだけ）の params / result
+{ "dir": "profiles/default", "backup": "20261021-101500" }
+{ "plan": DevicePlan, "source": "tmp/…/20261021-101500.vil" }
+
+// device/restore の params / result（14.4 と同じ形）
+{ "dir": "profiles/default", "backup": "20261021-101500", "token": "…" }
+{ "applied": 12, "backup": "tmp/…/20261021-101820.vil", "remaining": [] }
+```
+
+- `Application::ListBackups` / `DeviceRestore`（`dry_run: true` が compareBackup）を使う。知らない `backup` は `-32602`（`data: { "field": "backup" }`）
+- 戻す前にも今の状態をバックアップする（続けてもう一度戻すと戻す前に戻る）
+
+### 14.6 `device/progress`（サーバー → 拡張、通知）
+
+```jsonc
+{ "phase": "read" | "write" | "verify", "done": 120, "total": 560 }
+```
+
+- 読む・書く・読み直すの進み具合。拡張は `withProgress` に出す
+- `$/cancelRequest` は `phase: "read"` の間だけ受け付け、そのリクエストを `-32800`（RequestCancelled）で終える。書き始めたら取り消せない（受け取っても続ける）
+
+### 14.7 エラーに足すもの
+
+| code | 名前 | いつ | data |
+|---|---|---|---|
+| -32070 | DeviceUnavailable | 実機が使えない | `{ "reason": "platform" \| "bridge" \| "notConnected" \| "timeout" }`（macOS 以外・ブリッジが未ビルド・見つからない・応答がない） |
+| -32071 | PlanChanged | `token` が計画し直したものと違う | — |
+| -32072 | WriteIncomplete | 書いている途中で切れた・失敗した | `{ "applied": 5, "backup": "…" }` |
+| -32073 | PlanRejected | 書き込み禁止のキーコード（`QK_BOOT` など。`Device::ChangePolicy`）を含む計画。`device/compare` でも返す | `{ "keycodes": ["QK_BOOT"] }` |
+| -32074 | WritesNotAllowed | `--allow-writes` なしで書き込みのメソッドを呼んだ | — |
+| -32075 | CompileFailed | プロファイルが compile できない | `{ "diagnostics": Diagnostic[] }` |
+| -32800 | RequestCancelled | 読む間に取り消された（LSP と同じ code） | — |
+
+
+### 14.8 拡張だけで作るもの
+
+約束は変えない。[tasks-v0.4.md](tasks-v0.4.md) の「画面」: ボタンと「実機: 同じ／違う N 件／未確認」の印（状態バーにも）、違うキーの橙の枠とレイヤーのタブの点、
+「実機との差分」の節、確認のダイアログ（件数・警告・`keyboard.name`）、バックアップの選択（QuickPick）、設定 `cornix.device.allowWrites`。
+保存したら印を「未確認」に戻す（`profile/saved` のあと）。

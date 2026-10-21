@@ -14,6 +14,13 @@ module Cornix
 
       def reader(session) = Device::Reader.new(session, macro_codec: env.macro_codec)
 
+      # キーボードの状態を読み、スナップショット（read）に残す → Image::DeviceImage
+      def read_device(session)
+        image = reader(session).read
+        env.snapshot_store.save(image, kind: 'read')
+        image
+      end
+
       def planner(session)
         policy = Device::ChangePolicy.new(catalog: env.catalog, describer: env.describer)
         Device::Planner.new(session, macro_codec: env.macro_codec, policy: policy)
@@ -27,7 +34,7 @@ module Cornix
 
       # 目標の .vil を読み、現在のデバイスとの差分の Plan を作る → [現在の DeviceImage, Plan]
       def plan_for(session, target)
-        current = reader(session).read
+        current = read_device(session)
         [current, planner(session).plan(current: current, target: target)]
       end
 

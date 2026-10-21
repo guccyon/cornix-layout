@@ -70,6 +70,14 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
       expect(File).to exist(path)
     end
 
+    it '書くたびにスナップショット（build）を上書きせずに増やす' do
+      install_config
+      2.times { described_class.new(env).call }
+      builds = env.snapshot_store.list(kind: 'build')
+      expect(builds.size).to eq(2)
+      expect(builds.map { |s| image(s.path) }).to all(eq(image(env.layout_path)))
+    end
+
     it '検証の errors があれば何も書かない' do
       install_config
       File.write(config_file('metadata.yaml'), "- 1\n")
@@ -77,6 +85,7 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
       expect(result).not_to be_compiled
       expect(result.report.errors).not_to be_empty
       expect(File).not_to exist(env.layout_path)
+      expect(env.snapshot_store.list).to be_empty
     end
   end
 

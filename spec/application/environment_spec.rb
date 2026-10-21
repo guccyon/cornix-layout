@@ -10,14 +10,16 @@ RSpec.describe Cornix::Application::Environment do
     expect(env.config_dir).to eq(File.join(Cornix::ROOT, 'config'))
     expect(env.layout_path).to eq(File.join(Cornix::ROOT, 'tmp', 'build', 'layout.vil'))
     expect(env.decompile_input).to eq(File.join(Cornix::ROOT, 'tmp', 'layout.vil'))
-    expect(env.backup_dir).to eq(File.join(Cornix::ROOT, 'tmp', 'device_backups'))
+    expect(env.snapshot_dir).to eq(File.join(Cornix::ROOT, 'tmp', 'snapshots'))
+    expect(env.legacy_backup_dir).to eq(File.join(Cornix::ROOT, 'tmp', 'device_backups'))
   end
 
   it '場所は root から決まり、個別に上書きできる' do
     env = described_class.new(root: '/r', layout_path: '/x/a.vil')
     expect(env.config_dir).to eq('/r/config')
     expect(env.layout_path).to eq('/x/a.vil')
-    expect(env.backup_store.dir).to eq('/r/tmp/device_backups')
+    expect(env.snapshot_store.dir).to eq('/r/tmp/snapshots')
+    expect(env.snapshot_store.legacy_dir).to eq('/r/tmp/device_backups')
   end
 
   it '部品は一度だけ作る' do

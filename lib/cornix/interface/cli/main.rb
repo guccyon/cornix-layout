@@ -14,6 +14,7 @@ require_relative 'commands/pull'
 require_relative 'commands/status'
 require_relative 'commands/apply'
 require_relative 'commands/restore'
+require_relative 'commands/snapshots'
 require_relative 'commands/mcp'
 require_relative 'commands/init'
 require_relative 'commands/serve'
@@ -36,7 +37,8 @@ module Cornix
         # コマンドを足すときは Commands::Xxx < Command を作り、ここに並べる（並び順が help の順）
         COMMANDS = [
           Commands::Init, Commands::Compile, Commands::Decompile, Commands::Validate, Commands::Pull, Commands::Status,
-          Commands::Apply, Commands::Restore, Commands::Rename, Commands::Cleanup, Commands::Device, Commands::Mcp, Commands::Serve
+          Commands::Apply, Commands::Restore, Commands::Snapshots, Commands::Rename, Commands::Cleanup, Commands::Device,
+          Commands::Mcp, Commands::Serve
         ].to_h { |c| [c.command_name, c] }.freeze
 
         DEFAULT_ENV = ->(workspace) { Application::Environment.for(workspace) }
@@ -46,7 +48,7 @@ module Cornix
         VERSION_NAMES = %w[version -v --version].freeze
         VERSION_HELP = "使い方: cornix version（--version / -v でも）\n\nこのツールのバージョンを表示する"
         # 既定（<root>/config）以外の設定ディレクトリを使うとき、最初にどの設定かを表示するコマンド
-        SHOW_CONFIG = %w[compile decompile validate pull status apply restore rename cleanup].freeze
+        SHOW_CONFIG = %w[compile decompile validate pull status apply restore snapshots rename cleanup].freeze
 
         def initialize(env_factory: DEFAULT_ENV, use_cases: {}, mcp_factory: DEFAULT_MCP_SERVER, commands: COMMANDS,
                        workspace_factory: DEFAULT_WORKSPACE, out: $stdout, err: $stderr, input: $stdin)

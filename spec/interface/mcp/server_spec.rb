@@ -37,7 +37,7 @@ RSpec.describe Cornix::Interface::Mcp::Server do
     expect(apply[:inputSchema][:properties][:vil_path][:description]).to include(env.layout_path)
   end
 
-  it '旧 Device::McpServer と同じ tools/list と instructions を返す（spec/fixtures/expected/mcp_tools.json）' do
+  it '保存した tools/list と instructions を返す（spec/fixtures/expected/mcp_tools.json）' do
     old = JSON.parse(File.read(File.expand_path('../../fixtures/expected/mcp_tools.json', __dir__)))
     expect(Cornix::Interface::Mcp::ToolCatalog::INSTRUCTIONS).to eq(old['instructions'])
     tools = Cornix::Interface::Mcp::ToolCatalog.tools(default_vil: old['default_vil'])
@@ -77,7 +77,7 @@ RSpec.describe Cornix::Interface::Mcp::Server do
         params: { name: 'apply_layout', arguments: { vil_path: vil, dry_run: false, confirm_token: token } } }
     )
     applied = responses[0]['result']['content'][0]['text']
-    expect(applied).to eq("1 件を書き込みました。\n反映前のバックアップ: #{env.backup_store.latest}\n" \
+    expect(applied).to eq("1 件を書き込みました。\n反映前のバックアップ: #{env.snapshot_store.latest(kind: 'pre-apply').path}\n" \
                           '読み戻して検証し、すべて一致しました。')
     expect(device.keymap[0][0][1]).to eq(0x05)
   end
@@ -131,9 +131,13 @@ RSpec.describe Cornix::Interface::Mcp::Server do
     path = File.join(@root, 'saved.vil')
     expect(text(call('read_keymap', 'save_path' => path))).to eq("保存しました: #{path}")
     expect(File).to exist(path)
-    expect(text(call('list_backups'))).to eq('バックアップはありません')
-    expect(text(call('backup'))).to eq("バックアップを保存しました: #{env.backup_store.latest}")
-    expect(text(call('list_backups'))).to eq(env.backup_store.latest)
+    expect(text(call('list_backups', 'kind' => 'backup'))).to eq('スナップショットはありません')
+    expect(text(call('backup'))).to eq("バックアップを保存しました: #{env.snapshot_store.latest(kind: 'backup').path}")
+    backup = env.snapshot_store.latest(kind: 'backup')
+    expect(text(call('list_backups', 'kind' => 'backup')))
+      .to eq("#{backup.time.strftime('%Y-%m-%d %H:%M:%S')}  backup  #{backup.path}")
+    expect(text(call('list_backups')).lines.size).to eq(3) # read_keymap で 2 回読んだ read と backup
+    expect(text(call('list_backups', 'kind' => 'nope'))).to start_with('エラー: 知らないスナップショットの種類')
   end
 
   it '不明なツールはエラー' do
@@ -155,14 +159,16 @@ RSpec.describe Cornix::Interface::Mcp::Server do
       expect(call('restore_backup')[:isError]).to be(true)
     end
 
-    it '書き込み後に最新のバックアップから元に戻せる' do
+    it '書き込み後に直前の apply の前の状態（pre-apply）に戻せる。名前でも指定できる' do
       vil_path = write_vil(File.join(@root, 'layout.vil')) { |v| v['layout'][1][1][1] = 'KC_C' }
       token = text(call('apply_layout', 'vil_path' => vil_path))[/confirm_token: (\h+)/, 1]
       call('apply_layout', 'vil_path' => vil_path, 'dry_run' => false, 'confirm_token' => token)
       expect(device.keymap[1][1][1]).to eq(0x06)
 
       dry = text(call('restore_backup'))
-      expect(dry).to include("対象: #{env.backup_store.latest}", 'レイヤー1 (1,1): KC_C → KC_NO')
+      pre_apply = env.snapshot_store.latest(kind: 'pre-apply')
+      expect(dry).to include("対象: #{pre_apply.path}", 'レイヤー1 (1,1): KC_C → KC_NO')
+      expect(text(call('restore_backup', 'backup_path' => pre_apply.name))).to eq(dry)
       token = dry[/confirm_token: (\h+)/, 1]
       call('restore_backup', 'dry_run' => false, 'confirm_token' => token)
       expect(device.keymap[1][1][1]).to eq(0)

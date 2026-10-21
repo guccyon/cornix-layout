@@ -6,7 +6,7 @@ module Cornix
   module Application
     # config/ → .vil（旧 bin/subcommands/compile.rb + Compiler）→ CompileResult。
     # 先に Validate し、errors があれば何も書かない（warnings だけなら書く）。
-    # output を省略すると env.layout_path に書く
+    # output を省略すると env.layout_path に書く。書いたものはスナップショット（build）にも残す
     class Compile < UseCase
       def call(output: nil)
         report = Validate.new(env).call
@@ -14,6 +14,7 @@ module Cornix
 
         image = env.mapper.to_image(report.profile)
         path = env.vil_file.write(image, output || env.layout_path)
+        env.snapshot_store.save(image, kind: 'build')
         CompileResult.new(report: report, path: path, image: image)
       end
     end

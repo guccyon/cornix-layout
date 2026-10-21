@@ -36,9 +36,9 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
     expect(JSON.parse(File.read(path))['layout'][0][0][0]).to eq('KC_A')
   end
 
-  it 'backup はバックアップのパスを表示する' do
+  it 'backup はスナップショット（backup）のパスを表示する' do
     expect(cornix('backup')).to eq(0)
-    expect(out.string).to eq("✓ バックアップを保存しました: #{env.backup_store.latest}\n")
+    expect(out.string).to eq("✓ バックアップを保存しました: #{env.snapshot_store.latest(kind: 'backup').path}\n")
   end
 
   describe 'diff / apply' do
@@ -74,7 +74,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
       expect(cornix('apply', vil, '--yes')).to eq(0)
       expect(device.keymap[1][0][1]).to eq(0x2A)
       expect(opens.size).to eq(1) # 旧実装と同じく接続は 1 回
-      backup = env.backup_store.latest
+      backup = env.snapshot_store.latest(kind: 'pre-apply').path
       expect(out.string).to eq(<<~TEXT)
         反映元: #{vil}
         差分 1 件:
@@ -97,7 +97,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
       expect(cornix('apply', vil)).to eq(0)
       expect(out.string).to end_with("中止しました\n")
       expect(device.writes).to be_empty
-      expect(env.backup_store.list).to be_empty
+      expect(env.snapshot_store.list(kind: 'pre-apply')).to be_empty
       expect(opens.size).to eq(1)
     end
 
@@ -129,10 +129,10 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
   end
 
   describe 'restore' do
-    it '最新のバックアップに戻す' do
+    it '最新の pre-apply（直前の apply の前の状態）に戻す' do
       vil = write_vil(File.join(@root, 'target.vil')) { |v| v['layout'][1][1][1] = 'KC_C' }
       cornix('apply', vil, '--yes')
-      latest = env.backup_store.latest
+      latest = env.snapshot_store.latest(kind: 'pre-apply').path
       out.truncate(0) && out.rewind
       opens.clear
       expect(cornix('restore', '--yes')).to eq(0)
@@ -141,9 +141,9 @@ RSpec.describe Cornix::Interface::Cli::Commands::Device do
       expect(out.string).to start_with("復元元: #{latest}\n差分 1 件:\n  - レイヤー1 (1,1): KC_C → KC_NO\n")
     end
 
-    it 'バックアップがなければエラー' do
+    it 'pre-apply のスナップショットがなければエラー' do
       expect(cornix('restore', '--yes')).to eq(1)
-      expect(err.string).to include('バックアップがありません')
+      expect(err.string).to include('戻す元のスナップショット（apply の前の状態）がありません')
     end
   end
 end

@@ -32,6 +32,9 @@ module Cornix
 
         module_function
 
+        # --json が付いているか（-- より前。extract が使い方の誤りで止まっても、エラーを JSON で出すために先に見る）
+        def json?(args) = args.take_while { |arg| arg != '--' }.include?('--json')
+
         def extract(args)
           opts = {}
           rest = []

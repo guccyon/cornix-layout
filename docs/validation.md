@@ -22,7 +22,8 @@
    - `Domain::Diagnostic(severity, path, message)` の path（`layers[0].left_hand.row0.tab` の形）は
      `Storage::DiagnosticLocator` がファイル上の位置に直す
 
-`Application::Validate` が両方をまとめて `ValidationReport(errors:, warnings:, profile:)` を返す。
+`Application::Validate` が両方をまとめて `ValidationReport(diagnostics:, profile:)` を返す（`Domain::Diagnostic` の一覧で、path はファイル上の位置。構造検証の問題は error にする）。
+`#errors` / `#warnings` は表示用の「ファイル: キーの位置: 内容」の文字列、`#to_h` は `--json` と MCP 用の `{ ok, diagnostics }`。
 config/ がなければ `Application::ConfigNotFound`。表示は `Interface::Cli::ConfigMessages#print_report`
 （`✓ All validations passed` / `✗ Validation failed:` + `  Error: ...`）。警告だけなら compile は続行する。
 

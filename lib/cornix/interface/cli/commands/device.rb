@@ -35,7 +35,9 @@ module Cornix
             when 'diff' then diff(args)
             when 'apply', 'restore' then apply(action, args)
             else
-              raise UsageError, "device の知らない操作です: #{action}" if action && json?
+              if json?
+                raise UsageError, action ? "device の知らない操作です: #{action}" : 'device の操作を指定してください'
+              end
 
               out.line(USAGE)
               action.nil? ? SUCCESS : FAILURE

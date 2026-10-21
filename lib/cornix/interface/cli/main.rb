@@ -66,22 +66,22 @@ module Cornix
         # → 終了コード（0 = 成功、1 = エラー、2 = status で差分あり）。
         # --json のときはエラーも標準出力に { "error": "..." } で出す（終了コードは同じ）
         def run(argv)
-          global = {}
+          json = GlobalOptions.json?(argv)
           global, args = GlobalOptions.extract(argv)
           name = args.shift
           return help(args.first) if name.nil? || HELP_NAMES.include?(name)
-          return version(json: global[:json]) if VERSION_NAMES.include?(name)
+          return version(json: json) if VERSION_NAMES.include?(name)
 
           command_class = @commands[name] or raise UsageError, "知らないコマンドです: #{name}"
-          raise UsageError, "--json は #{name} では使えません" if global[:json] && NO_JSON.include?(name)
+          raise UsageError, "--json は #{name} では使えません" if json && NO_JSON.include?(name)
 
           runtime = runtime(global)
-          show_config(runtime) if SHOW_CONFIG.include?(name) && !global[:json] && !(args & HELP_NAMES).any?
+          show_config(runtime) if SHOW_CONFIG.include?(name) && !json && !(args & HELP_NAMES).any?
           command_class.new.call(runtime, args)
         rescue UsageError => e
-          error(e.message, json: global[:json], usage: true)
+          error(e.message, json: json, usage: true)
         rescue Cornix::Error, SystemCallError => e
-          error(e.message, json: global[:json])
+          error(e.message, json: json)
         end
 
         private

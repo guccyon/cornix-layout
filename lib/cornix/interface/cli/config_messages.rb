@@ -13,7 +13,7 @@ module Cornix
         # config/ がないときの表示（旧 CliHelpers.ensure_config_exists。--json なら { "error" }）→ FAILURE
         def config_not_found(error, hint: false)
           if json?
-            out.json(Application::Serialize.error(["#{error.dir} not found", (DECOMPILE_FIRST if hint)].compact.join('. ')))
+            emit(Application::Serialize.error(["#{error.dir} not found", (DECOMPILE_FIRST if hint)].compact.join('. ')))
             return Command::FAILURE
           end
 

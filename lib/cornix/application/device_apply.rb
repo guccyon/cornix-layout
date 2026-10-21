@@ -25,7 +25,8 @@ module Cornix
           result = writer(session).apply(plan, expected_token: expected_token,
                                                backup: -> { env.snapshot_store.save(current, kind: snapshot_kind) })
           ApplyOutcome.new(source: source, plan: plan, changes: planned.changes, warnings: plan.warnings,
-                           backup: result.backup, applied: result.applied.size, remaining: describe(result.remaining))
+                           backup: result.backup, applied: result.applied.size, remaining: describe(result.remaining),
+                           remaining_changes: result.remaining)
         end
       end
     end

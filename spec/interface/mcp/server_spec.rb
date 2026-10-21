@@ -167,7 +167,7 @@ RSpec.describe Cornix::Interface::Mcp::Server do
       expect(data(call('backup'))).to eq('path' => env.snapshot_store.latest(kind: 'backup').path)
       expect(data(call('list_backups', 'kind' => 'backup'))).to eq(cli_json('snapshots', '--kind', 'backup').except('config'))
       path = File.join(@root, 'saved.vil')
-      expect(data(call('read_keymap', 'save_path' => path))).to include('path' => path)
+      expect(data(call('read_keymap', 'save_path' => path))).to eq('path' => path) # 保存したら中身は返さない
       expect(call('keyboard_info')[:content].size).to eq(1)
       expect(call('read_keymap')[:content].size).to eq(1)
     end

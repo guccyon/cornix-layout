@@ -121,6 +121,12 @@ RSpec.describe 'cornix --json（設定ファイルのコマンド）' do
     expect(err.string).to be_empty
   end
 
+  it '共通のオプションの誤り（--config の値がない）も { error }' do
+    expect(cornix('status', '--json', '--config')).to eq(1)
+    expect(json).to eq('error' => '--config には値が必要です')
+    expect(err.string).to be_empty
+  end
+
   it 'version --json は { version }' do
     expect(cornix('--version', '--json')).to eq(0)
     expect(json).to eq('version' => Cornix::VERSION)
@@ -210,6 +216,9 @@ RSpec.describe 'cornix --json（キーボードのコマンド）' do
       expect(cornix('device', 'read', '--json')).to eq(0)
       expect(json['path']).to be_nil
       expect(json['vil']['layout'][0][0][0]).to eq('KC_A')
+      saved = File.join(@root, 'saved.vil')
+      expect(cornix('device', 'read', '-o', saved, '--json')).to eq(0)
+      expect(json).to eq('path' => saved) # 保存したら中身は出さない
 
       expect(cornix('device', 'backup', '--json')).to eq(0)
       expect(json).to eq('path' => env.snapshot_store.latest(kind: 'backup').path)
@@ -227,9 +236,25 @@ RSpec.describe 'cornix --json（キーボードのコマンド）' do
       expect(json).to eq('error' => 'Cornix が見つかりません')
     end
 
-    it '知らない操作は使い方を出さずに { error }' do
+    it '知らない操作も、操作がないときも、使い方を出さずに { error }' do
       expect(cornix('device', 'bogus', '--json')).to eq(1)
       expect(json['error']).to include('bogus')
+      expect(cornix('device', '--json')).to eq(1)
+      expect(json).to eq('error' => 'device の操作を指定してください')
+    end
+  end
+
+  describe 'pull' do
+    it 'DecompileResult#to_h を出し、config/ に設定があればキーボードを開かずに status: config_exists で exit 1' do
+      expect(cornix('pull', '--json')).to eq(0)
+      expect(json).to include('ok' => true, 'status' => 'decompiled', 'input' => env.decompile_input,
+                              'output_dir' => env.config_dir)
+      expect(json).to have_key('config')
+
+      opens.clear
+      expect(cornix('pull', '--json')).to eq(1)
+      expect(json).to include('ok' => false, 'status' => 'config_exists')
+      expect(opens).to be_empty
     end
   end
 

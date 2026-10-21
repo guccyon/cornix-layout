@@ -481,7 +481,7 @@ cornix rename
 
 | 種類 | 残すとき |
 |---|---|
-| `read` | キーボードを読んだとき（`pull` / `status` / `apply` / `restore` / `device read` / `device diff`） |
+| `read` | キーボードを読んだとき（`pull` / `init` / `status` / `apply` / `restore` / `device read` / `device diff`） |
 | `build` | `compile` の出力（`status` / `apply` が compile したときも） |
 | `backup` | `cornix device backup` |
 | `pre-apply` | `apply` が書き込む直前 |

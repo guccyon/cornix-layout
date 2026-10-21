@@ -51,7 +51,7 @@ CLI の apply / restore は 1 回の接続の中で計画 → 確認（y/N、`--
 ## スナップショット
 
 キーボードの状態と compile の出力は `Storage::SnapshotStore` が `<tmp>/snapshots/<YYYYmmdd-HHMMSS>-<種類>/layout.vil` に残す（issue #25）。
-上書きしない（同じ秒・同じ種類なら `-2`, `-3` … を付ける）。中身は layout.vil だけ（人が読む形の YAML は持たない。必要なら `cornix decompile` に渡す）。
+上書きしない（同じ秒にほかのスナップショットがあれば、種類によらず作った順に `-2`, `-3` … を付ける。一覧は日時とこの番号で並べるので、apply の read → pre-apply のように同じ秒に続けて作っても作った順になる）。中身は layout.vil だけ（人が読む形の YAML は持たない。必要なら `cornix decompile` に渡す）。
 
 | 種類 | 保存するところ |
 |---|---|

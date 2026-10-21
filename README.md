@@ -484,7 +484,7 @@ Each time cornix reads the keyboard, writes to it, or compiles, it keeps a times
 
 | Kind | When it is taken |
 |---|---|
-| `read` | When the keyboard is read (`pull` / `status` / `apply` / `restore` / `device read` / `device diff`) |
+| `read` | When the keyboard is read (`pull` / `init` / `status` / `apply` / `restore` / `device read` / `device diff`) |
 | `build` | The output of `compile` (also when `status` / `apply` compile) |
 | `backup` | `cornix device backup` |
 | `pre-apply` | Just before `apply` writes |

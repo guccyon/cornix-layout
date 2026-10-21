@@ -7,9 +7,10 @@ module Cornix
   module Storage
     # キーボードの状態と compile の出力の履歴（スナップショット）の置き場（旧 BackupStore）。
     #
-    # スナップショットは dir/<YYYYmmdd-HHMMSS>-<種類>/layout.vil。上書きしない（同じ秒・同じ種類なら名前に -2, -3 … を付ける）。
+    # スナップショットは dir/<YYYYmmdd-HHMMSS>-<種類>/layout.vil。上書きしない（同じ秒にほかのスナップショットがあれば、
+    # 種類によらず作った順に -2, -3 … を付ける。一覧は日時とこの番号で並べるので、同じ秒でも作った順になる）。
     # 種類（KINDS）:
-    #   read        キーボードを読んだとき（pull / status / apply / restore / device read / device diff など）
+    #   read        キーボードを読んだとき（pull / init / status / apply / restore / device read / device diff など）
     #   build       compile の出力
     #   backup      cornix device backup（MCP の backup）で明示的に保存したとき
     #   pre-apply   apply で書き込む直前の状態
@@ -87,13 +88,19 @@ module Cornix
         allowed = legacy ? [*KINDS, LEGACY] : KINDS
         return if allowed.include?(kind)
 
-        raise ArgumentError, "知らないスナップショットの種類です: #{kind}（#{allowed.join(' / ')}）"
+        message = "知らないスナップショットの種類です: #{kind}（#{allowed.join(' / ')}）"
+        # 一覧の絞り込みは利用者の入力（CLI の --kind、MCP の kind）。保存の種類はコードが決める
+        raise(legacy ? ConfigError.new(message) : ArgumentError.new(message))
       end
 
-      # 同じ名前があれば -2, -3 … を付ける（mkdir の失敗で、同時に作られたときも重ならない）
+      # 同じ秒のスナップショット（種類によらない）の番号の最大 + 1 を番号にし、2 以上なら -番号 を付ける
+      # （mkdir の失敗で次の番号にするので、同時に作られたときも重ならない）
       def new_dir(kind, time)
-        base = "#{time.strftime(TIME_FORMAT)}-#{kind}"
-        (1..).each do |seq|
+        stamp = time.strftime(TIME_FORMAT)
+        base = "#{stamp}-#{kind}"
+        same_second = snapshots.select { |snapshot| snapshot.name.start_with?("#{stamp}-") }
+        first = (same_second.map { |snapshot| sort_key(snapshot)[1] }.max || 0) + 1
+        (first..).each do |seq|
           path = File.join(@dir, seq == 1 ? base : "#{base}-#{seq}")
           Dir.mkdir(path)
           return path
@@ -127,9 +134,10 @@ module Cornix
         end
       end
 
-      # 日時の順。同じ秒なら -2, -3 … の順、それも同じなら名前の順
+      # 日時の順。同じ秒なら番号（-2, -3 …。付いていなければ 1、legacy は 0）の順
       def sort_key(snapshot)
-        [snapshot.time, NAME.match(snapshot.name)&.[](:seq).to_i, snapshot.name]
+        seq = snapshot.legacy? ? 0 : (NAME.match(snapshot.name)[:seq] || 1).to_i
+        [snapshot.time, seq, snapshot.name]
       end
 
       def parse_time(text) = Time.strptime(text, TIME_FORMAT)
@@ -138,7 +146,8 @@ module Cornix
         snapshot = latest(kind: 'pre-apply') || latest(kind: LEGACY)
         return snapshot.path if snapshot
 
-        raise ConfigError.new('戻す元のスナップショット（apply の前の状態）がありません', path: @dir)
+        raise ConfigError.new('戻す元のスナップショット（apply の前の状態）がありません。' \
+                              'ほかのスナップショットに戻すときは cornix snapshots で一覧し、名前かパスを指定してください', path: @dir)
       end
 
       def candidates(name)

@@ -36,6 +36,16 @@ RSpec.describe Cornix::Storage::SnapshotStore do
       expect(store.list.map(&:name)).to eq(%w[20261018-090507-read-3 20261018-090507-read-2 20261018-090507-read])
     end
 
+    it '同じ秒なら種類が違っても番号を続け、一覧は作った順になる' do
+      time = at(2026, 1, 1)
+      kinds = %w[build read pre-apply read]
+      paths = kinds.map { |kind| store.save(image, kind: kind, time: time) }
+      expect(paths.map { |p| File.basename(File.dirname(p)) })
+        .to eq(%w[20260101-000000-build 20260101-000000-read-2 20260101-000000-pre-apply-3 20260101-000000-read-4])
+      expect(store.list.map(&:path)).to eq(paths.reverse)
+      expect(store.resolve).to eq(paths[2])
+    end
+
     it '知らない種類は ArgumentError' do
       expect { store.save(image, kind: 'legacy') }.to raise_error(ArgumentError, /知らないスナップショットの種類/)
     end
@@ -71,8 +81,8 @@ RSpec.describe Cornix::Storage::SnapshotStore do
         .to eq('name' => '20260301-000000-read', 'kind' => 'read', 'time' => at(2026, 3, 1).iso8601, 'path' => read)
     end
 
-    it '知らない種類で絞り込むと ArgumentError' do
-      expect { store.list(kind: 'nope') }.to raise_error(ArgumentError)
+    it '知らない種類で絞り込むと ConfigError（利用者の入力の誤り）' do
+      expect { store.list(kind: 'nope') }.to raise_error(Cornix::ConfigError, /知らないスナップショットの種類です: nope/)
     end
   end
 
@@ -115,7 +125,7 @@ RSpec.describe Cornix::Storage::SnapshotStore do
 
     it 'pre-apply も前の版のバックアップもなければ ConfigError' do
       store.save(image, kind: 'backup')
-      expect { store.resolve }.to raise_error(Cornix::ConfigError, /戻す元のスナップショット/)
+      expect { store.resolve }.to raise_error(Cornix::ConfigError, /戻す元のスナップショット.*cornix snapshots で一覧/)
     end
   end
 end

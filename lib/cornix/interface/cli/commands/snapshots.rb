@@ -10,8 +10,6 @@ module Cornix
         # cornix snapshots [--kind KIND]: キーボードの状態と compile の出力の履歴（tmp/snapshots/）を新しい順に表示する。
         # パスは cornix restore / device diff / decompile にそのまま渡せる（カレントの下なら相対パス）
         class Snapshots < Command
-          KINDS = Application::ListSnapshots::KINDS
-
           command 'snapshots', 'キーボードの状態と compile の出力の履歴（日時・種類・パス）を新しい順に表示する',
                   args: '[--kind KIND]'
 
@@ -20,7 +18,7 @@ module Cornix
               #{super}
 
               種類（KIND）:
-                read         キーボードを読んだとき（pull / status / apply / restore / device read / device diff）
+                read         キーボードを読んだとき（pull / init / status / apply / restore / device read / device diff）
                 build        compile の出力
                 backup       cornix device backup で保存したとき
                 pre-apply    apply で書き込む直前（cornix restore の既定の戻し先）
@@ -34,8 +32,6 @@ module Cornix
           def run(args)
             _, opts = parse!(args) { |p, o| p.on('--kind KIND', '種類で絞り込む') { |k| o[:kind] = k } }
             kind = opts[:kind]
-            raise UsageError, "知らない種類です: #{kind}（#{KINDS.join(' / ')}）" if kind && !KINDS.include?(kind)
-
             list = use_case(:list_snapshots).call(kind: kind)
             return none(kind) if list.empty?
 
@@ -56,7 +52,8 @@ module Cornix
           # カレントの下なら相対パス、外なら絶対パス
           def display(path)
             relative = Pathname(path).expand_path.relative_path_from(Pathname(Dir.pwd).expand_path).to_s
-            relative.start_with?('..') ? File.expand_path(path) : relative
+            outside = relative == '..' || relative.start_with?("..#{File::SEPARATOR}")
+            outside ? File.expand_path(path) : relative
           end
         end
       end

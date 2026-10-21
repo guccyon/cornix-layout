@@ -138,7 +138,18 @@ RSpec.describe 'cornix pull / status / apply / restore' do
 
     it '知らない種類は exit 1' do
       expect(cornix('snapshots', '--kind', 'nope')).to eq(1)
-      expect(err.string).to include('知らない種類です: nope')
+      expect(err.string).to include('知らないスナップショットの種類です: nope')
+    end
+
+    it 'カレントの下なら相対パスで出し、そのパスを restore に渡せる' do
+      cornix('apply', '--yes')
+      Dir.chdir(@root) do
+        expect(cornix('snapshots', '--kind', 'pre-apply')).to eq(0)
+        path = out.string.split.last
+        expect(path).to match(%r{\Atmp/snapshots/\d{8}-\d{6}-pre-apply(-\d+)?/layout\.vil\z})
+        expect(cornix('restore', path, '--yes')).to eq(0)
+      end
+      expect(device.keymap[1][0][1]).to eq(0)
     end
   end
 

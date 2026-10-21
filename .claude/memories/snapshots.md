@@ -12,3 +12,5 @@
 - 読み出しのたびにスナップショットが増えるので、spec の `device_environment_context.rb` の `device_vil`（準備の読み出し）は別の root の Environment で読む。
   同じ env で読むと read の件数を数えるテストがずれる
 - Interface は Application にしか依存できない（architecture_spec）。CLI / MCP が種類の一覧を使うときは `Application::ListSnapshots::KINDS` を通す
+- 同じ秒の番号（-2, -3 …）は種類によらず続けて振る。種類ごとに数えて名前の順で並べると、apply の read → pre-apply が逆に並んだ（レビューの指摘）。mtime は Linux の粒度が粗く同じ値になりうるので使わない
+- 一覧の絞り込みの種類の誤りは ConfigError（利用者の入力）、save の種類の誤りは ArgumentError（コードの誤り）

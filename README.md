@@ -162,10 +162,16 @@ Common options (accepted by every command, before or after the command name):
 | `--profile NAME` | Use the settings in `profiles/NAME/` |
 | `--config DIR` | Give the settings directory directly |
 | `--root DIR` | Where `tmp/` and `profiles/` live (default: the directory containing `.cornix.yml`, otherwise this repository) |
+| `--json` | Print the result as a single JSON value on standard output (for scripts) |
 
-Normally `.cornix.yml` decides this, so you don't need them.
+Normally `.cornix.yml` decides the settings directory, so you don't need `--profile` / `--config` / `--root`.
 
 Exit codes: `0` = success, `1` = error, `2` = there are differences (`status` only). Errors are printed to standard error as `エラー: …` ("Error: …").
+
+With `--json`, standard output holds only one JSON value, with no other text, and the exit codes stay the same. Errors become `{ "error": "..." }` on standard output.
+For example, `cornix status --json` prints `{ "config", "compile", "diff" }`, and `cornix validate --json` prints `{ "config", "ok", "diagnostics": [{ "severity", "path", "message" }] }`.
+`apply` / `restore` / `device apply` / `device restore` cannot ask for confirmation, so they also need `--yes` (without it they stop before touching the keyboard).
+`cleanup -f`, `rename`, `mcp` and `serve` do not support `--json`.
 
 ### When `pull` stops
 
@@ -644,6 +650,8 @@ If you keep the settings in a separate repository, run `claude mcp add cornix-de
 | `backup` / `list_backups` | No | Saves a snapshot (kind `backup`) / lists the snapshots (`kind` narrows the list) |
 | `apply_layout` | Only with `dry_run: false` | Writes a .vil (default: the output of `cornix compile`). A dry run by default, returning the differences and a `confirm_token`; writes only with `dry_run: false` and the `confirm_token` |
 | `restore_backup` | Only with `dry_run: false` | Goes back to a snapshot (default: the newest `pre-apply`), with the same two steps as `apply_layout` |
+
+Each tool result has a short summary for people and, as a second item, the same JSON as the CLI's `--json` (`keyboard_info` and `read_keymap` without `save_path` return only the JSON itself).
 
 `apply_layout` writes the `<tmp>/build/layout.vil` last written by `cornix status` / `apply` (or `compile`). After changing the YAML, run `cornix status` first.
 If the keyboard or the file changes after the review, the token no longer matches and the write is refused. Even when you let an AI assistant write, always ask it to show you the dry run result first.

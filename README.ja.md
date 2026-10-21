@@ -161,10 +161,16 @@ Vial 用の `compile` / `decompile` / `cleanup` は [Vial を使う場合](#vial
 | `--profile NAME` | `profiles/NAME/` の設定を使う |
 | `--config DIR` | 設定ディレクトリを直接指定する |
 | `--root DIR` | `tmp/` と `profiles/` を置く場所（既定は `.cornix.yml` のあるディレクトリ、なければこのリポジトリ） |
+| `--json` | 結果を JSON の 1 つの値として標準出力に出す（スクリプト向け） |
 
-ふだんは `.cornix.yml` で決まるので、付ける必要はありません。
+ふだんは `.cornix.yml` で設定ディレクトリが決まるので、`--profile` / `--config` / `--root` を付ける必要はありません。
 
 終了コード: `0` = 成功、`1` = エラー、`2` = 差分がある（`status` のみ）。エラーは標準エラー出力に `エラー: …` の形で表示します。
+
+`--json` を付けると、標準出力には JSON の値 1 つだけを出し、ほかの文章は混ぜません。終了コードは同じで、エラーは標準出力に `{ "error": "..." }` を出します。
+たとえば `cornix status --json` は `{ "config", "compile", "diff" }`、`cornix validate --json` は `{ "config", "ok", "diagnostics": [{ "severity", "path", "message" }] }` を出します。
+`apply` / `restore` / `device apply` / `device restore` は確認を尋ねられないので、`--yes` も付けてください（付けないとキーボードに触れる前に止まります）。
+`cleanup -f`・`rename`・`mcp`・`serve` は `--json` に対応していません。
 
 ### `pull` が止まるとき
 
@@ -641,6 +647,8 @@ Marketplace には出していないので、.vsix を作って手元で入れ�
 | `backup` / `list_backups` | しない | スナップショット（種類 `backup`）の保存 / スナップショットの一覧（`kind` で絞り込める） |
 | `apply_layout` | `dry_run: false` のときだけ | .vil（既定は `cornix compile` の出力）を書き込む。既定は dry run で差分と `confirm_token` を返し、`dry_run: false` と `confirm_token` を付けたときだけ書き込む |
 | `restore_backup` | `dry_run: false` のときだけ | スナップショット（既定は最新の `pre-apply`）に戻す。`apply_layout` と同じ二段階 |
+
+各ツールの結果には、人が読む短い要約と、2 つ目として CLI の `--json` と同じ JSON が入ります（`keyboard_info` と、`save_path` なしの `read_keymap` は JSON そのものだけを返します）。
 
 `apply_layout` が書くのは、最後に `cornix status` / `apply`（か `compile`）が書いた `<tmp>/build/layout.vil` です。YAML を変えたら、先に `cornix status` を実行してください。
 確認したあとにキーボードやファイルが変わるとトークンが一致せず、書き込みは拒否されます。AI アシスタントに任せるときも、書き込む前に dry run の結果を見せてもらってください。

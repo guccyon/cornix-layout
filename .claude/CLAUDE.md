@@ -15,6 +15,7 @@
   - [キーコードの表記](../docs/notation.md) - 修飾キー表現、Macro / TapDance の参照、Shortcut('名前')
   - [検証](../docs/validation.md) - 構造検証と意味検証
   - [rename](../docs/rename.md) - `cornix rename` と `bin/rename_file`
+  - [コマンドの体系と cornix self](../docs/cli.md) - サブコマンドの並べ方の方針、`cornix self link`（Ruby を固定した shim を PATH に置く。設計だけ）
   - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp`、RMK 0.8 の挙動と安全設計
   - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・ロードマップ・バックエンドとのリクエストの約束（v0.1・v0.2・v0.3、v0.4 は設計。コードは `editors/vscode/`、バックエンドは `cornix serve`）
 - **Memories**: [memories/](memories/)

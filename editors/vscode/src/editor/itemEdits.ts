@@ -1,4 +1,4 @@
-// 項目の追加・削除・名前の変更（protocol.md の 12.5）と preset の展開（13.1）で、確認のダイアログに出す文と、失敗の知らせの文を作る。vscode に依存しない。
+// 項目の追加・削除・名前の変更（protocol.md の 12.5）と preset の展開（13.1）、レイヤーの追加・削除（14.9）で、確認のダイアログに出す文と、失敗の知らせの文を作る。vscode に依存しない。
 import { ErrorCodes, type ItemEdit, type ItemFileEdits, type PlanItemEditResult } from '../protocol';
 
 const KIND_NAMES: Record<string, string> = {
@@ -18,9 +18,10 @@ export function isItemEdit(value: unknown): value is ItemEdit {
   const kind = typeof edit.kind === 'string' && edit.kind in KIND_NAMES;
   switch (edit.op) {
     case 'create':
-      return kind && edit.kind !== 'layer' && typeof edit.name === 'string' && (edit.kind === 'shortcut' ? typeof edit.value === 'string' : edit.preset === undefined || typeof edit.preset === 'string');
+      if (edit.kind === 'layer') return typeof edit.name === 'string' && (edit.index === undefined || Number.isInteger(edit.index));
+      return kind && edit.index === undefined && typeof edit.name === 'string' && (edit.kind === 'shortcut' ? typeof edit.value === 'string' : edit.preset === undefined || typeof edit.preset === 'string');
     case 'delete':
-      return kind && edit.kind !== 'layer' && typeof edit.name === 'string';
+      return kind && typeof edit.name === 'string';
     case 'rename':
       return kind && typeof edit.name === 'string' && typeof edit.to === 'string';
     case 'renamePosition':
@@ -36,6 +37,7 @@ export function isItemEdit(value: unknown): value is ItemEdit {
 export function itemEditTitle(edit: ItemEdit): string {
   switch (edit.op) {
     case 'create':
+      if (edit.kind === 'layer' && edit.index !== undefined) return `レイヤー ${edit.index} ${edit.name} を追加します。`;
       return `${KIND_NAMES[edit.kind]} ${edit.name} を追加します。`;
     case 'delete':
       return `${KIND_NAMES[edit.kind]} ${edit.name} を削除します。`;
@@ -63,7 +65,13 @@ function fileLine(file: ItemFileEdits): string {
 export function describeItemEdit(edit: ItemEdit, result: PlanItemEditResult): { message: string; detail: string } {
   const count = result.references.length;
   let references = '';
-  if (edit.op === 'delete') {
+  if (edit.op === 'delete' && edit.kind === 'layer') {
+    // 消したレイヤーは compile で KC_NO（issue #83）。指していたレイヤー操作は警告になるが書き込みは止めない
+    references =
+      count > 0
+        ? `このレイヤーを指すレイヤー操作（MO・LT・TG など）が ${count} 件あり、削除すると参照している側に警告が出ます。compile ではこのレイヤーのキーはすべて何もしない（KC_NO）になります。`
+        : 'このレイヤーを指すレイヤー操作はありません。compile ではこのレイヤーのキーはすべて何もしない（KC_NO）になります。';
+  } else if (edit.op === 'delete') {
     references = count > 0 ? `この項目への参照が ${count} 件あり、削除すると参照している側がエラーになります。` : 'この項目への参照はありません。';
   } else if (edit.op === 'rename' || edit.op === 'renamePosition') {
     references = count > 0 ? `参照 ${count} 件も書き換えます。` : '';

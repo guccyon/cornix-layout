@@ -266,7 +266,7 @@ describe('App の描き直し', () => {
     expect(document.activeElement).toBe(input);
     expect(input.value).toBe('Es');
     expect(pane.scrollTop).toBe(40);
-    expect(root.querySelectorAll('.layer-tab')).toHaveLength(3);
+    expect(root.querySelectorAll('.layer-tab[data-layer]')).toHaveLength(3);
     expect(host.changes).toEqual([]);
   });
 

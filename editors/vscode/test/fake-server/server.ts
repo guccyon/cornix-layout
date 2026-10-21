@@ -403,7 +403,7 @@ class FakeServer {
         ],
       };
     }
-    const layers = data.LAYERS.flatMap((layer) => layerFromDisk(base, layer) ?? []);
+    const layers = [...data.LAYERS.flatMap((layer) => layerFromDisk(base, layer) ?? []), ...extraLayersFromDisk(base)].sort((a, b) => a.index - b.index);
     const items = itemsFromDisk(base);
     return {
       profileId,
@@ -957,6 +957,28 @@ function layerFromDisk(base: string, layer: LayerSnapshot): LayerSnapshot | unde
     keys: layer.keys.map((key) => ({ ...key, value: read(key.address.path, key.value) })),
     encoders: { left: encoder(layer.encoders.left), right: encoder(layer.encoders.right) },
   };
+}
+
+/**
+ * v0.4: fixtures にないレイヤーのファイル（拡張から足したもの）。name と index の行だけを読み、割り当ては layerFromDisk と同じく読む
+ */
+function extraLayersFromDisk(base: string): LayerSnapshot[] {
+  const dir = path.join(base, 'layers');
+  if (!fs.existsSync(dir)) return [];
+  const known = new Set(data.LAYERS.map((layer) => layer.file));
+  return fs
+    .readdirSync(dir)
+    .filter((name) => /\.ya?ml$/.test(name) && !known.has(`layers/${name}`))
+    .sort()
+    .flatMap((name) => {
+      const file = `layers/${name}`;
+      const text = fs.readFileSync(path.join(dir, name), 'utf-8');
+      const index = /^index:\s*(\d+)/m.exec(text)?.[1];
+      const layerName = /^name:\s*(.+)$/m.exec(text)?.[1];
+      if (index === undefined || layerName === undefined) return [];
+      const layer = data.buildLayer({ index: Number(index), name: unquote(layerName.trim()), description: '', file, keys: {} });
+      return layerFromDisk(base, layer) ?? [];
+    });
 }
 
 /** QMK 設定の値をディスクの settings/qmk_settings.yaml から読む（ファイルがなければ fixtures のまま、書いていなければ null） */

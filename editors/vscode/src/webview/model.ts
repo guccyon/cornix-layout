@@ -214,22 +214,6 @@ export function keyAt(layer: LayerSnapshot, slot: Pick<Slot, 'hand' | 'key'>): L
   return layer.keys.find((k) => k.hand === slot.hand && k.row === key.row && k.col === key.col);
 }
 
-/** v0.3: 全レイヤーの表示の 1 行（tasks-v0.3.md の決めたことの 3）。current は今選んでいるレイヤーの行 */
-export type LayerLine = { index: number; label: string; current: boolean };
-
-/**
- * 全レイヤーの表示の行の文字。KC_TRNS・NoKey・書いていない位置は null（行を省く）。
- * まだ解釈を聞いていない値・読めない表記は書いたとおり。2 役のキーは「タップ/ホールド」
- */
-export function layerLineLabel(text: string, value: KeyValue | null | undefined): string | null {
-  if (text === '') return null;
-  if (value === undefined || value === null) return text;
-  if (value.kind === 'transparent' || value.kind === 'noKey') return null;
-  const { tap, hold, label } = value.display;
-  if ((value.kind === 'layerTap' || value.kind === 'modTap') && tap && hold) return `${tap}/${hold}`;
-  return label || value.canonical;
-}
-
 /** レイヤーの見出し（"0 Base"） */
 export function layerTitle(layer: { index: number; name: string }): string {
   return `${layer.index} ${layer.name}`;

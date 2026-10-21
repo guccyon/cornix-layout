@@ -1,12 +1,11 @@
 // @vitest-environment happy-dom
-// v0.3 の図（E1）: 位置の名前のボタンのホバーと出所の説明、書いていない位置の見た目、コンボのボタンと強調、全レイヤーの表示、図からキーを選ぶ状態
+// v0.3 の図（E1）: 位置の名前のボタンのホバーと出所の説明、書いていない位置の見た目、コンボのボタンと強調、図からキーを選ぶ状態（全レイヤーの表示は v0.4 でやめた）
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AnyChange, ComboSnapshot, KeyValue, PositionMapEntry } from '../../../src/protocol';
 import { App } from '../../../src/webview/app';
 import { comboTargets, effectiveKey, sameKey, triggerKeys } from '../../../src/webview/comboHighlight';
-import { layerLineLabel } from '../../../src/webview/model';
 import { hideTooltip } from '../../../src/webview/tooltip';
 import * as data from '../../fake-server/fixtures';
 import { FakeHost, fixtureSnapshot, settle } from './fakeHost';
@@ -237,78 +236,6 @@ describe('コンボのボタンと強調', () => {
   });
 });
 
-describe('全レイヤーの表示', () => {
-  it('各キーの面にレイヤーごとの値を「番号 ラベル」で並べ、KC_TRNS・NoKey・書いていない位置の行は省き、今のレイヤーを強調する', () => {
-    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
-    const toggle = root.querySelector<HTMLButtonElement>('.layers-toggle')!;
-    expect(toggle.textContent).toBe('全レイヤー');
-    toggle.click();
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    const lines = (id: string) =>
-      [...keyElement(id).querySelectorAll<HTMLElement>('.layer-line')].map((line) => `${line.textContent}${line.classList.contains('current') ? '*' : ''}`);
-    // Q: 0 Q と 1 ?（fixtures の Question のラベル）
-    expect(lines(slotOf('left_hand', 'row0', 'Q'))).toEqual(['0Q*', `1${data.interpret('Question')!.display.label}`]);
-    // R: レイヤー 1 は NoKey → 省く。lctrl: レイヤー 1 は Trans → 省く。W: レイヤー 1 は書いていない → 省く
-    expect(lines(slotOf('left_hand', 'row0', 'R'))).toEqual(['0R*']);
-    expect(lines(slotOf('left_hand', 'row1', 'lctrl'))).toEqual([`0${data.interpret('LCtrl')!.display.label}*`]);
-    expect(lines(slotOf('left_hand', 'row0', 'W'))).toEqual(['0W*']);
-    // 2 役のキーはタップ/ホールド
-    expect(lines(slotOf('left_hand', 'thumb_keys', 'middle'))).toEqual(['0Space/L1*', '1Space']);
-    expect(keyElement(slotOf('left_hand', 'row0', 'Q')).getAttribute('aria-label')).toContain('全レイヤー: 0 Q、1 ');
-
-    app.selectLayer(1);
-    expect(lines(slotOf('left_hand', 'row0', 'Q', symbols))).toEqual(['0Q', `1${data.interpret('Question')!.display.label}*`]);
-    // エンコーダはいつもの面
-    expect(root.querySelector('.encoder-part .layer-line')).toBeNull();
-  });
-
-  it('位置の名前の表示とは同時に出さず、あとから押したほうに切り替える。Alt の一時表示は位置の名前が勝つ', () => {
-    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
-    const positions = root.querySelector<HTMLButtonElement>('.position-toggle')!;
-    const layers = root.querySelector<HTMLButtonElement>('.layers-toggle')!;
-    const q = keyElement(slotOf('left_hand', 'row0', 'Q'));
-    positions.click();
-    layers.click();
-    expect(positions.getAttribute('aria-pressed')).toBe('false');
-    expect(q.querySelector('.layer-line')).not.toBeNull();
-    expect(q.querySelector('.position-name')).toBeNull();
-    positions.click();
-    expect(layers.getAttribute('aria-pressed')).toBe('false');
-    expect(q.querySelector('.position-name')).not.toBeNull();
-    expect(q.querySelector('.layer-line')).toBeNull();
-
-    layers.click();
-    press(window, 'keydown', 'Alt');
-    expect(q.querySelector('.position-name')).not.toBeNull();
-    press(window, 'keyup', 'Alt');
-    expect(q.querySelector('.layer-line')).not.toBeNull();
-    layers.click();
-    expect(q.querySelector('.layer-line')).toBeNull();
-    expect(q.textContent).toBe('Q');
-  });
-
-  it('ほかのレイヤーの未保存の変更も行に出す（解釈が返ったら描き直す）', async () => {
-    const pending: AnyChange[] = [
-      { address: address(symbols, 'left_hand', 'row0', 'W'), value: 'Escape' },
-      { op: 'remove', address: address(symbols, 'left_hand', 'row0', 'Q') },
-    ];
-    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [], pending });
-    app.keyboardView.setShowLayers(true);
-    await settle(0);
-    const labels = (id: string) => [...keyElement(id).querySelectorAll('.layer-line')].map((line) => line.textContent);
-    expect(labels(slotOf('left_hand', 'row0', 'W'))).toEqual(['0W', '1Esc']);
-    expect(labels(slotOf('left_hand', 'row0', 'Q'))).toEqual(['0Q']);
-  });
-
-  it('表示中にキーを押すと下の欄へ移る（今と同じ）', () => {
-    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
-    app.keyboardView.setShowLayers(true);
-    const q = slotOf('left_hand', 'row0', 'Q');
-    keyElement(q).click();
-    expect(app.selectedSlot).toBe(q);
-  });
-});
-
 describe('図からキーを選ぶ（pickKey）', () => {
   it('選ぶ状態の間は図の上に案内を出し、キーを押すと今のレイヤーの表記を渡して抜ける（欄は選ばない）', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
@@ -381,7 +308,7 @@ describe('図からキーを選ぶ（pickKey）', () => {
   });
 });
 
-describe('comboHighlight と layerLineLabel', () => {
+describe('comboHighlight', () => {
   it('sameKey は 16bit 値で、なければ正規形で比べる', () => {
     expect(sameKey(value('A'), { ...value('A'), text: 'KC_A' })).toBe(true);
     expect(sameKey(value('A'), value('B'))).toBe(false);
@@ -396,14 +323,5 @@ describe('comboHighlight と layerLineLabel', () => {
     expect(effectiveKey(value('A'), value('B'))).toEqual(value('A'));
     expect(comboTargets([['a', value('A')], ['b', null], ['c', value('C')]], [value('A'), value('C')])).toEqual(new Set(['a', 'c']));
     expect(comboTargets([['a', value('A')]], [])).toEqual(new Set());
-  });
-
-  it('layerLineLabel は KC_TRNS・NoKey・書いていない位置で null、解釈のない値は表記のまま', () => {
-    expect(layerLineLabel('', null)).toBeNull();
-    expect(layerLineLabel('Trans', value('Trans'))).toBeNull();
-    expect(layerLineLabel('NoKey', value('NoKey'))).toBeNull();
-    expect(layerLineLabel('Foo', undefined)).toBe('Foo');
-    expect(layerLineLabel('LGUI_T(KC_LANG2)', value('LGUI_T(KC_LANG2)'))).toBe('英数/⌘');
-    expect(layerLineLabel('MO(3)', value('MO(3)'))).toBe(value('MO(3)').display.label);
   });
 });

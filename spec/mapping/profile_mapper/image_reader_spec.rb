@@ -50,8 +50,64 @@ RSpec.describe Cornix::Mapping::ProfileMapper::ImageReader do
   let(:profile) { mapper.to_profile(image, position_map: position_map) }
 
   describe 'レイヤー' do
-    it 'すべて nil のレイヤーは読まない' do
-      expect(profile.layers.map(&:index)).to eq([0])
+    it 'すべて nil のレイヤーは読まない（タップダンスの MO(1) とレイヤー 0 の MO(3) が指すレイヤーは読む）' do
+      expect(profile.layers.map(&:index)).to eq([0, 1, 3])
+      expect(profile.layers.drop(1)).to all(be_blank)
+    end
+
+    describe '空のレイヤー（すべての位置とエンコーダが KC_NO か nil）' do
+      def filled(code)
+        g = grid
+        position_map.positions.each do |position|
+          row, col = position_map.matrix(position)
+          g[row][col] = code
+        end
+        g
+      end
+
+      def kc_no_encoders = [img::EncoderRecord.new(ccw: 0, cw: 0)] * 2
+
+      def unused_tap_dances = Array.new(32) { td(0, 0, 0, 0, 250) }
+
+      def read(layers, encoders = Array.new(layers.size) { kc_no_encoders }, tap_dances: unused_tap_dances, **rest)
+        image2 = image.with(layers: layers, encoders: encoders, tap_dances: tap_dances, **rest)
+        mapper.to_profile(image2, position_map: position_map)
+      end
+
+      it '途中の番号でも KC_NO だけのレイヤーは読まない' do
+        base = filled(0).tap { |g| g[0][0] = 0x04 }
+        top = filled(0).tap { |g| g[0][0] = 0x05 }
+        expect(read([base, filled(0), top, filled(0)]).layers.map(&:index)).to eq([0, 2])
+      end
+
+      it 'エンコーダの回転に割り当てがあれば読む' do
+        encoders = [kc_no_encoders, [img::EncoderRecord.new(ccw: 0x52, cw: 0), img::EncoderRecord.new(ccw: 0, cw: 0)]]
+        expect(read([filled(0), filled(0)], encoders).layers.map(&:index)).to eq([0, 1])
+      end
+
+      it 'KC_TRNS だけのレイヤーは読む' do
+        expect(read([filled(0), filled(0x01)]).layers.map(&:index)).to eq([0, 1])
+      end
+
+      it 'レイヤー 0 は空でも読む' do
+        expect(read([filled(0), filled(0)]).layers.map(&:index)).to eq([0])
+      end
+
+      it 'タップダンス・コンボ・エンコーダのレイヤー操作が指すレイヤーは空でも読む' do
+        base = filled(0)
+        base[2][6] = 0x5222 # エンコーダのプッシュに MO(2)
+        tap_dances2 = [td(0x5224, 0, 0, 0, 200)] + Array.new(31) { td(0, 0, 0, 0, 250) } # MO(4)
+        combos2 = [img::ComboRecord.new(keys: [0x0E, 0x0F, 0, 0], output: 0x5226)] + # MO(6)
+                  Array.new(31) { img::ComboRecord.new(keys: [0] * 4, output: 0) }
+        profile2 = read([base] + Array.new(9) { filled(0) }, tap_dances: tap_dances2, combos: combos2)
+        expect(profile2.layers.map(&:index)).to eq([0, 2, 4, 6])
+      end
+
+      it 'マクロの中のレイヤー操作が指すレイヤーは空でも読む' do
+        macros2 = [[img::MacroAction.new(kind: :tap, keys: [0x5223])]] + Array.new(31) { [] } # MO(3)
+        profile2 = read(Array.new(10) { filled(0) }, macros: macros2)
+        expect(profile2.layers.map(&:index)).to eq([0, 3])
+      end
     end
 
     it 'キーの位置の値だけを読み、nil の位置は割り当てなし' do
@@ -141,18 +197,19 @@ RSpec.describe Cornix::Mapping::ProfileMapper::ImageReader do
     end
   end
 
-  it 'to_image で元のイメージに戻る（読み込んだレイヤーの nil だったキーの位置は KC_NO になる）' do
-    filled = layers.each_with_index.map do |g, index|
-      next g unless index.zero?
-
+  it 'to_image で元のイメージに戻る（nil だったキーの位置と、読まなかったレイヤーは KC_NO になる）' do
+    filled = layers.map do |g|
       g.map(&:dup).tap do |copy|
         position_map.positions.each do |position|
           row, col = position_map.matrix(position)
           copy[row][col] ||= 0
         end
+        position_map.encoder_push_matrix(:left).then { |row, col| copy[row][col] ||= 0 }
+        position_map.encoder_push_matrix(:right).then { |row, col| copy[row][col] ||= 0 }
       end
     end
-    expect(mapper.to_image(profile)).to eq(image.with(layers: filled))
+    kc_no = [img::EncoderRecord.new(ccw: 0, cw: 0)] * 2
+    expect(mapper.to_image(profile)).to eq(image.with(layers: filled, encoders: [encoders[0]] + Array.new(9) { kc_no }))
   end
 
   it 'image が DeviceImage でなければ InvalidValue' do

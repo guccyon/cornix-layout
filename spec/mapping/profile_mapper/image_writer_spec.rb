@@ -58,9 +58,13 @@ RSpec.describe Cornix::Mapping::ProfileMapper::ImageWriter do
                                        img::EncoderRecord.new(ccw: 0x52, cw: 0x51)])
     end
 
-    it '定義のないレイヤーはすべて nil' do
-      expect(image.layers[1].flatten).to all(be_nil)
-      expect(image.encoders[1]).to eq([img::EncoderRecord.new(ccw: nil, cw: nil)] * 2)
+    it '定義のないレイヤーは割り当てのないレイヤーと同じ（position_map にある位置とエンコーダは KC_NO、キーのない位置は nil）' do
+      empty = build_layer(index: 1, encoders: { left: encoder_binding, right: encoder_binding })
+      with_empty = mapper.to_image(build_profile(layers: [build_layer(index: 0), empty]))
+      expect(image.layers[1]).to eq(with_empty.layers[1])
+      expect(image.layers[1].flatten.compact).to all(eq(0))
+      expect(image.layers[1].flatten.compact.size).to eq(50)
+      expect(image.encoders[1]).to eq([img::EncoderRecord.new(ccw: 0, cw: 0)] * 2)
     end
 
     it 'レイヤーは配列の順ではなく index の位置に置く' do
@@ -68,7 +72,7 @@ RSpec.describe Cornix::Mapping::ProfileMapper::ImageWriter do
       result = mapper.to_image(profile)
       expect(result.layers[2][0][0]).to eq(0x2B)
       expect(result.layers[0][0][0]).to eq(0)
-      expect(result.layers[1].flatten).to all(be_nil)
+      expect(result.layers[1].flatten.compact).to all(eq(0))
     end
 
     it 'レイヤーの番号が枠を超えると InvalidValue' do

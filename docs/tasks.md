@@ -84,6 +84,7 @@ Domain::PositionMap.from_h(hash)                           # position_map.yaml �
 Domain::EncoderBinding(push:, ccw:, cw:, notes: { push: String, ... })   # 各 Keycode。notes は省略可
 Domain::Layer(index:, name:, description:, keys: { KeyPosition => Keycode }, encoders: { left: EncoderBinding, right: EncoderBinding },
               notes: { KeyPosition => String })            # notes（注記）は割り当てのある位置だけ。省略可
+  #blank? #=> すべての位置とエンコーダが KC_NO か（KC_TRNS は割り当てとみなす。decompile が空のレイヤーを書かない判定）
 Domain::MacroStep::Tap / Down / Up(keys: [Keycode]), Delay(ms:), Text(content:)   # KEY_ACTIONS: action の名前 → Tap / Down / Up
 Domain::Macro(index:, name:, description:, steps:, preset: nil)   # preset は同梱のショートカットの名前（デバイスにはない。書き戻し用）
 Domain::TapDance(index:, name:, description:, on_tap:, on_hold:, on_double_tap:, on_tap_hold:, tapping_term:,
@@ -97,6 +98,7 @@ Domain::Diagnostic(severity: :error|:warning, path: String, message: String)
 Domain::Profile(metadata:, settings:, position_map:, layers:, macros:, tap_dances:, combos:, shortcuts: ShortcutLibrary::EMPTY)
   #diagnostics(capabilities = Capabilities::CORNIX) #=> [Diagnostic]
   #references #=> Mapping に依存しない形で名前 → 番号（macro_names / tap_dance_names の Hash）と shortcuts（名前 → Keycode）を返す
+  #referenced_layer_indexes #=> [Integer]（レイヤー操作のキーが指すレイヤーの番号。昇順・重複なし）
 ```
 
 - 旧 `models/` と `Validatable` の検証内容（範囲、必須、重複、件数の上限、参照先の存在）を構造検証と `diagnostics` に移す。

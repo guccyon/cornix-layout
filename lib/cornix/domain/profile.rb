@@ -10,6 +10,7 @@ require_relative 'tap_dance'
 require_relative 'combo'
 require_relative 'shortcut_library'
 require_relative 'capabilities'
+require_relative 'keycode/layer_reference'
 
 module Cornix
   module Domain
@@ -48,10 +49,27 @@ module Cornix
       # Mapping の References.new(**profile.references) にそのまま渡せる形
       def references = { macros: macro_names, tap_dances: tap_dance_names, shortcuts: shortcuts.entries }
 
+      # レイヤー操作のキー（MO(n) / TG(n) / TO(n) / LT(n, kc) / LM(n, mod) など）が指すレイヤーの番号の一覧（昇順・重複なし）。
+      # レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、コンボのトリガーと出力から集める。
+      # Raw として読まれた値は数えない（Keycode::LAYER_REF_TYPES）
+      def referenced_layer_indexes
+        all_keycodes.filter_map { |kc| Keycode.layer_index(kc) }.uniq.sort
+      end
+
       # 意味検証の結果（Diagnostic の一覧）
       def diagnostics(capabilities = Capabilities::CORNIX) = ProfileDiagnostics.new(self, capabilities).call
 
       private
+
+      # すべての割り当て。対象は ProfileDiagnostics#keycode_entries（パス付き）と同じにする
+      def all_keycodes
+        layer_keycodes = layers.flat_map do |layer|
+          layer.keys.values + layer.encoders.values.flat_map { |binding| binding.actions.values }
+        end
+        macro_keycodes = macros.flat_map { |m| m.steps.flat_map { |s| s.respond_to?(:keys) ? s.keys : [] } }
+        layer_keycodes + macro_keycodes + tap_dances.flat_map { |td| td.actions.values } +
+          combos.flat_map { |c| c.trigger_keys + [c.output_key] }
+      end
 
       def list!(value, klass, what)
         Checks.list!(value, what) { |item, i| Checks.instance!(item, klass, "#{what}[#{i}]") }

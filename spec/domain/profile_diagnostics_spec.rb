@@ -39,10 +39,16 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
       expect(diags.first.message).to include('重複')
     end
 
-    it '番号の抜けは warning' do
-      diags = diagnostics_of(build_profile(layers: [build_layer(index: 0), build_layer(index: 3)]))
+    it '途中の番号の抜けは許す（compile が KC_NO で埋める）' do
+      layers = [0, 1, 2, 4].map { |i| build_layer(index: i) }
+      expect(diagnostics_of(build_profile(layers: layers))).to eq([])
+    end
+
+    it 'レイヤー 0 がなければ warning' do
+      diags = diagnostics_of(build_profile(layers: [build_layer(index: 1)]))
       expect(summary(diags)).to eq([[:warning, 'layers']])
-      expect(diags.first.message).to include('1, 2')
+      expect(diags.first.message).to eq('レイヤー 0（ベース）がありません')
+      expect(summary(diagnostics_of(build_profile(layers: [])))).to eq([[:warning, 'layers']])
     end
   end
 

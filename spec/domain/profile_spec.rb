@@ -81,6 +81,28 @@ RSpec.describe Cornix::Domain::Profile do
     end
   end
 
+  describe '#referenced_layer_indexes' do
+    it 'レイヤー・エンコーダ・マクロ・タップダンス・コンボのレイヤー操作が指す番号を昇順・重複なしで返す' do
+      lt = k::LayerTap.new(layer: layer_ref(5), base: basic(0x2C))
+      lm = k::LayerMod.new(layer: layer_ref(6), mods: d::ModifierSet.new(side: :left, mods: [:shift]))
+      tg = k::LayerAction.new(op: :toggle, layer: layer_ref(8))
+      raw = k::Raw.new(code: 0x7C77) # FN_MO13（Raw として持つ値は数えない）
+      keys = { key_position(:left, 0, 0) => mo(3), key_position(:left, 0, 1) => lt, key_position(:left, 0, 2) => lm,
+               key_position(:left, 0, 3) => tg, key_position(:left, 0, 4) => raw }
+      layers = [build_layer(index: 0, keys: keys),
+                build_layer(index: 1, encoders: { left: encoder_binding(push: mo(2)), right: encoder_binding })]
+      macros = [build_macro(steps: [d::MacroStep::Tap.new(keys: [mo(7)])])]
+      tap_dances = [build_tap_dance(on_hold: mo(3))]
+      combos = [build_combo(output_key: mo(9))]
+      profile = build_profile(layers: layers, macros: macros, tap_dances: tap_dances, combos: combos)
+      expect(profile.referenced_layer_indexes).to eq([2, 3, 5, 6, 7, 8, 9])
+    end
+
+    it 'レイヤー操作がなければ空' do
+      expect(build_profile.referenced_layer_indexes).to eq([])
+    end
+  end
+
   it '#diagnostics は既定で Capabilities::CORNIX を使う' do
     expect(profile.diagnostics).to eq([])
     tight = d::Capabilities.new(layers: 1, macros: 32, tap_dances: 32, combos: 32, combo_keys: 4)

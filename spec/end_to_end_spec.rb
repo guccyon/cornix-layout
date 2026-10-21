@@ -38,6 +38,51 @@ RSpec.describe 'end-to-end（cornix compile / decompile）' do
     end
   end
 
+  describe '空のレイヤーのファイル' do
+    # authors_config の 5〜8 をエンコーダも含めて NoKey だけのレイヤーにする（9 はエンコーダの割り当てを残す）。
+    # 8 は 4_ipad_base.yml の fn キーのレイヤー操作が指している
+    def blank_authors_layers
+      install_config('authors_config')
+      (5..8).map do |n|
+        path = Dir.glob(config_file("layers/#{n}_*.yml")).first
+        File.write(path, File.read(path).gsub(/^(\s+(?:push|ccw|cw)): .+$/, '\\1: NoKey'))
+        path
+      end
+    end
+
+    it '空のレイヤーのファイルを（途中の番号でも）消しても compile の結果は変わらず、validate も通る' do
+      blank = blank_authors_layers
+      expect(cornix('compile').first).to eq(0)
+      before = image(env.layout_path)
+      FileUtils.rm(blank.first(3))
+      expect(cornix('compile').first).to eq(0)
+      expect(image(env.layout_path)).to eq(before)
+      expect(cornix('validate')).to eq([0, "✓ All validations passed\n"])
+    end
+
+    it '途中の番号のレイヤーのファイルを消すと、そのレイヤーは KC_NO で埋まる' do
+      install_config('test_config')
+      FileUtils.rm(Dir.glob(config_file('layers/2_*.yaml')))
+      expect(cornix('compile').first).to eq(0)
+      result = image(env.layout_path)
+      expect(result.layers[2].flatten.compact).to all(eq(0))
+      expect(result.layers[2].flatten.compact.size).to eq(50)
+      expect(result.encoders[2].map { |e| [e.ccw, e.cw] }).to eq([[0, 0], [0, 0]])
+    end
+
+    it 'decompile は空のレイヤーのファイルを書かず（レイヤー操作が指す 8 は書く）、compile で元に戻る' do
+      blank_authors_layers
+      expect(cornix('compile').first).to eq(0)
+      source = File.join(@root, 'tmp/layout.vil')
+      FileUtils.cp(env.layout_path, source)
+      FileUtils.rm_rf(env.config_dir)
+      expect(cornix('decompile').first).to eq(0)
+      expect(Dir.children(config_file('layers')).map { |f| f[/\A\d+/].to_i }.sort).to eq([0, 1, 2, 3, 4, 8, 9])
+      expect(cornix('compile').first).to eq(0)
+      expect(image(env.layout_path)).to eq(image(source))
+    end
+  end
+
   it 'bin/cornix をコピーした場所で compile / validate を実行できる（root は bin/ の親）' do
     %w[bin lib data].each { |dir| FileUtils.cp_r(File.join(repo, dir), File.join(@root, dir)) }
     install_config('authors_config')

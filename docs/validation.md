@@ -16,7 +16,8 @@
    `Capabilities::CORNIX` に `KeycodeCatalog#unsupported_keycodes` を足したもの）
    - 件数の上限（レイヤー 10、マクロ・タップダンス・コンボ 32、コンボのトリガー 4）
    - 番号・名前の重複、参照先（M(n) / TD(n)）の存在、レイヤー番号の範囲
-   - 警告: 番号の抜けたレイヤー、定義されていないレイヤーを指す MO(n) など、
+   - レイヤーの途中の番号の抜けは許す（compile が KC_NO で埋める）
+   - 警告: レイヤー 0（ベース）がない、定義されていないレイヤーを指す MO(n) など、
      Cornix が対応していないとみられる特殊キー（data/unsupported_keycodes.yaml。QK_REPEAT_KEY、USER08 以降など）、
      押せないコンボ（下の「押せないコンボ」）
    - `Domain::Diagnostic(severity, path, message)` の path（`layers[0].left_hand.row0.tab` の形）は

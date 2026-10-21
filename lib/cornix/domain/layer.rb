@@ -39,6 +39,12 @@ module Cornix
 
       def encoder(side) = encoders.fetch(side)
 
+      # すべての位置とエンコーダが割り当てなし（KC_NO）か。KC_TRNS は割り当てとみなす
+      def blank?
+        keys.each_value.all?(Keycode::NO_KEY) &&
+          encoders.each_value.all? { |binding| binding.actions.each_value.all?(Keycode::NO_KEY) }
+      end
+
       def to_s = "Layer(#{index}: #{name})"
 
       private

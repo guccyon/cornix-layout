@@ -2,9 +2,7 @@
 
 require_relative 'diagnostic'
 require_relative 'keycode'
-require_relative 'keycode/layer_action'
-require_relative 'keycode/layer_tap'
-require_relative 'keycode/layer_mod'
+require_relative 'keycode/layer_reference'
 require_relative 'keycode/macro_call'
 require_relative 'keycode/tap_dance_call'
 require_relative 'keycode/quantum'
@@ -15,7 +13,8 @@ module Cornix
   module Domain
     # Profile の意味検証。Profile#diagnostics から使う。
     #
-    #   レイヤー      枚数の上限、番号の上限・重複（error）、番号の抜け（warning）
+    #   レイヤー      枚数の上限、番号の上限・重複（error）、レイヤー 0 がない（warning）。
+    #                 途中の番号の抜けは許す（compile が KC_NO で埋める）
     #   マクロ / タップダンス / コンボ   件数の上限、番号の上限・重複、名前の重複（error）
     #   コンボ        トリガーの数の上限（error）、押せない（トリガーのキーがすべてそろうレイヤーがない。warning。
     #                 判定は ComboReachability）
@@ -25,7 +24,7 @@ module Cornix
     #                 レイヤー数の内だが定義されていないレイヤーを指す（warning）、
     #                 Capabilities#unsupported_keycodes にある特殊キー（warning。書き込みは止めない）
     class ProfileDiagnostics
-      LAYER_REF_TYPES = [Keycode::LayerAction, Keycode::LayerTap, Keycode::LayerMod].freeze
+      LAYER_REF_TYPES = Keycode::LAYER_REF_TYPES
 
       def initialize(profile, capabilities)
         @profile = profile
@@ -57,11 +56,7 @@ module Cornix
         layers = profile.layers
         error('layers', "レイヤーは #{caps.layers} 枚までです: #{layers.size} 枚") if layers.size > caps.layers
         check_indexes('layers', layers, caps.layers, 'レイヤー')
-        indexes = layers.map(&:index)
-        return if indexes.empty?
-
-        missing = (0..indexes.max).to_a - indexes
-        warning('layers', "レイヤー #{missing.join(', ')} がありません") unless missing.empty?
+        warning('layers', 'レイヤー 0（ベース）がありません') unless layer_indexes.include?(0)
       end
 
       # --- マクロ / タップダンス / コンボ ---
@@ -147,7 +142,7 @@ module Cornix
       def tap_dance_indexes = @tap_dance_indexes ||= profile.tap_dances.map(&:index)
       def layer_indexes = @layer_indexes ||= profile.layers.map(&:index)
 
-      # [パス, Keycode] の一覧
+      # [パス, Keycode] の一覧。対象は Profile#all_keycodes（decompile が残すレイヤーの判定に使う）と同じにする
       def keycode_entries
         layer_entries + macro_entries + tap_dance_entries + combo_entries
       end

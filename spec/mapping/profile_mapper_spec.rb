@@ -36,7 +36,7 @@ RSpec.describe Cornix::Mapping::ProfileMapper do
         metadata: metadata, settings: Cornix::Domain::QmkSettings.new(values: { 7 => 200 }), position_map: position_map,
         layers: [build_layer(index: 0, name: 'Base', description: '基本',
                              keys: { key_position(:left, 0, 0) => td_call(4) }),
-                 build_layer(index: 1, name: 'Symbols')],
+                 build_layer(index: 1, name: 'Symbols', keys: { key_position(:left, 0, 0) => basic(0x1E) })],
         macros: [build_macro(index: 3, name: 'Copy')],
         tap_dances: [build_tap_dance(index: 4, name: 'Tab Escape')],
         combos: [build_combo(index: 0, name: 'Bracket')]
@@ -59,6 +59,15 @@ RSpec.describe Cornix::Mapping::ProfileMapper do
         layer.with(keys: position_map.positions.to_h { |pos| [pos, layer.key(pos) || no_key] })
       end
       expect(mapper.to_profile(image, position_map: position_map, previous: source)).to eq(source.with(layers: filled))
+    end
+
+    it '空のレイヤー（KC_NO だけ）は読まず、to_image すると元のイメージに戻る' do
+      with_empty = source.with(layers: source.layers + [build_layer(index: 2, name: 'Empty')])
+      image2 = mapper.to_image(with_empty)
+      expect(image2).to eq(image)
+      profile = mapper.to_profile(image2, position_map: position_map, previous: with_empty)
+      expect(profile.layers.map(&:index)).to eq([0, 1])
+      expect(mapper.to_image(profile)).to eq(image2)
     end
 
     it '注記はイメージに出ず、previous があればキーコードが変わっていない場所の注記を引き継ぐ' do

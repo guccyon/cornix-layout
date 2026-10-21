@@ -17,10 +17,20 @@ module Cornix
 
           def run(args)
             _, opts = parse!(args) { |p, o| p.on('-o FILE', '出力先') { |f| o[:output] = File.expand_path(f) } }
+            return json(opts[:output]) if json?
+
             result = compile_config(output: opts[:output]) or return FAILURE
 
             out.line("\n✓ Compilation completed: #{result.path}")
             SUCCESS
+          end
+
+          private
+
+          def json(output)
+            result = compile_quietly(output: output) or return FAILURE
+            emit(with_config(result.to_h))
+            result.compiled? ? SUCCESS : FAILURE
           end
         end
       end

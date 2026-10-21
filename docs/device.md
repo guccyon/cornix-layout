@@ -46,6 +46,9 @@ spec/device/                         FakeRmkDevice（RMK 0.8 の応答を模し�
 confirm_token は差分内容のハッシュ（`Planning::Plan#token`）。dry run の後でキーボードやファイルが変わると一致せず書き込みを拒否する。
 CLI の apply / restore は 1 回の接続の中で計画 → 確認（y/N、`--yes` で省略）→ 書き込みを行う（`confirm:` コールバック）。
 
+結果の `content` は人が読む要約と、結果の `#to_h`（`Application::Serialize`。CLI の `--json` と同じ変換）の JSON の 2 つ。
+`keyboard_info` と、`save_path` なしの `read_keymap` は中身がそのまま JSON なので 1 つだけ返す。
+
 ツールの名前（backup / list_backups / restore_backup）は、登録済みのクライアントを壊さないように前の版のまま残している。
 
 ## スナップショット

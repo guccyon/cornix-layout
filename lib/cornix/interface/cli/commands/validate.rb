@@ -16,7 +16,7 @@ module Cornix
           def run(args)
             parse!(args)
             report = use_case(:validate).call
-            print_report(report)
+            json? ? emit(with_config(report.to_h)) : print_report(report)
             report.valid? ? SUCCESS : FAILURE
           rescue Application::ConfigNotFound => e
             config_not_found(e)

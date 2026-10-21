@@ -33,6 +33,8 @@ module Cornix
           def run(args)
             parse!(args)
             result = use_case(:pull).call
+            return json_decompile(result) if json?
+
             out.line("✓ キーボードの状態を保存しました: #{result.input}") if result.decompiled?
             report_decompile(result, config_exists: CONFIG_EXISTS)
           end

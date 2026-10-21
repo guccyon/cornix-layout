@@ -33,21 +33,26 @@ module Cornix
             _, opts = parse!(args) { |p, o| p.on('--kind KIND', '種類で絞り込む') { |k| o[:kind] = k } }
             kind = opts[:kind]
             list = use_case(:list_snapshots).call(kind: kind)
-            return none(kind) if list.empty?
-
-            width = list.snapshots.map { |s| s.kind.size }.max
-            list.snapshots.each do |snapshot|
-              out.line("#{snapshot.time.strftime('%Y-%m-%d %H:%M:%S')}  #{snapshot.kind.ljust(width)}  #{display(snapshot.path)}")
+            if json?
+              emit(with_config(list.to_h))
+            elsif list.empty?
+              none(kind)
+            else
+              print_list(list)
             end
             SUCCESS
           end
 
           private
 
-          def none(kind)
-            out.line(kind ? "種類 #{kind} のスナップショットはありません" : 'スナップショットはありません')
-            SUCCESS
+          def print_list(list)
+            width = list.snapshots.map { |s| s.kind.size }.max
+            list.snapshots.each do |snapshot|
+              out.line("#{snapshot.time.strftime('%Y-%m-%d %H:%M:%S')}  #{snapshot.kind.ljust(width)}  #{display(snapshot.path)}")
+            end
           end
+
+          def none(kind) = out.line(kind ? "種類 #{kind} のスナップショットはありません" : 'スナップショットはありません')
 
           # カレントの下なら相対パス、外なら絶対パス
           def display(path)

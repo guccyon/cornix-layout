@@ -34,6 +34,10 @@
   約束の版 0.3 で、`profile/planItemEdit` に preset の展開（`expandPreset`）を、`profile/open` のコンボに押せるか（`reachable`）を足した
 - `cornix validate` などの意味検証に警告「押せないコンボです」を足した。トリガーのキーがすべてそろうレイヤーが 1 つもないコンボに出す（`KC_TRNS` の位置はレイヤー 0 の値で見る。トリガーが `KC_NO` だけのコンボには出さない）
 - 別名 `Vol+` / `Vol-`（音量）、`←` `↓` `→` `↑`（矢印キー）、`SingleQuote`（`'`）、`◀◀`（巻き戻し）、`▶︎▶︎` / `▶▶`（早送り）、`⏯`（再生 / 一時停止）、`ForwardSlash`（`/`）、`Yen`（`¥`。macOS の Option + Y）。`Ctrl + Vol+` のように修飾キー式のキーにも書ける
+- 共通のオプション `--json`（#26）。`validate` / `compile` / `decompile` / `pull` / `status` / `apply` / `restore` / `init` / `snapshots` / `cleanup` / `device info|read|backup|diff|apply|restore` / `version` の結果を、JSON の 1 つの値として標準出力に出す。
+  エラーは `{ "error": "..." }`（標準エラー出力には出さない）で、終了コードは `--json` なしと同じ。
+  書き込むコマンドは y/N で確認できないので `--yes` も要る（ないと何もせずにエラー）。`cleanup -f` と `rename` / `mcp` / `serve` は対象外
+  - 結果の変換は `Application::Serialize` と各結果の `#to_h` にまとめ、MCP のツール結果も同じ変換の JSON を 2 つ目の `content` に付ける（`keyboard_info` と、`save_path` なしの `read_keymap` は今までどおり 1 つ）
 
 ### 変更
 

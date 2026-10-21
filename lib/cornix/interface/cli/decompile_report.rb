@@ -3,7 +3,7 @@
 module Cornix
   module Interface
     module Cli
-      # decompile と pull が共通で使う DecompileResult の表示
+      # decompile と pull が共通で使う DecompileResult の表示（--json なら JSON）
       module DecompileReport
         private
 
@@ -19,6 +19,12 @@ module Cornix
           else
             report_decompiled(result)
           end
+        end
+
+        # --json: DecompileResult#to_h（と config）。書かなかったら FAILURE
+        def json_decompile(result)
+          emit(with_config(result.to_h))
+          result.decompiled? ? Command::SUCCESS : Command::FAILURE
         end
 
         def report_decompiled(result)

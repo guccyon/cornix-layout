@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'json'
 require_relative 'usage_error'
 require_relative 'global_options'
 require_relative 'runtime'
@@ -47,8 +48,10 @@ module Cornix
         HELP_NAMES = %w[help -h --help].freeze
         VERSION_NAMES = %w[version -v --version].freeze
         VERSION_HELP = "使い方: cornix version（--version / -v でも）\n\nこのツールのバージョンを表示する"
-        # 既定（<root>/config）以外の設定ディレクトリを使うとき、最初にどの設定かを表示するコマンド
+        # 既定（<root>/config）以外の設定ディレクトリを使うとき、最初にどの設定かを表示するコマンド（--json のときは表示しない）
         SHOW_CONFIG = %w[compile decompile validate pull status apply restore snapshots rename cleanup].freeze
+        # --json に対応しないコマンド（対話するもの・標準出力でほかのプロトコルを話すもの）
+        NO_JSON = %w[rename mcp serve].freeze
 
         def initialize(env_factory: DEFAULT_ENV, use_cases: {}, mcp_factory: DEFAULT_MCP_SERVER, commands: COMMANDS,
                        workspace_factory: DEFAULT_WORKSPACE, out: $stdout, err: $stderr, input: $stdin)
@@ -60,24 +63,25 @@ module Cornix
           @input = input
         end
 
-        # → 終了コード（0 = 成功、1 = エラー、2 = status で差分あり）
+        # → 終了コード（0 = 成功、1 = エラー、2 = status で差分あり）。
+        # --json のときはエラーも標準出力に { "error": "..." } で出す（終了コードは同じ）
         def run(argv)
+          json = GlobalOptions.json?(argv)
           global, args = GlobalOptions.extract(argv)
           name = args.shift
           return help(args.first) if name.nil? || HELP_NAMES.include?(name)
-          return version if VERSION_NAMES.include?(name)
+          return version(json: json) if VERSION_NAMES.include?(name)
 
           command_class = @commands[name] or raise UsageError, "知らないコマンドです: #{name}"
+          raise UsageError, "--json は #{name} では使えません" if json && NO_JSON.include?(name)
+
           runtime = runtime(global)
-          show_config(runtime) if SHOW_CONFIG.include?(name) && !(args & HELP_NAMES).any?
+          show_config(runtime) if SHOW_CONFIG.include?(name) && !json && !(args & HELP_NAMES).any?
           command_class.new.call(runtime, args)
         rescue UsageError => e
-          @err.puts("エラー: #{e.message}")
-          @err.puts('使い方は cornix help で表示できます')
-          Command::FAILURE
+          error(e.message, json: json, usage: true)
         rescue Cornix::Error, SystemCallError => e
-          @err.puts("エラー: #{e.message}")
-          Command::FAILURE
+          error(e.message, json: json)
         end
 
         private
@@ -104,9 +108,19 @@ module Cornix
           Command::SUCCESS
         end
 
-        def version
-          @out.puts("cornix #{Cornix::VERSION}")
+        def version(json: false)
+          @out.puts(json ? JSON.pretty_generate('version' => Cornix::VERSION) : "cornix #{Cornix::VERSION}")
           Command::SUCCESS
+        end
+
+        def error(message, json:, usage: false)
+          if json
+            @out.puts(JSON.pretty_generate(Application::Serialize.error(message)))
+          else
+            @err.puts("エラー: #{message}")
+            @err.puts('使い方は cornix help で表示できます') if usage
+          end
+          Command::FAILURE
         end
 
         def overview

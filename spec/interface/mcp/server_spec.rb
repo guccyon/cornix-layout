@@ -140,6 +140,39 @@ RSpec.describe Cornix::Interface::Mcp::Server do
     expect(text(call('list_backups', 'kind' => 'nope'))).to start_with('エラー: 知らないスナップショットの種類')
   end
 
+  describe '2 つ目の content（結果の to_h の JSON。CLI の --json と同じ変換）' do
+    def data(result) = JSON.parse(result[:content][1][:text])
+
+    def cli_json(*argv)
+      out = StringIO.new
+      Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, out: out, err: StringIO.new, input: StringIO.new)
+                                  .run([*argv, '--json'])
+      JSON.parse(out.string)
+    end
+
+    it 'apply_layout の dry run は cornix device diff --json と同じ。書き込みは ApplyOutcome#to_h' do
+      vil = write_vil(File.join(@root, 'a.vil')) { |v| v['layout'][0][0][1] = 'KC_B' }
+      dry = call('apply_layout', 'vil_path' => vil)
+      expect(dry[:content].size).to eq(2)
+      expect(data(dry)).to eq(cli_json('device', 'diff', vil))
+      expect(data(dry)['changes']).to eq([{ 'description' => 'レイヤー0 (0,1): KC_NO → KC_B', 'kind' => 'set_keycode',
+                                            'layer' => 0, 'row' => 0, 'col' => 1, 'from' => 0, 'to' => 0x05 }])
+
+      applied = call('apply_layout', 'vil_path' => vil, 'dry_run' => false, 'confirm_token' => data(dry)['token'])
+      expect(data(applied)).to include('written' => true, 'applied' => 1, 'success' => true,
+                                       'backup' => env.snapshot_store.latest(kind: 'pre-apply').path)
+    end
+
+    it 'backup / list_backups / read_keymap（save_path あり）も to_h を付ける。keyboard_info は 1 つだけ' do
+      expect(data(call('backup'))).to eq('path' => env.snapshot_store.latest(kind: 'backup').path)
+      expect(data(call('list_backups', 'kind' => 'backup'))).to eq(cli_json('snapshots', '--kind', 'backup').except('config'))
+      path = File.join(@root, 'saved.vil')
+      expect(data(call('read_keymap', 'save_path' => path))).to eq('path' => path) # 保存したら中身は返さない
+      expect(call('keyboard_info')[:content].size).to eq(1)
+      expect(call('read_keymap')[:content].size).to eq(1)
+    end
+  end
+
   it '不明なツールはエラー' do
     expect(text(call('nope'))).to eq('エラー: 不明なツール: nope')
   end

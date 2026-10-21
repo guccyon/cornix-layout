@@ -13,7 +13,7 @@ RSpec.describe 'cornix pull / status / apply / restore' do
   let(:err) { StringIO.new }
   let(:input) { StringIO.new }
   let(:compiled) { [] }
-  let(:report) { Cornix::Application::ValidationReport.new(errors: []) }
+  let(:report) { Cornix::Application::ValidationReport.new }
   let(:edit) { ->(v) { v['layout'][1][0][1] = 'KC_BSPC' } }
   let(:compile) do
     fake = lambda do |output: nil|
@@ -58,7 +58,7 @@ RSpec.describe 'cornix pull / status / apply / restore' do
     end
 
     it '検証に失敗したらキーボードを開かずに exit 1' do
-      failed = Cornix::Application::CompileResult.new(report: Cornix::Application::ValidationReport.new(errors: ['壊れている']))
+      failed = Cornix::Application::CompileResult.new(report: Cornix::Application::ValidationReport.new(diagnostics: [Cornix::Domain::Diagnostic.error('', '壊れている')]))
       compile_failure = ->(_env) { ->(**) { failed } }
       result = Cornix::Interface::Cli::Main.new(env_factory: ->(_ws) { env }, use_cases: { compile: compile_failure },
                                                 out: out, err: err, input: input).run(['status'])

@@ -10,6 +10,8 @@ module Cornix
     # lock は .decompile.lock の内容（なければ nil）
     class CleanupResult < Data.define(:status, :lock, :deleted)
       def initialize(status:, lock: nil, deleted: []) = super
+
+      def to_h = { 'status' => status.to_s, 'deleted' => deleted.dup, 'lock' => lock }
     end
   end
 end

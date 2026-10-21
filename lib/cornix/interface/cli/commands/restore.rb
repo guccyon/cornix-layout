@@ -17,7 +17,7 @@ module Cornix
 
           def run(args)
             (file,), opts = parse!(args, max_args: 1) { |p, o| yes_option(p, o) }
-            run_restore(file, yes: opts[:yes])
+            run_restore(file, yes: opts[:yes], wrap: method(:with_config))
           end
         end
       end

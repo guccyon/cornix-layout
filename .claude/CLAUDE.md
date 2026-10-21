@@ -86,7 +86,7 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
 - `cornix compile` / `decompile` / `validate` / `rename` / `cleanup`: 設定ファイルの変換・検証・名前付け
 - `cornix pull` / `status` / `apply` / `restore`: compile・decompile と `cornix device` を組み合わせたショートカット
   （compile の出力は `tmp/build/layout.vil`、pull は `tmp/layout.vil` に読み出してから decompile）
-- `cornix init` と共通のオプション `--config` / `--profile` / `--root`: 設定ディレクトリの作成と場所の指定
+- `cornix init` と共通のオプション `--config` / `--profile` / `--root` / `--json`: 設定ディレクトリの作成と場所の指定、結果の JSON での出力
 - `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
 - `cornix serve`: VS Code 拡張（`editors/vscode/`）のバックエンド。標準入出力の JSON-RPC（docs/vscode-extension/protocol.md）でプロファイルを読み、候補・検証・書き換えを返す（実機には触らない）
 - 名前参照（`Macro('名前')`）、名前付きショートカット（`Shortcut('名前')`、`config/shortcuts.yaml` と同梱の `data/shortcuts/`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）

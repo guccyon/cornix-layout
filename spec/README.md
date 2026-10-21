@@ -20,7 +20,7 @@ LANG=ja_JP.UTF-8 bundle exec rspec spec/end_to_end_spec.rb  # compile / decompil
 | `domain/` | `Domain::*` | 値オブジェクトの検証（`InvalidValue`）、`PositionMap` の座標変換、`Profile#diagnostics` |
 | `mapping/` | `Mapping::*` | キーコード表・`KeycodeCodec`・`KeycodeNotation`（表記ごとの値と往復）・`VialNotation`（全 16bit 値で旧実装と同じ表記）・`MacroCodec`・`ProfileMapper` |
 | `planning/` | `Planning::*` | `ImageDiff` の差分、`Plan` の token、マクロの一覧 |
-| `storage/` | `Storage::*` | `ConfigRepository` の読み書きと問題の報告、`VilFile`、`BackupStore`、`ConfigEditor`、`YamlFile`、`DiagnosticLocator` |
+| `storage/` | `Storage::*` | `ConfigRepository` の読み書きと問題の報告、`VilFile`、`SnapshotStore`、`ConfigEditor`、`YamlFile`、`DiagnosticLocator` |
 | `device/` | `Device::*` | `Protocol` の範囲検査、`Session` / `Reader` / `Planner` / `Writer`、`HidBridge`（`CORNIX_HID_BRIDGE` で差し替え） |
 | `application/` | `Application::*` | 設定のユースケース（Validate / Compile / Decompile / Cleanup）、rename、デバイスのユースケース、`Environment`、エディタのユースケース（`editor/`。`Application::Editor::*`） |
 | `interface/` | `Interface::*` | CLI（`Main` とコマンドの出力・終了コード）、MCP サーバー（ツール一覧と応答）、エディタのサーバー（`editor_server/`。`cornix serve` の枠・振り分け・適合テスト） |

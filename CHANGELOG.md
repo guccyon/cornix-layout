@@ -37,6 +37,12 @@
 
 ### 変更
 
+- キーボードの状態と compile の出力を、日時付きのスナップショットとして `<tmp>/snapshots/<日時>-<種類>/layout.vil` に履歴で残すようにした（#25）。
+  種類は `read`（キーボードを読んだとき）・`build`（compile の出力）・`backup`（`cornix device backup`）・`pre-apply` / `pre-restore`（書き込む直前）。
+  上書きせず、`read` と `build` は種類ごとに新しい 50 件だけ残す
+  - `cornix snapshots [--kind KIND]` で新しい順に一覧できる。MCP の `list_backups` も同じ一覧を返し、`kind` で絞り込める
+  - `cornix restore` の既定の戻し先は最新の `pre-apply`（直前の apply の前の状態）。restore を取り消すには、restore の前に残る `pre-restore` を指定する（続けて引数なしで restore しても復元前には戻らなくなった）
+  - バックアップの置き場は `<tmp>/device_backups/` から `<tmp>/snapshots/` に変わった。今までの `<tmp>/device_backups/` は種類 `legacy` として一覧と restore に使える（新しくは書かない）
 - 音量のキーの正規名を `VolumeUp` / `VolumeDown` から `Vol+` / `Vol-` にした。decompile はこの名前で書き、VS Code 拡張の図もこの名前を出す（`VolumeUp` / `VolumeDown` はこれまでどおり読める）
 - `cornix compile` は、レイヤーのファイルに書いていない（割り当てのない）位置を `-1` ではなく `KC_NO`（0）にする。
   `-1` だと `cornix device apply` がその位置を飛ばして前の値が残り、Vial での読み込みも失敗しうるため。

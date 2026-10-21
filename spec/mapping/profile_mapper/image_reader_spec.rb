@@ -102,6 +102,12 @@ RSpec.describe Cornix::Mapping::ProfileMapper::ImageReader do
         profile2 = read([base] + Array.new(9) { filled(0) }, tap_dances: tap_dances2, combos: combos2)
         expect(profile2.layers.map(&:index)).to eq([0, 2, 4, 6])
       end
+
+      it 'マクロの中のレイヤー操作が指すレイヤーは空でも読む' do
+        macros2 = [[img::MacroAction.new(kind: :tap, keys: [0x5223])]] + Array.new(31) { [] } # MO(3)
+        profile2 = read(Array.new(10) { filled(0) }, macros: macros2)
+        expect(profile2.layers.map(&:index)).to eq([0, 3])
+      end
     end
 
     it 'キーの位置の値だけを読み、nil の位置は割り当てなし' do

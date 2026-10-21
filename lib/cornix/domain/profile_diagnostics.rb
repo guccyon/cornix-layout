@@ -2,9 +2,7 @@
 
 require_relative 'diagnostic'
 require_relative 'keycode'
-require_relative 'keycode/layer_action'
-require_relative 'keycode/layer_tap'
-require_relative 'keycode/layer_mod'
+require_relative 'keycode/layer_reference'
 require_relative 'keycode/macro_call'
 require_relative 'keycode/tap_dance_call'
 require_relative 'keycode/quantum'
@@ -26,7 +24,7 @@ module Cornix
     #                 レイヤー数の内だが定義されていないレイヤーを指す（warning）、
     #                 Capabilities#unsupported_keycodes にある特殊キー（warning。書き込みは止めない）
     class ProfileDiagnostics
-      LAYER_REF_TYPES = Profile::LAYER_REF_TYPES
+      LAYER_REF_TYPES = Keycode::LAYER_REF_TYPES
 
       def initialize(profile, capabilities)
         @profile = profile
@@ -144,7 +142,7 @@ module Cornix
       def tap_dance_indexes = @tap_dance_indexes ||= profile.tap_dances.map(&:index)
       def layer_indexes = @layer_indexes ||= profile.layers.map(&:index)
 
-      # [パス, Keycode] の一覧
+      # [パス, Keycode] の一覧。対象は Profile#all_keycodes（decompile が残すレイヤーの判定に使う）と同じにする
       def keycode_entries
         layer_entries + macro_entries + tap_dance_entries + combo_entries
       end

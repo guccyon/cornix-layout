@@ -141,7 +141,7 @@ cornix <command> [options]
 | `validate` | Not used | Validates the settings files |
 | `rename` | Not used | Gives the settings files meaningful names, confirming Claude's suggestions one by one |
 | `mcp` | Depends on the tool | Starts as an MCP server (see [Using it as an MCP server](#using-it-as-an-mcp-server)) |
-| `serve` | Not used | The backend of the VS Code extension (see [Editing on screen in VS Code](#editing-on-screen-in-vs-code)) |
+| `serve [--device [--allow-writes]]` | Not used (with `--device`: reads; writes only with `--allow-writes`) | The backend of the VS Code extension (see [Editing on screen in VS Code](#editing-on-screen-in-vs-code)). `--device` starts the separate server that compares with and writes to the keyboard |
 
 `cornix device` reads and writes with explicit files.
 
@@ -597,7 +597,7 @@ cd ../cornix-default-keymap && cornix validate
 
 `editors/vscode/` has a VS Code extension that shows a whole settings directory on one screen and lets you edit every settings file while choosing from candidates.
 It is not on the Marketplace: build a .vsix and install it yourself (the steps, in Japanese, are in [editors/vscode/README.md](editors/vscode/README.md)).
-The extension talks only to `cornix serve` and never writes to the keyboard; run `status` / `apply` from the terminal as before.
+The extension talks only to `cornix serve` (and, for the keyboard, `cornix serve --device`). It writes to the keyboard only when you allow it in the settings and confirm each time (see **The keyboard** below); `status` / `apply` from the terminal work as before.
 
 Open it with the Cornix icon in the activity bar or the command "Cornix: プロファイルを開く" (Open profile). The upper half is a diagram of the keyboard and the lower half holds the editing panes; clicking a key moves to its field.
 
@@ -622,6 +622,10 @@ Open it with the Cornix icon in the activity bar or the command "Cornix: プロ�
 - **Adding, deleting and renaming**: macros, tap dances, combos and shortcuts can be added, deleted and renamed from the screen. Layers can be renamed, added with "＋" at the end of the layer buttons (choose a free number and a name), and deleted with "レイヤーを削除" (Delete layer); the dialog shows how many layer keys such as `MO(n)` point to it. These are written to the files right after a confirmation dialog (if there are unsaved changes, you are asked to save them first). Renaming also rewrites references such as `Macro('old name')` in every file and the file name, and stops if the compile result would change. Deleting leaves references as they are; the dialog shows how many there are, and the referring side shows an error
 - **Copying bundled shortcuts and expanding presets**: "同梱からコピー" (Copy from bundled) in the shortcuts section adds the chosen bundled shortcut to `shortcuts.yaml` (named after its label; existing references are left as they are). "手順に展開" (Expand into steps) on a macro replaces its `preset:` line with the steps of the bundled definition. Both are written right after a confirmation dialog, and expanding stops if the compile result would change
 - **Text editor**: when you open a settings file as text, the same validation results appear as squiggles
+- **The keyboard**: "比べる" (Compare), "反映" (Apply) and "戻す" (Restore) above the diagram, with the mark "実機: 同じ／違う N 件／未確認" (Keyboard: same / N differences / not checked), also in the status bar. Like `cornix device`, this needs macOS and the HID bridge (see [Requirements](#requirements))
+  - Compare only reads: it compiles the saved profile, reads the keyboard (about 10 seconds over Bluetooth) and outlines the differing keys in orange; the "実機との差分" (Differences from the keyboard) section lists them. The mark is not updated automatically and goes back to "not checked" when you save
+  - Apply compares again, shows the number of changes and the keyboard in a confirmation dialog, then backs up, writes and reads back. Restore picks a backup (newest first) and goes through the same dialog
+  - Writing is allowed only when the setting `cornix.device.allowWrites` is on (off by default; Compare always works). The confirmation dialog appears every time and cannot be turned off. The extension starts `cornix serve --device` with `--allow-writes` only when the setting is on, and without it the server refuses to write
 
 ## Using it as an MCP server
 

@@ -1,7 +1,8 @@
 # キーボード直接操作と MCP サーバー
 
 接続中の Cornix に Vial プロトコル（raw HID）で直接読み書きする機能。Vial Web / GUI を使わずに
-`layout.vil` を差分だけ反映できる。CLI（`cornix device`、およびそのショートカットの `cornix pull` / `status` / `apply` / `restore`）と MCP サーバー（`cornix mcp`）の入口がある。
+`layout.vil` を差分だけ反映できる。CLI（`cornix device`、およびそのショートカットの `cornix pull` / `status` / `apply` / `restore`）と MCP サーバー（`cornix mcp`）、
+VS Code 拡張の device のサーバー（`cornix serve --device`。下の「VS Code 拡張から」）の入口がある。
 `status` / `apply` は compile してから、その出力 `tmp/build/layout.vil` を対象にする。
 
 ## 構成
@@ -11,6 +12,8 @@ lib/cornix/interface/cli/commands/device.rb, mcp.rb   CLI 入口
 lib/cornix/interface/mcp/
   server.rb / protocol.rb   MCP（stdio, JSON-RPC 2.0）。応答は JSON.generate(ascii_only: true)
   tool_catalog.rb / tools.rb ツールの定義と処理（ユースケースを呼ぶだけ）
+lib/cornix/interface/editor_server/handlers/device_*.rb   cornix serve --device の device/* のメソッド
+lib/cornix/application/editor/device_operations.rb, device_changes.rb   その中身（比べる・反映・戻す、変更を位置に直す）
 lib/cornix/application/
   device_info / device_read / device_backup / device_diff / device_apply / device_restore / list_snapshots
   Environment#open_device   Device::Session を開く（device_opener で差し替え可能）
@@ -50,6 +53,26 @@ CLI の apply / restore は 1 回の接続の中で計画 → 確認（y/N、`--
 `keyboard_info` と、`save_path` なしの `read_keymap` は中身がそのまま JSON なので 1 つだけ返す。
 
 ツールの名前（backup / list_backups / restore_backup）は、登録済みのクライアントを壊さないように前の版のまま残している。
+
+## VS Code 拡張から
+
+VS Code 拡張 v0.4 の「比べる」「反映」「戻す」は、`cornix serve --device [--allow-writes]` を子プロセスとして起動し、
+編集のサーバー（`cornix serve`）と同じ枠の JSON-RPC の `device/compare`・`device/apply`・`device/backups`・`device/compareBackup`・`device/restore` で話す
+（約束は [vscode-extension/protocol.md](vscode-extension/protocol.md) の 14、決めたことは ADR 018・019）。
+編集のサーバーとは別のプロセスなので、実機を読む約 10 秒の間も候補や検証は止まらない。
+
+- 中身は CLI・MCP と同じユースケース（`Compile` → `DeviceDiff` / `DeviceApply`（`expected_token`）/ `DeviceRestore` / `ListSnapshots`）を
+  `Application::Editor::DeviceOperations` から呼ぶ。マトリクスの座標を位置（レイヤー・位置の名前）に直すのは `Application::Editor::DeviceChanges`（`Domain::PositionMap`）
+- 比べるのは保存済みのファイルを compile したもの（未保存の変更は見ない）。`device/apply` はサーバーが計画し直し、`device/compare` の token と違えば何も書かない（MCP の confirm_token と同じ）
+- 書き込みの止めは二重（ADR 019）:
+  1. 拡張: 設定 `cornix.device.allowWrites`（既定 `false`）が `true` のときだけ `--allow-writes` を付けて起動する。書くたびに件数と書き込み先のキーボード名を見せる確認のモーダルを出す（省けない）
+  2. サーバー: `--allow-writes` なしで起動したものは `device/apply`・`device/restore` を `-32074`（WritesNotAllowed）で断り、実機を読みもしない
+- バックアップ・1 件ずつの書き込み・読み直しの検証・boot 系キーコードの拒否は、下の「安全設計」のまま（CLI・MCP と同じ `Device::Writer` / `ChangePolicy`）
+- 進み具合は `Device::Reader` / `Writer` の progress のコールバックから `device/progress` の通知にする。取り消し（`$/cancelRequest`）は読む間だけ受け付け、
+  スレッドを使わず、進み具合を送るたびに標準入力を待たずに読んで拾う。書き始めたら取り消せない
+- 実機の失敗は型で分かれ（下の「未接続・切断時」）、エラーの code になる（`-32070` DeviceUnavailable・`-32072` WriteIncomplete など）。拡張はその理由と直し方を出す
+- テストは偽の実機だけ: Ruby は `spec/device/fake_cornix_device.rb`（FakeRmkDevice の上に、.vil の状態・使えない理由・途中で切れる・書いても変わらない、を足したもの）と
+  適合テストのデータ `spec/fixtures/protocol/device/`、拡張は偽の device のサーバー `editors/vscode/test/fake-device-server/`。統合テストも本物のブリッジは起動しない
 
 ## スナップショット
 

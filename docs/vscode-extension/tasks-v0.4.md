@@ -5,7 +5,7 @@
 作業ごとの PR は `feature/vscode-extension` 向け・版ができたら main への PR を 1 つ。main への PR は Tetsuro が .vsix で確かめてからマージする）。
 
 2026-10-21 に v0.4 の範囲を「まず設計だけ」と決め、チャットでまとめを出して Tetsuro の OK をもらった（この文書と protocol.md の 14、ADR 018・019）。
-2026-10-22 に Tetsuro の指示で実装を始めた（統合ブランチ `feature/vscode-extension` を main から作り直した）。
+2026-10-22 に Tetsuro の指示で実装を始めた（統合ブランチ `feature/vscode-extension` を main から作り直した）。同じ日に段 1・段 2（#94〜#97）を統合ブランチに入れ、段 3 に入った。
 
 ## 進み具合
 
@@ -13,12 +13,12 @@
 |---|---|---|---|
 | 0 | 設計（この文書・protocol.md の 14・ADR・roadmap・spec） | — | 済み |
 | — | K. 下の欄の「キー別」の並べ方とレイヤーの追加・削除（issue #84。実機とは別の作業。足しただけなので約束の版は `"0.3"` のまま） | — | 済み |
-| 1 | P. 約束の型（`editors/vscode/src/deviceProtocol.ts`）と偽の device のサーバー | — | 進行中 |
-| 2 | D1. device のサーバー（Ruby。`cornix serve --device`） | — | これから |
-| 2 | D2. 拡張のホスト（device のサーバーの起動・コマンド・確認のダイアログ・設定） | — | これから |
-| 2 | D3. 画面（違うキーの色・差分の一覧・「実機と同じ／違う」の印・ボタン） | — | これから |
-| 3 | J1. 版を上げる・通しの確認・統合テスト | — | これから |
-| 3 | J2. 文書（README・CHANGELOG・docs・知見） | — | これから |
+| 1 | P. 約束の型（`editors/vscode/src/deviceProtocol.ts`）と偽の device のサーバー | #94 | 済み |
+| 2 | D1. device のサーバー（Ruby。`cornix serve --device`） | #97 | 済み |
+| 2 | D2. 拡張のホスト（device のサーバーの起動・コマンド・確認のダイアログ・設定） | #96 | 済み |
+| 2 | D3. 画面（違うキーの色・差分の一覧・「実機と同じ／違う」の印・ボタン） | #95 | 済み |
+| 3 | J1. 版を上げる・通しの確認・統合テスト | — | 進行中 |
+| 3 | J2. 文書（README・CHANGELOG・docs・知見） | この PR | 進行中 |
 | 3 | J. main への PR（Tetsuro の確認のあとマージ） | — | これから |
 
 ## v0.4 で入れるもの
@@ -111,6 +111,37 @@ device のサーバーの起動（必要になったときに起動し、使い�
 ### D3. 画面
 
 ボタンと印、違うキーの橙の枠、レイヤーのタブの点、「実機との差分」の節、行から欄へ移る動き。Webview とホストの間のメッセージを足す（`webviewMessages.ts`）。
+
+## 段 2 の PR で決めたこと
+
+上の「決めたこと」と「画面」の曖昧なところを、各 PR が次のように決めた（約束に足したものは protocol.md の 14 にも書いた）。
+
+### P（#94）
+
+- 上の「P. 約束の型と入れ物」に書いたもの（`DeviceChange.key`・`DeviceBackup.kind`・`changes` の並び、ホストと画面の間のメッセージ）
+- 偽の device のサーバーは compile しない。実機とプロファイルを「場所 → 値の表記」の表としてプロセスの中に持ち、反映すると実機の表がプロファイルの表になる（ファイルには書かない）
+
+### D3（#95）
+
+- 違うキーは橙の枠を `::after` で重ねる（キーの要素は `overflow: hidden` なので `outline` だと欠ける）。エンコーダは円全体ではなく、違う帯（左回し・押し込み・右回し）だけを囲む
+- `allowWrites` が `false` でも「反映」「戻す」は出し、枠を破線にする（押すとホストが案内する）。操作の最中はボタンを押せなくし、何をしているかを印に出す
+
+### D2（#96）
+
+- 子プロセスの起動・つなぎ方・落ちたときの再起動は `src/server/serverProcess.ts` にまとめ、編集のサーバーと device のサーバーで共通にした
+- 反映は、比べた直後でも毎回比べ直してから確認のモーダルを出す（ボタンは「N 件を書き込む」。「次から聞かない」は付けない）
+- 取り消しは読む間だけ。`withProgress` の `cancellable` はあとから変えられないので、自前の `CancellationTokenSource` を挟み、書き始めたら取り消しをサーバーへ渡さない
+- 比べたときの設定ファイルの版と今の版が違えば「未確認」に戻す。戻すのあとは「未確認」
+- 設定（`cornix.device.allowWrites`・`cornix.path`）が変わったら device のサーバーは止めるだけで、次のリクエストで起動し直す
+- ブリッジがないときの案内は `xcode-select --install` と、手でビルドするなら `swiftc -O ext/cornix_hid/main.swift -o tmp/cornix-hid`
+
+### D1（#97）
+
+- `Interface::EditorServer::Handler` に `servers`（`:editor` / `:device`）を持たせ、`--device` のときは `device/*` だけを登録する。中身は `Application::Editor::DeviceOperations`、変更を位置に直すのは `Application::Editor::DeviceChanges`
+- 実機の失敗を型で分ける（`Cornix::DeviceUnavailable`（`reason`）・`WriteIncomplete`・`PlanChanged`・`PlanRejected`）。`Device::Reader` / `Writer` に進み具合のコールバックを足した
+- 取り消しはスレッドを使わず、進み具合を送るたびに標準入力を待たずに読んで拾う
+- バックアップの名前は同じ秒に重なると `-2` などの連番を付ける
+- 偽の実機は `spec/device/fake_cornix_device.rb`、適合テストは `spec/fixtures/protocol/device/`（42 件。protocol.md の 14.10）
 
 ## 段 3
 

@@ -32,11 +32,19 @@
   図で選んでいるレイヤーの行を強調し、「▽ と空欄を畳む」で `Trans` と書いていない行を隠せる。v0.3 の図の「全レイヤー」の切り替えはこれに置き換えてやめた
 - VS Code 拡張: レイヤーの追加（レイヤーの並びの末尾の「＋」で番号と名前を選ぶ。ほかのレイヤーと同じ名前でもよい）と削除（レイヤー別のときの見出しから。確認のダイアログにそのレイヤーを指すレイヤー操作の数を出す）（#84）
 - VS Code 拡張: 保存済みの中身に検証の問題があるレイヤーのタブに点（黄は警告、赤はエラー）を付け、ツールチップに件数と文を出す（#84）
+- VS Code 拡張 v0.4: 実機（接続中の Cornix）と比べる・反映・戻すを画面から行える（macOS とキーボードと話すブリッジ `tmp/cornix-hid` が要る。CLI の `cornix device` と同じ）
+  - 図の上の「比べる」「反映」「戻す」のボタンと、印「実機: 同じ／違う N 件／未確認」（状態バーにも）。コマンド「Cornix: 実機と比べる」「Cornix: 実機に反映」「Cornix: 実機をバックアップから戻す」
+  - 比べる（読むだけ）: 保存済みのプロファイルを compile して実機と比べ、違うキーとエンコーダの帯を橙の枠で囲み、違いのあるレイヤーのタブに点を付ける。図の下の節「実機との差分」に「場所: 実機の値 → このプロファイルの値」で並べ、行から欄へ移れる。読む間は取り消せる
+  - 反映: 毎回比べ直し、件数と書き込み先のキーボードを見せる確認のダイアログのあと、バックアップ → 書く → 読み直して検証。戻す: バックアップを新しい順の一覧から選び（既定は最新）、同じ確認の流れで戻す
+  - 書き込みは設定 `cornix.device.allowWrites` を有効にしたときだけ（既定は無効。無効でも比べるは使える）。確認のダイアログは毎回出て、省けない
+  - 実機が使えないとき（macOS 以外・ブリッジがない・つながっていない・応答がない）は、押したときに理由と直し方を出す。印は自動では更新せず、保存すると「未確認」に戻る
 - `cornix serve [--root DIR]`: VS Code 拡張と JSON-RPC（標準入出力）で話すサーバー。約束は `docs/vscode-extension/protocol.md`。
   約束の版 0.2 で、`profile/open` がマクロ・タップダンス・コンボ・ショートカットの中身を返し、変更（Change）に行の削除・並びへの挿入と移動・注記を足し、
   項目の追加・削除・名前の変更を返す `profile/planItemEdit` を足した（どれもファイルは書かず、書き換えを返す）。
   約束の版 0.3 で、`profile/planItemEdit` に preset の展開（`expandPreset`）を、`profile/open` のコンボに押せるか（`reachable`）を足した。
-  約束の版は 0.3 のまま（足しただけで、今の形は変えないため）、`profile/planItemEdit` にレイヤーの追加と削除（`kind: "layer"` の `create`（`index` 付き）と `delete`）を足した。レイヤーの名前は重なってよいので、`delete`・`rename` は `file`（ファイルのパス）で探せる（#84）
+  約束の版は 0.3 のまま（足しただけで、今の形は変えないため）、`profile/planItemEdit` にレイヤーの追加と削除（`kind: "layer"` の `create`（`index` 付き）と `delete`）を足した。レイヤーの名前は重なってよいので、`delete`・`rename` は `file`（ファイルのパス）で探せる（#84）。
+  約束の版 0.4 で、実機の操作の `cornix serve --device [--allow-writes]` を足した（別のプロセス。`device/compare`・`device/apply`・`device/backups`・`device/compareBackup`・`device/restore` と進み具合の通知 `device/progress`。
+  `--allow-writes` なしで起動したものは書き込みを断る。中身は `cornix apply` / `restore` と同じで、token で比べたときの計画と同じことを確かめてから書く）
 - `cornix validate` などの意味検証に警告「押せないコンボです」を足した。トリガーのキーがすべてそろうレイヤーが 1 つもないコンボに出す（`KC_TRNS` の位置はレイヤー 0 の値で見る。トリガーが `KC_NO` だけのコンボには出さない）
 - 別名 `Vol+` / `Vol-`（音量）、`←` `↓` `→` `↑`（矢印キー）、`SingleQuote`（`'`）、`◀◀`（巻き戻し）、`▶︎▶︎` / `▶▶`（早送り）、`⏯`（再生 / 一時停止）、`ForwardSlash`（`/`）、`Yen`（`¥`。macOS の Option + Y）。`Ctrl + Vol+` のように修飾キー式のキーにも書ける
 - 共通のオプション `--json`（#26）。`validate` / `compile` / `decompile` / `pull` / `status` / `apply` / `restore` / `init` / `snapshots` / `cleanup` / `device info|read|backup|diff|apply|restore` / `version` の結果を、JSON の 1 つの値として標準出力に出す。

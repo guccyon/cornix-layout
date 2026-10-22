@@ -16,8 +16,6 @@ module Cornix
         # ショートカット: shortcuts.yaml のその行を消す。references は Shortcut('名前') と書いた欄
         #   （同梱のショートカットに同じ名前があれば、消してもそちらを指すだけなので []）
         class Delete < Operation
-          CALLS = { 'macro' => Domain::Keycode::MacroCall, 'tapDance' => Domain::Keycode::TapDanceCall }.freeze
-
           private
 
           def run(edit)
@@ -26,22 +24,8 @@ module Cornix
             kind = kind_of(edit)
             item, file = find_item(kind, edit.name, file: edit.file)
             changeset.delete(file)
-            outcome(references: references_to(edit.kind, item, file))
-          end
-
-          # 消すファイルの中の欄（タップダンスが自分を指すなど）は、ファイルごとなくなるので入れない
-          def references_to(kind, item, file)
-            return layer_references(item, file) if kind == 'layer'
-
-            call = CALLS[kind] or return []
-
-            slots.select { |slot| slot.address[:file] != file && slot.keycode.is_a?(call) && slot.keycode.index == item.index }
-                 .map(&:address)
-          end
-
-          def layer_references(layer, file)
-            slots.select { |slot| slot.address[:file] != file && Domain::Keycode.layer_index(slot.keycode) == layer.index }
-                 .map(&:address)
+            # 消すファイルの中の欄（タップダンスが自分を指すなど）は、ファイルごとなくなるので入れない
+            outcome(references: item_references(edit.kind, item, file))
           end
 
           def delete_shortcut(edit)

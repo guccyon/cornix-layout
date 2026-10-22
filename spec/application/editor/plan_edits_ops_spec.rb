@@ -25,11 +25,10 @@ RSpec.describe Cornix::Application::Editor::PlanEdits do
   def path(rel) = File.join(@root, 'profile', rel)
   def read(rel) = File.read(path(rel))
   def write(rel, text) = File.write(path(rel), text)
-  def version(rel) = Cornix::Storage::FileVersion.read(path(rel))
+  def version(rel) = File.exist?(path(rel)) ? Cornix::Storage::FileVersion.read(path(rel)) : nil
 
-  def plan(changes)
-    described_class.new(workbench).call(opened.id, base_versions: changes.map(&:file).uniq.to_h { |f| [f, version(f)] },
-                                                   changes: changes)
+  def plan(changes, base_versions: changes.map(&:file).uniq.to_h { |f| [f, version(f)] })
+    described_class.new(workbench).call(opened.id, base_versions: base_versions, changes: changes)
   end
 
   def change(file, path, **options) = described_class::Change.new(file: file, path: path, **options)
@@ -42,7 +41,7 @@ RSpec.describe Cornix::Application::Editor::PlanEdits do
                                              end_line: r[:end][:line], end_character: r[:end][:character])
       Cornix::Storage::TextEdit.new(range: range, new_text: e[:newText])
     end
-    Cornix::Storage::TextEdit.apply(read(file), edits)
+    Cornix::Storage::TextEdit.apply(entry[:create] ? '' : read(file), edits)
   end
 
   def invalid_field(changes)
@@ -92,13 +91,13 @@ RSpec.describe Cornix::Application::Editor::PlanEdits do
       expect(applied(result, layer)).to include("    row0:\n      tab: { key: Tab, note: x }\n      Q: Q\n")
     end
 
-    it '説明を書く・消す。名前と番号は宛先にしない' do
+    it '説明を書く・消す。名前は宛先にしない（番号は v0.5 で宛先にした。下の「番号」）' do
       result = plan([change(layer, ['description'], value: '基本')])
       expect(applied(result, layer)).to include("description: '基本'\n")
       result = plan([change(layer, ['description'], op: :remove)])
       expect(applied(result, layer)).not_to include('description')
       expect(invalid_field([change(layer, ['name'], value: 'X')])).to eq('changes[0].address')
-      expect(invalid_field([change(layer, ['index'], value: '1')])).to eq('changes[0].address')
+      expect(invalid_field([change(layer, ['index'], value: '1')])).to eq('changes[0].value')
     end
 
     it 'その宛先でできない op は changes[i].address' do
@@ -229,12 +228,61 @@ RSpec.describe Cornix::Application::Editor::PlanEdits do
   describe 'ショートカット' do
     before { write('shortcuts.yaml', "shortcuts:\n  前のタブへ: Command + Shift + [ # コメント\n") }
 
-    it 'いまある名前の値を書き換える。ない名前・注記は指せない' do
+    it 'いまある名前の値を書き換える。消すこと・注記は指せない' do
       result = plan([change('shortcuts.yaml', %w[shortcuts 前のタブへ], value: 'Ctrl + Tab')])
       expect(applied(result, 'shortcuts.yaml')).to eq("shortcuts:\n  前のタブへ: Ctrl + Tab # コメント\n")
-      expect(invalid_field([change('shortcuts.yaml', %w[shortcuts 次のタブへ], value: 'Tab')])).to eq('changes[0].address')
       expect(invalid_field([change('shortcuts.yaml', %w[shortcuts 前のタブへ], op: :remove)])).to eq('changes[0].address')
       expect(invalid_field([change('shortcuts.yaml', %w[shortcuts 前のタブへ], field: :note, value: 'x')])).to eq('changes[0].field')
+    end
+  end
+
+  describe 'ショートカットの行の追加（v0.5。protocol.md の 15.2）' do
+    it 'まだない名前の set は shortcuts: の末尾に行を足し、名前の決まりに合わなければ changes[i].address' do
+      write('shortcuts.yaml', "shortcuts:\n  前のタブへ: Command + Shift + [ # コメント\n")
+      result = plan([change('shortcuts.yaml', %w[shortcuts 次のタブへ], value: 'Tab'),
+                     change('shortcuts.yaml', %w[shortcuts 次のタブへ], value: 'Command + Shift + ]')])
+      expect(applied(result, 'shortcuts.yaml'))
+        .to eq("shortcuts:\n  前のタブへ: Command + Shift + [ # コメント\n  次のタブへ: Command + Shift + ]\n")
+      ['', ' a', "a\nb"].each do |name|
+        expect(invalid_field([change('shortcuts.yaml', ['shortcuts', name], value: 'Tab')])).to eq('changes[0].address')
+      end
+    end
+
+    it 'shortcuts.yaml がなければ create: true で作る' do
+      result = plan([change('shortcuts.yaml', %w[shortcuts a], value: 'KC_A')], base_versions: { 'shortcuts.yaml' => nil })
+      expect(result[:files].first).to include(file: 'shortcuts.yaml', baseVersion: nil, create: true)
+      expect(applied(result, 'shortcuts.yaml')).to eq("shortcuts:\n  a: KC_A\n")
+    end
+  end
+
+  describe '番号（["index"]。v0.5。protocol.md の 15.2）' do
+    it '行があれば値を置き換え、値が空なら書き、なければ name: の行のすぐ後に足す。remove は行を消す' do
+      result = plan([change(macro, ['index'], value: 12)])
+      expect(applied(result, macro)).to start_with("---\nindex: 12\nname: Macro 0\n")
+      write(macro, read(macro).sub("index: 0\n", "index:\n"))
+      expect(applied(plan([change(macro, ['index'], value: 3)]), macro)).to start_with("---\nindex: 3\nname: Macro 0\n")
+      write(macro, read(macro).sub("index:\n", ''))
+      expect(applied(plan([change(macro, ['index'], value: 3)]), macro)).to start_with("---\nname: Macro 0\nindex: 3\ndescription: ''\n")
+      write(macro, read(macro).sub("name: Macro 0\n", ''))
+      expect(applied(plan([change(macro, ['index'], value: 3)]), macro)).to start_with("---\nindex: 3\ndescription: ''\n")
+      result = plan([change(layer, ['index'], op: :remove)])
+      expect(applied(result, layer)).not_to match(/^index:/)
+      expect(plan([change(macro, ['index'], op: :remove)])[:files]).to eq([])
+    end
+
+    it '値は 0 以上の整数（範囲と重なりは意味検証の error で知らせる）' do
+      ['1', -1, 1.5].each { |value| expect(invalid_field([change(macro, ['index'], value: value)])).to eq('changes[0].value') }
+      result = plan([change(macro, ['index'], value: 1)])
+      expect(result[:diagnostics]).to include(include(severity: 'error', source: 'semantic'))
+    end
+
+    it '番号を書いた未使用のファイルは使っている項目として、消したファイルは未使用として検証する' do
+      write('macros/spare.yaml', "name: Spare\nsequence: [{ action: tap, keys: [Nope] }]\n")
+      expect(plan([])[:diagnostics]).to contain_exactly(include(severity: 'warning', source: 'structure'))
+      result = plan([change('macros/spare.yaml', ['index'], value: 12)])
+      expect(result[:diagnostics]).to contain_exactly(include(severity: 'error', source: 'structure'))
+      result = plan([change('macros/spare.yaml', ['sequence', 0, 'keys', 0], value: 'KC_B'), change('macros/spare.yaml', ['index'], value: 12)])
+      expect(result[:diagnostics]).to eq([])
     end
   end
 

@@ -15,12 +15,15 @@ module Cornix
         #   outcome.changeset    #=> Changeset（メモリの上の変更）
         #   outcome.references   #=> [Address]（書き換える・壊れる参照の場所）
         #   outcome.verify       #=> 前後の compile の結果を比べるときの名前の場所（{ file:, path: }）。比べないなら nil
+        #   outcome.changes      #=> 未保存の変更に積む Change の並び（v0.5 の use / unuse / setIndex と create（shortcut）。protocol.md の 15.3）
         #
         # 宛先や名前の誤りは PlanEdits::InvalidChange（field は "edit.name" など）、局所的に書き換えられなければ
         # PlanEdits::NotLocal。どちらもファイルは書かない
         class Operation
-          Outcome = Data.define(:changeset, :references, :verify) do
-            def initialize(changeset:, references: [], verify: nil) = super(changeset:, references: references.dup.freeze, verify:)
+          Outcome = Data.define(:changeset, :references, :verify, :changes) do
+            def initialize(changeset:, references: [], verify: nil, changes: [])
+              super(changeset:, references: references.dup.freeze, verify:, changes: changes.dup.freeze)
+            end
           end
 
           InvalidChange = PlanEdits::InvalidChange
@@ -51,7 +54,9 @@ module Cornix
 
           def run(_edit) = raise(NotImplementedError)
 
-          def outcome(references: [], verify: nil) = Outcome.new(changeset: changeset, references: references, verify: verify)
+          def outcome(references: [], verify: nil, changes: [])
+            Outcome.new(changeset: changeset, references: references, verify: verify, changes: changes)
+          end
 
           def kind_of(edit) = KINDS.fetch(edit.kind)
 
@@ -133,6 +138,21 @@ module Cornix
           end
 
           def slots = @slots ||= Slots.new(reading).all
+
+          CALLS = { 'macro' => Domain::Keycode::MacroCall, 'tapDance' => Domain::Keycode::TapDanceCall }.freeze
+
+          # その項目を指す欄（そのファイルの中の欄は入れない）。レイヤーはそのレイヤーを指すレイヤー操作（16bit 値で数える。
+          # Domain::Keycode.layer_index）、マクロ・タップダンスは 16bit 値がその M(n) / TD(n) になるもの（名前でも番号でも、
+          # Shortcut(...) を通してでも。shortcuts.yaml の値も）、コンボは参照されないので []
+          def item_references(kind_name, item, file)
+            others = slots.reject { |slot| slot.address[:file] == file }
+            if kind_name == 'layer'
+              return others.select { |slot| Domain::Keycode.layer_index(slot.keycode) == item.index }.map(&:address)
+            end
+
+            call = CALLS[kind_name] or return []
+            others.select { |slot| slot.keycode.is_a?(call) && slot.keycode.index == item.index }.map(&:address)
+          end
 
           # 書いてある表記に function('name') の参照がある欄の Address
           def text_references(function, name)

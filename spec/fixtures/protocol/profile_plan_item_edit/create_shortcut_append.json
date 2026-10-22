@@ -1,5 +1,5 @@
 {
-  "description": "shortcuts.yaml の shortcuts: の末尾に「名前: 値」の行を足す",
+  "description": "ショートカットを足す（v0.5）: ファイルは書き換えず、未保存の変更に積む [\"shortcuts\", 名前] の set を changes に返す（files は []。保存で shortcuts: の末尾に行を足す）",
   "setup": {
     "files": {
       "profiles/default/metadata.yaml": "keyboard: cornix\nversion: 1\n",
@@ -37,25 +37,18 @@
     "id": 1,
     "result": {
       "files": [
+
+      ],
+      "changes": [
         {
-          "file": "shortcuts.yaml",
-          "baseVersion": "sha256:296801510291f9677c2d5a73bcbb37289911551a349e1736b8bc63220d5f51fb",
-          "create": false,
-          "edits": [
-            {
-              "range": {
-                "start": {
-                  "line": 3,
-                  "character": 28
-                },
-                "end": {
-                  "line": 3,
-                  "character": 28
-                }
-              },
-              "newText": "\n  次のタブへ: Command + Shift + ]"
-            }
-          ]
+          "address": {
+            "file": "shortcuts.yaml",
+            "path": [
+              "shortcuts",
+              "次のタブへ"
+            ]
+          },
+          "value": "Command + Shift + ]"
         }
       ],
       "references": [

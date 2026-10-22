@@ -10,7 +10,7 @@ module Cornix
         #   targets = Targets.new(reading, settings_catalog)
         #   target = targets.fetch('layers/0_base.yml', %w[mapping left_hand row0 tab])
         #   target.ops       #=> [:set, :remove]（できる操作）
-        #   target.type      #=> 値の型（:key 表記の文字列、:string、:integer、:setting QMK 設定、:step マクロの手順。:remove だけなら nil）
+        #   target.type      #=> 値の型（:key 表記の文字列、:string、:integer、:index 0 以上の整数、:setting QMK 設定、:step マクロの手順。:remove だけなら nil）
         #   target.note      #=> 注記（field: "note"）を書けるか
         #   target.check     #=> 当てる直前の中身で確かめること（並びの位置など。Draft#check_state! が見る）
         #   target.order     #=> YamlDocument#insert の order（{ 親の道筋 => キーの並び } か、兄弟のキーの並び）
@@ -18,8 +18,12 @@ module Cornix
         #
         # レイヤーのキー（position_map のすべての位置）・エンコーダの操作・QMK 設定は表にし、マクロ・タップダンス・コンボ・
         # ショートカットは道筋の形で決める（並びの位置は前の変更で変わるので、ここでは形だけを見て、位置は当てる直前に確かめる）。
-        # 宛先にできるのは、読み込んだ（いまディスクにある）設定ファイルの中だけ（ないファイルは指せない。QMK 設定のファイルは除く）。
-        # 構造検証で読めないプロファイル（reading.ok? が false）には宛先がない
+        # 宛先にできるのは、読み込んだ（いまディスクにある）設定ファイルの中だけ（ないファイルは指せない。QMK 設定のファイルと
+        # まだない shortcuts.yaml は除く）。構造検証で読めないプロファイル（reading.ok? が false）には宛先がない。
+        #
+        # v0.5（protocol.md の 15.2）: レイヤー・マクロ・タップダンス・コンボのファイルの ["index"]（set と remove。値は 0 以上の整数）と、
+        # まだない名前の ["shortcuts", 名前] の set（shortcuts: の末尾に行を足す。ファイルがなければ作る）。
+        # 未使用のレイヤーのファイルのキーも宛先にする（取り出す（use）のは未保存の変更なので、保存する前にそのキーを編集できるように）
         class Targets
           Target = Data.define(:file, :path, :order, :setting, :type, :ops, :note, :check) do
             def initialize(file:, path:, order: [], setting: nil, type: :key, ops: %i[set], note: false, check: nil)
@@ -44,6 +48,8 @@ module Cornix
 
           EDIT = %i[set remove].freeze
           LIST = %i[insert move].freeze
+          INDEX_PATH = ['index'].freeze
+          INDEXED_KINDS = %i[layers macros tap_dances combos].freeze
 
           def initialize(reading, settings_catalog)
             @table = {}
@@ -53,6 +59,7 @@ module Cornix
             add_layers(reading)
             add_settings(reading, settings_catalog)
             add_items(reading)
+            add_indexes(reading)
           end
 
           # file と path（JSON の道筋。文字列か整数）の宛先。指せなければ nil
@@ -68,10 +75,9 @@ module Cornix
 
           def add_layers(reading)
             map = reading.profile.position_map
-            reading.profile.layers.each_index do |i|
-              file, = reading.repository.address("layers[#{i}]")
-              next unless file
-
+            used = reading.profile.layers.each_index.filter_map { |i| reading.repository.address("layers[#{i}]").first }
+            unused = reading.unused.select { |u| u.kind == :layers }.map(&:file)
+            (used + unused).each do |file|
               map.positions.each do |pos|
                 hand = map.hand_key(pos)
                 group, symbol = map.symbol(pos)
@@ -112,6 +118,22 @@ module Cornix
             end
           end
 
+          # ---- 番号（["index"]。protocol.md の 15.2） ----
+
+          # 番号の付いたファイル（使っているものも未使用のものも）の ["index"]。行がなければ name: の行のすぐ後に足す
+          # （name: がなければ最初のキーの前、つまり先頭の --- の後。キーがなければ文書の終わり）
+          def add_indexes(reading)
+            reading.files.each_key do |file|
+              next unless INDEXED_KINDS.any? { |kind| Storage::ConfigFiles.kind_file?(file, kind) }
+
+              data = reading.data(file)
+              next unless data.is_a?(Hash)
+
+              keys = data.keys.map(&:to_s) - %w[name index]
+              add(file, INDEX_PATH, ['name', 'index', *keys], type: :index, ops: EDIT)
+            end
+          end
+
           # ---- マクロ・タップダンス・コンボ・ショートカット ----
 
           # ファイル => [種類, 読んだ中身]。未使用のファイル（index のないもの）も宛先にする（中身の書き換えは別のファイルに及ばない。
@@ -122,7 +144,8 @@ module Cornix
               @items[file] = [kind, reading.data(file)] if kind
             end
             shortcuts = reading.shortcuts_file
-            @items[shortcuts] = [:shortcuts, reading.data(shortcuts)] if shortcuts
+            # まだない shortcuts.yaml も、行を足す宛先にする（中身は空の Hash として扱う）
+            @items[shortcuts || ProfileReading::SHORTCUTS_FILE] = [:shortcuts, (shortcuts && reading.data(shortcuts)) || {}]
           end
 
           def item_target(file, path)
@@ -173,12 +196,17 @@ module Cornix
             end
           end
 
-          # 名前の Address（["shortcuts", 名前]）は、いま書いてある名前だけ。足す・消すは profile/planItemEdit
+          # 名前の Address（["shortcuts", 名前]）。いま書いてある名前は値の書き換え、まだない名前は shortcuts: の末尾に行を足す
+          # （v0.5。protocol.md の 15.2）。shortcuts: がなければ足す。消すのは profile/planItemEdit の delete。
+          # 名前の決まり（空でない・前後の空白なし）に合わなければ :invalid_name（Draft が InvalidChange にする）
           def shortcuts_target(path, data)
-            entries = data['shortcuts']
-            return nil unless path.size == 2 && path[0] == 'shortcuts' && entries.is_a?(Hash) && entries.key?(path[1])
+            return nil unless path.size == 2 && path[0] == 'shortcuts' && path[1].is_a?(String)
 
-            { ops: %i[set] }
+            entries = data['shortcuts']
+            return { ops: %i[set] } if entries.is_a?(Hash) && entries.key?(path[1])
+            return nil unless entries.nil? || entries.is_a?(Hash)
+
+            { ops: %i[set], check: :new_shortcut }
           end
         end
       end

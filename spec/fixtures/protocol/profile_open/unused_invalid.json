@@ -1,0 +1,38 @@
+{
+  "description": "status: invalid のときは unused の 4 つとも []（v0.5）",
+  "setup": {
+    "profile": "authors_config",
+    "open": false,
+    "files": {
+      "profiles/default/metadata.yaml": null,
+      "profiles/default/macros/old_paste.yml": "---\nname: Old Paste\ndescription: ''\nindex:\nsequence:\n- action: tap\n  keys: [KC_LGUI, KC_V]\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/open",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "status": "invalid",
+      "unused": {
+        "layers": [
+
+        ],
+        "macros": [
+
+        ],
+        "tapDances": [
+
+        ],
+        "combos": [
+
+        ]
+      }
+    }
+  }
+}

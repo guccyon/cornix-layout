@@ -24,9 +24,11 @@ module Cornix
       # 設定ファイルは Storage::FileSource::Memory.capture で 1 回だけ読み、そのバイト列を版（FileVersion）と読み込みの両方に使う。
       # 一覧も読んだ時点のもので、読み込みの途中でディスクが変わっても、版と中身が食い違わない。
       # files に入れるのは設定ファイル（ConfigFiles の構成）だけで、settings/qmk_settings.yaml（.yml も）がなければ
-      # settings/qmk_settings.yaml を null で入れる（QMK 設定の Address が指すファイルで、保存で作ることがあるため）
+      # settings/qmk_settings.yaml を null で入れる（QMK 設定の Address が指すファイルで、保存で作ることがあるため）。
+      # shortcuts.yaml（.yml も）がなければ同じく shortcuts.yaml を null で入れる（v0.5。ショートカットの行の追加で作ることがあるため。protocol.md の 15.1）
       class ProfileReading
         SETTINGS_FILE = Storage::ConfigFiles.single_path(Storage::ConfigFiles::SETTINGS)
+        SHORTCUTS_FILE = Storage::ConfigFiles.single_path(Storage::ConfigFiles::SHORTCUTS)
 
         attr_reader :files, :profile, :problems, :unused, :repository
 
@@ -38,6 +40,7 @@ module Cornix
           @source = source || Storage::FileSource::Memory.capture(env.config_dir)
           files = @source.files.transform_values { |bytes| Storage::FileVersion.of(bytes) }
           files[SETTINGS_FILE] = nil unless settings_file
+          files[SHORTCUTS_FILE] = nil unless shortcuts_file
           @files = files.freeze
           @repository = Storage::ConfigRepository.new(env.config_dir, notation: env.notation,
                                                                       settings_catalog: env.settings_catalog,

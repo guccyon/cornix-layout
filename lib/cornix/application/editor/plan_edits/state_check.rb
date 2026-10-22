@@ -69,6 +69,18 @@ module Cornix
 
           def step_delay_size = step_with(['delay']) && nil
 
+          # まだない名前の ["shortcuts", 名前] の set（行を足す。protocol.md の 15.2）: 名前の決まり（空でない・前後の空白なし・改行なし）
+          def new_shortcut_size
+            name = path.last
+            problem =
+              if name.strip.empty? then '名前が空です'
+              elsif name != name.strip then '名前の前後に空白があります'
+              elsif name.match?(/[\r\n]/) then '名前に改行があります'
+              end
+            invalid!('address', "ショートカットの#{problem}: 「#{name}」") if problem
+            nil
+          end
+
           def step_text_size = step_with(['text']) && nil
 
           def step_with(actions)

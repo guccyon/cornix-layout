@@ -1,0 +1,80 @@
+{
+  "description": "[\"index\"] の remove: index: の行を消す（未使用にする）。消したファイルは未使用として検証する（名前の参照は「未使用です」の構造の error）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "tap_dance/04_tab_escape.yml": "sha256:6dc2412168fc9a9760f9664872fcbdc1b43347c5e1348db23681aab88ff62fe8"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "tap_dance/04_tab_escape.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "op": "remove"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "tap_dance/04_tab_escape.yml",
+          "baseVersion": "sha256:6dc2412168fc9a9760f9664872fcbdc1b43347c5e1348db23681aab88ff62fe8",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 4,
+                  "character": 0
+                },
+                "end": {
+                  "line": 5,
+                  "character": 0
+                }
+              },
+              "newText": ""
+            }
+          ]
+        }
+      ],
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "キーコード「TapDance('Tab Escape')」を解釈できません: タップダンス「Tab Escape」は未使用です（ファイルに index がありません）",
+          "source": "structure",
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 7,
+              "character": 11
+            },
+            "end": {
+              "line": 7,
+              "character": 33
+            }
+          }
+        }
+      ]
+    }
+  }
+}

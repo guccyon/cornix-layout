@@ -1,0 +1,57 @@
+{
+  "description": "レイヤーの番号の入れ替え: 2 つの [\"index\"] の set だけで、MO(1) などの参照は書き換えない（references は []）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/1_symbols.yml": "sha256:b764c12bb8a31ed4f248a20bb80dd6e62c11936635676161a02b1aeacc88a926",
+        "layers/2_numbers.yml": "sha256:2778d926303fe9c063986ba8b765c4cb112f3780c85973a4fe5a85858f6e2cb8"
+      },
+      "edit": {
+        "op": "setIndex",
+        "kind": "layer",
+        "file": "layers/1_symbols.yml",
+        "index": 2
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+        {
+          "address": {
+            "file": "layers/1_symbols.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 2
+        },
+        {
+          "address": {
+            "file": "layers/2_numbers.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 1
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

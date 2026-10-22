@@ -17,7 +17,9 @@ module Cornix
         # レイヤー（v0.4。issue #84）: 選んだ番号（省けば空いているいちばん小さい番号）で、layers/<番号>_<名前>.<拡張子> のファイルを作る
         #   （名前の部分は Storage::ConfigFiles.item_path と同じ。decompile が書く名前とそろえる）。
         #   中身は Schema::LayerFile が受け付ける最小のもの（name・description: ''・index・mapping の両手の空のグループ。エンコーダは書かない）
-        # ショートカット: shortcuts.yaml の shortcuts: の末尾に「名前: 値」の行を足す（ファイルがなければ作る）
+        # ショートカット（v0.5。protocol.md の 15.3）: ファイルは書き換えず、未保存の変更に積む ["shortcuts", 名前] の set を outcome.changes に返す
+        #   （保存で shortcuts: の末尾に「名前: 値」の行を足す。ファイルがなければ作る。15.2）。
+        #   名前は今の未保存の変更を当てた状態（ItemEdits が作る reading）の名前と重ならないこと
         class Create < Operation
           NO_KEY = 'KC_NO'
 
@@ -112,9 +114,8 @@ module Cornix
             check_name!(edit.name, 'edit.name', shortcut_names)
             raise InvalidChange.new('edit.value', 'ショートカットの値が空です') if edit.value.to_s.strip.empty?
 
-            file = reading.shortcuts_file || Storage::ConfigFiles.single_path(Storage::ConfigFiles::SHORTCUTS)
-            edit_file(file) { |text| Storage::YamlDocument.parse(text).insert(['shortcuts', edit.name], edit.value) }
-            outcome
+            file = reading.shortcuts_file || ProfileReading::SHORTCUTS_FILE
+            outcome(changes: [PlanEdits::Change.new(file: file, path: ['shortcuts', edit.name], value: edit.value)])
           end
         end
       end

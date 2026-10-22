@@ -1,0 +1,41 @@
+{
+  "description": "書き込み禁止のキーコードを含むバックアップは -32073",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile"
+    },
+    "snapshots": {
+      "20261021-101500-pre-apply": {
+        "from": "profile",
+        "keys": [
+          {
+            "layer": 2,
+            "row": 0,
+            "col": 0,
+            "value": "QK_BOOT"
+          }
+        ]
+      }
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compareBackup",
+    "params": {
+      "dir": "profiles/default",
+      "backup": "20261021-101500-pre-apply"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32073,
+      "data": {
+        "keycodes": [
+          "QK_BOOT"
+        ]
+      }
+    }
+  }
+}

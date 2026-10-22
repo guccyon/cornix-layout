@@ -1,0 +1,12 @@
+{
+  "description": "shutdown は null を返す",
+  "request": {
+    "id": 1,
+    "method": "shutdown",
+    "params": null
+  },
+  "response": {
+    "id": 1,
+    "result": null
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "description": "書き込み禁止のキーコード（QK_BOOT）を書く計画は比べるときも -32073（data.keycodes）",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile"
+    },
+    "files": {
+      "profiles/default/combos/03_combo.yaml": "---\nindex: 3\nname: Combo 3\ndescription: ''\ntrigger_keys:\n- KC_M\n- KC_COMMA\n- KC_NO\n- KC_NO\noutput_key: QK_BOOT\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32073,
+      "data": {
+        "keycodes": [
+          "QK_BOOT"
+        ]
+      }
+    }
+  }
+}

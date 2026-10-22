@@ -1,0 +1,23 @@
+{
+  "description": "--allow-writes で起動したサーバーは deviceWrites: true",
+  "setup": {
+    "initialize": false,
+    "allowWrites": true
+  },
+  "request": {
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "0.3"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "capabilities": {
+        "device": true,
+        "deviceWrites": true
+      }
+    }
+  }
+}

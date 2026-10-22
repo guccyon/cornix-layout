@@ -1,0 +1,41 @@
+{
+  "description": "プロファイルが検証のエラーで compile できなければ、実機を読まずに -32075（diagnostics 付き）",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile"
+    },
+    "files": {
+      "profiles/default/layers/0_layer_0.yaml": "name: Layer 0\ndescription: ''\nindex: 0\nmapping:\n  left_hand:\n    row0:\n      tab: KC_FOO\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32075,
+      "data": {
+        "diagnostics": [
+          {
+            "severity": "error",
+            "message": "right_hand がありません",
+            "source": "structure",
+            "address": {
+              "file": "layers/0_layer_0.yaml",
+              "path": [
+                "mapping"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "notifications": []
+}

@@ -1,0 +1,25 @@
+{
+  "description": "実機が使えない（bridge）ときは -32070（data.reason）",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "unavailable": "bridge"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32070,
+      "data": {
+        "reason": "bridge"
+      }
+    }
+  }
+}

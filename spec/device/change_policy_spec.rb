@@ -26,4 +26,9 @@ RSpec.describe Cornix::Device::ChangePolicy do
   it 'RMK 0.8 が解釈できない値は警告する' do
     expect(policy.check!([change.with(to: 0x7C20)]).first).to match(/レイヤー0 \(0,1\): .* はファームウェアが未対応/)
   end
+
+  it '拒否するときは PlanRejected で、keycodes に拒否したキーコードの表記を重ならずに入れる' do
+    changes = [change.with(to: 0x7C00), change.with(col: 2, to: 0x7C01), change.with(col: 3, to: 0x7C00)]
+    expect { policy.check!(changes) }.to raise_error(Cornix::PlanRejected) { |e| expect(e.keycodes).to eq(%w[QK_BOOT QK_REBOOT]) }
+  end
 end

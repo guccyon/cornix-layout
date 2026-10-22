@@ -308,8 +308,20 @@ export type ProfileSnapshot = {
   tapDances?: TapDanceSnapshot[];
   combos?: ComboSnapshot[];
   shortcuts?: ShortcutSnapshot[];
+  /** v0.5: 未使用の項目（index: のないファイル。protocol.md の 15.1）。v0.4 のサーバーは返さない */
+  unused?: UnusedItems;
   /** 保存済みのファイルの検証の結果 */
   diagnostics: Diagnostic[];
+};
+
+/** v0.5: 未使用の項目（protocol.md の 15.1）。形は使っている項目と同じで、index だけが null */
+export type Unused<T extends { index: number }> = Omit<T, 'index'> & { index: null };
+
+export type UnusedItems = {
+  layers: Unused<LayerSnapshot>[];
+  macros: Unused<MacroSnapshot>[];
+  tapDances: Unused<TapDanceSnapshot>[];
+  combos: Unused<ComboSnapshot>[];
 };
 
 export type ProfileCloseParams = { profileId: string };
@@ -455,13 +467,24 @@ export type ItemEdit =
   | { op: 'rename'; kind: 'layer'; name: string; to: string; file?: string }
   | { op: 'renamePosition'; hand: Hand; row: number; col: number; to: string }
   /** v0.3: preset: のマクロを同梱の定義の手順に置き換える（protocol.md の 13.1） */
-  | { op: 'expandPreset'; kind: 'macro'; name: string };
+  | { op: 'expandPreset'; kind: 'macro'; name: string }
+  /** v0.5: 未使用の項目を末尾の番号で使い始める（protocol.md の 15.3。結果は changes） */
+  | { op: 'use'; kind: IndexedKind; file: string }
+  /** v0.5: 使っている項目の index: を消して未使用にする（15.3。結果は changes） */
+  | { op: 'unuse'; kind: IndexedKind; file: string }
+  /** v0.5: 番号を変える。index がほかの項目の番号なら入れ替える（15.3。結果は changes） */
+  | { op: 'setIndex'; kind: IndexedKind; file: string; index: number };
+
+/** v0.5: 番号（index:）を持つ種類 */
+export type IndexedKind = 'layer' | 'macro' | 'tapDance' | 'combo';
 
 export type PlanItemEditParams = {
   profileId: string;
   /** snapshot.files をそのまま */
   baseVersions: Record<string, FileVersion>;
   edit: ItemEdit;
+  /** v0.5: 今の未保存の変更（当てる順の並び）。use / unuse / setIndex と create（shortcut）は、これを当てた状態で決める（protocol.md の 15.3） */
+  changes?: AnyChange[];
 };
 
 /** FileEdits に、消す・改名を足したもの */
@@ -472,8 +495,11 @@ export type ItemFileEdits = FileEdits & {
 };
 
 export type PlanItemEditResult = {
+  /** v0.5: use / unuse / setIndex と create（shortcut）では []（代わりに changes） */
   files: ItemFileEdits[];
-  /** 書き換える（削除なら壊れる）参照の場所 */
+  /** v0.5: 未保存の変更に積む Change の並び（use / unuse / setIndex と create（shortcut）だけ。protocol.md の 15.3） */
+  changes?: AnyChange[];
+  /** 書き換える（削除・unuse なら壊れる）参照の場所 */
   references: Address[];
   diagnostics: Diagnostic[];
 };

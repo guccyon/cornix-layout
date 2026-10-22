@@ -1,4 +1,4 @@
-# バックエンドとのリクエストの約束（v0.1〜v0.4）
+# バックエンドとのリクエストの約束（v0.1〜v0.5）
 
 VS Code 拡張（以下「拡張」）と、プロファイルを読んで解釈するバックエンド（以下「サーバー」）の間の約束。
 拡張はこの約束だけでサーバーと話し、`cornix` コマンドを直接叩かない（[ADR 003](adr.md)）。
@@ -6,8 +6,9 @@ VS Code 拡張（以下「拡張」）と、プロファイルを読んで解釈
 差し替えられるように、約束には Ruby のクラス名や内部の形を出さない。
 
 **状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。v0.2 で足すもの（2026-10-20 決定）は「[12. v0.2 で足すもの](#12-v02-で足すもの)」、
-v0.3 で足すもの（2026-10-20 決定）は「[13. v0.3 で足すもの](#13-v03-で足すもの)」、v0.4 で足す実機の操作（2026-10-21 設計、2026-10-22 実装）は「[14. v0.4 で足すもの](#14-v04-で足すもの)」。
-今の約束の版（`protocolVersion`）は `"0.3"`。
+v0.3 で足すもの（2026-10-20 決定）は「[13. v0.3 で足すもの](#13-v03-で足すもの)」、v0.4 で足す実機の操作（2026-10-21 設計、2026-10-22 実装）は「[14. v0.4 で足すもの](#14-v04-で足すもの)」、
+v0.5 で足す未使用の項目と番号の操作（2026-10-22 決定）は「[15. v0.5 で足すもの](#15-v05-で足すもの)」。
+今の約束の版（`protocolVersion`）は `"0.4"`（v0.5 の段 3 で `"0.5"` に上げる）。
 
 起動・終了とプロファイルの一覧（`initialize`、`profile/list` など）のほかに、中身のメソッドとして次の 5 つを決める。
 
@@ -316,7 +317,7 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 - マクロ・タップダンス・コンボ・ショートカットの中身の画面は v0.2。v0.1 では `references` の名前の一覧だけを返す
 - 未使用のファイル（`index:` のないか値が空のもの。#85）の項目は `layers` や `references` などに返さない（`files` には版が入る）。
   レイヤーなどの `file` / Address は未使用のファイルを除いて対応させるので、未使用のファイルがあっても別のファイルを指さない。
-  未使用のファイルの構造の問題は `diagnostics` に `source: "structure"` の warning で入り、`status` は `"ok"` のまま。未使用の項目を返して編集するのは #105
+  未使用のファイルの構造の問題は `diagnostics` に `source: "structure"` の warning で入り、`status` は `"ok"` のまま。未使用の項目は v0.5 で `unused` に返す（[15.1](#151-profileopen-に足すもの)）
 
 各項目の決まり（`null` になるものと、項目ごと省くもの）:
 
@@ -1209,3 +1210,84 @@ type ItemEdit =
 - token・日時・バックアップのパスの日時の部分のように毎回変わる値は、期待する応答に書かない（8.2 の比べ方は書いた項目だけを比べる）
 - 拡張の偽の device のサーバー（`editors/vscode/test/fake-device-server/`）は compile しないので、このデータは流さない。
   偽のほうはプロセスの中に実機とプロファイルの値の表を持ち、環境変数 `CORNIX_FAKE_DEVICE` と通知 `$/fake/configure` で状態を変える（ファイルの先頭のコメント）
+
+## 15. v0.5 で足すもの
+
+issue #105（未使用の項目を取り出す・未使用にする・番号の変更）とショートカットの追加を未保存の変更にすることを約束にしたもの。計画と UI の決めごとは [tasks-v0.5.md](tasks-v0.5.md)、理由は ADR 022・023。
+**状態: 決定（2026-10-22）。** 拡張の型（`editors/vscode/src/protocol.ts`）・番号の決まり（`src/itemIndex.ts`）・偽のサーバーは P（#109）で入れた。Ruby のサーバーは R（#111）。
+v0.4 の形は変えず、項目と op を足す。約束の版（`protocolVersion`）は段 3 の J（#115）で `"0.5"` に上げる（段 2 の間は `"0.4"` のまま足す）。
+
+### 15.1 `profile/open` に足すもの
+
+```jsonc
+{
+  "unused": {
+    "layers": [ { "index": null, "name": "iPad Base", "file": "layers/ipad_base.yml", "keys": [ /* 5.2 と同じ */ ], "encoders": { /* 同じ */ }, "...": "LayerSnapshot と同じ" } ],
+    "macros": [ { "index": null, "name": "Old Paste", "file": "macros/old_paste.yml", "...": "MacroSnapshot と同じ" } ],
+    "tapDances": [ /* TapDanceSnapshot と同じで index だけ null */ ],
+    "combos": [ /* ComboSnapshot と同じで index だけ null */ ]
+  }
+}
+```
+
+- 未使用のファイル（`index:` のキーがないか値が空・`null`。#85 の `Storage::Schema::Header.unused?`）の項目を、使っている項目と同じ形で `index: null` にして返す。並びはファイルのパスの順
+- 中身（レイヤーのキー・マクロの手順など）も返す。取り出す操作（15.3 の `use`）は未保存の変更なので、保存する前に画面に描くため。Address は使っている項目と同じ決まり（そのファイルの道筋）
+- 使っている項目の一覧（`layers`・`macros` など）と `references` には入れない（5.2 のまま）。未使用の名前は参照の候補にならない
+- 未使用のファイルの構造の問題は今のまま `diagnostics` に `source: "structure"` の warning（`file` はそのファイル）。構造の問題で読めないファイルは `unused` に入れない（`files` には版が入る）
+- `status: "invalid"` のときは 4 つとも `[]`
+- `shortcuts.yaml` がなければ `files` に `"shortcuts.yaml": null` を入れる（15.2 の行の追加で作ることがあるため。`settings/qmk_settings.yaml` と同じ）
+
+### 15.2 Change に足すもの
+
+形は 12.3 のまま。宛先を足す。
+
+- **`["index"]` の `set`**: 値は 0 以上の整数。`index:` の行があれば値を置き換え、値が空（`index:`・`index: null`）なら値を書く。行がなければ `name:` の行のすぐ後に `index: N` の行を足す（`name:` がなければ先頭の `---` の後、それもなければ 1 行目）。
+  レイヤー・マクロ・タップダンス・コンボのファイルに書ける。範囲（レイヤー 0〜9、ほかは 0〜31）と重なりは書き換えでは確かめず、検証の結果（意味検証の error）で知らせる
+- **`["index"]` の `remove`**: `index:` の行を消す（未使用にする）。行がなければ書き換えを作らない
+- **`["shortcuts", 名前]` の `set` で、その名前がまだないとき**: `shortcuts:` の下の末尾に `名前: 値` の行を足す（12.5 の create と同じ書き方）。`shortcuts:` がなければ足し、ファイルがなければ `create: true` で作る。
+  名前の決まり（空でない・前後の空白なし）に合わなければ `-32602`
+- 拡張の畳み方（12.3）: これらは並びの中を指さないので、同じ場所の前の変更を外して末尾に足す。保存済みの値と同じになったら持たない（`["index"]` の保存済みの値は snapshot の `index`。未使用なら `null` で、`remove` が保存済みと同じ）
+- `profile/validate`・`profile/planEdits` はこれらを当てた状態で読む。`index` を書いた未使用のファイルは使っている項目として、消したファイルは未使用として検証する
+
+### 15.3 `profile/planItemEdit` に足すもの
+
+```ts
+type IndexedKind = "layer" | "macro" | "tapDance" | "combo";
+type ItemEdit =
+  | /* 12.5・13.1・14.9 のもの */
+  | { op: "use"; kind: IndexedKind; file: string }                    // 未使用の項目を使い始める
+  | { op: "unuse"; kind: IndexedKind; file: string }                  // 未使用にする
+  | { op: "setIndex"; kind: IndexedKind; file: string; index: number }; // 番号を変える（使っている番号なら入れ替え）
+
+// params に足す
+{ "changes": AnyChange[] }   // 今の未保存の変更（当てる順の並び）。省けば []
+// result に足す
+{ "files": [], "changes": AnyChange[], "references": Address[], "diagnostics": Diagnostic[] }
+```
+
+- `use` / `unuse` / `setIndex` と `create`（`kind: "shortcut"`）は、ファイルの書き換え（`files`）ではなく、**未保存の変更に積む Change の並び**（`changes`）を返す（`files` は `[]`）。
+  拡張は確認なしで（`unuse` で壊れる参照があるときだけ確認して）未保存の変更の末尾に足す。1 回の操作の Change は元に戻す・やり直しで一緒に動く（ADR 022）
+- どれも params の `changes`（今の未保存の変更）を当てた状態で決める（2 つ続けて取り出したときに同じ番号にならないように）。`baseVersions` の照合は返す Change の宛先のファイルだけ（12.5 と同じ）
+- 項目はファイル（`file`）で指す（14.9 と同じ理由で、名前も番号も 1 つに決まらないため）。そのファイルのその種類の項目がなければ `-32602`（`"edit.file"`）
+- **use**: 未使用の項目に `["index"]` の `set` を返す。番号は、使っているいちばん大きい番号の次。それが上限（レイヤー 10・ほかは 32）なら空いているいちばん小さい番号。何も使っていなければ 0。
+  空きがなければ `-32602`（`"edit"`）。使っている項目なら `-32602`（`"edit.file"`）。参照は書き換えない（`references` は `[]`）
+- **unuse**: 使っている項目に `["index"]` の `remove` を返す。参照は書き換えず、`references` に壊れる参照の場所を返す（レイヤーはそのレイヤーを指すレイヤー操作（14.9 の delete と同じ数え方）、
+  マクロ・タップダンスは名前の参照と番号の参照、コンボは `[]`）。`diagnostics` は当てたあとの検証の結果。未使用の項目なら `-32602`（`"edit.file"`）
+- **setIndex**: 使っている項目の番号を `index` にする。`index` がほかの使っている項目の番号なら、その項目に今の番号を付ける（入れ替え。`changes` に 2 つの `["index"]` の `set`）。
+  範囲の外・今と同じ番号なら `-32602`（`"edit.index"`）、未使用の項目なら `-32602`（`"edit.file"`。先に `use`）
+  - **マクロ・タップダンス**: 番号の参照（`Macro(3)` / `M3` / `TD(2)` / `TapDance(2)` など、番号で書いた参照）を、表記の形を保ったまま新しい番号に書き換える `set` を `changes` に足す（入れ替えなら両方向）。
+    名前の参照（`Macro('名前')`）は名前で引くので書き換えない。書き換えた場所を `references` に返す。参照を書き換えたあとの compile の結果は、その参照の 16bit 値だけが変わる（中身は同じものを指す）
+  - **レイヤー**: 参照（`MO(1)` など）は書き換えない（レイヤーの番号は概念として「レイヤー 1」を指すので、中身を入れ替えるのが目的。#105）。`references` は `[]`
+  - **コンボ**: 参照されないので番号だけ
+- **create（shortcut）**: 12.5 の行の追加の代わりに、`["shortcuts", 名前]` の `set`（15.2）を返す。同じ名前が保存済みにも未保存の変更にもあれば `-32602`（`"edit.name"`）
+- ほかの op（create（shortcut 以外）・delete・rename・renamePosition・expandPreset）は今のまま `files` を返し、拡張は未保存の変更があれば先に保存を促す
+- 拡張がこれらの op を送るのは画面の操作だけ。YAML を手で書き換えたときは参照は追従しない（#85）
+- 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `use_*`・`unuse_*`・`set_index_*`・`create_shortcut_*`、
+  `profile_plan_edits/` の `index_*`・`shortcut_add*`、`profile_open/` の `unused*`（R が足す）
+
+### 15.4 拡張だけで作るもの
+
+約束は変えない。
+
+- 今どの項目がどの番号かは、snapshot（保存済み）に未保存の `["index"]` の変更を当てて決める（`src/itemIndex.ts` の `effectiveIndex` / `arrangeItems`。ホストと画面で同じ規則）
+- 画面の部品（追加の一覧・「…」メニュー・番号の選択。W0 #110）とその組み込み（L #113・I #114）

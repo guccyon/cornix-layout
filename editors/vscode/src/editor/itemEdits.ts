@@ -28,9 +28,19 @@ export function isItemEdit(value: unknown): value is ItemEdit {
       return (edit.hand === 'left' || edit.hand === 'right') && Number.isInteger(edit.row) && Number.isInteger(edit.col) && typeof edit.to === 'string';
     case 'expandPreset':
       return edit.kind === 'macro' && typeof edit.name === 'string';
+    // v0.5（protocol.md の 15.3）: 番号の操作はファイルで指す
+    case 'use':
+    case 'unuse':
+      return indexedKind(edit.kind) && typeof edit.file === 'string';
+    case 'setIndex':
+      return indexedKind(edit.kind) && typeof edit.file === 'string' && Number.isInteger(edit.index);
     default:
       return false;
   }
+}
+
+function indexedKind(kind: unknown): boolean {
+  return kind === 'layer' || kind === 'macro' || kind === 'tapDance' || kind === 'combo';
 }
 
 /** 削除・名前の変更の file はレイヤーだけ（文字列）。index は書けない */
@@ -53,6 +63,12 @@ export function itemEditTitle(edit: ItemEdit): string {
       return `${HAND_NAMES[edit.hand]} row ${edit.row} col ${edit.col} の位置の名前を ${edit.to} に変えます。`;
     case 'expandPreset':
       return `${KIND_NAMES[edit.kind]} ${edit.name} の preset を手順に展開します。`;
+    case 'use':
+      return `${KIND_NAMES[edit.kind]}（${edit.file}）を使い始めます。`;
+    case 'unuse':
+      return `${KIND_NAMES[edit.kind]}（${edit.file}）を未使用にします。`;
+    case 'setIndex':
+      return `${KIND_NAMES[edit.kind]}（${edit.file}）の番号を ${edit.index} に変えます。`;
   }
 }
 

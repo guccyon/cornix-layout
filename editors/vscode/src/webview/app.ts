@@ -596,8 +596,8 @@ export class App {
         { type: 'button', class: 'link-button layer-delete', title: `レイヤーのファイル ${layer.file} を消す（確認のダイアログで参照の数を出す）` },
         'レイヤーを削除',
       );
-    // 名前は重なってよいので番号で指す
-    if (remove) remove.addEventListener('click', () => this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, index: layer.index }));
+    // 名前は重なってよいのでファイルで指す
+    if (remove) remove.addEventListener('click', () => this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, file: layer.file }));
     this.layerInfo.replaceChildren(
       ...nodes(
         h('h2', {}, `レイヤー ${layerTitle(layer)}`, h('span', { class: 'layer-file' }, layer.file), ...nodes(remove)),

@@ -1,5 +1,5 @@
 {
-  "description": "レイヤーを消す: index のレイヤーがなければ -32602（field \"edit.index\"）",
+  "description": "レイヤーを消す: file のレイヤーがなければ -32602（field \"edit.file\"）",
   "setup": {
     "profile": "authors_config",
     "files": {
@@ -17,7 +17,7 @@
         "op": "delete",
         "kind": "layer",
         "name": "Empty",
-        "index": 9
+        "file": "layers/9_empty.yml"
       }
     }
   },
@@ -26,7 +26,7 @@
     "error": {
       "code": -32602,
       "data": {
-        "field": "edit.index"
+        "field": "edit.file"
       }
     }
   }

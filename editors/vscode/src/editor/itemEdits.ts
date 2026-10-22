@@ -21,9 +21,9 @@ export function isItemEdit(value: unknown): value is ItemEdit {
       if (edit.kind === 'layer') return typeof edit.name === 'string' && (edit.index === undefined || Number.isInteger(edit.index));
       return kind && edit.index === undefined && typeof edit.name === 'string' && (edit.kind === 'shortcut' ? typeof edit.value === 'string' : edit.preset === undefined || typeof edit.preset === 'string');
     case 'delete':
-      return kind && typeof edit.name === 'string' && layerIndexOk(edit);
+      return kind && typeof edit.name === 'string' && layerFileOk(edit);
     case 'rename':
-      return kind && typeof edit.name === 'string' && typeof edit.to === 'string' && layerIndexOk(edit);
+      return kind && typeof edit.name === 'string' && typeof edit.to === 'string' && layerFileOk(edit);
     case 'renamePosition':
       return (edit.hand === 'left' || edit.hand === 'right') && Number.isInteger(edit.row) && Number.isInteger(edit.col) && typeof edit.to === 'string';
     case 'expandPreset':
@@ -33,9 +33,9 @@ export function isItemEdit(value: unknown): value is ItemEdit {
   }
 }
 
-/** index はレイヤーだけ（整数） */
-function layerIndexOk(edit: Record<string, unknown>): boolean {
-  return edit.index === undefined || (edit.kind === 'layer' && Number.isInteger(edit.index));
+/** 削除・名前の変更の file はレイヤーだけ（文字列）。index は書けない */
+function layerFileOk(edit: Record<string, unknown>): boolean {
+  return edit.index === undefined && (edit.file === undefined || (edit.kind === 'layer' && typeof edit.file === 'string'));
 }
 
 /** 操作の見出し（「マクロ Bracket Pair を削除します。」） */
@@ -45,7 +45,7 @@ export function itemEditTitle(edit: ItemEdit): string {
       if (edit.kind === 'layer' && edit.index !== undefined) return `レイヤー ${edit.index} ${edit.name} を追加します。`;
       return `${KIND_NAMES[edit.kind]} ${edit.name} を追加します。`;
     case 'delete':
-      if (edit.kind === 'layer' && edit.index !== undefined) return `レイヤー ${edit.index} ${edit.name} を削除します。`;
+      if (edit.kind === 'layer' && edit.file !== undefined) return `レイヤー ${edit.name}（${edit.file}）を削除します。`;
       return `${KIND_NAMES[edit.kind]} ${edit.name} を削除します。`;
     case 'rename':
       return `${KIND_NAMES[edit.kind]} ${edit.name} の名前を ${edit.to} に変えます。`;

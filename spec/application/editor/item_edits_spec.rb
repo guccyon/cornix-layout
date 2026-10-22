@@ -194,12 +194,11 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
         %w[7 8].each { |n| write("layers/#{n}_layer_#{n}.yaml", read("layers/#{n}_layer_#{n}.yaml").sub("name: Layer #{n}", 'name: Empty')) }
       end
 
-      it '消すのは index のレイヤー（同じ名前の最初のものではない）。index のないレイヤーは field "edit.index"' do
-        result = plan(op: 'delete', kind: 'layer', name: 'Empty', index: 8)
+      it '消すのは file のレイヤー（同じ名前の最初のものではない）。ないファイルは field "edit.file"' do
+        result = plan(op: 'delete', kind: 'layer', name: 'Empty', file: 'layers/8_layer_8.yaml')
         expect(result[:files].map { |f| f[:file] }).to eq(['layers/8_layer_8.yaml'])
-        remove('layers/5_layer_5.yaml')
-        expect { plan(op: 'delete', kind: 'layer', name: 'Empty', index: 5) }
-          .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.index') }
+        expect { plan(op: 'delete', kind: 'layer', name: 'Empty', file: 'layers/5_empty.yaml') }
+          .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.file') }
       end
 
       it '同じ名前のレイヤーを足せる（ファイル名は番号で分かれる）' do
@@ -208,10 +207,10 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
         expect(result[:files].map { |f| f[:file] }).to eq(['layers/5_empty.yaml'])
       end
 
-      it '名前の変更も index のレイヤー。ほかのレイヤーと同じ名前にもできる' do
-        result = plan(op: 'rename', kind: 'layer', name: 'Empty', index: 8, to: 'Mouse')
+      it '名前の変更も file のレイヤー。ほかのレイヤーと同じ名前にもできる' do
+        result = plan(op: 'rename', kind: 'layer', name: 'Empty', file: 'layers/8_layer_8.yaml', to: 'Mouse')
         expect(result[:files].map { |f| f.slice(:file, :renameTo) }).to eq([{ file: 'layers/8_layer_8.yaml', renameTo: 'layers/8_mouse.yaml' }])
-        result = plan(op: 'rename', kind: 'layer', name: 'Layer 6', index: 6, to: 'Empty')
+        result = plan(op: 'rename', kind: 'layer', name: 'Layer 6', file: 'layers/6_layer_6.yaml', to: 'Empty')
         expect(result[:files].map { |f| f[:file] }).to eq(['layers/6_layer_6.yaml'])
       end
     end

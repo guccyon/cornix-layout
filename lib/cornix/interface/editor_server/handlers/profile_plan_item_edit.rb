@@ -55,9 +55,9 @@ module Cornix
             name = text(edit, 'name')
             case op
             when 'create' then create_edit(edit, kind, name)
-            when 'delete' then ItemEdits::Edit.new(op: op, kind: kind, name: name, index: layer_index(edit, kind))
+            when 'delete' then ItemEdits::Edit.new(op: op, kind: kind, name: name, file: layer_file(edit, kind))
             when 'expandPreset' then ItemEdits::Edit.new(op: op, kind: kind, name: name)
-            else ItemEdits::Edit.new(op: op, kind: kind, name: name, to: text(edit, 'to'), index: layer_index(edit, kind))
+            else ItemEdits::Edit.new(op: op, kind: kind, name: name, to: text(edit, 'to'), file: layer_file(edit, kind))
             end
           end
 
@@ -71,11 +71,19 @@ module Cornix
             ItemEdits::Edit.new(op: 'create', kind: kind, name: name, preset: preset, index: layer_index(edit, kind))
           end
 
-          # レイヤーの番号（create は作る番号、delete・rename は探す番号。レイヤーの名前は重なってよいため）
+          # create のレイヤーの番号
           def layer_index(edit, kind)
             index = param(edit, 'index', Integer, optional: true, field: 'edit.index')
             invalid('edit.index', 'index はレイヤーだけに書けます') if !index.nil? && kind != 'layer'
             index
+          end
+
+          # delete・rename で探すレイヤーのファイル（レイヤーの名前は重なってよく、番号のないレイヤーも予定しているため。issue #84・#85）
+          def layer_file(edit, kind)
+            invalid('edit.index', 'index は create のときだけ書けます') if edit.key?('index')
+            file = param(edit, 'file', String, optional: true, field: 'edit.file')
+            invalid('edit.file', 'file はレイヤーだけに書けます') if !file.nil? && kind != 'layer'
+            file
           end
 
           def position_edit(edit)

@@ -193,20 +193,20 @@ describe('レイヤーの追加と削除', () => {
     expect(root.querySelector<HTMLButtonElement>('.layer-tabs [data-layer-add]')!.disabled).toBe(true);
   });
 
-  it('見出しの「レイヤーを削除」は選んでいるレイヤーを番号で消す操作をホストに渡す（確認とファイルの削除はホスト）', () => {
+  it('見出しの「レイヤーを削除」は選んでいるレイヤーをファイルで消す操作をホストに渡す（確認とファイルの削除はホスト）', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     app.selectLayer(1);
     root.querySelector<HTMLButtonElement>('.layer-info .layer-delete')!.click();
-    expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Symbols', index: 1 }]);
+    expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Symbols', file: symbols }]);
   });
 
-  it('同じ名前のレイヤーがあっても、選んでいるレイヤーの番号を渡す', () => {
+  it('同じ名前のレイヤーがあっても、選んでいるレイヤーのファイルを渡す', () => {
     const snapshot = fixtureSnapshot();
     const empties = [5, 9].map((index) => copyLayer(snapshot.layers[1]!, index, 'Empty', `layers/${index}_empty.yml`));
     app.receive({ type: 'snapshot', snapshot: { ...snapshot, layers: [...snapshot.layers, ...empties] }, changes: [] });
     app.selectLayer(9);
     root.querySelector<HTMLButtonElement>('.layer-info .layer-delete')!.click();
-    expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Empty', index: 9 }]);
+    expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Empty', file: 'layers/9_empty.yml' }]);
   });
 
   it('キーごとでは「レイヤーを削除」を出さない（どれが消えるか分かりにくい）', () => {

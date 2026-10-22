@@ -64,19 +64,20 @@ module Cornix
           end
 
           # 名前の項目と、そのファイル（設定ディレクトリからの相対パス）。
-          # レイヤーは名前が重なってよい（空のレイヤーはどれも Empty など）ので、index があれば番号で探す（issue #84）
-          def find_item(kind, name, index: nil)
+          # レイヤーは名前が重なってよく（空のレイヤーはどれも Empty など）、番号のないレイヤーも予定している（#85）ので、
+          # file があればファイルで探す（issue #84。ファイルのパスは設定ディレクトリの中で一意）
+          def find_item(kind, name, file: nil)
             items = kind.items(profile)
-            if index.nil?
+            files = items.each_index.map { |i| reading.repository.address("#{kind.collection}[#{i}]").first }
+            if file.nil?
               position = items.index { |item| item.name == name }
               raise InvalidChange.new('edit.name', "#{kind.label}「#{name}」がありません") unless position
             else
-              position = items.index { |item| item.index == index }
-              raise InvalidChange.new('edit.index', "#{kind.label} #{index} がありません") unless position
+              position = files.index(file)
+              raise InvalidChange.new('edit.file', "#{kind.label}のファイル #{file} がありません") unless position
             end
 
-            file, = reading.repository.address("#{kind.collection}[#{position}]")
-            [items[position], file]
+            [items[position], files[position]]
           end
 
           # 重なってはいけない名前（レイヤーの名前は重なってよい。ファイル名は番号が付くので分かれる）

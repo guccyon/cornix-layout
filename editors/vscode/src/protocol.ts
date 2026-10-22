@@ -450,9 +450,9 @@ export type ItemEdit =
   | { op: 'create'; kind: 'layer'; name: string; index?: number }
   | { op: 'delete'; kind: ItemKind; name: string }
   | { op: 'rename'; kind: ItemKind; name: string; to: string }
-  /** v0.4: レイヤーは名前が重なってよい（空のレイヤーはどれも Empty など）ので index で探す（省けば name。protocol.md の 14.9） */
-  | { op: 'delete'; kind: 'layer'; name: string; index?: number }
-  | { op: 'rename'; kind: 'layer'; name: string; to: string; index?: number }
+  /** v0.4: レイヤーは名前が重なってよく、番号のないレイヤーも予定している（#85）のでファイルで探す（省けば name。protocol.md の 14.9） */
+  | { op: 'delete'; kind: 'layer'; name: string; file?: string }
+  | { op: 'rename'; kind: 'layer'; name: string; to: string; file?: string }
   | { op: 'renamePosition'; hand: Hand; row: number; col: number; to: string }
   /** v0.3: preset: のマクロを同梱の定義の手順に置き換える（protocol.md の 13.1） */
   | { op: 'expandPreset'; kind: 'macro'; name: string };

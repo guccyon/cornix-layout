@@ -1,5 +1,5 @@
 {
-  "description": "レイヤーを消す: レイヤーの名前は重なってよい（authors のレイヤー 5〜9 はどれも Empty）ので、index のレイヤーを消す（同じ名前の最初のものではない。issue #84）",
+  "description": "レイヤーを消す: レイヤーの名前は重なってよい（authors のレイヤー 5〜9 はどれも Empty）ので、file のレイヤーを消す（同じ名前の最初のものではない。issue #84）",
   "setup": {
     "profile": "authors_config"
   },
@@ -15,7 +15,7 @@
         "op": "delete",
         "kind": "layer",
         "name": "Empty",
-        "index": 9
+        "file": "layers/9_empty.yml"
       }
     }
   },

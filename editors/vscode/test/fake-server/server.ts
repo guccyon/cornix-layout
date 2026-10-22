@@ -595,10 +595,10 @@ class FakeServer {
               .filter((slot) => slot.value?.text === text)
               .map((slot) => slot.address),
           );
-    // レイヤーは名前が重なってよいので、index があれば番号で探す（issue #84）
-    const findItem = (kind: string, name: string, index: number | undefined) =>
-      kind === 'layer' && index !== undefined
-        ? (itemsOf(kind).find((i) => i.index === index) ?? invalid(`レイヤー ${index} はありません`, 'edit.index'))
+    // レイヤーは名前が重なってよいので、file があればファイルで探す（issue #84）
+    const findItem = (kind: string, name: string, file: string | undefined) =>
+      kind === 'layer' && file !== undefined
+        ? (itemsOf(kind).find((i) => i.file === file) ?? invalid(`レイヤーのファイル ${file} はありません`, 'edit.file'))
         : (itemsOf(kind).find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name'));
     const zero = { line: 0, character: 0 };
 
@@ -662,7 +662,7 @@ class FakeServer {
           if (line < 0) invalid(`ショートカット ${name} はありません`, 'edit.name');
           editOf('shortcuts.yaml').edits.push({ range: { start: { line, character: 0 }, end: { line: line + 1, character: 0 } }, newText: '' });
         } else {
-          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.index : undefined);
+          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.file : undefined);
           files.push({ file: item.file, baseVersion: current[item.file] ?? null, create: false, delete: true, edits: [] });
           if (edit.kind === 'layer') {
             // そのレイヤーを指すレイヤー操作（display.hold が "L<番号>"）。消すファイルの中は入れない
@@ -699,7 +699,7 @@ class FakeServer {
           editOf('shortcuts.yaml').edits.push({ range: { start: { line, character: start }, end: { line, character: end } }, newText: quote(to) });
         } else {
           const items = itemsOf(edit.kind);
-          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.index : undefined);
+          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.file : undefined);
           if (edit.kind !== 'layer' && items.some((i) => i.name === to)) invalid(`${to} はすでにあります`, 'edit.to');
           if (to === VERIFY_FAIL_NAME) this.verifyFail({ file: item.file, path: ['name'] });
           const lines = read(item.file).split('\n');

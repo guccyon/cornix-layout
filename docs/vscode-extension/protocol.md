@@ -1124,13 +1124,17 @@ interface DevicePlan {
 type ItemEdit =
   | /* 12.5・13.1 のもの */
   | { op: "create"; kind: "layer"; name: string; index?: number }   // index は 0〜9。省けば空いているいちばん小さい番号
-  | { op: "delete"; kind: "layer"; name: string; index?: number }   // index があれば番号で探す（下の「名前の重なり」）
-  | { op: "rename"; kind: "layer"; name: string; to: string; index?: number };   // rename は 12.5 のもの。index を足した
+  | { op: "delete"; kind: "layer"; name: string; file?: string }   // file があればファイルで探す（下の「レイヤーの指し方」）
+  | { op: "rename"; kind: "layer"; name: string; to: string; file?: string };   // rename は 12.5 のもの。file を足した
 ```
 
-- **名前の重なり**: レイヤーの名前は重なってよい（decompile は空のレイヤーをどれも `Empty` などにする。ファイル名は番号の接頭辞で分かれる）。
-  そのため `delete`・`rename` は `index` があれば番号でレイヤーを探す（省けば `name` の最初のもの。v0.2 の拡張のため）。その番号のレイヤーがなければ `-32602`（`"edit.index"`）。
-  `create`・`rename` の新しい名前は、ほかのレイヤーと同じでもよい（空・前後の空白・改行はだめ）。拡張は削除と名前の変更にいつも `index` を付ける
+- **レイヤーの指し方**: レイヤーの名前は重なってよい（decompile は空のレイヤーをどれも `Empty` などにする。ファイル名は番号の接頭辞で分かれる）。
+  また番号のない（使わない）レイヤーのファイルも予定している（issue #85）。名前でも番号でも 1 つに決まらないので、`delete`・`rename` は
+  `file`（設定ディレクトリからの相対パス。snapshot の `layers[].file`）があればそのファイルのレイヤーを探す（省けば `name` の最初のもの。v0.2 の拡張のため）。
+  ファイルのパスは設定ディレクトリの中で一意。そのファイルのレイヤーがなければ `-32602`（`"edit.file"`）。`file` はレイヤーだけ、`index` は `create` だけに書ける。
+  `create`・`rename` の新しい名前は、ほかのレイヤーと同じでもよい（空・前後の空白・改行はだめ）。拡張は削除と名前の変更にいつも `file` を付ける。
+  名前を変えるとファイル名も変わるが、結果の `renameTo` と次の snapshot で新しいパスが分かる。
+  マクロ・タップダンス・コンボも #85 で同じことになるので、そのときにそろえる
 
 - **create**: `layers/<番号>_<名前>.<拡張子>` を作る。名前の部分は `Storage::ConfigFiles.item_path` と同じ（decompile が書く名前とそろえる。既定の名前 `Layer N` なら `layer`）、
   拡張子はそのディレクトリでいちばん多いもの（なければ `yaml`）。中身は `Schema::LayerFile` が受け付ける最小の形（`name`・`description: ''`・`index`・`mapping` の両手の空のグループ。エンコーダは書かない）。

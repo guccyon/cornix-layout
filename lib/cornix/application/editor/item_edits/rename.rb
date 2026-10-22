@@ -12,7 +12,7 @@ module Cornix
         #   すべての設定ファイルの Macro('旧名') / TapDance('旧名') をテキストとして置き換え、
         #   ファイル名の slug を新しい名前に合わせる（番号の接頭辞と拡張子は保つ。同じ名前のファイルがほかにあれば変えない）。
         #   コンボとレイヤーは名前で参照されないので、name の行とファイル名だけ
-        # レイヤーは index があれば番号で探す（名前は重なってよい）
+        # レイヤーは file があればファイルで探す（名前は重なってよい）
         # ショートカット: shortcuts.yaml の名前（キー）を書き換え、すべての設定ファイルの Shortcut('旧名') を置き換える
         #
         # references は置き換える参照の場所（変える前の Address）。前後の compile の結果の照合は ItemEdits が行う。
@@ -26,7 +26,7 @@ module Cornix
             return rename_shortcut(edit) if edit.kind == 'shortcut'
 
             kind = kind_of(edit)
-            item, file = find_item(kind, edit.name, index: edit.index)
+            item, file = find_item(kind, edit.name, file: edit.file)
             return outcome if edit.to == item.name
 
             check_name!(edit.to, 'edit.to', taken_names(kind) - [item.name])

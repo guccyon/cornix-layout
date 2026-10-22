@@ -90,6 +90,8 @@
 
 P で約束に足したもの: `DeviceChange.key`（論理位置 hand / row / col。図と欄は位置をこれで引く）、`DeviceBackup.kind`（一覧に出す種類は
 `pre-apply`・`pre-restore`・`backup`・`legacy`）、`changes` の並び。
+ホストと画面の間のメッセージ（`webviewMessages.ts`）も P で決めた: ホスト → 画面 `{ type: 'device', state: DeviceViewState }`（状態・違い・操作中・書き込みの許可）、
+画面 → ホスト `{ type: 'deviceAction', action: 'compare' | 'apply' | 'restore' }`。D2 が送り・受け、D3 が描き・押す。
 
 ## 段 2（並列）
 

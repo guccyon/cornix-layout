@@ -1,4 +1,5 @@
 // 拡張（ホスト）と編集画面（Webview）の間のメッセージ。画面の作業（段 2 の G）はここに種類を足していく。
+import type { DeviceChange } from './deviceProtocol';
 import type {
   AnyChange,
   CandidatesParams,
@@ -39,6 +40,24 @@ export type WebviewRequest = {
   [M in WebviewRequestMethod]: { type: 'request'; id: number; method: M; params: WebviewRequestMap[M]['params'] };
 }[WebviewRequestMethod];
 
+/**
+ * v0.4: 実機と比べた状態（tasks-v0.4.md の「画面」）。ホストが持ち、変わるたびに Webview に送る。
+ * - unknown: まだ比べていない・保存したあと（「実機: 未確認」）
+ * - same / different: 比べた・反映した・戻したあと（different のとき changes に違い。反映のあとは読み直しで残った違い）
+ */
+export type DeviceViewState = {
+  status: 'unknown' | 'same' | 'different';
+  /** status が different のときの違い（protocol.md の 14.2。そのほかは []） */
+  changes: DeviceChange[];
+  /** 実機の操作の最中（ボタンを押せなくする）。null は何もしていない */
+  busy: 'compare' | 'apply' | 'restore' | null;
+  /** 設定 cornix.device.allowWrites（false でも反映・戻すのボタンは出す。押すとホストが案内する） */
+  allowWrites: boolean;
+};
+
+/** v0.4: 画面のボタンから頼む実機の操作（ホストがコマンド cornix.device.compare / apply / restore と同じことをする） */
+export type DeviceAction = 'compare' | 'apply' | 'restore';
+
 /** ホスト → Webview */
 export type HostMessage =
   /** 描くもの。開いたとき・読み直したとき・変更のたびに送る */
@@ -54,7 +73,9 @@ export type HostMessage =
   | { type: 'error'; message: string }
   /** WebviewRequest の応答（id と method は要求と同じ）。失敗したら error にその文 */
   | { type: 'response'; id: number; method: string; result: unknown }
-  | { type: 'response'; id: number; method: string; error: string };
+  | { type: 'response'; id: number; method: string; error: string }
+  /** v0.4: 実機と比べた状態。開いたとき（ready のあと）と、変わるたびに送る */
+  | { type: 'device'; state: DeviceViewState };
 
 /** Webview → ホスト */
 export type WebviewMessage =
@@ -68,6 +89,8 @@ export type WebviewMessage =
   | { type: 'itemEdit'; edit: ItemEdit }
   /** サーバーへのリクエストの中継 */
   | WebviewRequest
+  /** v0.4: 実機の操作のボタンを押した */
+  | { type: 'deviceAction'; action: DeviceAction }
   /** 設定ディレクトリのファイルをテキストで開く（file は設定ディレクトリからの相対パス。range があればそこを選ぶ） */
   | { type: 'openFile'; file: string; range?: Range }
   /**

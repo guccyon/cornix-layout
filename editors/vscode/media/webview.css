@@ -2499,6 +2499,34 @@ button {
   color: var(--vscode-errorForeground, #f48771);
 }
 
+.device-transfer-count {
+  margin-left: 8px;
+  font-size: 0.9em;
+}
+
+.device-transfer-count.error {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.device-transfer-count.warning {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.device-transfer-problems {
+  margin: 8px 0;
+}
+
+.device-transfer-problems-title,
+.device-transfer-clean {
+  margin: 6px 0;
+  color: var(--vscode-descriptionForeground);
+}
+
+.device-modal-validation ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
 .device-preview-button,
 .device-modal-button {
   padding: 4px 12px;

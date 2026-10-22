@@ -98,6 +98,33 @@ describe('節「デバイス転送」', () => {
     expect(blocked.hidden).toBe(true);
   });
 
+  it('検証のエラーと警告を節に一覧で出し（エラーが先、場所はファイルとキーの位置）、見出しに件数を出す。警告だけなら押せる', () => {
+    const count = () => section().querySelector<HTMLElement>('.device-transfer-count')!;
+    expect(count().hidden).toBe(true);
+    expect(section().querySelector('.device-transfer-clean')!.textContent).toBe('保存済みのプロファイルに検証の問題はありません。');
+    const warning = {
+      severity: 'warning' as const,
+      source: 'semantic' as const,
+      message: '定義されていないレイヤー 9 を参照しています',
+      address: { file: 'layers/4_ipad_base.yml', path: ['mapping', 'encoders', 'right', 'push'] },
+    };
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ diagnostics: [warning] }), changes: [] });
+    expect(previewButton().disabled).toBe(false);
+    expect(count().hidden).toBe(false);
+    expect(count().textContent).toBe('警告 1 件');
+    expect(section().querySelector('.device-transfer-problems-title')!.textContent).toContain('警告だけなので反映できます');
+    const rowsOf = () => [...section().querySelectorAll<HTMLElement>('.device-transfer-problems .problem')];
+    expect(rowsOf().map((row) => row.querySelector('.problem-file')!.textContent)).toEqual(['layers/4_ipad_base.yml: mapping.encoders.right.push']);
+    rowsOf()[0]!.querySelector<HTMLButtonElement>('.link-button')!.click();
+    expect(host.opened.at(-1)).toMatchObject({ file: 'layers/4_ipad_base.yml' });
+
+    const error = { severity: 'error' as const, source: 'semantic' as const, message: '知らないキーコードです: KC_FOO', file: 'layers/0_base.yml' };
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ diagnostics: [warning, error] }), changes: [] });
+    expect(count().textContent).toBe('エラー 1 件・警告 1 件');
+    expect(rowsOf().map((row) => row.classList.contains('error'))).toEqual([true, false]);
+    expect(previewButton().disabled).toBe(true);
+  });
+
   it('図の上に実機のボタンはない', () => {
     expect(root.querySelector('.keyboard-toggles .device-bar')).toBeNull();
     expect(root.querySelector('[data-device-action]')).toBeNull();
@@ -238,6 +265,18 @@ describe('反映のプレビューのモーダル', () => {
     expect(dialog().querySelector('.device-modal-errors')).toBeNull();
     expect(snapshotErrors({ status: 'invalid', diagnostics: [] })).toBe(1);
     expect(snapshotErrors({ status: 'ok', diagnostics: [{ severity: 'warning', source: 'semantic', message: 'w' }] })).toBe(0);
+  });
+
+  it('検証の警告はモーダルにも一覧で出し、確定は押せる', () => {
+    const diagnostics = [
+      { severity: 'warning' as const, source: 'semantic' as const, message: '定義されていないレイヤー 9 を参照しています', address: { file: 'layers/4_ipad_base.yml', path: ['mapping', 'encoders', 'right', 'push'] } },
+    ];
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ diagnostics }), changes: [] });
+    app.receive({ type: 'device', state: preview() });
+    const validation = dialog().querySelector<HTMLElement>('.device-modal-validation')!;
+    expect(validation.textContent).toContain('検証の警告が 1 件あります（確定はできます）');
+    expect(validation.querySelector('li')!.textContent).toBe('layers/4_ipad_base.yml: mapping.encoders.right.push: 定義されていないレイヤー 9 を参照しています');
+    expect(footerButton('confirm')!.disabled).toBe(false);
   });
 
   it('古いプレビュー: 確定の代わりに「もう一度比べる」（preview を送る）', () => {

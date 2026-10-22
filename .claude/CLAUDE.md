@@ -27,7 +27,7 @@
   - [keycode_coverage](memories/keycode_coverage.md) - cornixhub / QMK / vial-qmk に基づくキーコードの網羅と出典
   - [vscode_extension](memories/vscode_extension.md) - VS Code 拡張の作業で分かったこと（QMK 設定の既定値は RMK、YAML の書き換えの注意、CI と必須チェック、通しの確認で分かった古い Ruby が選ばれる件と .vscodeignore の件）
   - [vscode_extension_v03](memories/vscode_extension_v03.md) - VS Code 拡張 v0.3 の作業の知見（P の squash のあとに段 2 のブランチで起きた衝突と解き方、webview.css の末尾の衝突で閉じ括弧が落ちた件、コンテナでの rspec の動かし方）
-  - [vscode_extension_v04](memories/vscode_extension_v04.md) - VS Code 拡張 v0.4 の作業の知見（#84 のキーごとの並べ方・レイヤーの追加と削除、約束の版を上げるときに直す場所、YAML のアンカー、コンテナで画面を見る方法）
+  - [vscode_extension_v04](memories/vscode_extension_v04.md) - VS Code 拡張 v0.4 の作業の知見（#84 のキーごとの並べ方・レイヤーの追加と削除、約束の版を上げるときに直す場所、YAML のアンカー、コンテナで画面を見る方法、実機とつなぐ作業: 橙の枠と ::after、vscode-jsonrpc の取り消しと読む間だけの転送、vitest と vscode の import、device のサーバーの取り消しと適合テストの token）
   - [json_output](memories/json_output.md) - 共通のオプション --json（issue #26）で決めたこと（変換の置き場所、エラーの出し方、--yes 必須、status の形）
   - [snapshots](memories/snapshots.md) - スナップショットの履歴（issue #25）で決めたこと（latest の扱い、種類 backup、restore の既定、古いものの削除、device_backups の扱い）とテストの注意
   - [vscode_extension_v02](memories/vscode_extension_v02.md) - VS Code 拡張 v0.2 の作業の知見（コンテナでの rspec の動かし方と統合テストが CI でしか走らない件、偽のサーバーの注意、並列の PR の進め方、planItemEdit の解釈、未保存の変更の並びと畳み方）

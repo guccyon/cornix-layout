@@ -3,12 +3,13 @@
 cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 画面で見て、候補から選びながら編集する VS Code 拡張。
 v0.1 はレイヤーと QMK 設定、v0.2 はすべての設定ファイル（マクロ・タップダンス・コンボ・ショートカット・位置の名前、項目の追加・削除・名前の変更）を画面で編集できる。
 v0.3 は使い勝手（コンボの強調・図からキーを選ぶ・あいまい検索・同梱のショートカットの選択とコピー・preset の展開・押せないコンボの印）。
-v0.4 では下の欄の「キー別」の並べ方（位置ごとに全レイヤー）とレイヤーの追加・削除を入れた（実機とつなぐ作業はこれから）。
+v0.4 では下の欄の「キー別」の並べ方（位置ごとに全レイヤー）とレイヤーの追加・削除、実機とつなぐ「比べる」「反映」「戻す」を入れた。
 利用者向けの説明は [README.ja.md](../../README.ja.md) の「VS Code の画面で編集する」。
 仕様・決定・約束は [docs/vscode-extension/](../../docs/vscode-extension/README.md)。
 
 拡張は `cornix serve`（Ruby のサーバー）を子プロセスとして起動し、標準入出力の JSON-RPC（[protocol.md](../../docs/vscode-extension/protocol.md)）だけで話す。
-`cornix` のほかのコマンドは直接叩かない（ADR 003）。キーボードの実機には触らない（ADR 014）。
+`cornix` のほかのコマンドは直接叩かない（ADR 003）。実機の操作（v0.4）は別の子プロセス `cornix serve --device [--allow-writes]`（protocol.md の 14）と同じ形で話す（ADR 018）。
+書き込みは設定 `cornix.device.allowWrites` が `true` のときだけ `--allow-writes` を付けて起動し、毎回確認のダイアログを出す（ADR 019）。テストはすべて偽の実機で、本物のブリッジは起動しない。
 
 ## 必要なもの
 
@@ -57,7 +58,8 @@ Marketplace には出していないので、.vsix を作って自分の VS Code
    ```
 
 5. アクティビティバーの Cornix のアイコンか、コマンドパレットの「Cornix: プロファイルを開く」で開く。保存は Ctrl+S（Cmd+S）。
-   保存したら `bin/cornix validate` や `bin/cornix compile` は今までどおりターミナルで（拡張はキーボードに書き込まない）
+   保存したら `bin/cornix validate` や `bin/cornix compile` は今までどおりターミナルで。実機と比べる・書き込むのは図の上の「比べる」「反映」「戻す」か
+   コマンド「Cornix: 実機と比べる」など（書き込みは設定 `cornix.device.allowWrites` を有効にしたときだけ。macOS とブリッジ `tmp/cornix-hid` が要る）
 
 起動できないとき（「cornix のサーバーを起動できませんでした」）は出力パネル「Cornix」を見る。
 ``undefined method `define' for Data:Class`` などが出ていれば、VS Code が古い Ruby（macOS の `/usr/bin/ruby` 2.6）で動かしている。
@@ -83,6 +85,7 @@ devDependencies（ビルドとテストの道具）は .vsix に入らないの�
 |---|---|---|
 | `cornix.path` | 空 | `cornix` の場所。空ならワークスペースの `bin/cornix`、なければ `PATH`。名前だけ（`cornix`）なら `PATH` から、相対パスはワークスペースのフォルダから。見つからなければ設定を開くボタン付きで知らせる。変えると起動し直す |
 | `cornix.trace.server` | `off` | `messages` / `verbose` にすると、サーバーとのやりとりを出力パネル「Cornix」に書く |
+| `cornix.device.allowWrites` | `false` | 実機への書き込み（反映・戻す）を許す。`true` のときだけ device のサーバーを `--allow-writes` 付きで起動する。変えると device のサーバーを止め、次の操作で起動し直す。`false` でも比べるは使える |
 
 ワークスペースのコマンドを実行するので、信頼したワークスペースでだけ動く（Restricted Mode では無効）。
 
@@ -104,6 +107,32 @@ devDependencies（ビルドとテストの道具）は .vsix に入らないの�
 - params の確かめ方と順（形 → -32060 → 宛先・値の型・baseVersions → -32061）は Ruby のサーバーに合わせ、`spec/fixtures/protocol/` の validate・planEdits・saved・planItemEdit は応答が error のデータを、didChangeFiles はすべてを流す
 - 16bit 値や表示の文字はそれらしい値で、Ruby のサーバーの結果と一致するとは限らない。約束の形の正しさは Ruby の適合テスト（`spec/fixtures/protocol/`）が決める
 
+## 偽の device のサーバー（テスト用）
+
+`test/fake-device-server/server.ts` は device のサーバー（`cornix serve --device`。protocol.md の 14）の偽物。本物のキーボードもブリッジも使わない。
+実機とプロファイルを「場所 → 値の表記」の表としてプロセスの中に持ち、違う場所を `DeviceChange` にして返す。反映すると実機の表がプロファイルの表になり、
+戻すとバックアップの表になる（ファイルには書かない。プロファイルのファイルも読まないので、保存しても比べる結果は変わらない）。
+
+- 起動: `test/fake-server/cornix serve --device --root <ワークスペース> [--allow-writes]`（偽のサーバーと同じ入口。`--device` のときこちらになる）。
+  `cornix.path` に偽のサーバーを指定してあれば（`test/integration/workspace`）、拡張の「比べる」などがこれとつながる
+- 既定の違いは 6 件（`DEFAULT_DIFFERENCES`。偽のサーバーの Base / Symbols のレイヤーのキー 3 つ・左のエンコーダの左回し・マクロ・`tapping_term`）。図の枠と差分の節を確かめられる
+- シナリオは環境変数 `CORNIX_FAKE_DEVICE`（`scenarioConfig`）で選ぶ
+
+  | シナリオ | 振る舞い |
+  |---|---|
+  | `default`（空） | 既定の違いがある |
+  | `same` | 違いがない（「実機: 同じ」） |
+  | `compileFailed` | `device/compare`・`device/apply` が `-32075` |
+  | `rejected` | `QK_BOOT` を含む計画として `-32073` |
+  | `writeFail` | 2 件書いたところで `-32072` |
+  | `slow` | 進み具合の 1 歩を 200 ミリ秒にする（読む間の取り消しを試す） |
+  | `unavailable:platform` / `bridge` / `notConnected` / `timeout` | どの `device/*` も `-32070`（その理由） |
+
+  例: `CORNIX_FAKE_DEVICE=slow code --extensionDevelopmentPath="$PWD" test/integration/workspace`
+- 動いている途中で変える: 通知 `$/fake/configure`（params は `FakeDeviceConfig`。`differences`・`unavailable`・`compileFailed`・`rejected`・`failWriteAfter`・`remaining`・`stepMs`・`warnings`。書いた項目だけ変わる）。単体テストと統合テストが使う
+- `--allow-writes` なしなら `device/apply`・`device/restore` は `-32074`（本物と同じ）。token は計画の中身から作り、比べたあとに表が変われば `-32071`
+- Ruby の適合テストのデータ（`spec/fixtures/protocol/device/`）は compile が要るので流さない。約束の形の正しさは Ruby の適合テストが決める
+
 ## 構成
 
 ```
@@ -114,11 +143,20 @@ editors/vscode/
   src/
     extension.ts          入口（コマンド・一覧・編集画面・設定の変更をつなぐ）
     protocol.ts           約束の型（protocol.md をそのまま TypeScript にしたもの。v0.2 の形は 12 節、v0.3 は 13 節。約束を変えたらここも変える）
-    webviewMessages.ts    拡張と編集画面（Webview）の間のメッセージ（change・edit・itemEdit、snapshot と pending など）
+    deviceProtocol.ts     device のサーバーとの約束の型（protocol.md の 14。型だけで、Webview と偽の device のサーバーからも読む）
+    webviewMessages.ts    拡張と編集画面（Webview）の間のメッセージ（change・edit・itemEdit、snapshot と pending など。v0.4 の device（状態）と deviceAction（ボタン））
     server/
       locateCornix.ts     cornix の場所を決める（cornix.path → bin/cornix → PATH）
       connection.ts       JSON-RPC の接続（vscode-jsonrpc）、initialize・shutdown
-      cornixServer.ts     子プロセスの起動・標準エラー出力・落ちたときの再起動のボタン。メソッドの呼び口（planItemEdit も）
+      serverProcess.ts    子プロセスの起動・つなぎ方・標準エラー出力・落ちたときの再起動のボタン（編集のサーバーと device のサーバーで共通）
+      cornixServer.ts     編集のサーバー（cornix serve）。メソッドの呼び口（planItemEdit も）
+      deviceServer.ts     device のサーバー（cornix serve --device [--allow-writes]。最初の device/* で起動し、残す）
+    device/               実機の操作（v0.4。比べる・反映・戻す）
+      deviceController.ts コマンド・状態バー・確認のダイアログ・バックアップの QuickPick・withProgress・設定の変更（VS Code の部分）
+      deviceFlow.ts       操作の流れ（保存の促し → 比べる → 確認 → 書く、読む間だけの取り消し。vscode に依存しない）
+      deviceStates.ts     プロファイルごとの「実機と比べた状態」（同じ・違う・未確認。設定ファイルの版が変われば未確認。vscode に依存しない）
+      deviceTexts.ts      利用者に見せる文（確認のダイアログ・結果・実機が使えないときの直し方。vscode に依存しない）
+      deviceSettings.ts   設定 cornix.device.allowWrites と、device のサーバーの起動の引数（vscode に依存しない）
     profiles/
       openProfile.ts      コマンド「Cornix: プロファイルを開く」（1 つならそれを、複数なら QuickPick で選ぶ）
       profileItems.ts     profile/list の結果を一覧と QuickPick に並べる形にする（vscode に依存しない）
@@ -157,13 +195,15 @@ editors/vscode/
       metadataView.ts     metadata.yaml と position_map の表示（読むだけ）
       inspector.ts        keycode/inspect の結果のとっておき（同じ表記は 1 回だけ聞く）
       tooltip.ts          説明の吹き出し（マウスを載せた要素かフォーカスした要素の下に 1 つ）
+      deviceView.ts       実機と比べた状態（図の上のボタンと印、節「実機との差分」、違う欄・タブを探す関数）
       hostClient.ts       ホストへのリクエストの中継（keycode/candidates・keycode/inspect・keycode/shortcutTree）と、変更・項目の操作の送り口
       icons/              アイコン ID → 要素（manifest.ts は media/icons/extract.mjs が作る。badges.ts は自前のバッジ）
   media/                  画面の CSS（webview.css）と同梱のアイコン（SVG とライセンス表記。media/icons/NOTICE.md）
   resources/              アクティビティバーのアイコン
   test/
     unit/                 単体テスト（vitest）。webview/ は画面の部品（fakeHost.ts が偽のサーバーのデータで答える HostClient、itemFixtures.ts が中身の snapshot）
-    fake-server/          偽のサーバー（cornix が入口、main.ts・server.ts が本体、fixtures.ts がデータ、yamlLines.ts が v0.2 の Change を当てる素朴な行の書き換え）
+    fake-server/          偽のサーバー（cornix が入口、main.ts・server.ts が本体、fixtures.ts がデータ、yamlLines.ts が v0.2 の Change を当てる素朴な行の書き換え）。--device なら偽の device のサーバー
+    fake-device-server/   偽の device のサーバー（server.ts。上の「偽の device のサーバー」）
     integration/          統合テスト（@vscode/test-electron）と、そのワークスペース（テストのときは一時ディレクトリに写して使う）。
                           suite/index.ts は偽のサーバー、suite/realServer.ts は本物のサーバー（spec/fixtures/authors_config を写して使う）、道具は suite/support.ts。
                           workspace/profiles/default にはレイヤーのほかマクロ・タップダンス・コンボ・shortcuts.yaml もある（偽のサーバーが一覧と名前を読む）
@@ -182,6 +222,9 @@ editors/vscode/
 - テキストの波線は `profile/open` / `profile/saved` / `profile/didChange` の snapshot の `diagnostics` だけを出す（未保存の変更の検証の結果はファイルの位置と合わないので出さない）
 - サーバーは最初のリクエストのときに起動する。落ちたら「再起動」のボタンを出し、再起動したら開いていたプロファイルは `profile/open` からやり直す
 - 単体テストは vscode に依存しないもの（`locateCornix`・`connection`・`pendingChanges` など）だけ。vscode を使うものは統合テストで確かめる
+  （vscode を import するモジュールを読むと vitest が失敗するので、実機の操作も流れ・文・状態は `src/device/` の別のファイルに分けた）
+- 実機の操作（v0.4）: 画面のボタンもコマンドも `DeviceController` に来る。状態（`DeviceViewState`）はホストが持って画面と状態バーに送り、画面は自分では比べない（自動では読まない）。
+  device のサーバーへの取り消しは、`withProgress` の token を直接渡さず自前の `CancellationTokenSource` を挟んで読む間だけ渡す（vscode-jsonrpc は token を渡すと `$/cancelRequest` を送り、`-32800` を待って reject する）
 
 ## ProfileDocument の状態（保存・undo・外での変更・ホットエグジット）
 

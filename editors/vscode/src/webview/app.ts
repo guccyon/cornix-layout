@@ -23,11 +23,15 @@
 // タブ・図・キー別の並び、タブの「番号 名前」、MO(n) の帯の名前はすべてその番号（this.layers）で引く（references.layers は保存済みなので使わない）。
 // 未使用のレイヤーはどこにも並べず、タブの末尾の「＋」（addMenu.ts の AddMenu）の「未使用（N）」から取り出す（host.itemEdit の use。
 // ホストが未保存の変更に積む）。取り出したレイヤーは、そのファイルが並びに現れたら選ぶ。番号を変えたレイヤーは、選んでいればそのファイルを追う。
-// レイヤーの見出しの「…」（moreMenu.ts）に 番号を変える…（indexPicker.ts）/ 未使用にする / 名前を変える / 削除… をまとめる。
+// レイヤーの見出しの「…」（moreMenu.ts）に 未使用にする / 名前を変える / 削除… をまとめる。
+// W2（ADR 025）: 同じ操作をタブの右クリック（そのレイヤーを選んでから、押した位置にメニュー）にも出す。タブの並びの「＋」の隣の「…」は
+// レイヤー全体の操作で「並び替え」（使っているレイヤーが 2 つ以上）。並び替えモードではタブに ◀▶ を出し、押すたびに画面の並びだけを動かす。
+// 「確定」で itemEdit の reorder を 1 回送り（並びが今と同じなら送らない。ホストが未保存の変更に積む）、「やめる」で捨てる。
+// モードの間はタブの選択・「＋」・「…」は使えない。タブの番号は今の番号のまま（番号の選択 indexPicker.ts と「番号を変える…」はやめた）。
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange, Unused } from '../protocol';
 import { INDEX_LIMITS } from '../itemIndex';
 import { AddMenu } from './addMenu';
-import { IndexPicker } from './indexPicker';
+import { REORDER_CANCEL, REORDER_CONFIRM, REORDER_TOO_FEW } from './itemList';
 import { MoreMenu, type MoreMenuItem } from './moreMenu';
 import type { DeviceViewState, HostMessage, WebviewMessage } from '../webviewMessages';
 import { IDLE_DEVICE_STATE, TransferDialog, TransferSection, diagnosticPlace } from './deviceView';
@@ -51,7 +55,6 @@ import {
   diagnosticsByAddress,
   keyAt,
   keyFaceNote,
-  layerIndexNote,
   layerProblems,
   layerSlots,
   layerTitle,
@@ -75,6 +78,9 @@ export type EditorMode = 'layer' | 'key';
 
 /** レイヤーの番号の範囲（Domain::LayerRef::RANGE と同じ 0〜9） */
 const LAYER_INDEXES = [...Array(INDEX_LIMITS.layer).keys()];
+
+/** W2: レイヤーの並び替えモードの文 */
+export const LAYER_REORDER_HINT = '◀▶ で並べ替えて「確定」（番号は小さい順に当て直し、MO(n) などの参照も追従します）';
 
 export type AppOptions = {
   host: HostClient;
@@ -122,9 +128,16 @@ export class App {
   /** v0.5: タブの末尾の「＋」と、レイヤーの見出しの「…」 */
   private readonly addMenu: AddMenu;
   private readonly moreMenu: MoreMenu;
-  /** v0.5: 見出しの下に開く欄（番号の選択・名前の変更）。renderLayerInfo では作り直さない */
+  /** W2: タブの右クリックのメニュー（ボタンは出さない）と、タブの並びの「…」（全体の操作）・並び替えモード */
+  private readonly tabMenu: MoreMenu;
+  private readonly tabsMenu: MoreMenu;
+  private readonly reorderBar: HTMLElement;
+  private layerOrder: string[] | undefined;
+  /** v0.5: 見出しの下に開く欄（名前の変更）。renderLayerInfo では作り直さない */
   private readonly layerPanel = h('div', { class: 'layer-panel-slot' });
   private layerPanelFile: string | undefined;
+  /** 見出しの下の欄を閉じたときにフォーカスを戻す先（タブの右クリックから開いたときはタブ。なければ見出しの「…」） */
+  private layerPanelReturn: (() => HTMLElement | null | undefined) | undefined;
   /** 図に描いた今の値（欄の id → 値。コンボの強調で比べる） */
   private readonly values = new Map<string, KeyValue | null | undefined>();
   /** 図からキーを選んでいる間の受け取り手 */
@@ -198,12 +211,46 @@ export class App {
     });
     this.addMenu.button.classList.add('layer-tab', 'layer-add');
     this.addMenu.button.dataset.layerAdd = '';
-    this.tabs.append(this.tabList, this.addMenu.element);
     this.moreMenu = new MoreMenu({
       label: 'レイヤーのほかの操作',
       className: 'layer-more',
       items: () => this.layerActions(),
       onSelect: (id) => this.layerAction(id),
+    });
+    this.tabMenu = new MoreMenu({
+      label: 'レイヤーの操作',
+      className: 'layer-tab-menu',
+      items: () => this.layerActions(),
+      onSelect: (id) => this.layerAction(id, () => this.currentTab()),
+      returnFocus: () => this.currentTab(),
+    });
+    this.tabMenu.button.hidden = true;
+    this.tabsMenu = new MoreMenu({
+      label: 'レイヤー全体の操作',
+      className: 'layer-tabs-menu',
+      items: () => [this.layers.length >= 2 ? { id: 'reorder', label: '並び替え' } : { id: 'reorder', label: '並び替え', disabled: true, reason: REORDER_TOO_FEW }],
+      onSelect: (id) => {
+        if (id === 'reorder') this.startLayerReorder();
+      },
+    });
+    this.tabsMenu.button.classList.add('layer-tab', 'layer-tabs-more');
+    this.tabsMenu.button.dataset.focus = 'layers-more';
+    const confirm = h('button', { type: 'button', class: 'item-button primary', 'data-focus': 'layer-reorder-confirm' }, REORDER_CONFIRM);
+    confirm.addEventListener('click', () => this.confirmLayerReorder());
+    const cancel = h('button', { type: 'button', class: 'item-button', 'data-focus': 'layer-reorder-cancel' }, REORDER_CANCEL);
+    cancel.addEventListener('click', () => this.endLayerReorder());
+    this.reorderBar = h(
+      'span',
+      { class: 'reorder-bar layer-reorder-bar', role: 'group', 'aria-label': 'レイヤーの並び替え', hidden: true },
+      h('span', { class: 'reorder-hint' }, LAYER_REORDER_HINT),
+      confirm,
+      cancel,
+    );
+    this.tabs.append(this.tabList, this.addMenu.element, this.tabsMenu.element, this.reorderBar, this.tabMenu.element);
+    this.tabs.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !this.layerOrder || event.defaultPrevented) return;
+      event.preventDefault();
+      this.endLayerReorder();
     });
     this.topPane = h('div', { class: 'top-pane' }, this.header, this.banner, this.tabs, this.layerForm, this.keyboard.element);
     this.bottomPane = h(
@@ -585,9 +632,21 @@ export class App {
   private renderTabs(): void {
     const snapshot = this.snapshot;
     if (!snapshot) return;
-    const focused = document.activeElement instanceof HTMLElement && this.tabList.contains(document.activeElement) ? document.activeElement.dataset.file : undefined;
+    const active = document.activeElement instanceof HTMLElement && this.tabList.contains(document.activeElement) ? document.activeElement : undefined;
+    const focused = active?.dataset.file;
+    const focusedMove = active?.dataset.move;
+    this.reconcileLayerOrder();
+    const order = this.layerOrder;
+    const reordering = order !== undefined;
+    this.tabs.classList.toggle('reordering', reordering);
+    this.reorderBar.hidden = !reordering;
+    this.addMenu.element.hidden = reordering;
+    this.tabsMenu.element.hidden = reordering;
+    this.tabMenu.close(false);
+    // 並び替えモードでは画面の並び（番号は今の番号のまま）
+    const listed = order ? [...this.layers].sort((a, b) => order.indexOf(a.file) - order.indexOf(b.file)) : this.layers;
     this.tabList.replaceChildren(
-      ...this.layers.map((l) => {
+      ...listed.map((l, position) => {
         const selected = l.index === this.layerIndex;
         // v0.4: 保存済みの中身に検証の問題があるレイヤーには点を付け、件数と文をツールチップに出す
         const problems = layerProblems(snapshot, l.file);
@@ -611,12 +670,110 @@ export class App {
             severity && h('span', { class: `layer-tab-dot ${severity}`, 'aria-label': severity === 'error' ? 'エラーあり' : '警告あり' }),
           ),
         );
+        if (order) {
+          // 並び替えモード: タブは選べない。◀▶ で画面の並びを動かす
+          tab.tabIndex = -1;
+          tab.setAttribute('aria-disabled', 'true');
+          const left = h(
+            'button',
+            { type: 'button', class: 'icon-button reorder-left', 'aria-label': `「${l.name}」を 1 つ左へ`, title: '1 つ左へ', 'data-file': l.file, 'data-move': 'left', disabled: position === 0 },
+            '◀',
+          );
+          left.addEventListener('click', () => this.moveLayerInOrder(l.file, -1));
+          const right = h(
+            'button',
+            {
+              type: 'button',
+              class: 'icon-button reorder-right',
+              'aria-label': `「${l.name}」を 1 つ右へ`,
+              title: '1 つ右へ',
+              'data-file': l.file,
+              'data-move': 'right',
+              disabled: position === listed.length - 1,
+            },
+            '▶',
+          );
+          right.addEventListener('click', () => this.moveLayerInOrder(l.file, 1));
+          return h('span', { class: 'layer-tab-wrap reordering', 'data-file': l.file }, left, tab, right);
+        }
         tab.addEventListener('click', () => this.selectLayer(l.index));
+        tab.addEventListener('contextmenu', (event) => {
+          event.preventDefault();
+          // キーボード（Shift+F10 など）から開いたときは位置がないので、タブの左下に出す
+          const rect = tab.getBoundingClientRect();
+          const at = event.clientX === 0 && event.clientY === 0 ? { x: rect.left, y: rect.bottom } : { x: event.clientX, y: event.clientY };
+          if (this.layerIndex !== l.index) this.selectLayer(l.index);
+          this.tabMenu.open('first', at);
+        });
         return tab;
       }),
     );
     this.updateAddMenu(snapshot);
-    if (focused !== undefined) this.tabList.querySelector<HTMLElement>(`[data-file="${CSS.escape(focused)}"]`)?.focus();
+    if (focused !== undefined) {
+      const selector = focusedMove ? `[data-file="${CSS.escape(focused)}"][data-move="${focusedMove}"]` : `button.layer-tab[data-file="${CSS.escape(focused)}"]`;
+      this.tabList.querySelector<HTMLElement>(selector)?.focus();
+    }
+  }
+
+  /** 選んでいるレイヤーのタブ（右クリックのメニューを閉じたときのフォーカスの先） */
+  private currentTab(): HTMLElement | null {
+    const layer = this.currentLayerSnapshot();
+    return layer ? this.tabList.querySelector<HTMLElement>(`button.layer-tab[data-file="${CSS.escape(layer.file)}"]`) : null;
+  }
+
+  // ---- W2: レイヤーの並び替え ----
+
+  /** 並び替えモードか（テスト用） */
+  get reorderingLayers(): boolean {
+    return this.layerOrder !== undefined;
+  }
+
+  private startLayerReorder(): void {
+    if (this.layers.length < 2) return;
+    this.closeLayerPanel(false);
+    this.layerOrder = this.layers.map((layer) => layer.file);
+    this.renderTabs();
+    this.tabList.querySelector<HTMLButtonElement>('.reorder-right:not(:disabled)')?.focus();
+  }
+
+  private endLayerReorder(): void {
+    if (!this.layerOrder) return;
+    this.layerOrder = undefined;
+    this.renderTabs();
+    this.tabsMenu.button.focus();
+  }
+
+  /** 確定: 並びが変わっていれば reorder を 1 回送る（ホストが未保存の変更に積む）。モードは抜ける */
+  private confirmLayerReorder(): void {
+    const files = this.layerOrder;
+    if (!files) return;
+    const now = this.layers.map((layer) => layer.file);
+    if (files.length !== now.length || files.some((file, i) => file !== now[i])) this.options.host.itemEdit({ op: 'reorder', kind: 'layer', files: [...files] });
+    this.endLayerReorder();
+  }
+
+  /** 1 つ左（-1）・右（+1）へ。押したボタンにフォーカスを残す（端で押せなくなったら反対のボタンへ） */
+  private moveLayerInOrder(file: string, step: -1 | 1): void {
+    const files = this.layerOrder;
+    if (!files) return;
+    const from = files.indexOf(file);
+    const to = from + step;
+    if (from < 0 || to < 0 || to >= files.length) return;
+    [files[from], files[to]] = [files[to]!, files[from]!];
+    this.renderTabs();
+    const wrap = this.tabList.querySelector<HTMLElement>(`.layer-tab-wrap[data-file="${CSS.escape(file)}"]`);
+    const own = wrap?.querySelector<HTMLButtonElement>(step < 0 ? '.reorder-left' : '.reorder-right');
+    const other = wrap?.querySelector<HTMLButtonElement>(step < 0 ? '.reorder-right' : '.reorder-left');
+    (own && !own.disabled ? own : other)?.focus();
+  }
+
+  /** モードの間に外で並びが変わったら合わせる（消えたものを外し、増えたものを末尾に） */
+  private reconcileLayerOrder(): void {
+    if (!this.layerOrder) return;
+    const now = this.layers.map((layer) => layer.file);
+    const kept = this.layerOrder.filter((file) => now.includes(file));
+    this.layerOrder = [...kept, ...now.filter((file) => !kept.includes(file))];
+    if (this.layerOrder.length < 2) this.layerOrder = undefined;
   }
 
   /** タブの title に出す、未保存の番号の変更の文 */
@@ -741,7 +898,6 @@ export class App {
     const layer = this.currentLayerSnapshot();
     if (!layer) return [];
     return [
-      { id: 'setIndex', label: '番号を変える…', note: `いま ${layer.index}` },
       { id: 'unuse', label: '未使用にする' },
       { id: 'rename', label: '名前を変える' },
       { separator: true },
@@ -749,40 +905,18 @@ export class App {
     ];
   }
 
-  private layerAction(id: string): void {
+  /** returnFocus は名前の変更の欄を閉じたときのフォーカスの先（タブの右クリックから開いたときはタブ） */
+  private layerAction(id: string, returnFocus?: () => HTMLElement | null | undefined): void {
     const layer = this.currentLayerSnapshot();
     if (!layer) return;
     // 名前は重なってよいのでファイルで指す
-    if (id === 'setIndex') this.openIndexPicker(layer);
-    else if (id === 'unuse') this.options.host.itemEdit({ op: 'unuse', kind: 'layer', file: layer.file });
-    else if (id === 'rename') this.openRenameForm(layer);
+    if (id === 'unuse') this.options.host.itemEdit({ op: 'unuse', kind: 'layer', file: layer.file });
+    else if (id === 'rename') this.openRenameForm(layer, returnFocus);
     else if (id === 'delete') this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, file: layer.file });
   }
 
-  /** v0.5: 番号を変える…（空きなら移動、使っている番号なら入れ替え。参照 MO(n) などは書き換えない） */
-  private openIndexPicker(layer: LayerSnapshot): void {
-    const used = new Map(this.layers.filter((l) => l.file !== layer.file).map((l) => [l.index, l.name]));
-    const picker = new IndexPicker({
-      noun: 'レイヤー',
-      name: layer.name,
-      current: layer.index,
-      limit: INDEX_LIMITS.layer,
-      used,
-      note: (target, mode, other) => layerIndexNote(layer.index, target, mode, layer.name, other),
-      returnFocus: this.moreMenu.button,
-      onClose: () => {
-        if (this.layerPanelFile === layer.file) this.layerPanelFile = undefined;
-      },
-      onConfirm: (target) => {
-        this.options.host.itemEdit({ op: 'setIndex', kind: 'layer', file: layer.file, index: target });
-      },
-    });
-    this.showLayerPanel(layer.file, picker.element);
-    picker.focus();
-  }
-
   /** v0.5: 名前を変える（ホストが確認してすぐ書く。名前は重なってよい） */
-  private openRenameForm(layer: LayerSnapshot): void {
+  private openRenameForm(layer: LayerSnapshot, returnFocus?: () => HTMLElement | null | undefined): void {
     const name = h('input', {
       type: 'text',
       class: 'item-name-input',
@@ -816,6 +950,7 @@ export class App {
     });
     this.showLayerPanel(
       layer.file,
+      returnFocus,
       h(
         'div',
         { class: 'item-name-form layer-rename-form', role: 'group', 'aria-label': 'レイヤーの名前を変える' },
@@ -830,17 +965,20 @@ export class App {
     name.select();
   }
 
-  private showLayerPanel(file: string, element: HTMLElement): void {
+  private showLayerPanel(file: string, returnFocus: (() => HTMLElement | null | undefined) | undefined, element: HTMLElement): void {
     this.layerPanelFile = file;
+    this.layerPanelReturn = returnFocus;
     this.layerPanel.replaceChildren(element);
   }
 
-  /** 見出しの下の欄を閉じる（focusBack なら「…」にフォーカスを戻す） */
+  /** 見出しの下の欄を閉じる（focusBack なら開いたところ（見出しの「…」かタブ）にフォーカスを戻す） */
   private closeLayerPanel(focusBack: boolean): void {
+    const back = this.layerPanelReturn;
     this.layerPanelFile = undefined;
+    this.layerPanelReturn = undefined;
     if (this.layerPanel.childElementCount === 0) return;
     this.layerPanel.replaceChildren();
-    if (focusBack) this.moreMenu.button.focus();
+    if (focusBack) (back?.() ?? this.moreMenu.button).focus();
   }
 
   /** 下の欄の並べ方の切り替え（とキー別の「畳む」） */
@@ -876,8 +1014,9 @@ export class App {
       return;
     }
     // キー別では全レイヤーの欄が並ぶので、選んでいるレイヤーの見出し（説明と「…」）は意味がない。レイヤー別のときだけ出す
+    // （タブの右クリックから開いた名前の変更の欄は残す）
     if (this.mode === 'key') {
-      this.closeLayerPanel(false);
+      if (this.layerPanelFile !== layer.file) this.closeLayerPanel(false);
       this.layerInfo.replaceChildren();
       return;
     }

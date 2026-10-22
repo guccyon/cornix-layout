@@ -384,12 +384,5 @@ export function arrangementKey(layers: readonly { index: number; file: string }[
   return JSON.stringify(layers.map((layer) => [layer.index, layer.file]));
 }
 
-/** 番号を選び直すときの注意（レイヤーの参照 MO(n) などは書き換えない。protocol.md の 15.3） */
-export function layerIndexNote(current: number, target: number, mode: 'move' | 'swap', name: string, other: string | undefined): string {
-  if (mode === 'swap')
-    return `${target} を選ぶと ${other ?? ''} と入れ替えます。MO(${current})・MO(${target}) などの参照は書き換えないので、MO(${current}) で出るのは ${other ?? ''} の中身になります。`;
-  return `MO(${current})・MO(${target}) などの参照は書き換えないので、MO(${target}) で出るのが ${name} の中身になり、MO(${current}) は空きの番号を指します。`;
-}
-
 /** 番号が埋まっていて未使用のレイヤーを取り出せないときの文 */
 export const LAYER_INDEXES_FULL = '番号が 10 個とも使われています。使っているレイヤーのどれかを「未使用にする」と、ここから選べます。';

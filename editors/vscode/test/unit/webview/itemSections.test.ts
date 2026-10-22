@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// v0.5（issue #114）: マクロ・タップダンス・コンボ・ショートカットの節の「追加」（追加の一覧）と見出しの「…」、
+// v0.5（issue #114）: マクロ・タップダンス・コンボ・ショートカットの節の「追加」（追加の一覧）と行の「…」・右クリック、節の「…」の並び替え（W2）、
 // 未保存の変更を当てた番号の並び、未使用の項目の取り出し、未保存のショートカットの追加
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AnyChange, ComboSnapshot, MacroSnapshot, ProfileSnapshot, Unused } from '../../../src/protocol';
@@ -55,9 +55,15 @@ async function openAdd(root: HTMLElement): Promise<HTMLElement> {
   return root.querySelector<HTMLElement>('.add-menu-panel')!;
 }
 
+/** 一覧の行の「…」 */
+function rowMenuButton(root: HTMLElement, key: string): HTMLButtonElement {
+  return byFocus<HTMLButtonElement>(root, `item-more:${key}`);
+}
+
+/** 選んでいる行の「…」を開く */
 function openMore(root: HTMLElement): HTMLElement[] {
-  byFocus<HTMLButtonElement>(root, 'more-menu').click();
-  return [...root.querySelectorAll<HTMLElement>('.more-menu-list > *')];
+  root.querySelector<HTMLButtonElement>('.item-row-wrap.selected .more-menu-button')!.click();
+  return [...root.querySelectorAll<HTMLElement>('.item-row-wrap.selected .more-menu-list > *')];
 }
 
 function menuLabels(root: HTMLElement): string[] {
@@ -65,8 +71,8 @@ function menuLabels(root: HTMLElement): string[] {
 }
 
 function choose(root: HTMLElement, action: string): void {
-  if (!root.querySelector('.more-menu-list:not([hidden])')) openMore(root);
-  root.querySelector<HTMLButtonElement>(`.more-menu-item[data-action='${action}']`)!.click();
+  if (!root.querySelector('.item-row-wrap.selected .more-menu-list:not([hidden])')) openMore(root);
+  root.querySelector<HTMLButtonElement>(`.item-row-wrap.selected .more-menu-item[data-action='${action}']`)!.click();
 }
 
 beforeEach(() => {
@@ -185,16 +191,19 @@ describe('節の「追加」', () => {
   });
 });
 
-describe('見出しの「…」', () => {
-  it('状態に合う操作だけを出す（ショートカットには番号も未使用もない）', () => {
+describe('行の「…」と右クリック（W2・ADR 025）', () => {
+  it('選んでいる行の「…」に状態に合う操作だけを出す（番号を変える… はない。ショートカットには未使用もない）', () => {
     const macros = mount(new MacroEditor({ host }));
     macros.update(snapshot(), []);
-    expect(menuLabels(macros.element)).toEqual(['名前を変える', '番号を変える…', '未使用にする', 'ファイルを開く', '---', '削除…']);
+    expect(menuLabels(macros.element)).toEqual(['名前を変える', '未使用にする', 'ファイルを開く', '---', '削除…']);
     const shortcuts = mount(new ShortcutEditor({ host }));
     shortcuts.update(snapshot(), []);
     expect(menuLabels(shortcuts.element)).toEqual(['名前を変える', 'ファイルを開く', '---', '削除…']);
-    // 名前を変える・削除のボタンとファイルのリンクは見出しに置かない
+    // 編集欄の見出しには「…」も名前を変える・削除のボタンも置かない
+    expect(macros.element.querySelector('.item-header .more-menu-button')).toBeNull();
     expect(macros.element.querySelector("[data-focus='rename'], [data-focus='delete'], [data-focus='open']")).toBeNull();
+    // 行ごとに「…」がある
+    expect(macros.element.querySelectorAll('.item-row-wrap .more-menu-button')).toHaveLength(2);
   });
 
   it('未使用にする・ファイルを開く・削除…', () => {
@@ -214,34 +223,144 @@ describe('見出しの「…」', () => {
     expect(macros.selected).toBe('Copy Selected');
   });
 
-  it('番号を変える…: 番号の選択（今・使っている・空き）で入れ替えると setIndex を渡す。マクロは参照の書き換えを書き添える', () => {
+  it('選んでいない行の「…」はその行を選んでから開き、その項目の操作になる', () => {
     const macros = mount(new MacroEditor({ host }));
     macros.update(snapshot(), []);
-    choose(macros.element, 'setIndex');
-    expect(macros.indexPickerOpen).toBe(true);
-    const slots = [...macros.element.querySelectorAll<HTMLButtonElement>('.index-picker-slot')];
-    expect(slots).toHaveLength(32);
-    expect(slots[0]?.textContent).toBe('0今');
-    expect(slots[2]?.textContent).toBe('2使っている（Copy Selected）');
-    slots[2]!.click();
-    expect(macros.element.querySelector('.index-picker-note')?.textContent).toBe('番号の参照（Macro(3) / M3 など）も新しい番号に書き換えます');
-    const confirm = macros.element.querySelector<HTMLButtonElement>("[data-focus='index-confirm']")!;
-    expect(confirm.textContent).toBe('入れ替える');
-    confirm.click();
-    expect(host.itemEdits).toEqual([{ op: 'setIndex', kind: 'macro', file: MACRO_FILE, index: 2 }]);
-    expect(macros.indexPickerOpen).toBe(false);
-    expect(document.activeElement).toBe(byFocus(macros.element, 'more-menu'));
+    expect(macros.selected).toBe('Bracket Pair');
+    rowMenuButton(macros.element, PRESET_FILE).click();
+    expect(macros.selected).toBe('Copy Selected');
+    expect(macros.element.querySelector('.item-row-wrap.selected .more-menu-list:not([hidden])')).not.toBeNull();
+    macros.element.querySelector<HTMLButtonElement>(".more-menu-list:not([hidden]) .more-menu-item[data-action='unuse']")!.click();
+    expect(host.itemEdits).toEqual([{ op: 'unuse', kind: 'macro', file: PRESET_FILE }]);
+    expect(document.activeElement).toBe(rowMenuButton(macros.element, PRESET_FILE));
   });
 
-  it('コンボの番号の選択には書き添えがない', () => {
-    const other: ComboSnapshot = { ...moved(COMBO, COMBO_FILE, 'combos/01_x.yml'), name: 'X', index: 1 };
+  it('行の右クリックはその行を選んで同じメニューを押した位置に出す（既定のメニューは出さない）', () => {
     const combos = mount(new ComboEditor({ host }));
+    const other: ComboSnapshot = { ...moved(COMBO, COMBO_FILE, 'combos/01_x.yml'), name: 'X', index: 1 };
     combos.update(snapshot({ combos: [COMBO, other] }), []);
-    choose(combos.element, 'setIndex');
-    [...combos.element.querySelectorAll<HTMLButtonElement>('.index-picker-slot')][7]!.click();
-    expect(combos.element.querySelector<HTMLElement>('.index-picker-note')?.hidden).toBe(true);
-    combos.element.querySelector<HTMLButtonElement>("[data-focus='index-confirm']")!.click();
-    expect(host.itemEdits).toEqual([{ op: 'setIndex', kind: 'combo', file: COMBO_FILE, index: 7 }]);
+    const row = combos.element.querySelector<HTMLElement>(".item-row[data-key='combos/01_x.yml']")!;
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 50, clientY: 60 });
+    row.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(combos.selected).toBe('X');
+    const list = combos.element.querySelector<HTMLElement>('.more-menu-list:not([hidden])')!;
+    expect(list.style.left).toBe('50px');
+    expect(list.style.top).toBe('60px');
+    expect([...list.querySelectorAll('.more-menu-label')].map((e) => e.textContent)).toEqual(['名前を変える', '未使用にする', 'ファイルを開く', '削除…']);
+    list.querySelector<HTMLButtonElement>("[data-action='delete']")!.click();
+    expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'combo', name: 'X' }]);
+  });
+
+  it('名前を変える: 閉じたらその行の「…」にフォーカスを戻す', () => {
+    const macros = mount(new MacroEditor({ host }));
+    macros.update(snapshot(), []);
+    choose(macros.element, 'rename');
+    byFocus<HTMLInputElement>(macros.element, 'form-name').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    expect(document.activeElement).toBe(rowMenuButton(macros.element, MACRO_FILE));
+  });
+});
+
+describe('節の「…」と並び替えモード（W2・ADR 025）', () => {
+  function sectionMenu(root: HTMLElement): HTMLButtonElement {
+    return byFocus<HTMLButtonElement>(root, 'section-more');
+  }
+
+  function startReorder(root: HTMLElement): void {
+    sectionMenu(root).click();
+    root.querySelector<HTMLButtonElement>(".item-section-menu .more-menu-item[data-action='reorder']")!.click();
+  }
+
+  const MACRO_C: MacroSnapshot = { ...moved(MACRO, MACRO_FILE, 'macros/05_c.yml'), name: 'C', index: 5 };
+
+  it('節の「…」は全体の操作で「並び替え」だけ。使っている項目が 1 つ以下なら押せず、ショートカットには「…」がない', () => {
+    const macros = mount(new MacroEditor({ host }));
+    macros.update(snapshot(), []);
+    sectionMenu(macros.element).click();
+    const items = [...macros.element.querySelectorAll<HTMLElement>('.item-section-menu .more-menu-item')];
+    expect(items.map((e) => e.querySelector('.more-menu-label')?.textContent)).toEqual(['並び替え']);
+    expect(items[0]!.getAttribute('aria-disabled')).toBeNull();
+    const tapDances = mount(new TapDanceEditor({ host }));
+    tapDances.update(snapshot(), []);
+    sectionMenu(tapDances.element).click();
+    const only = tapDances.element.querySelector<HTMLElement>(".item-section-menu .more-menu-item[data-action='reorder']")!;
+    expect(only.getAttribute('aria-disabled')).toBe('true');
+    expect(only.textContent).toContain('2 つ以上');
+    only.click();
+    expect(tapDances.reordering).toBe(false);
+    const shortcuts = mount(new ShortcutEditor({ host }));
+    shortcuts.update(snapshot(), []);
+    expect(shortcuts.element.querySelector('.item-section-menu')).toBeNull();
+  });
+
+  it('並び替えモード: 各行に ⬆⬇（先頭の ⬆・末尾の ⬇ は押せない）、確定・やめるを出し、「追加」と行の「…」を隠す', () => {
+    const macros = mount(new MacroEditor({ host }));
+    macros.update(snapshot({ macros: [MACRO, PRESET_MACRO, MACRO_C] }), []);
+    startReorder(macros.element);
+    expect(macros.reordering).toBe(true);
+    const ups = [...macros.element.querySelectorAll<HTMLButtonElement>('.reorder-up')];
+    const downs = [...macros.element.querySelectorAll<HTMLButtonElement>('.reorder-down')];
+    expect(ups.map((b) => b.disabled)).toEqual([true, false, false]);
+    expect(downs.map((b) => b.disabled)).toEqual([false, false, true]);
+    expect(document.activeElement).toBe(downs[0]);
+    expect(macros.element.querySelector<HTMLElement>('.reorder-bar')!.hidden).toBe(false);
+    expect(macros.addMenu.element.hidden).toBe(true);
+    expect(macros.element.querySelector('.item-row-wrap .more-menu-button')).toBeNull();
+    // 行を押しても選び直さない
+    macros.element.querySelector<HTMLButtonElement>(".item-row[data-key='macros/05_c.yml']")!.click();
+    expect(macros.selected).toBe('Bracket Pair');
+  });
+
+  it('⬆⬇ で画面の並びが動き（番号は今の番号のまま）、確定で reorder を 1 回送ってモードを抜ける', () => {
+    const macros = mount(new MacroEditor({ host }));
+    macros.update(snapshot({ macros: [MACRO, PRESET_MACRO, MACRO_C] }), []);
+    startReorder(macros.element);
+    byFocus<HTMLButtonElement>(macros.element, 'reorder-down:' + MACRO_FILE).click();
+    expect(rows(macros.element)).toEqual(['2 Copy Selected', '0 Bracket Pair', '5 C']);
+    // 押したボタンにフォーカスが残る
+    expect(document.activeElement).toBe(byFocus(macros.element, 'reorder-down:' + MACRO_FILE));
+    byFocus<HTMLButtonElement>(macros.element, 'reorder-down:' + MACRO_FILE).click();
+    expect(rows(macros.element)).toEqual(['2 Copy Selected', '5 C', '0 Bracket Pair']);
+    // 末尾で ⬇ が押せなくなったら ⬆ にフォーカス
+    expect(document.activeElement).toBe(byFocus(macros.element, 'reorder-up:' + MACRO_FILE));
+    byFocus<HTMLButtonElement>(macros.element, 'reorder-up:macros/05_c.yml').click();
+    expect(rows(macros.element)).toEqual(['5 C', '2 Copy Selected', '0 Bracket Pair']);
+    expect(host.itemEdits).toEqual([]);
+    byFocus<HTMLButtonElement>(macros.element, 'reorder-confirm').click();
+    expect(host.itemEdits).toEqual([{ op: 'reorder', kind: 'macro', files: ['macros/05_c.yml', PRESET_FILE, MACRO_FILE] }]);
+    expect(macros.reordering).toBe(false);
+    expect(document.activeElement).toBe(sectionMenu(macros.element));
+    // サーバーの結果（未保存の番号）が届けば番号の順に並ぶ
+    macros.update(snapshot({ macros: [MACRO, PRESET_MACRO, MACRO_C] }), [], [
+      { address: at('macros/05_c.yml', 'index'), value: 0 },
+      { address: at(PRESET_FILE, 'index'), value: 2 },
+      { address: at(MACRO_FILE, 'index'), value: 5 },
+    ]);
+    expect(rows(macros.element)).toEqual(['0 C', '2 Copy Selected', '5 Bracket Pair']);
+  });
+
+  it('並びが今と同じなら確定しても送らない。やめる（と Escape）は並びを捨てて抜ける', () => {
+    const combos = mount(new ComboEditor({ host }));
+    const other: ComboSnapshot = { ...moved(COMBO, COMBO_FILE, 'combos/01_x.yml'), name: 'X', index: 1 };
+    combos.update(snapshot({ combos: [COMBO, other] }), []);
+    startReorder(combos.element);
+    byFocus<HTMLButtonElement>(combos.element, `reorder-down:${COMBO_FILE}`).click();
+    byFocus<HTMLButtonElement>(combos.element, `reorder-up:${COMBO_FILE}`).click();
+    byFocus<HTMLButtonElement>(combos.element, 'reorder-confirm').click();
+    expect(host.itemEdits).toEqual([]);
+    expect(combos.reordering).toBe(false);
+    startReorder(combos.element);
+    byFocus<HTMLButtonElement>(combos.element, `reorder-down:${COMBO_FILE}`).click();
+    expect(rows(combos.element)).toEqual(['1 X', '0 Left Bracket']);
+    byFocus<HTMLButtonElement>(combos.element, 'reorder-cancel').click();
+    expect(combos.reordering).toBe(false);
+    expect(rows(combos.element)).toEqual(['0 Left Bracket', '1 X']);
+    startReorder(combos.element);
+    byFocus<HTMLButtonElement>(combos.element, `reorder-down:${COMBO_FILE}`).click();
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(combos.reordering).toBe(false);
+    expect(rows(combos.element)).toEqual(['0 Left Bracket', '1 X']);
+    expect(host.itemEdits).toEqual([]);
   });
 });
 

@@ -50,7 +50,6 @@ export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
       title: 'マクロ',
       namePlaceholder: 'Bracket Pair',
       className: 'macro-editor',
-      indexNote: '番号の参照（Macro(3) / M3 など）も新しい番号に書き換えます',
       bundled: 'macro',
     });
   }

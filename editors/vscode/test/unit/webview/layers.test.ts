@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-// v0.5（issue #113）: レイヤーの「＋」（新しく作る・未使用から取り出す）と見出しの「…」（番号を変える… / 未使用にする / 名前を変える / 削除…）、
-// 未保存の番号を当てたタブ・図・キー別の並び
+// v0.5（issue #113）: レイヤーの「＋」（新しく作る・未使用から取り出す）と見出しの「…」（未使用にする / 名前を変える / 削除…）、
+// 未保存の番号を当てたタブ・図・キー別の並び。W2（ADR 025）: タブの右クリックのメニューと、タブの並びの「…」の並び替え（◀▶・確定・やめる）
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AnyChange, LayerSnapshot, ProfileSnapshot, Unused } from '../../../src/protocol';
 import { App, type ViewState } from '../../../src/webview/app';
@@ -176,34 +176,17 @@ describe('未保存の番号を当てた並び', () => {
 });
 
 describe('見出しの「…」', () => {
-  it('番号を変える…（いま N）/ 未使用にする / 名前を変える / 区切り / 削除… を出す', () => {
+  it('未使用にする / 名前を変える / 区切り / 削除… を出す（番号を変える… はない）', () => {
     receive(fixtureSnapshot());
     app.selectLayer(1);
     openMore();
     const list = root.querySelector<HTMLElement>('.layer-info .more-menu-list')!;
     expect([...list.children].map((e) => (e.getAttribute('role') === 'separator' ? '---' : e.textContent))).toEqual([
-      '番号を変える…いま 1',
       '未使用にする',
       '名前を変える',
       '---',
       '削除…',
     ]);
-  });
-
-  it('番号を変える…: 使っている番号を選ぶと入れ替えと参照の注意を出し、決めると setIndex を渡す', () => {
-    receive(withUnused(), [indexSet(nav, 2)]);
-    app.selectLayer(1);
-    moreAction('setIndex');
-    const picker = root.querySelector<HTMLElement>('.index-picker')!;
-    const states = [...picker.querySelectorAll('.index-picker-slot')].map((e) => e.textContent);
-    expect(states.slice(0, 4)).toEqual(['0使っている（Base）', '1今', '2使っている（Nav）', '3空き']);
-    picker.querySelector<HTMLButtonElement>("[data-index='2']")!.click();
-    expect(picker.querySelector('.index-picker-note')?.textContent).toBe(
-      '2 を選ぶと Nav と入れ替えます。MO(1)・MO(2) などの参照は書き換えないので、MO(1) で出るのは Nav の中身になります。',
-    );
-    picker.querySelector<HTMLButtonElement>('.index-picker-footer .primary')!.click();
-    expect(host.itemEdits).toEqual([{ op: 'setIndex', kind: 'layer', file: symbols, index: 2 }]);
-    expect(root.querySelector('.index-picker')).toBeNull();
   });
 
   it('未使用にする: unuse をファイルで渡す', () => {
@@ -233,12 +216,150 @@ describe('見出しの「…」', () => {
     expect(host.itemEdits).toEqual([{ op: 'rename', kind: 'layer', name: 'Symbols', to: 'Sym', file: symbols }]);
   });
 
-  it('ほかのレイヤーに移ると、開いていた番号の選択を閉じる', () => {
+  it('ほかのレイヤーに移ると、開いていた名前の変更の欄を閉じる', () => {
     receive(fixtureSnapshot());
     app.selectLayer(1);
-    moreAction('setIndex');
-    expect(root.querySelector('.index-picker')).not.toBeNull();
+    moreAction('rename');
+    expect(root.querySelector('.layer-rename-form')).not.toBeNull();
     app.selectLayer(0);
-    expect(root.querySelector('.index-picker')).toBeNull();
+    expect(root.querySelector('.layer-rename-form')).toBeNull();
+  });
+});
+
+describe('タブの右クリック（W2・ADR 025）', () => {
+  function tab(file: string): HTMLButtonElement {
+    return root.querySelector<HTMLButtonElement>(`.layer-tabs button.layer-tab[data-file='${file}']`)!;
+  }
+
+  function rightClick(target: HTMLElement, x = 30, y = 40): MouseEvent {
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: x, clientY: y });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  function tabMenuList(): HTMLElement {
+    return root.querySelector<HTMLElement>('.layer-tab-menu .more-menu-list')!;
+  }
+
+  it('そのレイヤーを選んで、見出しの「…」と同じ操作を押した位置に出す（既定のメニューは出さない）', () => {
+    receive(fixtureSnapshot());
+    expect(app.currentLayer).toBe(0);
+    const event = rightClick(tab(symbols), 30, 40);
+    expect(event.defaultPrevented).toBe(true);
+    expect(app.currentLayer).toBe(1);
+    const list = tabMenuList();
+    expect(list.hidden).toBe(false);
+    expect(list.style.left).toBe('30px');
+    expect(list.style.top).toBe('40px');
+    expect([...list.children].map((e) => (e.getAttribute('role') === 'separator' ? '---' : e.textContent))).toEqual(['未使用にする', '名前を変える', '---', '削除…']);
+    // メニューのボタンは出さない
+    expect(root.querySelector<HTMLElement>('.layer-tab-menu .more-menu-button')!.hidden).toBe(true);
+    list.querySelector<HTMLButtonElement>("[data-action='unuse']")!.click();
+    expect(host.itemEdits).toEqual([{ op: 'unuse', kind: 'layer', file: symbols }]);
+    // 閉じたらそのタブにフォーカスを戻す
+    expect(document.activeElement).toBe(tab(symbols));
+  });
+
+  it('キー別でも使え、名前を変える の欄を閉じたらタブにフォーカスを戻す', () => {
+    receive(fixtureSnapshot());
+    app.setMode('key');
+    rightClick(tab(symbols));
+    tabMenuList().querySelector<HTMLButtonElement>("[data-action='rename']")!.click();
+    const input = root.querySelector<HTMLInputElement>('.layer-rename-form .item-name-input')!;
+    expect(input.value).toBe('Symbols');
+    input.value = 'Sym';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    expect(host.itemEdits).toEqual([{ op: 'rename', kind: 'layer', name: 'Symbols', to: 'Sym', file: symbols }]);
+    expect(document.activeElement).toBe(tab(symbols));
+  });
+});
+
+describe('タブの並びの「…」と並び替えモード（W2・ADR 025）', () => {
+  const three = (): ProfileSnapshot => {
+    const snapshot = fixtureSnapshot();
+    return { ...snapshot, layers: [...snapshot.layers, copyLayer(snapshot.layers[1]!, 4, 'Nav', nav)] };
+  };
+
+  function tabsMore(): HTMLButtonElement {
+    return root.querySelector<HTMLButtonElement>(".layer-tabs [data-focus='layers-more']")!;
+  }
+
+  function startReorder(): void {
+    tabsMore().click();
+    root.querySelector<HTMLButtonElement>(".layer-tabs-menu .more-menu-item[data-action='reorder']")!.click();
+  }
+
+  function move(file: string, direction: 'left' | 'right'): HTMLButtonElement {
+    const button = root.querySelector<HTMLButtonElement>(`.layer-tab-wrap[data-file='${file}'] .reorder-${direction}`)!;
+    button.click();
+    return button;
+  }
+
+  it('「＋」の隣に「…」を置き、「並び替え」を出す（使っているレイヤーが 1 つなら押せない）', () => {
+    receive(fixtureSnapshot());
+    const add = root.querySelector('.layer-tabs .layer-add-menu')!;
+    expect(add.nextElementSibling?.classList.contains('layer-tabs-menu')).toBe(true);
+    tabsMore().click();
+    const item = root.querySelector<HTMLElement>(".layer-tabs-menu .more-menu-item[data-action='reorder']")!;
+    expect(item.getAttribute('aria-disabled')).toBeNull();
+    item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    receive(fixtureSnapshot(), [indexRemove(symbols)]);
+    tabsMore().click();
+    const disabled = root.querySelector<HTMLElement>(".layer-tabs-menu .more-menu-item[data-action='reorder']")!;
+    expect(disabled.getAttribute('aria-disabled')).toBe('true');
+    disabled.click();
+    expect(app.reorderingLayers).toBe(false);
+  });
+
+  it('並び替えモード: タブに ◀▶（端は押せない）と確定・やめる。タブを押しても選び直さず、「＋」と「…」は隠す', () => {
+    receive(three());
+    startReorder();
+    expect(app.reorderingLayers).toBe(true);
+    expect([...root.querySelectorAll<HTMLButtonElement>('.reorder-left')].map((b) => b.disabled)).toEqual([true, false, false]);
+    expect([...root.querySelectorAll<HTMLButtonElement>('.reorder-right')].map((b) => b.disabled)).toEqual([false, false, true]);
+    expect(root.querySelector<HTMLElement>('.layer-reorder-bar')!.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>('.layer-tabs .layer-add-menu')!.hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>('.layer-tabs .layer-tabs-menu')!.hidden).toBe(true);
+    root.querySelector<HTMLButtonElement>(`button.layer-tab[data-file='${nav}']`)!.click();
+    expect(app.currentLayer).toBe(0);
+  });
+
+  it('◀▶ で並びが動き（番号は今の番号のまま）、確定で reorder を 1 回送る', () => {
+    receive(three());
+    startReorder();
+    const right = move(base, 'right');
+    expect(tabs()).toEqual(['1 Symbols', '0 Base', '4 Nav']);
+    expect(document.activeElement?.className).toContain('reorder-right');
+    expect((document.activeElement as HTMLElement).dataset.file).toBe(base);
+    expect(right.isConnected).toBe(false);
+    move(nav, 'left');
+    move(nav, 'left');
+    expect(tabs()).toEqual(['4 Nav', '1 Symbols', '0 Base']);
+    // 先頭で ◀ が押せなくなったら ▶ にフォーカス
+    expect(document.activeElement?.className).toContain('reorder-right');
+    expect(host.itemEdits).toEqual([]);
+    root.querySelector<HTMLButtonElement>("[data-focus='layer-reorder-confirm']")!.click();
+    expect(host.itemEdits).toEqual([{ op: 'reorder', kind: 'layer', files: [nav, symbols, base] }]);
+    expect(app.reorderingLayers).toBe(false);
+    expect(document.activeElement).toBe(tabsMore());
+  });
+
+  it('並びが今と同じなら送らない。やめる・Escape は並びを捨てる', () => {
+    receive(three());
+    startReorder();
+    move(base, 'right');
+    move(base, 'left');
+    root.querySelector<HTMLButtonElement>("[data-focus='layer-reorder-confirm']")!.click();
+    expect(host.itemEdits).toEqual([]);
+    startReorder();
+    move(base, 'right');
+    root.querySelector<HTMLButtonElement>("[data-focus='layer-reorder-cancel']")!.click();
+    expect(tabs()).toEqual(['0 Base', '1 Symbols', '4 Nav']);
+    startReorder();
+    move(base, 'right');
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(app.reorderingLayers).toBe(false);
+    expect(tabs()).toEqual(['0 Base', '1 Symbols', '4 Nav']);
+    expect(host.itemEdits).toEqual([]);
   });
 });

@@ -15,7 +15,6 @@ export class TapDanceEditor extends ItemSection<TapDanceSnapshot, TapDanceView> 
       title: 'タップダンス',
       namePlaceholder: 'Tab Escape',
       className: 'tap-dance-editor',
-      indexNote: '番号の参照（TD(2) / TapDance(2) など）も新しい番号に書き換えます',
     });
   }
 

@@ -78,3 +78,9 @@
   名前の参照が見つからないことは解析の失敗なので、ADR 021 の扱い（v0.4 の delete でも同じ）。参照を直せば戻る。文言は「保存してください」だが未保存の変更で直してもよい
 - `media/webview.css` の `.shortcut-copy`（v0.3 の「同梱からコピー」）を消した。`.key-input-presets .preset-picker-panel` と並べて書いていた 1 か所も外す
 - .vsix は `npm run package`（`vsce package --no-dependencies`）。中身は 32 ファイル（`extract.mjs` は入らない）。`/mnt/project-files/` へは `mkdir -p …/` と `cp` で置けた
+
+## 足したレイヤーの空の行（`row1: {}`）への書き込み（Tetsuro の確認で見つかった）
+
+- create（layer）は `YamlFile.dump` で空のグループを `row1: {}`（フロー表記）と書く。`YamlDocument#insert` はフロー表記の中への挿入を `EditNotLocal(:flow_insert)` にしていたので、足したレイヤーのキーを決めると保存できなかった（v0.4 から）
+- 中身のない 1 行の `{}` だけは値なしの見出しと同じ扱い（`insert_under_empty`。`{}` を消して下に字下げして足す）にした。中身のあるフロー表記は今までどおり止める。適合テストは `profile_plan_edits/insert_into_empty_flow.json`
+- 偽のサーバーと単体テストでは create（layer）のあとにキーを書く流れがなかったので気づけなかった。新しい形のファイルを書く操作を足したら、そのファイルに planEdits を通すテストも足す

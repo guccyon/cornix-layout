@@ -20,8 +20,6 @@ module Cornix
     # どこかで失敗したらバックアップから元に戻す（バックアップ自体は残す）
     class RenameFiles < UseCase
       REFERENCE_FUNCTIONS = { 'macro' => 'Macro', 'tap_dance' => 'TapDance' }.freeze
-      # ファイル名の番号の接頭辞（03_）。拡張の名前の変更（Editor::ItemEdits::Rename）が保つのに使う
-      INDEX_PREFIX = /\A(\d+_)/
 
       # → 問題の文字列の配列
       def check(plan)
@@ -96,10 +94,11 @@ module Cornix
       def apply(plan)
         path = resolve(plan.old_path)
         old_name = plan.name && current_name(path, plan.type)
+        unused = Storage::Schema::Header.unused?(editor.read(path))
         new_path = File.join(File.dirname(path), plan.new_basename)
         editor.update_fields(path, plan.content_updates)
         new_path = editor.rename(path, plan.new_basename)
-        updated = update_references(plan, old_name)
+        updated = unused ? [] : update_references(plan, old_name)
         RenamedFile.new(success: true, old_path: path, new_path: new_path, updated_references: updated)
       rescue Cornix::Error, SystemCallError, Storage::YamlFile::Unreadable => e
         RenamedFile.new(success: false, old_path: path, new_path: new_path, error: "Rename failed: #{e.message}")
@@ -110,6 +109,8 @@ module Cornix
         Storage::Schema::Header.name_of(editor.read(path), preset: type == 'macro')
       end
 
+      # 未使用のファイル（index のないもの）は名前で引けないので、参照は書き換えない
+      # （同じ名前の使っているものがあれば、その参照まで新しい名前になってしまう）
       def update_references(plan, old_name)
         function = REFERENCE_FUNCTIONS[plan.type]
         return [] unless function && old_name.is_a?(String) && plan.name && old_name != plan.name

@@ -4,7 +4,7 @@ module Cornix
   module Application
     # rename の 1 件（旧 rename_plans.json の 1 要素）。
     #   old_path: 変える設定ファイル（config/macros/00_macro.yml、macros/00_macro.yml、絶対パスのどれでもよい）
-    #   new_basename: 新しいファイル名（番号の接頭辞 00_ は元と同じにする）
+    #   new_basename: 新しいファイル名（番号の接頭辞 00_ は元と同じに保つのが望ましいが、検査はしない。番号は index: で決まる）
     #   content_updates: 書き換えるトップレベルの項目（{ 'name' => ..., 'description' => ... }）
     class RenamePlan < Data.define(:old_path, :new_basename, :content_updates, :reasoning, :confidence)
       # 種類 => 設定ディレクトリの中のディレクトリ名

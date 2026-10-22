@@ -159,7 +159,7 @@ Storage::VilFile.new(vial:).read(path) #=> Image::DeviceImage / #write(image, pa
 
 ```ruby
 env = Application::Environment.new(root: dir, claude: fake)     # repository / config_editor / decompile_lock / claude
-Application::Validate.new(env).call          #=> ValidationReport(diagnostics:, profile:)。#errors / #warnings は文字列（config/ がなければ ConfigNotFound）
+Application::Validate.new(env).call          #=> ValidationReport(diagnostics:, profile:, unused:)。#errors / #warnings は文字列（config/ がなければ ConfigNotFound）
 Application::Compile.new(env).call(output: nil)   #=> CompileResult(report:, path:, image:)
 Application::Decompile.new(env).call(input: nil)  #=> DecompileResult(status: :decompiled | :input_missing | :config_exists, ...)
 Application::Cleanup.new(env).call(force: false, confirm: ->(lock) { ... })   #=> CleanupResult(status:, lock:, deleted:)

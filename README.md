@@ -209,7 +209,7 @@ profiles/default/
 ```
 
 - You can rename files freely (both `.yaml` and `.yml` are read). The number comes only from `index` in the YAML; the leading number of the file name is not read. The number prefix is just for sorting the files; you may leave it out, and it may differ from `index` (`pull` and adding items in the extension write the prefix)
-- A file in `layers/`, `macros/`, `tap_dance/` or `combos/` without `index` (or with an empty `index:`) is an unused file. It is left out of `compile`, so you can keep definitions you don't use without deleting them, and enable one by writing its number. Unused files are still checked for their format, and problems are shown as warnings (`compile` does not stop)
+- A file in `layers/`, `macros/`, `tap_dance/` or `combos/` without `index` (or with an empty `index:`) is an unused file. It is left out of `compile`, so you can keep definitions you don't use without deleting them, and enable one by writing its number. Unused files are still checked for their format, and problems are shown as warnings (`compile` does not stop). A file that cannot be read as YAML is still an error, since it cannot be told whether it is unused
 - `pull` writes keys in the most readable form (alias → modifier expression → function form → `0xHHHH`), and refers to macros and tap dances by name
 
 ### Layers

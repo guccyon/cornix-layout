@@ -173,6 +173,17 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
       expect(snapshot[:files]).to include('layers/0_spare.yaml', 'macros/spare.yaml')
     end
 
+    it 'レイヤーと項目はファイル名の順ではなく index の順（Address は元のファイル）' do
+      FileUtils.mv(File.join(@root, 'profile/layers/0_layer_0.yaml'), File.join(@root, 'profile/layers/zz_base.yaml'))
+      FileUtils.mv(File.join(@root, 'profile/macros/00_macro.yaml'), File.join(@root, 'profile/macros/zz.yaml'))
+      expect(snapshot[:layers].map { |l| [l[:index], l[:file]] }.first(2)).to eq([[0, 'layers/zz_base.yaml'], [1, 'layers/1_layer_1.yaml']])
+      expect(key(snapshot, 0, 'left', 0, 0)[:address][:file]).to eq('layers/zz_base.yaml')
+      expect(snapshot[:macros].map { |m| m[:index] }).to eq([0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11])
+      expect(snapshot[:macros].first[:file]).to eq('macros/zz.yaml')
+      expect(snapshot[:references][:layers].map { |l| l[:index] }).to eq((0..9).to_a)
+      expect(snapshot[:references][:macros].map { |m| m[:index] }).to eq([0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11])
+    end
+
     it '未使用のファイルの構造の問題は warning で、開けなくしない' do
       expect(snapshot[:diagnostics]).to contain_exactly(
         include(severity: 'warning', source: 'structure', address: { file: 'macros/spare.yaml', path: ['sequence', 0, 'keys', 0] })

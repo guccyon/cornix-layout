@@ -318,6 +318,7 @@ config/
 - `ConfigRepository#load_all` が `Profile` とは別に未使用のファイルの一覧（`UnusedFile(kind, file, name, problems)`）を返す。`#load` は `Profile` だけ
 - 名前の参照（`Macro('名前')` / `TapDance('名前')`）は使っているものだけを引く。未使用のものの名前ならエラー「…は未使用です」
 - 名前の重複の検査は使っているもの同士だけ（未使用のものは別の版を同じ名前で控えておける）
+- YAML として読めない・マッピングでないファイル（空のファイルなど）は未使用か判定できないので、使っているものと同じく今どおりエラー（compile を止める）
 - 整数でない `index:`（文字列など）は今どおりエラー。`enabled:` は今どおり読み飛ばし、未使用かどうかには使わない
 - `Storage::DiagnosticLocator` は、未使用のファイルを除いて名前順に並べた i 番目のファイルを `layers[i]` などに対応させる（validate の位置と拡張の Address が同じ仕組み）
 

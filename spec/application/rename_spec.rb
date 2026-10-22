@@ -96,6 +96,17 @@ RSpec.describe Cornix::Application::RenameFiles do
     expect(renamer.check({ 'old_path' => 'config/macros/clip.yml', 'new_basename' => '07_clip.yml' })).to eq([])
   end
 
+  it '未使用のファイル（index のないもの）の名前を変えても、同じ名前の使っているものへの参照は書き換えない' do
+    File.write(config_file('macros/old_clip.yml'), read_config('macros/07_clipboard_history.yml').sub(/^index: 7\n/, ''))
+    numbers = read_config('layers/2_numbers.yml')
+    outcome = renamer.call([{ 'old_path' => 'config/macros/old_clip.yml', 'new_basename' => 'old_clip_2.yml',
+                              'content_updates' => { 'name' => 'Old Clip' } }])
+    expect(outcome).to be_success
+    expect(outcome.updated_references).to eq([])
+    expect(read_config('layers/2_numbers.yml')).to eq(numbers)
+    expect(read_config('macros/old_clip_2.yml')).to include("name: Old Clip\n")
+  end
+
   it '変更後に読み込めなければ（参照を書き換えられないなど）元に戻す' do
     # YAML の値として書けない名前（": " を含む）にすると、参照を書き換えた行が読めなくなる
     before = Dir.glob("#{env.config_dir}/**/*").sort.to_h { |f| [f, File.file?(f) && File.read(f)] }

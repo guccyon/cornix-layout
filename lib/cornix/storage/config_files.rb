@@ -27,6 +27,8 @@ module Cornix
       COMBOS = 'combos'
       EXTENSIONS = %w[.yaml .yml].freeze
       WRITE_EXTENSION = '.yaml'
+      # ファイル名の番号の接頭辞（03_）。読み込みでは使わない。拡張の名前の変更（Editor::ItemEdits::Rename）が保つのに使う
+      INDEX_PREFIX = /\A(\d+_)/
 
       # 種類 => [ディレクトリ, 番号の桁数, 既定の名前の形, 既定の名前のときのファイル名]
       KINDS = {

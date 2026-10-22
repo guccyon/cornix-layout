@@ -11,7 +11,7 @@ module Cornix
       #   #=> { diagnostics: [Diagnostic] }
       #
       # 書き換えは profile/planEdits と同じ（PlanEdits::Draft）で、検証は当てたあとの中身を読み直して行う（Diagnostics）。
-      # 構造の問題が 1 つでもあれば意味検証はせず構造の問題だけを返す。range は当てたあとの中身での位置。
+      # 構造の問題が 1 つでもあれば意味検証はせず構造の問題だけを返す（未使用のファイルの構造の warning はどちらでも足す）。range は当てたあとの中身での位置。
       # 失敗も PlanEdits と同じ（版の食い違い・指せない Address・値の部分だけで書き換えられない変更）
       class ValidateDraft
         def initialize(workbench)

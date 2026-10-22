@@ -832,7 +832,7 @@ type KeySlot = {
 }
 ```
 
-- 並びは `references` と同じ（マクロ・タップダンス・コンボは番号の順、ショートカットはファイルの順）。`status: "invalid"` のときは 4 つとも `[]`
+- 並びは `references` と同じ（マクロ・タップダンス・コンボは番号の順、ショートカットはファイルの順）。`layers` と `references` のレイヤー・マクロ・タップダンスも番号の順（ファイル名の接頭辞は `index` と違ってよいので、ファイル名の順ではない。#85）。`status: "invalid"` のときは 4 つとも `[]`
 - `description` は書いていなければ `null`。`descriptionAddress` はいつもある（書いていなければ挿入の場所）
 - 名前（`name`）の Address は返さない。名前を変えるのは参照の書き換えを伴うので Change ではなく [12.5](#125-profileplanitemedit) で行う
 - マクロの手順の `keys` は、ファイルが 1 つの値（`keys: KC_A`）で書いていれば要素 1 つで、その Address は `["sequence", i, "keys"]`

@@ -18,7 +18,7 @@ module Cornix
         # references は置き換える参照の場所（変える前の Address）。前後の compile の結果の照合は ItemEdits が行う。
         # 新しい名前が今と同じなら何もしない
         class Rename < Operation
-          INDEX_PREFIX = RenameFiles::INDEX_PREFIX
+          INDEX_PREFIX = Storage::ConfigFiles::INDEX_PREFIX
 
           private
 

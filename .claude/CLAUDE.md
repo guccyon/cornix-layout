@@ -112,7 +112,7 @@ Device          HidBridge / Protocol / Session / Reader / Planner / Writer
 ```
 compile    config/ ─ConfigRepository→ Profile ─ProfileMapper→ DeviceImage ─VilFile→ tmp/build/layout.vil
 decompile  layout.vil ─VilFile→ DeviceImage ─ProfileMapper→ Profile ─ConfigRepository→ config/
-validate   ConfigRepository#load（構造検証）→ Profile#diagnostics（意味検証）
+validate   ConfigRepository#load_all（構造検証。未使用のファイルは警告）→ Profile#diagnostics（意味検証）
 device     layout.vil → DeviceImage（目標）、実機 ─Reader→ DeviceImage（現在）→ ImageDiff → Plan(token) → Writer → 読み直して検証
 ```
 

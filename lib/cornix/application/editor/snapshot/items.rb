@@ -9,8 +9,9 @@ module Cornix
         #   items = Items.new(reading:, values:, description:)   # values は KeyValues、description は Inspect::Description
         #   items.to_h   #=> { macros: [...], tapDances: [...], combos: [...], shortcuts: [...] }
         #
-        # 並びは references と同じ（読み込みの順。マクロ・タップダンス・コンボはファイル名の番号の順、ショートカットはファイルの順）。
-        # i 番目の項目のファイルは ConfigRepository#address（読み込みと同じく各ディレクトリのファイルを名前順に並べた i 番目）。
+        # 並びは references と同じ（マクロ・タップダンス・コンボは index の順。同じ番号なら読み込みの順。ショートカットはファイルの順）。
+        # ファイル名の接頭辞は index と違ってよいので、読み込みの順（ファイル名の順）では番号の順にならないことがある（issue #85）。
+        # Profile の i 番目の項目のファイルは ConfigRepository#address（未使用のファイルを除いて名前順に並べた i 番目）。
         #
         # キーを入れる欄（KeySlot）は { address:, value: KeyValue | nil }。value の text はファイルに書いてある表記
         # （YamlDocument#scalar。注記付きの形なら key の値）で、書いていなければ value は nil（タップダンスの動作）。
@@ -39,7 +40,7 @@ module Cornix
           end
 
           def macros
-            @profile.macros.each_with_index.map do |macro, i|
+            by_index(@profile.macros).map do |macro, i|
               file = file_of('macros', i)
               header(macro, file).merge(
                 icon: @values.macro_icon(macro),
@@ -52,7 +53,7 @@ module Cornix
           end
 
           def tap_dances
-            @profile.tap_dances.each_with_index.map do |tap_dance, i|
+            by_index(@profile.tap_dances).map do |tap_dance, i|
               file = file_of('tap_dances', i)
               data = data(file)
               header(tap_dance, file).merge(
@@ -66,7 +67,7 @@ module Cornix
           # reachable はトリガーのキーがすべてそろうレイヤーがあるか（protocol.md の 13.2。Domain::ComboReachability）
           def combos
             reachability = Domain::ComboReachability.new(@profile)
-            @profile.combos.each_with_index.map do |combo, i|
+            by_index(@profile.combos).map do |combo, i|
               file = file_of('combos', i)
               doc = @reading.document(file)
               triggers = combo.trigger_keys.each_with_index.map { |kc, j| slot(file, doc, ['trigger_keys', j], kc) }
@@ -141,6 +142,8 @@ module Cornix
           end
 
           def file_of(kind, position) = @reading.repository.address("#{kind}[#{position}]").first
+
+          def by_index(items) = Snapshot.by_index(items)
 
           def data(file)
             data = @reading.data(file)

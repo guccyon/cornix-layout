@@ -14,7 +14,8 @@
      表示は `ファイル: キーの位置: 内容`（`Storage::Problem#to_s`）
    - 番号は `index:` だけで決まる。ファイル名の先頭の番号と `index:` の一致は検査しない（番号を入れ替えてファイル名はそのまま、を許す）
    - 未使用のファイル（`index:` のないか値が空のもの。[domain-model.md](domain-model.md) の 9）も同じ形式で検査するが、
-     問題は `Storage::UnusedFile#problems` に分けて集め、`InvalidConfig` にしない（`InvalidConfig#unused` にも持たせる）
+     問題は `Storage::UnusedFile#problems` に分けて集め、`InvalidConfig` にしない（`InvalidConfig#unused` にも持たせる）。
+     YAML として読めない・マッピングでないファイルは未使用か判定できないので、今までどおり error
 2. **意味検証**（`Profile#diagnostics(env.capabilities)` → `Domain::ProfileDiagnostics`。`Application::Environment#capabilities` は
    `Capabilities::CORNIX` に `KeycodeCatalog#unsupported_keycodes` を足したもの）
    - 件数の上限（レイヤー 10、マクロ・タップダンス・コンボ 32、コンボのトリガー 4）

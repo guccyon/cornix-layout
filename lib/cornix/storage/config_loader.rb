@@ -10,9 +10,11 @@ module Cornix
   module Storage
     # 設定ディレクトリを読んで Domain::Profile を作る（ConfigRepository#load / #load_all の中身）。
     #
-    # 読む順: metadata → position_map → macros（preset: は同梱のショートカットの手順にする）→ tap_dance → shortcuts（ここで Macro('名前') / TapDance('名前') /
-    # Shortcut('名前') の対応表 Mapping::References を作る。Shortcut('名前') は shortcuts.yaml になければ同梱の
-    # ショートカット（Mapping::ShortcutCatalog）を引く）→ settings → layers → combos。
+    # 読む順: metadata → position_map → layers / macros / tap_dance / combos の YAML（ここで使っているものと未使用のものに分ける）→
+    # shortcuts（ここで Macro('名前') / TapDance('名前') / Shortcut('名前') の対応表 Mapping::References を作る。Shortcut('名前') は
+    # shortcuts.yaml になければ同梱のショートカット（Mapping::ShortcutCatalog）を引く）→ macros（preset: は同梱のショートカットの手順にする）→
+    # tap_dance → settings → layers → combos の中身 → 未使用のファイルの中身。
+    # YAML として読めない・マッピングでないファイルは未使用か分からないので、使っているほうに数える（今までどおりエラー）。
     # キーコードの文字列は KeycodeNotation#parse で 1 回だけ解析する。
     # 問題はすべて集めて最後に 1 つの InvalidConfig にする（「ファイル: キーの位置: 内容」）。
     # ファイルは source（FileSource）から読む。既定はディスクの dir で、FileSource::Overlay を渡すと保存前の中身で読む。

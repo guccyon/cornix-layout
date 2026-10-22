@@ -782,7 +782,7 @@ test('v0.4: レイヤーを足すとファイルを作って snapshot に出し�
 
   assert.equal(await document.applyItemEdit({ op: 'delete', kind: 'layer', name: 'Mouse', index: 5 }), true);
   const [message] = prompts.of('confirmItemEdit').map((c) => String(c.args[0])).slice(-1);
-  assert.ok(message?.includes('レイヤー Mouse を削除します。'), message);
+  assert.ok(message?.includes('レイヤー 5 Mouse を削除します。'), message);
   assert.equal(document.snapshot.files['layers/5_mouse.yml'], undefined);
   assert.ok(!document.snapshot.layers.some((layer) => layer.index === 5));
 });

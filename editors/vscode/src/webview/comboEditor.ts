@@ -4,7 +4,9 @@
 //   まだ NoKey の欄（作ったばかりのコンボ）があればそこに入れ、なければ末尾に足す（insert）
 // - 押せないコンボ（snapshot の reachable が false。protocol.md の 13.2）は、一覧の行に ⚠ を付ける。
 //   詳細の説明はサーバーの警告（問題の欄）が出すので、ここでは重ねない
+// v0.5: 一覧は使っているコンボだけ（未保存の変更を当てた番号の順）。コンボは参照されないので、番号を変えても書き添えはない。同梱からもない
 import type { ComboSnapshot, ProfileSnapshot } from '../protocol';
+import { arrangeItems, snapshotItems } from '../itemIndex';
 import { h, nodes } from './dom';
 import { ItemSection, type ItemSectionOptions, type ListEntry } from './itemList';
 import { comboView, type ComboView, type KeyEntry } from './itemsModel';
@@ -47,7 +49,7 @@ export class ComboEditor extends ItemSection<ComboSnapshot, ComboView> {
   }
 
   protected items(snapshot: ProfileSnapshot): ComboSnapshot[] | undefined {
-    return snapshot.combos;
+    return snapshot.combos ? arrangeItems(snapshotItems(snapshot, 'combo'), this.pending).used : undefined;
   }
 
   protected entry(combo: ComboSnapshot, view: ComboView): ListEntry {

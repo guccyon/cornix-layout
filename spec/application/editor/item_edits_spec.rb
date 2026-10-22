@@ -90,10 +90,13 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
         .to raise_error(plan_edits::NotLocal) { |e| expect(e.address).to eq({ file: 'shortcuts.yaml', path: %w[shortcuts b] }) }
     end
 
-    it 'shortcuts: が空なら、その下に足す' do
+    it 'ショートカットは未保存の変更に積む Change を返し（v0.5）、shortcuts: が空なら保存でその下に足す' do
       write('shortcuts.yaml', "shortcuts:\n")
       result = plan(op: 'create', kind: 'shortcut', name: 'b', value: 'Command + B')
-      expect(applied(result, 'shortcuts.yaml')).to eq("shortcuts:\n  b: Command + B\n")
+      expect(result).to include(files: [], changes: [{ address: { file: 'shortcuts.yaml', path: %w[shortcuts b] }, value: 'Command + B' }])
+      change = plan_edits::Change.new(file: 'shortcuts.yaml', path: %w[shortcuts b], value: 'Command + B')
+      saved = plan_edits.new(workbench).call(opened.id, base_versions: all_versions.slice('shortcuts.yaml'), changes: [change])
+      expect(applied(saved, 'shortcuts.yaml')).to eq("shortcuts:\n  b: Command + B\n")
     end
   end
 

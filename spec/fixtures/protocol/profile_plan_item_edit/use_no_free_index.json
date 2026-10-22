@@ -1,0 +1,32 @@
+{
+  "description": "use で空いている番号がなければ -32602（field \"edit\"。authors のレイヤーは 0〜9 がそろっている）",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/layers/spare.yml": "---\nname: Spare\ndescription: ''\nmapping:\n  left_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "use",
+        "kind": "layer",
+        "file": "layers/spare.yml"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit"
+      }
+    }
+  }
+}

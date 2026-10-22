@@ -1,0 +1,61 @@
+{
+  "description": "まだない名前の [\"shortcuts\", 名前] の set: shortcuts: の下の末尾に「名前: 値」の行を足す（ほかの行とコメントは保つ）",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/shortcuts.yaml": "shortcuts:\n  # よく使うもの\n  前のタブへ: Command + Shift + [\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "shortcuts.yaml": "sha256:844f5f771a8319dd8c41fbe9d03b3b983adaec0c192c7a9055d8a30905a14d30"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "shortcuts.yaml",
+            "path": [
+              "shortcuts",
+              "次のタブへ"
+            ]
+          },
+          "value": "Command + Shift + ]"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "shortcuts.yaml",
+          "baseVersion": "sha256:844f5f771a8319dd8c41fbe9d03b3b983adaec0c192c7a9055d8a30905a14d30",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 2,
+                  "character": 28
+                },
+                "end": {
+                  "line": 2,
+                  "character": 28
+                }
+              },
+              "newText": "\n  次のタブへ: Command + Shift + ]"
+            }
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

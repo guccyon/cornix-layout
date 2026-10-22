@@ -1,0 +1,201 @@
+{
+  "description": "使っている項目を未使用にする（unuse）: [\"index\"] の remove を返し、参照は書き換えず references に壊れる参照（レイヤーはそのレイヤーを指すレイヤー操作。delete と同じ数え方）。diagnostics は当てたあとの検証の結果",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/3_function_keys.yml": "sha256:0713297df1df672476eb1284b7c7078eb24bc7fc59771652357eaab77b3caa14"
+      },
+      "edit": {
+        "op": "unuse",
+        "kind": "layer",
+        "file": "layers/3_function_keys.yml"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+        {
+          "address": {
+            "file": "layers/3_function_keys.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "op": "remove"
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row3",
+            "fn"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "left"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "right"
+          ]
+        },
+        {
+          "file": "tap_dance/03_layer3_toggle.yml",
+          "path": [
+            "actions",
+            "on_tap"
+          ]
+        },
+        {
+          "file": "tap_dance/03_layer3_toggle.yml",
+          "path": [
+            "actions",
+            "on_hold"
+          ]
+        }
+      ],
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "レイヤー 3 が定義されていません",
+          "source": "semantic",
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row3",
+              "fn"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 29,
+              "character": 10
+            },
+            "end": {
+              "line": 29,
+              "character": 15
+            }
+          }
+        },
+        {
+          "severity": "warning",
+          "message": "レイヤー 3 が定義されていません",
+          "source": "semantic",
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "left"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 62,
+              "character": 12
+            },
+            "end": {
+              "line": 62,
+              "character": 17
+            }
+          }
+        },
+        {
+          "severity": "warning",
+          "message": "レイヤー 3 が定義されていません",
+          "source": "semantic",
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "right"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 64,
+              "character": 13
+            },
+            "end": {
+              "line": 64,
+              "character": 26
+            }
+          }
+        },
+        {
+          "severity": "warning",
+          "message": "レイヤー 3 が定義されていません",
+          "source": "semantic",
+          "address": {
+            "file": "tap_dance/03_layer3_toggle.yml",
+            "path": [
+              "actions",
+              "on_tap"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 6,
+              "character": 10
+            },
+            "end": {
+              "line": 6,
+              "character": 15
+            }
+          }
+        },
+        {
+          "severity": "warning",
+          "message": "レイヤー 3 が定義されていません",
+          "source": "semantic",
+          "address": {
+            "file": "tap_dance/03_layer3_toggle.yml",
+            "path": [
+              "actions",
+              "on_hold"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 7,
+              "character": 11
+            },
+            "end": {
+              "line": 7,
+              "character": 16
+            }
+          }
+        }
+      ]
+    }
+  }
+}

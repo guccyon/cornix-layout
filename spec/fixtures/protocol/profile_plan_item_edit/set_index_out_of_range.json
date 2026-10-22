@@ -1,0 +1,30 @@
+{
+  "description": "setIndex の番号が範囲の外（レイヤーは 0〜9）なら -32602（field \"edit.index\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "setIndex",
+        "kind": "layer",
+        "file": "layers/1_symbols.yml",
+        "index": 10
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.index"
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../handler'
+require_relative 'draft_params'
 
 module Cornix
   module Interface
@@ -11,16 +12,23 @@ module Cornix
         #   params: { profileId, baseVersions?: { file => FileVersion | null }（省けば {}）, edit: ItemEdit }
         #   VersionConflict → -32060（data: { files: }）、InvalidChange → -32602（data: { field: }）、
         #   NotLocal と Unverified → -32061（data: { address:, reason: }。名前の変更・preset の展開の照合は reason "verify"）
-        # params の形の誤り（op・kind の値、項目の型、row / col が整数でないなど）は読むときに -32602 にするので、版の食い違いより先に返る
+        # params の形の誤り（op・kind の値、項目の型、row / col が整数でないなど）は読むときに -32602 にするので、版の食い違いより先に返る。
+        # v0.5（15.3）: op の use / unuse / setIndex（kind はレイヤー・マクロ・タップダンス・コンボ、項目は file で指す）と、
+        # params の changes（今の未保存の変更。Change の読み方は profile/validate と同じ DraftParams。省けば []）
         class ProfilePlanItemEdit < Handler
+          include DraftParams
+
           ItemEdits = Application::Editor::ItemEdits
           PlanEdits = Application::Editor::PlanEdits
           ITEM_KINDS = %w[macro tapDance combo shortcut].freeze
+          INDEXED_KINDS = %w[layer macro tapDance combo].freeze
+          INDEX_OPS = %w[use unuse setIndex].freeze
           KINDS = {
             'create' => ITEM_KINDS + ['layer'],
             'delete' => ITEM_KINDS + ['layer'],
             'rename' => ITEM_KINDS + ['layer'],
-            'expandPreset' => %w[macro]
+            'expandPreset' => %w[macro],
+            **INDEX_OPS.to_h { |op| [op, INDEXED_KINDS] }
           }.freeze
           HANDS = %w[left right].freeze
 
@@ -30,7 +38,8 @@ module Cornix
             id = param(params, 'profileId', String)
             base_versions = base_versions(params)
             edit = item_edit(param(params, 'edit', Hash))
-            ItemEdits.new(context.workbench).call(id, base_versions: base_versions, edit: edit)
+            changes = changes(params)
+            ItemEdits.new(context.workbench).call(id, base_versions: base_versions, edit: edit, changes: changes)
           rescue PlanEdits::VersionConflict => e
             raise RpcError.new(ErrorCodes::VERSION_CONFLICT, e.message, { files: e.files })
           rescue PlanEdits::InvalidChange => e
@@ -41,17 +50,13 @@ module Cornix
 
           private
 
-          def base_versions(params)
-            versions = param(params, 'baseVersions', Hash, optional: true) || {}
-            versions.each { |file, _| param(versions, file, String, optional: true, field: "baseVersions.#{file}") }
-            versions
-          end
-
           def item_edit(edit)
             op = one_of(edit, 'op', KINDS.keys + ['renamePosition'])
             return position_edit(edit) if op == 'renamePosition'
 
             kind = one_of(edit, 'kind', KINDS.fetch(op))
+            return index_edit(edit, op, kind) if INDEX_OPS.include?(op)
+
             name = text(edit, 'name')
             case op
             when 'create' then create_edit(edit, kind, name)
@@ -84,6 +89,14 @@ module Cornix
             file = param(edit, 'file', String, optional: true, field: 'edit.file')
             invalid('edit.file', 'file はレイヤーだけに書けます') if !file.nil? && kind != 'layer'
             file
+          end
+
+          # use / unuse / setIndex（項目はファイルで指す。index は setIndex だけ）
+          def index_edit(edit, op, kind)
+            file = text(edit, 'file')
+            index = op == 'setIndex' ? param(edit, 'index', Integer, field: 'edit.index') : nil
+            invalid('edit.index', 'index は setIndex のときだけ書けます') if op != 'setIndex' && edit.key?('index')
+            ItemEdits::Edit.new(op: op, kind: kind, file: file, index: index)
           end
 
           def position_edit(edit)

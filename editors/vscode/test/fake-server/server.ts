@@ -535,6 +535,11 @@ class FakeServer {
         if (change.address.path[0] === 'index' && change.op !== 'remove' && !(Number.isInteger(value) && (value as number) >= 0)) {
           throw new RpcError(ErrorCodes.InvalidParams, `${at}.value は 0 以上の整数です`, { field: `${at}.value` });
         }
+        // v0.5: ショートカットの名前の決まり（空でない・前後の空白なし。15.2）
+        const name = change.address.file === 'shortcuts.yaml' && change.address.path[0] === 'shortcuts' ? change.address.path[1] : undefined;
+        if (typeof name === 'string' && (!name.trim() || name.trim() !== name)) {
+          throw new RpcError(ErrorCodes.InvalidParams, `${at}.address のショートカットの名前が空か、前後に空白があります`, { field: `${at}.address` });
+        }
       } else if (change.op !== undefined && change.op !== 'set' && change.op !== 'remove') {
         throw new RpcError(ErrorCodes.InvalidParams, `${at}.address は並びではありません`, { field: `${at}.address` });
       } else if (change.op === 'remove' && setting) {

@@ -1,0 +1,43 @@
+{
+  "description": "ショートカットを足すとき、同じ名前が未保存の変更（params の changes）にあれば -32602（field \"edit.name\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "shortcuts.yaml": null
+      },
+      "edit": {
+        "op": "create",
+        "kind": "shortcut",
+        "name": "前のタブへ",
+        "value": "Command + Shift + ["
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "shortcuts.yaml",
+            "path": [
+              "shortcuts",
+              "前のタブへ"
+            ]
+          },
+          "value": "Command + Shift + ["
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.name"
+      }
+    }
+  }
+}

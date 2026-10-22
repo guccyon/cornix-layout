@@ -1,0 +1,33 @@
+{
+  "description": "setIndex を未使用の項目に送ると -32602（field \"edit.file\"。先に use）",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/macros/spare.yml": "---\nname: Spare\ndescription: 予備\nsequence:\n- action: tap\n  keys: KC_A\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "setIndex",
+        "kind": "macro",
+        "file": "macros/spare.yml",
+        "index": 20
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.file"
+      }
+    }
+  }
+}

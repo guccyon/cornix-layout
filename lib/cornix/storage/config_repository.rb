@@ -85,7 +85,13 @@ module Cornix
                                shortcut_catalog: @shortcut_catalog, source: @source)
       end
 
-      def locator = DiagnosticLocator.new(@dir, source: @source)
+      # 中身の変わらない読み込み元（FileSource::Memory。エディタが読んだ時点の中身）なら作ったものを使い回す
+      # （address を欄ごとに呼ぶので、毎回すべてのファイルを読み直すと遅い）。ディスクは読み直す
+      def locator
+        return @locator ||= DiagnosticLocator.new(@dir, source: @source) if @source.is_a?(FileSource::Memory)
+
+        DiagnosticLocator.new(@dir, source: @source)
+      end
     end
   end
 end

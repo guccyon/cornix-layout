@@ -46,13 +46,22 @@ RSpec.describe Cornix::Interface::EditorServer::Handlers::ProfilePlanItemEdit do
       { 'op' => 'expandPreset', 'kind' => 'combo', 'name' => 'Combo 0' } => 'edit.kind',
       { 'op' => 'expandPreset', 'kind' => 'macro' } => 'edit.name',
       { 'op' => 1 } => 'edit.op',
-      { 'kind' => 'macro' } => 'edit.op'
+      { 'kind' => 'macro' } => 'edit.op',
+      { 'op' => 'use', 'kind' => 'macro' } => 'edit.file',
+      { 'op' => 'use', 'kind' => 'shortcut', 'file' => 'shortcuts.yaml' } => 'edit.kind',
+      { 'op' => 'use', 'kind' => 'macro', 'file' => 'macros/00_macro.yaml', 'index' => 3 } => 'edit.index',
+      { 'op' => 'setIndex', 'kind' => 'layer', 'file' => 'layers/1_layer_1.yaml' } => 'edit.index',
+      { 'op' => 'setIndex', 'kind' => 'layer', 'file' => 'layers/1_layer_1.yaml', 'index' => '2' } => 'edit.index'
     }.each do |edit, field|
       expect(item_edit(edit)[:error]).to include(code: -32_602, data: { field: field })
     end
     expect(request('profile/planItemEdit', { 'profileId' => 'p1' })[:error]).to include(code: -32_602, data: { field: 'edit' })
     expect(item_edit({ 'op' => 'delete', 'kind' => 'macro', 'name' => 'Macro 0' }, { 'x' => 1 })[:error])
       .to include(code: -32_602, data: { field: 'baseVersions.x' })
+    # v0.5: changes は profile/validate と同じ読み方
+    response = request('profile/planItemEdit', { 'profileId' => 'p1', 'baseVersions' => {}, 'changes' => [{ 'address' => 1 }],
+                                                 'edit' => { 'op' => 'unuse', 'kind' => 'macro', 'file' => 'macros/00_macro.yaml' } })
+    expect(response[:error]).to include(code: -32_602, data: { field: 'changes[0].address' })
   end
 
   it '局所的に書き換えられない操作は -32061（data に address と reason）' do

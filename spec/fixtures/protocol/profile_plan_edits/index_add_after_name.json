@@ -1,0 +1,60 @@
+{
+  "description": "[\"index\"] の set: index: の行がなければ name: の行のすぐ後に足す。番号を書いた未使用のファイルは使っている項目として検証する",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/macros/spare.yml": "---\nname: Spare\ndescription: 予備\nsequence:\n- action: tap\n  keys: KC_A\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "macros/spare.yml": "sha256:19800cc74f67d65e165925b50f0f0a14e6718a9edd79a2c2842c4e429db0b9ef"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "macros/spare.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 10
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "macros/spare.yml",
+          "baseVersion": "sha256:19800cc74f67d65e165925b50f0f0a14e6718a9edd79a2c2842c4e429db0b9ef",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 1,
+                  "character": 11
+                },
+                "end": {
+                  "line": 1,
+                  "character": 11
+                }
+              },
+              "newText": "\nindex: 10"
+            }
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

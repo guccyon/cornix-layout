@@ -1,7 +1,7 @@
 // 画面からホスト（拡張）への口。Webview はサーバーと直接話せないので、keycode/candidates・keycode/inspect・keycode/shortcutTree は
 // ホストに中継してもらう（profileId はホストが入れる。webviewMessages.ts の WebviewRequest）。
 import type { AnyChange, Change, ItemEdit, Range } from '../protocol';
-import type { HostMessage, WebviewMessage, WebviewRequest, WebviewRequestMap, WebviewRequestMethod } from '../webviewMessages';
+import type { DeviceAction, HostMessage, WebviewMessage, WebviewRequest, WebviewRequestMap, WebviewRequestMethod } from '../webviewMessages';
 
 export interface HostClient {
   request<M extends WebviewRequestMethod>(method: M, params: WebviewRequestMap[M]['params']): Promise<WebviewRequestMap[M]['result']>;
@@ -13,6 +13,8 @@ export interface HostClient {
   itemEdit(edit: ItemEdit): void;
   /** そのファイルをテキストで開く（構造の問題の一覧から） */
   openFile(file: string, range?: Range): void;
+  /** v0.4: 実機の操作のボタンを押した（ホストがコマンドと同じことをする） */
+  deviceAction(action: DeviceAction): void;
 }
 
 type Pending = { method: WebviewRequestMethod; resolve: (result: unknown) => void; reject: (error: Error) => void };
@@ -48,6 +50,10 @@ export class MessageHostClient implements HostClient {
 
   openFile(file: string, range?: Range): void {
     this.post({ type: 'openFile', file, ...(range ? { range } : {}) });
+  }
+
+  deviceAction(action: DeviceAction): void {
+    this.post({ type: 'deviceAction', action });
   }
 
   /** ホストからの応答を受ける。応答だったら true。要求と method が違えば取り違えとして失敗にする */

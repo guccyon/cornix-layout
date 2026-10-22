@@ -127,6 +127,23 @@ export abstract class ItemSection<T extends { name: string }, V> {
     this.render();
   }
 
+  /**
+   * v0.4: 「実機との差分」の行から移る。番号（なければ名前）で項目を探して選び、節を開いて一覧の行へ移る。
+   * 見つからなければ節を開くだけ。見つけたら true
+   */
+  reveal(target: { index?: number | undefined; name?: string | undefined }): boolean {
+    const items = this.snapshot && this.snapshot.status === 'ok' ? this.items(this.snapshot) : undefined;
+    const item =
+      items?.find((i) => target.index !== undefined && (i as { index?: number }).index === target.index) ??
+      items?.find((i) => target.name !== undefined && i.name === target.name);
+    this.details.open = true;
+    if (item) this.select(item.name);
+    const row = item ? [...this.listElement.querySelectorAll<HTMLElement>('.item-row')].find((r) => r.dataset.item === item.name) : undefined;
+    (row ?? this.element).scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    row?.focus();
+    return !!item;
+  }
+
   protected render(): void {
     const snapshot = this.snapshot;
     const items = snapshot && snapshot.status === 'ok' ? this.items(snapshot) : undefined;

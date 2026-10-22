@@ -3,6 +3,9 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { DeviceBackup } from '../../../src/deviceProtocol';
+import type { DevicePrompts } from '../../../src/device/deviceFlow';
+import type { BackupPickItem, ConfirmText, Notice } from '../../../src/device/deviceTexts';
 import type { ProfileDocument } from '../../../src/editor/profileDocument';
 import type { KeepChoice, ProfilePrompts } from '../../../src/editor/prompts';
 import type { CornixExtensionApi } from '../../../src/extension';
@@ -78,6 +81,34 @@ export class FakePrompts implements ProfilePrompts {
   }
   of(method: string): PromptLog[] {
     return this.calls.filter((call) => call.method === method);
+  }
+}
+
+/** 実機の操作で聞くこと・知らせること（v0.4。モーダルのダイアログと QuickPick は押せないので、差し替えて答える） */
+export class FakeDevicePrompts implements DevicePrompts {
+  readonly saves: [string, number][] = [];
+  readonly confirms: ConfirmText[] = [];
+  readonly picks: BackupPickItem[][] = [];
+  readonly notices: Notice[] = [];
+  saveFirst = true;
+  write = true;
+  confirmSaveFirst(profile: string, pending: number) {
+    this.saves.push([profile, pending]);
+    return Promise.resolve(this.saveFirst);
+  }
+  confirmWrite(text: ConfirmText) {
+    this.confirms.push(text);
+    return Promise.resolve(this.write);
+  }
+  pickBackup(items: BackupPickItem[]): Promise<DeviceBackup | undefined> {
+    this.picks.push(items);
+    return Promise.resolve(items[0]?.backup);
+  }
+  notify(notice: Notice) {
+    this.notices.push(notice);
+  }
+  get last(): Notice | undefined {
+    return this.notices.at(-1);
   }
 }
 

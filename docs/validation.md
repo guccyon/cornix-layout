@@ -28,6 +28,12 @@
 config/ がなければ `Application::ConfigNotFound`。表示は `Interface::Cli::ConfigMessages#print_report`
 （`✓ All validations passed` / `✗ Validation failed:` + `  Error: ...`）。警告だけなら compile は続行する。
 
+**エディタ（`cornix serve`）の例外**: `Storage::ConfigRepository#load_partial` は、構造検証の問題が解析できないキーコード
+（`KC_FOOO`、ない名前の `Macro('…')` など。`Schema::KeycodeField` の `UnknownKeycode`）だけなら、その割り当てを `NoKey` にして
+Profile を作り、問題と一緒に返す（`ConfigLoader::Partial`）。エディタはこれで編集フォームを出し続け、その欄を構造の error にしたうえで
+意味検証の結果（警告など）も並べる（VS Code 拡張の ADR 021）。ほかの問題が 1 つでもあれば `load` と同じく `InvalidConfig`。
+CLI の validate / compile と実機への反映は今までどおり `load`（読めない値があれば止まる）。
+
 ## 主なメッセージ
 
 ```

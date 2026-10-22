@@ -36,6 +36,9 @@ module Cornix
             unless @reading.ok?
               raise InvalidChange.new('edit', 'プロファイルが構造検証で読めないので、項目を操作できません（先にテキストで直してください）')
             end
+            unless @reading.complete?
+              raise InvalidChange.new('edit', 'プロファイルに読めない値があるので、項目を操作できません（先にその値を直して保存してください）')
+            end
 
             run(edit)
           end

@@ -8,7 +8,7 @@ module Cornix
       #   Diagnostics.new(reading, capabilities).call
       #   #=> [{ severity: "error", message:, source: "structure", address: { file:, path: }, range: }, ...]
       #
-      # 構造検証（読めなかったとき）: Storage::Problem ごと。位置（location）を道筋にして Address にし、注記付きの形の .key は外す。
+      # 構造検証（読めなかったとき・読めない値があったとき）: Storage::Problem ごと。位置（location）を道筋にして Address にし、注記付きの形の .key は外す。
       #   位置がなければ file だけ、ファイルもなければ（どのファイルとも言えない問題）どちらも省く。
       #   shortcuts.yaml の問題は位置の文字列から道筋を正しく戻せないことがある（名前に . [ ] を含む）ので file だけにする
       # 意味検証（読めたとき）: Profile#diagnostics のモデル内のパスを ConfigRepository#address で Address にする。
@@ -20,10 +20,12 @@ module Cornix
           @capabilities = capabilities
         end
 
+        # 読めない値（ProfileReading の説明）があれば、構造検証の問題のあとに意味検証の結果を続ける
         def call
-          return @reading.problems.map { |problem| structure(problem) } unless @reading.ok?
+          structures = @reading.problems.map { |problem| structure(problem) }
+          return structures unless @reading.ok?
 
-          @reading.profile.diagnostics(@capabilities).map { |diagnostic| semantic(diagnostic) }
+          structures + @reading.profile.diagnostics(@capabilities).map { |diagnostic| semantic(diagnostic) }
         end
 
         private

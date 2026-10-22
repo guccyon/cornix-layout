@@ -92,5 +92,9 @@ v0.4 のうち issue #84（下の欄の「キー別」の並べ方・レイヤ�
   検証のエラー（snapshot の diagnostics の error、`invalid` は 1 件以上）があれば、画面は節の「反映のプレビュー…」を押せなくして横に理由を出し（`TransferSection#setErrors`。App#setSnapshot で呼ぶ）、
   ホストは保存を促したあと実機を読む前に止める（Tetsuro: 確定で止めると読む 10 秒が無駄）。確定でも同じく止める（プレビューのあとで外の変更でエラーが出た場合）。
   節には検証のエラーと警告の一覧と見出しの件数（`TransferSection#setSnapshot`。行は App の problemRow を使い回す。場所は `diagnosticPlace` で「ファイル: path」）。警告だけなら押せる（Tetsuro: 押せてよいが押す前に気づきたい）。
-  行のボタンは生のファイルを開かず編集フォームへ移る（`App#revealProblem`。main.ts の `revealProblem` で下の節へ）。Tetsuro: 生のファイルを直すと画面とずれる
+  行のボタンは生のファイルを開かず編集フォームへ移る（`App#revealProblem`。main.ts の `revealProblem` で下の節へ）。Tetsuro: 生のファイルを直すと画面とずれる。
+- 読めない値（ADR 021）: `ConfigLoader#load_partial` は `KeycodeField` に `recover:` を渡し、UnknownKeycode の問題を記録しつつ NoKey を返す。
+  問題の数が回収した数と同じときだけ Profile を作る。`ProfileReading` はいつも load_partial（`ok?` は profile がある、`complete?` は問題もない）。
+  ItemEdits は `complete?` を求める（代わりの NoKey で compile を照合しない）。Snapshot は構造の error の address の value の canonical・display.label を書いてある表記にする。
+  既存の spec で `Macro('Removed')` や `NoSuchKey` で invalid を作っていたものは、型の誤り（`tab: [Tab]`）に変えた
 - 画面のモーダルを Playwright で見るとき、VS Code の色の変数がないと背景が透けるので、`var(--vscode-…, #252526)` のように最後の値を付けておく

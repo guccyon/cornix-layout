@@ -67,11 +67,15 @@ RSpec.describe 'profile/validate・planEdits・saved・workspace/didChangeFiles 
     open
     original = File.read(path(layer))
     params = { 'changes' => [{ 'path' => "profiles/default/#{layer}", 'type' => 'changed' }] }
+    File.write(path(layer), original.sub('tab: Tab', 'tab: [Tab]'))
+    notify('workspace/didChangeFiles', params)
+    # 読めない値（解析できないキーコード）だけなら status: ok のまま、構造の error を付けて送る
     File.write(path(layer), original.sub('tab: Tab', "tab: Macro('Removed')"))
     notify('workspace/didChangeFiles', params)
     File.write(path(layer), original)
     notify('workspace/didChangeFiles', params)
-    expect(notifications.map { |n| n['params']['snapshot']['status'] }).to eq(%w[invalid ok])
+    expect(notifications.map { |n| n['params']['snapshot']['status'] }).to eq(%w[invalid ok ok])
+    expect(notifications[1]['params']['snapshot']['diagnostics']).to include(include('source' => 'structure', 'severity' => 'error'))
   end
 
   it '書き換えを当てて保存し、profile/saved で読み直すと、以降の baseVersions はその snapshot の版になる' do

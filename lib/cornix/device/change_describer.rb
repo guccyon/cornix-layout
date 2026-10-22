@@ -31,8 +31,7 @@ module Cornix
         "#{describe(change)}: #{value(change, change.from)} → #{value(change, change.to)}"
       end
 
-      private
-
+      # change の値（from か to）の表記（format_change の「現在」「目標」と同じ）
       def value(change, v)
         case change
         when Planning::Change::SetKeycode, Planning::Change::SetEncoder then keycode(v)
@@ -43,6 +42,8 @@ module Cornix
         else v.to_s
         end
       end
+
+      private
 
       def macro(actions)
         actions.map do |a|

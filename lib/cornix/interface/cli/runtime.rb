@@ -40,6 +40,9 @@ module Cornix
 
         def mcp_server = @factories.fetch(:mcp_server).call(env)
 
+        # workspace の Environment（cornix serve --device がプロファイルごとに作る）
+        def env_for(other_workspace) = build_env(other_workspace)
+
         def output = @output ||= Output.new(@out)
 
         # --json で結果を JSON で出す

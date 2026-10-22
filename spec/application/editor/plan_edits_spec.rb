@@ -125,9 +125,17 @@ RSpec.describe Cornix::Application::Editor::PlanEdits do
     end
 
     it '構造検証で読めないプロファイルには宛先がない（変更がなければ構造の問題を返す）' do
-      write(layer, read(layer).sub('tab: Tab', "tab: Macro('Removed')"))
+      write(layer, read(layer).sub('tab: Tab', 'tab: [Tab]'))
       expect { plan([change(layer, %w[mapping left_hand row0 tab], 'Tab')]) }.to raise_error(described_class::InvalidChange)
       expect(plan([])[:diagnostics]).to contain_exactly(include(source: 'structure'))
+    end
+
+    it '読めない値（解析できないキーコード）だけなら宛先があり、その値を直せる' do
+      write(layer, read(layer).sub('tab: Tab', "tab: Macro('Removed')"))
+      expect(plan([])[:diagnostics]).to include(include(source: 'structure', address: { file: layer, path: %w[mapping left_hand row0 tab] }))
+      result = plan([change(layer, %w[mapping left_hand row0 tab], 'Tab')])
+      expect(result[:diagnostics]).to eq([])
+      expect(applied(result, layer)).to eq(read(layer).sub("tab: Macro('Removed')", 'tab: Tab'))
     end
 
     it '同じ Address への変更は最後の値になる' do

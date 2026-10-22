@@ -14,8 +14,14 @@ module Cornix
     # ショートカット（Mapping::ShortcutCatalog）を引く）→ settings → layers → combos。
     # キーコードの文字列は KeycodeNotation#parse で 1 回だけ解析する。
     # 問題はすべて集めて最後に 1 つの InvalidConfig にする（「ファイル: キーの位置: 内容」）。
-    # ファイルは source（FileSource）から読む。既定はディスクの dir で、FileSource::Overlay を渡すと保存前の中身で読む
+    # ファイルは source（FileSource）から読む。既定はディスクの dir で、FileSource::Overlay を渡すと保存前の中身で読む。
+    #
+    # load_partial（エディタ用）: 問題が解析できないキーコードだけなら、その割り当てを NoKey にして Profile を作り、
+    # 問題と一緒に返す（Partial）。ほかの問題があれば load と同じく InvalidConfig
     class ConfigLoader
+      # profile は作れた Domain::Profile、problems は代わりの値（NoKey）にした問題（なければ空）
+      Partial = Data.define(:profile, :problems)
+
       def initialize(dir, notation:, settings_catalog:, shortcut_catalog:, source: FileSource::Disk.new(dir))
         @dir = dir
         @source = source
@@ -23,29 +29,58 @@ module Cornix
         @settings_catalog = settings_catalog
         @shortcut_catalog = shortcut_catalog
         @problems = Problems.new
+        @recover = nil
+        @recovered = []
       end
 
       def load
+        profile = read_profile
+        @problems.raise_if_any!
+        profile.call
+      end
+
+      def load_partial
+        @recover = lambda do |problem|
+          @recovered << problem
+          Domain::Keycode::NO_KEY
+        end
+        profile = read_profile
+        @problems.raise_if_any! unless @problems.size == @recovered.size
+        Partial.new(profile: profile.call, problems: @recovered.dup.freeze)
+      rescue InvalidConfig => e
+        raise if @recovered.empty? || e.problems.size > 1 || e.problems.first&.file
+
+        # 代わりの値で組み立てられなかった（Profile の規則）。読めない値の問題と一緒に報告する
+        raise InvalidConfig, @recovered + e.problems
+      end
+
+      private
+
+      # すべてのファイルを読み、Profile を作る手続きを返す（問題は @problems に集める）
+      def read_profile
         raise ConfigError.new('設定ディレクトリがありません', path: @dir) unless @source.directory?
 
         metadata = load_single(ConfigFiles::METADATA) { |data, ctx| Schema::MetadataFile.read(data, ctx) }
         position_map = load_single(ConfigFiles::POSITION_MAP) { |data, ctx| Schema::PositionMapFile.read(data, ctx) }
         macro_files = read_files(:macros)
         tap_dance_files = read_files(:tap_dances)
-        shortcuts = load_shortcuts(Schema::KeycodeField.new(@notation, build_references(macro_files, tap_dance_files)))
-        keycodes = Schema::KeycodeField.new(@notation, build_references(macro_files, tap_dance_files, shortcuts))
+        shortcuts = load_shortcuts(keycode_field(build_references(macro_files, tap_dance_files)))
+        keycodes = keycode_field(build_references(macro_files, tap_dance_files, shortcuts))
         macros = load_macros(macro_files)
         tap_dances = load_items(tap_dance_files, keycodes) { |d, c, k| Schema::TapDanceFile.read(d, c, k) }
         settings = load_settings
         layers = position_map ? load_layers(keycodes, position_map) : []
         combos = load_items(read_files(:combos), keycodes) { |d, c, k| Schema::ComboFile.read(d, c, k) }
-        @problems.raise_if_any!
 
-        build_profile(metadata: metadata, settings: settings, position_map: position_map, layers: layers,
-                      macros: macros, tap_dances: tap_dances, combos: combos, shortcuts: shortcuts)
+        lambda do
+          build_profile(metadata: metadata, settings: settings, position_map: position_map, layers: layers,
+                        macros: macros, tap_dances: tap_dances, combos: combos, shortcuts: shortcuts)
+        end
       end
 
-      private
+      def keycode_field(references = Mapping::References::NONE)
+        Schema::KeycodeField.new(@notation, references, recover: @recover)
+      end
 
       def build_profile(**parts)
         Domain::Profile.new(**parts)
@@ -117,7 +152,7 @@ module Cornix
       # マクロのキーは名前参照を使わない（旧 Macro と同じ）。preset: は同梱のショートカットの手順にする
       def load_macros(files)
         presets = Schema::MacroFile::Presets.new(catalog: @shortcut_catalog, notation: @notation)
-        load_items(files, Schema::KeycodeField.new(@notation)) { |d, c, k| Schema::MacroFile.read(d, c, k, presets) }
+        load_items(files, keycode_field) { |d, c, k| Schema::MacroFile.read(d, c, k, presets) }
       end
 
       def load_items(files, keycodes)

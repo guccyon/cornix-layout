@@ -2,7 +2,7 @@
 
 cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 画面で構造化して見せ、補完つきで編集できる VS Code 拡張の設計文書。
 仕様は 2026-10-19 の相談ですべて決まり、自分用の v0.1（レイヤーと QMK 設定を画面で編集して保存できるところまで）が main に入っている。
-v0.2（すべての設定ファイルを画面だけで編集できる）と v0.3（手で直すときにテキストを開かなくなる）も main に入っている。v0.4（実機とつなぐ: 比べる・反映・戻す）は設計が決まり、実装はこれから。
+v0.2（すべての設定ファイルを画面だけで編集できる）と v0.3（手で直すときにテキストを開かなくなる）も main に入っている。v0.4（下の欄のキー別の並べ方とレイヤーの追加・削除、実機とつなぐ: 節「デバイス転送」からの反映のプレビュー → 確定）は統合ブランチ `feature/vscode-extension` に入り、main への PR の前の仕上げ（段 3）をしている。
 
 | 文書 | 内容 |
 |---|---|
@@ -13,8 +13,8 @@ v0.2（すべての設定ファイルを画面だけで編集できる）と v0.
 | [tasks.md](tasks.md) | v0.1 の作業の分け方（並列に進める単位）と、作業の間の契約、v0.2 からの進め方 |
 | [tasks-v0.2.md](tasks-v0.2.md) | v0.2 で入れるもの、決めたこと、作業の分け方と契約、進み具合、段 2 の PR で決めたこと |
 | [tasks-v0.3.md](tasks-v0.3.md) | v0.3 で入れるもの、決めたこと、作業の分け方と契約、進み具合、段 2 の PR で決めたこと |
-| [tasks-v0.4.md](tasks-v0.4.md) | v0.4（実機とつなぐ）で入れるもの、決めたこと、画面、作業の分け方と契約、進み具合 |
+| [tasks-v0.4.md](tasks-v0.4.md) | v0.4（実機とつなぐ）で入れるもの、決めたこと、画面、作業の分け方と契約、進み具合、段 2 の PR で決めたこと |
 
 拡張のコードは `editors/vscode/`（開発の手順・.vsix の入れ方・ファイルの構成は [editors/vscode/README.md](../../editors/vscode/README.md)）、
-バックエンドは `cornix serve`（Interface 層の `Interface::EditorServer` と Application 層の `Application::Editor::*`。
+バックエンドは `cornix serve` と実機の操作の `cornix serve --device`（Interface 層の `Interface::EditorServer` と Application 層の `Application::Editor::*`。
 [architecture.md](../architecture.md) の層と依存の向きを守る）にある。項目の名前の変更で使う参照の置き換えは [rename.md](../rename.md) の「部品」。

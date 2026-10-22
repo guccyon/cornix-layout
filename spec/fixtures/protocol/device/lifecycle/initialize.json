@@ -1,0 +1,29 @@
+{
+  "description": "initialize の capabilities に device: true と deviceWrites（--allow-writes なしは false）を返す",
+  "setup": {
+    "initialize": false
+  },
+  "request": {
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "0.4"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "protocolVersion": "0.4",
+      "serverInfo": {
+        "name": "cornix",
+        "implementation": "ruby"
+      },
+      "capabilities": {
+        "semanticValidation": false,
+        "keycodeCode": false,
+        "device": true,
+        "deviceWrites": false
+      }
+    }
+  }
+}

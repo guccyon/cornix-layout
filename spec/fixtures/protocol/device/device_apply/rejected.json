@@ -1,0 +1,32 @@
+{
+  "description": "書き込み禁止のキーコードを含む計画は -32073",
+  "setup": {
+    "profile": "test_config",
+    "allowWrites": true,
+    "device": {
+      "from": "profile"
+    },
+    "files": {
+      "profiles/default/combos/03_combo.yaml": "---\nindex: 3\nname: Combo 3\ndescription: ''\ntrigger_keys:\n- KC_M\n- KC_COMMA\n- KC_NO\n- KC_NO\noutput_key: QK_BOOT\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/apply",
+    "params": {
+      "dir": "profiles/default",
+      "token": "828ecd9225e5c798"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32073,
+      "data": {
+        "keycodes": [
+          "QK_BOOT"
+        ]
+      }
+    }
+  }
+}

@@ -15,8 +15,12 @@
 // （layerEditor.ts の setPositions）。図は今までどおり選んでいるレイヤーを描き、そのレイヤーの行を強調する。
 // 欄（this.editorSlots）は図の欄（this.slots）とは別に持ち、キー別では全レイヤーの欄になる。欄は id（addressKey）で引く。
 // レイヤーの追加（レイヤーの並びの末尾の「＋」）と削除（レイヤーの見出しの「削除」）は host.itemEdit（ホストが確認してすぐ書く）。
+//
+// v0.4（tasks-v0.4.md の D3）: 実機への反映（ホストの { type: 'device' }）。下のペインの一番下の節「デバイス転送」（deviceView.ts の TransferSection。
+// 押すと host.deviceAction('preview')）と、反映の途中のモーダル（TransferDialog。プレビューと確定）。モーダルを出している間は編集画面に inert を付ける。
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange } from '../protocol';
-import type { HostMessage, WebviewMessage } from '../webviewMessages';
+import type { DeviceViewState, HostMessage, WebviewMessage } from '../webviewMessages';
+import { IDLE_DEVICE_STATE, TransferDialog, TransferSection, diagnosticPlace } from './deviceView';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
 import { comboTargets, effectiveKey, triggerKeys } from './comboHighlight';
@@ -65,6 +69,8 @@ export type AppOptions = {
   state?: { get(): ViewState | undefined; set(state: ViewState): void };
   /** 下のペインのレイヤーの欄のあとに置く部品（QMK 設定・メタデータ）。読めないプロファイルの表示では出ない */
   sections?: HTMLElement[];
+  /** v0.4: 検証の結果の行から、レイヤー以外の節（マクロなど・QMK 設定）の項目へ移る。移れたら true */
+  revealProblem?: (diagnostic: Diagnostic) => boolean;
 };
 
 /** 作り直す前のフォーカスと打ちかけ */
@@ -96,6 +102,10 @@ export class App {
   /** 図からキーを選んでいる間の受け取り手 */
   private picking: { onPick: (text: string) => void } | undefined;
   private readonly inspector: Inspector;
+  /** v0.4: 実機への反映の途中の状態（ホストが送る） */
+  private device: DeviceViewState = IDLE_DEVICE_STATE;
+  private readonly transferSection: TransferSection;
+  private readonly transferDialog: TransferDialog;
 
   private readonly keyboard: KeyboardView;
   private readonly editor: LayerEditor;
@@ -114,6 +124,10 @@ export class App {
     private readonly options: AppOptions,
   ) {
     this.inspector = new Inspector(options.host);
+    this.transferSection = new TransferSection({ onPreview: () => options.host.deviceAction('preview'), problemRow: (diagnostic) => this.problemRow(diagnostic) });
+    this.transferDialog = new TransferDialog({ onAction: (action) => options.host.deviceAction(action) });
+    // モーダルは編集画面（root）の外に置く（root に inert を付けても操作できるように）
+    (root.ownerDocument.body ?? root).append(this.transferDialog.element);
     const saved = options.state?.get();
     this.layerIndex = saved?.layer;
     this.selected = saved?.selected;
@@ -145,7 +159,16 @@ export class App {
         attachTooltip(input.input, () => this.describe(id), { focus: 'always', canShow: () => !input.isOpen && !input.isEditing }),
     });
     this.topPane = h('div', { class: 'top-pane' }, this.header, this.banner, this.tabs, this.layerForm, this.keyboard.element);
-    this.bottomPane = h('div', { class: 'bottom-pane' }, this.modeBar, this.layerInfo, this.problems, this.editor.element, ...(options.sections ?? []));
+    this.bottomPane = h(
+      'div',
+      { class: 'bottom-pane' },
+      this.modeBar,
+      this.layerInfo,
+      this.problems,
+      this.editor.element,
+      ...(options.sections ?? []),
+      this.transferSection.element,
+    );
     this.renderModeBar();
     this.root.replaceChildren(h('div', { class: 'loading' }, '読み込んでいます…'));
   }
@@ -153,6 +176,7 @@ export class App {
   /** ホストからのメッセージ（応答以外） */
   receive(message: HostMessage): void {
     if (message.type === 'snapshot') this.setSnapshot(message.snapshot, message.changes, message.pending);
+    if (message.type === 'device') this.setDevice(message.state);
     if (message.type === 'error') {
       this.banner.textContent = message.message;
       this.banner.hidden = false;
@@ -195,6 +219,29 @@ export class App {
     this.editor.setFoldQuiet(fold && this.mode === 'key');
   }
 
+  /** v0.4: 実機への反映の途中の状態を描く（節のボタンとモーダル） */
+  setDevice(state: DeviceViewState): void {
+    this.device = state;
+    this.transferSection.update(state);
+    this.transferDialog.update(state, this.snapshot);
+    const open = this.transferDialog.isOpen;
+    if (open) {
+      hideTooltip();
+      this.endPick();
+    }
+    this.root.toggleAttribute('inert', open);
+  }
+
+  /** 実機への反映の途中の状態（テスト用） */
+  get deviceState(): DeviceViewState {
+    return this.device;
+  }
+
+  /** 反映のプレビューのモーダル（テスト用） */
+  get transfer(): TransferDialog {
+    return this.transferDialog;
+  }
+
   /** 下の欄の入力欄（テスト用） */
   get inputs(): ReadonlyMap<string, KeyInput> {
     return this.editor.inputs;
@@ -220,6 +267,9 @@ export class App {
     }
     this.snapshotKey = key;
     this.snapshot = snapshot;
+    // 節「デバイス転送」に検証のエラーと警告を出す（エラーがあればボタンを押せない）。プレビューの図と検証の結果は保存済みの snapshot から描く
+    this.transferSection.setSnapshot(snapshot);
+    if (this.device.transfer) this.transferDialog.update(this.device, snapshot);
     this.inspector.clear();
     const { byAddress, general } = diagnosticsByAddress(snapshot);
     this.diagnostics = byAddress;
@@ -452,7 +502,7 @@ export class App {
         // v0.4: 保存済みの中身に検証の問題があるレイヤーには点を付け、件数と文をツールチップに出す
         const problems = layerProblems(snapshot, l.file);
         const severity = severityOf(problems);
-        const title = problems.length > 0 ? `${l.file}\n${problemSummary(problems)}` : l.file;
+        const title = [l.file, problems.length > 0 && problemSummary(problems)].filter(Boolean).join('\n');
         const tab = h(
           'button',
           {
@@ -463,7 +513,9 @@ export class App {
             title,
           },
           layerTitle(l),
-          ...nodes(severity && h('span', { class: `layer-tab-dot ${severity}`, 'aria-label': severity === 'error' ? 'エラーあり' : '警告あり' })),
+          ...nodes(
+            severity && h('span', { class: `layer-tab-dot ${severity}`, 'aria-label': severity === 'error' ? 'エラーあり' : '警告あり' }),
+          ),
         );
         tab.addEventListener('click', () => this.selectLayer(l.index));
         return tab;
@@ -648,15 +700,52 @@ export class App {
       'div',
       { class: `problem ${diagnostic.severity}` },
       h('span', { class: 'problem-severity' }, diagnostic.severity === 'error' ? 'エラー' : '警告'),
-      file ? h('span', { class: 'problem-file' }, file) : null,
+      file ? h('span', { class: 'problem-file' }, diagnosticPlace(diagnostic)) : null,
       h('span', { class: 'problem-message' }, diagnostic.message),
     );
-    if (file && !file.endsWith('/')) {
+    // 編集画面で直せるもの（レイヤーのキー・エンコーダ、マクロなどの項目、QMK 設定）は、生のファイルではなく編集フォームのその欄へ移る
+    const target = this.problemTarget(diagnostic);
+    if (target) {
+      const show = h('button', { type: 'button', class: 'link-button problem-reveal' }, target === 'key' ? 'キーを表示' : '表示');
+      show.addEventListener('click', () => this.revealProblem(diagnostic));
+      row.append(show);
+    } else if (file && !file.endsWith('/')) {
       const open = h('button', { type: 'button', class: 'link-button' }, 'ファイルを開く');
       open.addEventListener('click', () => this.options.host.openFile(file, diagnostic.range));
       row.append(open);
     }
     return row;
+  }
+
+  /** 検証の結果を編集フォームのどこで直せるか（key: レイヤーのキー・エンコーダの欄、layer: そのレイヤー、item: 下の節の項目） */
+  private problemTarget(diagnostic: Diagnostic): 'key' | 'layer' | 'item' | undefined {
+    if (!this.snapshot || this.snapshot.status === 'invalid') return undefined;
+    const file = diagnostic.address?.file ?? diagnostic.file;
+    const layer = this.snapshot.layers.find((l) => l.file === file);
+    if (layer) return diagnostic.address && this.layerSlotIds(layer).has(addressKey(diagnostic.address)) ? 'key' : 'layer';
+    return file && this.options.revealProblem && !file.endsWith('/') ? 'item' : undefined;
+  }
+
+  private layerSlotIds(layer: LayerSnapshot): Set<string> {
+    return new Set(layerSlots(layer, this.snapshot?.positionMap ?? []).map((slot) => slot.id));
+  }
+
+  /** 検証の結果の行から、編集フォームのその欄へ移る（レイヤーを切り替えて欄にフォーカス）。移れなければファイルを開く */
+  revealProblem(diagnostic: Diagnostic): void {
+    const file = diagnostic.address?.file ?? diagnostic.file;
+    const layer = this.snapshot?.layers.find((l) => l.file === file);
+    if (layer) {
+      if (layer.index !== this.layerIndex) this.selectLayer(layer.index);
+      const id = diagnostic.address ? addressKey(diagnostic.address) : undefined;
+      if (id && this.layerSlotIds(layer).has(id)) {
+        this.reveal(id);
+        return;
+      }
+      this.tabs.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      return;
+    }
+    if (this.options.revealProblem?.(diagnostic)) return;
+    if (file && !file.endsWith('/')) this.options.host.openFile(file, diagnostic.range);
   }
 
   private renderInvalid(snapshot: ProfileSnapshot): void {

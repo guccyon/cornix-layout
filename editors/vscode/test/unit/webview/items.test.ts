@@ -63,6 +63,17 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+describe('検証の結果の行から移る（revealFile）', () => {
+  it('そのファイルの項目を選び、節を開く。ほかの節のファイルなら何もしない', () => {
+    const macros = mount(new MacroEditor({ host }));
+    macros.update(snapshot(), []);
+    expect(macros.revealFile(TAP_DANCE_FILE)).toBe(false);
+    expect(macros.revealFile(PRESET_FILE)).toBe(true);
+    expect(macros.selected).toBe(PRESET_MACRO.name);
+    expect(macros.element.querySelector('details')!.open).toBe(true);
+  });
+});
+
 describe('節の出し方', () => {
   it('v0.1 のサーバー（snapshot に macros などがない）と読めないプロファイルでは出さない。0 件なら「追加」だけの節を出す', () => {
     const sections = [new MacroEditor({ host }), new TapDanceEditor({ host }), new ComboEditor({ host }), new ShortcutEditor({ host })];
@@ -86,7 +97,8 @@ describe('節の出し方', () => {
     const app = new App(root, { host, sections: [macros.element] });
     app.receive({ type: 'snapshot', snapshot: snapshot(), changes: [] });
     macros.update(snapshot(), []);
-    expect(root.querySelector('.bottom-pane')?.lastElementChild).toBe(macros.element);
+    // v0.4: 一番下は節「デバイス転送」（App が置く）。渡した節はその前
+    expect(root.querySelector('.bottom-pane > .device-transfer')?.previousElementSibling).toBe(macros.element);
   });
 });
 

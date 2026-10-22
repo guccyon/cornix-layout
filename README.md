@@ -141,7 +141,7 @@ cornix <command> [options]
 | `validate` | Not used | Validates the settings files |
 | `rename` | Not used | Gives the settings files meaningful names, confirming Claude's suggestions one by one |
 | `mcp` | Depends on the tool | Starts as an MCP server (see [Using it as an MCP server](#using-it-as-an-mcp-server)) |
-| `serve` | Not used | The backend of the VS Code extension (see [Editing on screen in VS Code](#editing-on-screen-in-vs-code)) |
+| `serve [--device [--allow-writes]]` | Not used (with `--device`: reads; writes only with `--allow-writes`) | The backend of the VS Code extension (see [Editing on screen in VS Code](#editing-on-screen-in-vs-code)). `--device` starts the separate server that compares with and writes to the keyboard |
 
 `cornix device` reads and writes with explicit files.
 
@@ -597,7 +597,7 @@ cd ../cornix-default-keymap && cornix validate
 
 `editors/vscode/` has a VS Code extension that shows a whole settings directory on one screen and lets you edit every settings file while choosing from candidates.
 It is not on the Marketplace: build a .vsix and install it yourself (the steps, in Japanese, are in [editors/vscode/README.md](editors/vscode/README.md)).
-The extension talks only to `cornix serve` and never writes to the keyboard; run `status` / `apply` from the terminal as before.
+The extension talks only to `cornix serve` (and, for the keyboard, `cornix serve --device`). It writes to the keyboard only when you allow it in the settings and confirm each time (see **The keyboard** below); `status` / `apply` from the terminal work as before.
 
 Open it with the Cornix icon in the activity bar or the command "Cornix: プロファイルを開く" (Open profile). The upper half is a diagram of the keyboard and the lower half holds the editing panes; clicking a key moves to its field.
 
@@ -622,6 +622,13 @@ Open it with the Cornix icon in the activity bar or the command "Cornix: プロ�
 - **Adding, deleting and renaming**: macros, tap dances, combos and shortcuts can be added, deleted and renamed from the screen. Layers can be renamed, added with "＋" at the end of the layer buttons (choose a free number and a name), and deleted with "レイヤーを削除" (Delete layer); the dialog shows how many layer keys such as `MO(n)` point to it. These are written to the files right after a confirmation dialog (if there are unsaved changes, you are asked to save them first). Renaming also rewrites references such as `Macro('old name')` in every file and the file name, and stops if the compile result would change. Deleting leaves references as they are; the dialog shows how many there are, and the referring side shows an error
 - **Copying bundled shortcuts and expanding presets**: "同梱からコピー" (Copy from bundled) in the shortcuts section adds the chosen bundled shortcut to `shortcuts.yaml` (named after its label; existing references are left as they are). "手順に展開" (Expand into steps) on a macro replaces its `preset:` line with the steps of the bundled definition. Both are written right after a confirmation dialog, and expanding stops if the compile result would change
 - **Text editor**: when you open a settings file as text, the same validation results appear as squiggles
+- **Unreadable values**: if a file has a keycode that cannot be parsed (such as `KC_FOOO`), the editor still shows the form and marks that field as an error. The other validation results, such as warnings, appear too, so you can fix it in the form (adding, deleting or renaming items and applying to the keyboard are not possible until it is fixed)
+- **The keyboard**: the "デバイス転送" (Device transfer) section at the bottom of the edit form writes the saved profile to the connected keyboard. Like `cornix device`, this needs macOS and the HID bridge (see [Requirements](#requirements))
+  - "反映のプレビュー…" (Preview apply), or the command "Cornix: 実機に反映…", compiles the saved profile (unsaved changes are saved first), reads the keyboard (about 10 seconds over Bluetooth) and shows the differences in a modal over the editor: the diagram with the differing keys outlined in orange, the number of differences on each layer tab, and a list of "place: keyboard value → profile value". Nothing is written until you press "確定" (Confirm), and "やめる" (Cancel) closes it. The editor cannot be edited while the modal is open
+  - While the profile has validation errors, "反映のプレビュー…" cannot be pressed, and the number of errors and a request to fix them and save first are shown next to it (it stops before reading the keyboard). The section lists the validation errors and warnings of the saved profile ("キーを表示" (Show key) moves to the field in the edit form, switching the layer; macros and other items, and QMK settings, move to their fields) and shows their counts in its heading. With only warnings you can still apply (the modal lists the warnings too)
+  - Confirm backs up the keyboard, writes and reads it back. It cannot be pressed when the files changed after the preview (press "もう一度比べる" (Compare again) instead)
+  - Writing is allowed only when the setting `cornix.device.allowWrites` is on (off by default; the preview always works). The extension starts `cornix serve --device` with `--allow-writes` only when the setting is on, and without it the server refuses to write
+  - To go back, undo or use git on the settings files and apply again. Restoring a backup is done on the command line (`cornix restore` / `cornix device restore`)
 
 ## Using it as an MCP server
 

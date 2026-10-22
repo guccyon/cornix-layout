@@ -72,7 +72,7 @@ module Cornix
         via(0x11)[1]
       end
 
-      # キーマップ全体（layer → row → col の順の 16bit 値）
+      # キーマップ全体（layer → row → col の順の 16bit 値）。ブロックを渡すと 1 回読むごとに呼ぶ（進み具合）
       def keymap_buffer(layers, rows, cols)
         total = layers * rows * cols * 2
         bytes = []
@@ -81,6 +81,7 @@ module Cornix
           r = via(0x12, offset >> 8, offset & 0xFF, size)
           expect_echo!(r, [0x12, offset >> 8, offset & 0xFF, size])
           bytes.concat(r[4, size])
+          yield if block_given?
         end
         bytes.pack('C*').unpack('n*')
       end
@@ -100,7 +101,8 @@ module Cornix
         (r[1] << 8) | r[2]
       end
 
-      # マクロバッファ（count 個の NUL を読んだ時点で打ち切る。size を超えては読まない）
+      # マクロバッファ（count 個の NUL を読んだ時点で打ち切る。size を超えては読まない）。
+      # ブロックを渡すと 1 回読むごとに呼ぶ（進み具合）
       def macro_buffer(size, count)
         bytes = []
         (0...size).step(CHUNK) do |offset|
@@ -108,6 +110,7 @@ module Cornix
           r = via(0x0E, offset >> 8, offset & 0xFF, len)
           expect_echo!(r, [0x0E, offset >> 8, offset & 0xFF, len])
           bytes.concat(r[4, len])
+          yield if block_given?
           break if bytes.count(0) > count
         end
         bytes.pack('C*')

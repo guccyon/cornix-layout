@@ -1,0 +1,14 @@
+{
+  "description": "編集のサーバーのメソッド（profile/list）は device のサーバーにはない（-32601）",
+  "request": {
+    "id": 1,
+    "method": "profile/list",
+    "params": {}
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32601
+    }
+  }
+}

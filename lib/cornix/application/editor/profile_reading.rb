@@ -9,7 +9,12 @@ module Cornix
       #   reading = ProfileReading.read(env)
       #   reading.files        #=> { "metadata.yaml" => "sha256:…", "settings/qmk_settings.yaml" => nil, ... }
       #   reading.profile      #=> Domain::Profile（構造検証で読めなければ nil）
-      #   reading.problems     #=> [Storage::Problem]（構造検証の問題。読めたときは空）
+      #   reading.problems     #=> [Storage::Problem]（構造検証の問題。読めたときは空。ただし下の「読めない値」は profile があっても入る）
+      #   reading.complete?    #=> 構造検証の問題がなく読めた
+      #
+      # 解析できないキーコード（KC_FOOO・ない名前の Macro('…') など）だけが問題なら、その割り当てを NoKey にして profile を作る
+      # （Storage::ConfigRepository#load_partial）。画面はフォームを出してその欄をエラーにし、意味検証の結果も一緒に出せる。
+      # 項目の操作（ItemEdits）と compile は complete? のときだけ（代わりの NoKey を書いたり実機に送ったりしない）
       #   reading.repository   #=> 読んだ中身で読む Storage::ConfigRepository（意味検証の位置もこの中身で決める）
       #   reading.document(rel) #=> Storage::YamlDocument（なければ・YAML として読めなければ nil）
       #   reading.text(rel)    #=> 読んだ中身（UTF-8 の文字列。なければ nil）
@@ -41,6 +46,8 @@ module Cornix
         end
 
         def ok? = !@profile.nil?
+
+        def complete? = ok? && @problems.empty?
 
         # QMK 設定のファイル（.yaml か .yml の、あるほう）。なければ nil
         def settings_file = single_file(Storage::ConfigFiles::SETTINGS)
@@ -86,8 +93,9 @@ module Cornix
         end
 
         def load_profile
-          @profile = @repository.load
-          @problems = [].freeze
+          partial = @repository.load_partial
+          @profile = partial.profile
+          @problems = partial.problems
         rescue Storage::InvalidConfig => e
           @profile = nil
           @problems = e.problems

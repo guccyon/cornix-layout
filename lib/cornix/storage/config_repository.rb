@@ -16,6 +16,7 @@ module Cornix
     #                               settings_catalog: Mapping::QmkSettingCatalog.default)
     #                               # shortcut_catalog: 同梱のショートカット（既定は Mapping::ShortcutCatalog.default）
     #   profile = repo.load            # 問題があれば InvalidConfig（すべての問題を「ファイル: キーの位置: 内容」で並べる）
+    #   partial = repo.load_partial    # エディタ用: 解析できないキーコードは NoKey にして読む（ConfigLoader::Partial。ほかの問題は InvalidConfig）
     #   repo.save(profile)             # => 書いたファイルの相対パスの一覧
     #   repo.locate(diagnostic)        # Profile#diagnostics のパスをファイル上の位置にした Diagnostic
     #   repo.address(model_path)       # => [ファイル, キーの道筋]（DiagnosticLocator#address）
@@ -40,6 +41,11 @@ module Cornix
       def load
         ConfigLoader.new(@dir, notation: @notation, settings_catalog: @settings_catalog,
                                shortcut_catalog: @shortcut_catalog, source: @source).load
+      end
+
+      def load_partial
+        ConfigLoader.new(@dir, notation: @notation, settings_catalog: @settings_catalog,
+                               shortcut_catalog: @shortcut_catalog, source: @source).load_partial
       end
 
       def save(profile)

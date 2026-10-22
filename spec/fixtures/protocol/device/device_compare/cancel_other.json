@@ -1,0 +1,32 @@
+{
+  "description": "ほかのリクエストへの $/cancelRequest は取り消さない（続けて処理する）",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "after": [
+    {
+      "method": "$/cancelRequest",
+      "params": {
+        "id": 99
+      }
+    }
+  ],
+  "response": {
+    "id": 1,
+    "result": {
+      "plan": {
+        "empty": true
+      }
+    }
+  }
+}

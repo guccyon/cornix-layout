@@ -6,16 +6,19 @@ module Cornix
   module Interface
     module EditorServer
       module Handlers
-        # initialize: 約束の版を確かめ、サーバーの情報とできることを返す（protocol.md の 4.）。
+        # initialize: 約束の版を確かめ、サーバーの情報とできることを返す（protocol.md の 4.。device のサーバーは 14.1）。
         # 版は major.minor。1.0 になるまでは major.minor 全体、1.0 からは major が一致しなければ -32051 で断る
         class Initialize < Handler
-          rpc 'initialize'
+          rpc 'initialize', servers: SERVERS
 
-          PROTOCOL_VERSION = '0.3'
+          PROTOCOL_VERSION = '0.4'
           SUPPORTED = [PROTOCOL_VERSION].freeze
           VERSION_PATTERN = /\A(\d+)\.(\d+)\z/
 
-          def call(params, _context)
+          # 編集のサーバーのできること
+          EDITOR_CAPABILITIES = { semanticValidation: true, keycodeCode: true }.freeze
+
+          def call(params, context)
             requested = param(params, 'protocolVersion', String)
             unless compatible?(requested)
               raise RpcError.new(ErrorCodes::PROTOCOL_VERSION_MISMATCH,
@@ -26,11 +29,18 @@ module Cornix
             {
               protocolVersion: PROTOCOL_VERSION,
               serverInfo: { name: 'cornix', version: Cornix::VERSION, implementation: 'ruby' },
-              capabilities: { semanticValidation: true, keycodeCode: true }
+              capabilities: capabilities(context)
             }
           end
 
           private
+
+          # device のサーバー（protocol.md の 14.1）は device/* だけを持つので、検証とキーコードの値は false
+          def capabilities(context)
+            return EDITOR_CAPABILITIES unless context.device?
+
+            { semanticValidation: false, keycodeCode: false, device: true, deviceWrites: context.allow_writes? }
+          end
 
           def compatible?(requested)
             major, minor = VERSION_PATTERN.match(requested)&.captures&.map(&:to_i)

@@ -1,0 +1,23 @@
+{
+  "description": "token がなければ -32602（field: token）",
+  "setup": {
+    "profile": "test_config",
+    "allowWrites": true
+  },
+  "request": {
+    "id": 1,
+    "method": "device/apply",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "token"
+      }
+    }
+  }
+}

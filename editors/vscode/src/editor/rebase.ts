@@ -108,9 +108,15 @@ export function sameFiles(a: Record<string, FileVersion>, b: Record<string, File
   return [...keys].every((key) => key in a && key in b && a[key] === b[key]);
 }
 
-/** 構造検証の error（保存すると読めなくなるので保存を止める。protocol.md の 6.2 の 2） */
-export function structureErrors(diagnostics: readonly Diagnostic[]): Diagnostic[] {
-  return diagnostics.filter((d) => d.severity === 'error' && d.source === 'structure');
+/**
+ * 構造検証の error（保存すると読めなくなるので保存を止める。protocol.md の 6.2 の 2）。
+ * saved（保存済みの snapshot の diagnostics）を渡すと、そこにすでにある読めない値（同じ場所・同じ文）は除く
+ * （ディスクにすでに書いてあり、保存で増えるわけではない。ほかの欄の保存を止めない）
+ */
+export function structureErrors(diagnostics: readonly Diagnostic[], saved: readonly Diagnostic[] = []): Diagnostic[] {
+  const key = (d: Diagnostic) => JSON.stringify([d.address ?? d.file ?? null, d.message]);
+  const existing = new Set(saved.filter((d) => d.severity === 'error' && d.source === 'structure').map(key));
+  return diagnostics.filter((d) => d.severity === 'error' && d.source === 'structure' && !existing.has(key(d)));
 }
 
 /** ディスク上のバイト列の版（protocol.md の 2. の FileVersion） */

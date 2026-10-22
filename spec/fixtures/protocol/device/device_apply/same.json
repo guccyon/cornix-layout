@@ -1,0 +1,26 @@
+{
+  "description": "差分がなければ何も書かず、バックアップも取らない（applied: 0・backup: null）",
+  "setup": {
+    "profile": "test_config",
+    "allowWrites": true,
+    "device": {
+      "from": "profile"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/apply",
+    "params": {
+      "dir": "profiles/default",
+      "token": "4f53cda18c2baa0c"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "applied": 0,
+      "backup": null,
+      "remaining": []
+    }
+  }
+}

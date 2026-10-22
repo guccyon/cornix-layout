@@ -821,8 +821,8 @@ class FakeServer {
       }
       return data.interpret(change.value) ? [] : [{ ...unreadable(change.value), address: change.address }];
     });
-    if (own.some((d) => d.source === 'structure')) return own.filter((d) => d.source === 'structure');
-    return [...BASE_DIAGNOSTICS, ...own];
+    // 読めない値（構造の error）は先に並べ、意味検証の結果も続ける（Ruby のサーバーは読めない値を NoKey として読み続ける）
+    return [...own.filter((d) => d.source === 'structure'), ...BASE_DIAGNOSTICS, ...own.filter((d) => d.source !== 'structure')];
   }
 
   /**

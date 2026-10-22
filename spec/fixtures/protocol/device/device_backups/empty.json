@@ -1,0 +1,23 @@
+{
+  "description": "バックアップがなければ空。実機は読まない",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "unavailable": "notConnected"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/backups",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "backups": []
+    }
+  },
+  "notifications": []
+}

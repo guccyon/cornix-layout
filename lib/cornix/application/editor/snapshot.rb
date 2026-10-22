@@ -21,6 +21,7 @@ module Cornix
       #
       # 読んだファイルの版を workbench.versions(id) の「知っている版」にする（前の中身は置き換える）。
       # 構造検証で読めなければ status: "invalid" で、files と diagnostics のほかは空（metadata は {}）。
+      # 読めない値（解析できないキーコード）だけなら status: "ok" で、その割り当ては書いてある表記のまま返し、diagnostics に構造の error と意味検証の結果を並べる。
       #
       # layers の keys は position_map のすべての位置（割り当てのない位置は value: nil）、encoders は左右の push / ccw / cw
       # （ファイルに書いていない操作は value: nil）。value の text はファイルに書いてある表記（YamlDocument#scalar）。
@@ -43,11 +44,34 @@ module Cornix
           versions.replace(reading.files)
           head = { profileId: opened.id, name: opened.name, dir: opened.dir, status: reading.ok? ? 'ok' : 'invalid',
                    files: reading.files }
-          body = reading.ok? ? contents(env, reading) : empty_contents
-          head.merge(body, diagnostics: Diagnostics.new(reading, env.capabilities).call)
+          diagnostics = Diagnostics.new(reading, env.capabilities).call
+          body = reading.ok? ? unreadable_values(contents(env, reading), diagnostics) : empty_contents
+          head.merge(body, diagnostics: diagnostics)
         end
 
         private
+
+        # 読めない値（ProfileReading の説明。代わりに NoKey で読んだ割り当て）は、書いてある表記をそのまま図と欄に出す
+        # （canonical と display.label を text にする。どれかは diagnostics の構造の error で分かる）
+        def unreadable_values(body, diagnostics)
+          unreadable = diagnostics.filter_map { |d| d[:address] if d[:source] == 'structure' }.to_set
+          return body if unreadable.empty?
+
+          patch = lambda do |node|
+            case node
+            when Array then node.map { |child| patch.call(child) }
+            when Hash
+              node = node.transform_values { |child| patch.call(child) }
+              value = node[:value]
+              if node[:address] && unreadable.include?(node[:address]) && value.is_a?(Hash) && value[:text]
+                node = node.merge(value: value.merge(canonical: value[:text], display: { label: value[:text] }))
+              end
+              node
+            else node
+            end
+          end
+          patch.call(body)
+        end
 
         def empty_contents
           { metadata: {}, positionMap: [], layers: [], settings: [],

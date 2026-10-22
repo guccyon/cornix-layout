@@ -21,7 +21,12 @@ export async function openProfile(server: CornixServer, arg?: string | { dir: st
   }
 }
 
-async function pickProfile(server: CornixServer): Promise<ProfileItem | undefined> {
+/** 一覧から選ばせる（1 つならそれ。複数なら QuickPick で、既定を初期値に）。実機の操作の対象を選ぶのにも使う */
+export async function pickProfile(
+  server: CornixServer,
+  title = 'Cornix: プロファイルを開く',
+  placeholder = '開くプロファイルを選んでください',
+): Promise<ProfileItem | undefined> {
   const items = profileItems(await server.request('profile/list', {}));
   if (items.length === 0) {
     void vscode.window.showInformationMessage('プロファイルが見つかりません。cornix init で作ってください。');
@@ -31,8 +36,8 @@ async function pickProfile(server: CornixServer): Promise<ProfileItem | undefine
 
   type Pick = vscode.QuickPickItem & { item: ProfileItem };
   const quickPick = vscode.window.createQuickPick<Pick>();
-  quickPick.title = 'Cornix: プロファイルを開く';
-  quickPick.placeholder = '開くプロファイルを選んでください';
+  quickPick.title = title;
+  quickPick.placeholder = placeholder;
   quickPick.items = items.map((item) => ({ label: item.name, description: item.description, detail: item.dir, item }));
   const initial = quickPick.items.find((pick) => pick.item.isDefault);
   if (initial) quickPick.activeItems = [initial];

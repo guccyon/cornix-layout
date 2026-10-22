@@ -3,6 +3,8 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { DevicePrompts } from '../../../src/device/deviceFlow';
+import type { Notice } from '../../../src/device/deviceTexts';
 import type { ProfileDocument } from '../../../src/editor/profileDocument';
 import type { KeepChoice, ProfilePrompts } from '../../../src/editor/prompts';
 import type { CornixExtensionApi } from '../../../src/extension';
@@ -78,6 +80,27 @@ export class FakePrompts implements ProfilePrompts {
   }
   of(method: string): PromptLog[] {
     return this.calls.filter((call) => call.method === method);
+  }
+}
+
+/** 実機への反映で聞くこと・知らせること（v0.4。保存を促すモーダルのダイアログは押せないので、差し替えて答える） */
+export class FakeDevicePrompts implements DevicePrompts {
+  readonly saves: [string, number][] = [];
+  readonly notices: Notice[] = [];
+  saveFirst = true;
+  settingsOpened = 0;
+  confirmSaveFirst(profile: string, pending: number) {
+    this.saves.push([profile, pending]);
+    return Promise.resolve(this.saveFirst);
+  }
+  notify(notice: Notice) {
+    this.notices.push(notice);
+  }
+  openWriteSetting() {
+    this.settingsOpened++;
+  }
+  get last(): Notice | undefined {
+    return this.notices.at(-1);
   }
 }
 

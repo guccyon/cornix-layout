@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { snapshotValueAt } from '../../../src/editor/pendingChanges';
 import type { CornixExtensionApi } from '../../../src/extension';
 import type { Address } from '../../../src/protocol';
-import { activateExtension, FakePrompts, profileTab, readWorkspaceFile, revertProfile, saveProfile, test, waitFor, writeOutside } from './support';
+import { activateExtension, FakeDevicePrompts, FakePrompts, profileTab, readWorkspaceFile, revertProfile, saveProfile, test, waitFor, writeOutside } from './support';
 
 export { run } from './support';
 
@@ -146,6 +146,21 @@ test('外で変わったとき、未保存の変更があれば聞き、画面�
   await saveProfile(doc);
   await waitFor('保存', async () => profileTab()?.isDirty === false);
   assert.match(readWorkspaceFile(BASE), /\n {6}R: Escape\n {6}T: Tab\n/);
+});
+
+// v0.4: 本物の device のサーバー（cornix serve --device）とつなぐ。CI（Linux）では実機を使えないので、macOS 以外の案内が出ることと、
+// 実機を読まない device/backups が答えることを見る。macOS では本物のキーボードを読みにいくので動かさない（書き込みはどちらでもしない）
+test('反映のプレビューを始めると、本物の device のサーバーが macOS 以外では使えないと答え、その案内を出す', async () => {
+  if (process.platform === 'darwin') return;
+  const devicePrompts = new FakeDevicePrompts();
+  api.device.prompts = devicePrompts;
+  assert.equal(vscode.workspace.getConfiguration('cornix').get('device.allowWrites'), false);
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', 'profiles/default'), 'failed');
+  assert.equal(devicePrompts.last?.level, 'error');
+  assert.match(devicePrompts.last?.message ?? '', /macOS でだけ使えます/);
+  assert.equal(api.device.states.get('profiles/default').transfer, null);
+  assert.deepEqual(await api.device.server.request('device/backups', { dir: 'profiles/default' }), { backups: [] });
+  assert.equal(await api.device.server.writesAllowed(), false);
 });
 
 test('閉じると一覧から消え、サーバーは止められる', async () => {

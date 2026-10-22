@@ -9,6 +9,7 @@
 // v0.3 の「全レイヤー」のトグルは v0.4 でやめた（下の欄の「キー別」に置き換えた。issue #84）。
 // コンボ: 図の上にコンボの番号のボタン。押す（固定）か載せている（一時）間、そのトリガーのキーを強調する（どの欄かは options.comboTargets）。
 // 選ぶ状態（setPicking。App#pickKey）: 図の上に案内を出し、キーを押すと onPick（Esc で onPickCancel）。
+// 実機と違うキー・エンコーダの操作は橙の枠（setDeviceDiffs。class device-diff）で囲み、読み上げに実機の値を添える（v0.4。反映のプレビューのモーダルの図）。
 // タップダンスは、キーの面を割り当てのある動作の数の窓に分けて描く（1 つは面全体、2 つ・3 つは横幅いっぱいの窓を上から順に
 // 重ね、4 つは 2×2。順はタップ・ホールド・ダブルタップ・タップホールド）。エンコーダの帯では窓にせず、タップの札と「+残りの数」を並べる。
 import type { Diagnostic, Hand, KeyValue } from '../protocol';
@@ -88,6 +89,8 @@ export class KeyboardView {
   private readonly comboBar: HTMLElement;
   private readonly positionHint: HTMLElement;
   private readonly pickBanner: HTMLElement;
+  /** v0.4: 実機と違う欄（id → 実機の今の値の表記） */
+  private deviceDiffs: ReadonlyMap<string, string> = new Map();
 
   constructor(private readonly options: KeyboardViewOptions) {
     this.board = h('div', { class: 'board', style: `aspect-ratio: ${BOARD.width} / ${BOARD.height}` });
@@ -344,7 +347,10 @@ export class KeyboardView {
     const element = this.elements.get(slotId);
     const slot = this.slots.get(slotId);
     const view = this.views.get(slotId);
-    if (!element || !slot || !view) return;
+    if (!element || !slot) return;
+    const device = this.deviceDiffs.get(slotId);
+    element.classList.toggle('device-diff', device !== undefined);
+    if (!view) return;
     const severity = severityOf(view.diagnostics);
     // 位置の名前の表示はキーにだけある（エンコーダはいつも割り当てを描く）
     const positions = this.showingPositions && !!slot.key;
@@ -355,17 +361,28 @@ export class KeyboardView {
     element.classList.toggle('position', positions);
     if (positions) {
       element.replaceChildren(h('span', { class: `key-label position-name${slot.label.length > 6 ? ' long' : ''}` }, slot.label));
-      element.setAttribute('aria-label', `${HAND_LABEL[slot.hand]} 位置の名前 ${slot.label}`);
+      element.setAttribute('aria-label', `${HAND_LABEL[slot.hand]} 位置の名前 ${slot.label}${deviceNote(device)}`);
       element.classList.remove('dual', 'marked', 'windowed');
       element.dataset.kind = '';
       return;
     }
     element.replaceChildren(...keyFace(view));
-    element.setAttribute('aria-label', keyAccessibleName(slot, view.text, view.value, view.diagnostics, this.layerNames, view.base));
+    element.setAttribute('aria-label', `${keyAccessibleName(slot, view.text, view.value, view.diagnostics, this.layerNames, view.base)}${deviceNote(device)}`);
     element.classList.toggle('dual', !!view.value?.display.hold && !tapDanceWindows(view.value));
     element.dataset.kind = view.value?.kind ?? '';
     element.classList.toggle('marked', !!keyMark(view.value));
     element.classList.toggle('windowed', !!tapDanceWindows(view.value));
+  }
+
+  /** v0.4: 実機と違う欄（id → 実機の今の値の表記）。setSlots で作り直しても保つ */
+  setDeviceDiffs(diffs: ReadonlyMap<string, string>): void {
+    this.deviceDiffs = diffs;
+    for (const id of this.elements.keys()) this.render(id);
+  }
+
+  /** v0.4: 実機と違う印の付いた欄（テスト用） */
+  get deviceDiffIds(): string[] {
+    return [...this.elements].filter(([, element]) => element.classList.contains('device-diff')).map(([id]) => id);
   }
 
   setSelected(slotId: string | undefined): void {
@@ -380,6 +397,11 @@ export class KeyboardView {
       element.setAttribute('aria-pressed', String(selected));
     }
   }
+}
+
+/** 読み上げに添える実機の値 */
+function deviceNote(device: string | undefined): string {
+  return device === undefined ? '' : `（実機と違う。実機は ${device}）`;
 }
 
 /** キーの面: アイコン・文字（2 役なら tap と hold を上下に）・印 */

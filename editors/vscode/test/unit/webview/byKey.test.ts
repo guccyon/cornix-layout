@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// v0.4（issue #84）: 下の欄の「レイヤーごと / キーごと」の切り替え、キーごとの並べ方、レイヤーの追加と削除
+// v0.4（issue #84）: 下の欄の「レイヤー別 / キー別」の切り替え、キー別、レイヤーの追加と削除
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { LayerSnapshot, ProfileSnapshot } from '../../../src/protocol';
 import { App, type ViewState } from '../../../src/webview/app';
@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 describe('並べ方の切り替え', () => {
-  it('既定はレイヤーごと。キーごとにすると位置ごとに全レイヤーの行を index の順に並べ、選んだ並べ方を覚える', () => {
+  it('既定はレイヤー別。キー別にすると位置ごとに全レイヤーの行を index の順に並べ、選んだ並べ方を覚える', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     expect(app.editorMode).toBe('layer');
     expect(modeButton('layer').getAttribute('aria-pressed')).toBe('true');
@@ -64,7 +64,7 @@ describe('並べ方の切り替え', () => {
     const rows = [...block.querySelectorAll<HTMLElement>('.layer-row')];
     expect(rows.map((row) => row.querySelector('.layer-row-label')?.textContent)).toEqual(['0 Base', '1 Symbols']);
     expect(rows.map((row) => row.querySelector('input')?.value)).toEqual(['Q', 'Question']);
-    // グループの見出しはレイヤーごとと同じ
+    // グループの見出しはレイヤー別と同じ
     expect([...root.querySelectorAll('.layer-editor .hand')].map((hand) => hand.querySelector('h3')?.textContent)).toEqual(['左手', '右手']);
     expect(root.querySelector('.layer-editor .group-label')?.textContent).toBe('1 段目');
     // エンコーダも操作ごとにレイヤーの行
@@ -78,7 +78,7 @@ describe('並べ方の切り替え', () => {
     expect(state?.mode).toBeUndefined();
   });
 
-  it('覚えた並べ方で開き、外での変更で形が変わっても（レイヤーが増えても）キーごとのまま', () => {
+  it('覚えた並べ方で開き、外での変更で形が変わっても（レイヤーが増えても）キー別のまま', () => {
     state = { mode: 'key' };
     app = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
     const snapshot = fixtureSnapshot();
@@ -209,11 +209,12 @@ describe('レイヤーの追加と削除', () => {
     expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Empty', file: 'layers/9_empty.yml' }]);
   });
 
-  it('キーごとでは「レイヤーを削除」を出さない（どれが消えるか分かりにくい）', () => {
+  it('キー別では選んでいるレイヤーの見出し（説明・「レイヤーを削除」）を出さない（編集フォームではどのレイヤーかに意味がない）', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     expect(root.querySelector('.layer-info .layer-delete')).not.toBeNull();
+    expect(root.querySelector('.editor-mode')?.textContent).toBe('編集フォームレイヤー別キー別');
     app.setMode('key');
-    expect(root.querySelector('.layer-info .layer-delete')).toBeNull();
+    expect(root.querySelector('.layer-info')!.childElementCount).toBe(0);
     app.setMode('layer');
     expect(root.querySelector('.layer-info .layer-delete')).not.toBeNull();
   });

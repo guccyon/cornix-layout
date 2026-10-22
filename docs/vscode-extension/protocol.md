@@ -1145,4 +1145,4 @@ type ItemEdit =
   compile では消したレイヤーは `KC_NO` で埋まる（#83）
 - 結果の形・確認のダイアログのあとすぐ当てて保存することは 12.5 と同じ
 - 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `create_layer*.json`・`create_index_not_layer.json`・`delete_layer*.json`
-- 同じ issue の下の欄の「キーごと」の並べ方（位置ごとに全レイヤーの欄を並べる）は拡張だけで作る。欄の変更は今と同じ `Change`（そのレイヤーのファイルの `address`）で、約束は変えない
+- 同じ issue の下の欄の「キー別」の並べ方（位置ごとに全レイヤーの欄を並べる）は拡張だけで作る。欄の変更は今と同じ `Change`（そのレイヤーのファイルの `address`）で、約束は変えない

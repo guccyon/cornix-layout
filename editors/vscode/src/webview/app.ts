@@ -11,9 +11,9 @@
 // v0.3（tasks-v0.3.md の E1）: コンボのボタンとトリガーのキーの強調（comboHighlight.ts。トリガーもコンボの未保存の変更を重ねる）、
 // 図からキーを選ぶ状態（pickKey）。
 //
-// v0.4（issue #84）: 下の欄の「レイヤーごと / キーごと」の切り替え。キーごとでは、位置ごとにファイルのあるレイヤーの欄を並べる
+// v0.4（issue #84）: 下の欄の「レイヤー別 / キー別」の切り替え。キー別では、位置ごとにファイルのあるレイヤーの欄を並べる
 // （layerEditor.ts の setPositions）。図は今までどおり選んでいるレイヤーを描き、そのレイヤーの行を強調する。
-// 欄（this.editorSlots）は図の欄（this.slots）とは別に持ち、キーごとでは全レイヤーの欄になる。欄は id（addressKey）で引く。
+// 欄（this.editorSlots）は図の欄（this.slots）とは別に持ち、キー別では全レイヤーの欄になる。欄は id（addressKey）で引く。
 // レイヤーの追加（レイヤーの並びの末尾の「＋」）と削除（レイヤーの見出しの「削除」）は host.itemEdit（ホストが確認してすぐ書く）。
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange } from '../protocol';
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
@@ -52,7 +52,7 @@ import { attachTooltip, comboContent, describeContent, hideTooltip } from './too
 /** 画面を閉じても覚えておくもの（Webview の getState / setState。タブを裏に回すと Webview は作り直される） */
 export type ViewState = { layer?: number; selected?: string; mode?: EditorMode; foldQuiet?: boolean };
 
-/** v0.4: 下の欄の並べ方。layer はレイヤーごと（選んでいるレイヤー 1 枚）、key はキーごと（位置ごとに全レイヤー） */
+/** v0.4: 下の欄の並べ方。layer はレイヤー別（選んでいるレイヤー 1 枚）、key はキー別（位置ごとに全レイヤー） */
 export type EditorMode = 'layer' | 'key';
 
 /** レイヤーの番号の範囲（Domain::LayerRef::RANGE と同じ 0〜9） */
@@ -83,7 +83,7 @@ export class App {
   private selected: string | undefined;
   /** 図の欄（選んでいるレイヤー） */
   private slots: Slot[] = [];
-  /** 下の欄（レイヤーごとなら slots と同じ、キーごとなら全レイヤー）と、それぞれのレイヤーの番号 */
+  /** 下の欄（レイヤー別なら slots と同じ、キー別なら全レイヤー）と、それぞれのレイヤーの番号 */
   private editorSlots: Slot[] = [];
   private readonly slotById = new Map<string, Slot>();
   private readonly slotLayer = new Map<string, number>();
@@ -105,7 +105,7 @@ export class App {
   private readonly banner = h('div', { class: 'banner', role: 'alert', hidden: true });
   private readonly layerInfo = h('div', { class: 'layer-info' });
   private readonly layerForm = h('div', { class: 'layer-form-slot' });
-  private readonly modeBar = h('div', { class: 'editor-mode', role: 'group', 'aria-label': '下の欄の並べ方' });
+  private readonly modeBar = h('div', { class: 'editor-mode', role: 'group', 'aria-label': '編集フォームのモード' });
   private readonly topPane: HTMLElement;
   private readonly bottomPane: HTMLElement;
 
@@ -187,7 +187,7 @@ export class App {
     this.rendered();
   }
 
-  /** v0.4: キーごとで ▽ と書いていない行を畳む */
+  /** v0.4: キー別で ▽ と書いていない行を畳む */
   setFoldQuiet(fold: boolean): void {
     this.foldQuiet = fold;
     this.saveState();
@@ -307,7 +307,7 @@ export class App {
     this.saveState();
     hideTooltip();
     if (this.mode === 'key' && this.editor.byKey) {
-      // キーごと: 下の欄は作り直さず（スクロールとフォーカスを残す）、図と強調する行だけを変える
+      // キー別: 下の欄は作り直さず（スクロールとフォーカスを残す）、図と強調する行だけを変える
       this.renderTabs();
       this.renderLayerInfo();
       this.setEditorSlots(this.currentSlots(), this.allPositions());
@@ -323,7 +323,7 @@ export class App {
     this.rendered();
   }
 
-  /** 欄を選ぶ（上下で共有。キーごとでほかのレイヤーの行なら、図では同じ位置のキーを選ぶ） */
+  /** 欄を選ぶ（上下で共有。キー別でほかのレイヤーの行なら、図では同じ位置のキーを選ぶ） */
   select(slotId: string | undefined): void {
     this.selected = slotId;
     this.keyboard.setSelected(this.boardSlotFor(slotId));
@@ -369,7 +369,7 @@ export class App {
   }
 
   /**
-   * キーごとの位置（図の欄の並びの順）。位置ごとに、ファイルのあるレイヤーの同じ位置の欄を index の順に並べる。
+   * キー別の位置（図の欄の並びの順）。位置ごとに、ファイルのあるレイヤーの同じ位置の欄を index の順に並べる。
    * 見出しの欄は選んでいるレイヤーの欄（なければ最初のレイヤーの欄）
    */
   private allPositions(): PositionSlots[] {
@@ -385,7 +385,7 @@ export class App {
     });
   }
 
-  /** 図の欄と下の欄を決め、id とレイヤーの引き先を作り直す（positions はキーごとのとき） */
+  /** 図の欄と下の欄を決め、id とレイヤーの引き先を作り直す（positions はキー別のとき） */
   private setEditorSlots(slots: Slot[], positions?: PositionSlots[]): void {
     this.slots = slots;
     this.slotById.clear();
@@ -559,7 +559,7 @@ export class App {
     name.focus();
   }
 
-  /** 下の欄の並べ方の切り替え（とキーごとの「畳む」） */
+  /** 下の欄の並べ方の切り替え（とキー別の「畳む」） */
   private renderModeBar(): void {
     const button = (mode: EditorMode, label: string, title: string) => {
       const pressed = this.mode === mode;
@@ -573,8 +573,9 @@ export class App {
     fold.addEventListener('change', () => this.setFoldQuiet(fold.checked));
     this.modeBar.replaceChildren(
       ...nodes(
-        button('layer', 'レイヤーごと', '選んでいるレイヤーの割り当てを並べる'),
-        button('key', 'キーごと', 'キーの位置ごとに、全レイヤーの割り当てを並べる（図で選んでいるレイヤーの行を強調）'),
+        h('span', { class: 'editor-mode-title' }, '編集フォーム'),
+        button('layer', 'レイヤー別', '編集フォーム: 図で選んでいるレイヤーの割り当てを並べる'),
+        button('key', 'キー別', '編集フォーム: キーの位置ごとに、全レイヤーの割り当てを並べる（図で選んでいるレイヤーの行を強調）'),
         this.mode === 'key' &&
           h('label', { class: 'fold-quiet-toggle', title: '▽（下のレイヤーへ）と書いていない行を隠す（図で選んでいるレイヤー・選んでいる行・未保存の行は残す）' }, fold, '▽ と空欄を畳む'),
       ),
@@ -588,19 +589,21 @@ export class App {
       this.layerInfo.replaceChildren(h('p', {}, 'レイヤーがありません（レイヤーの並びの「＋」で足せます）'));
       return;
     }
-    // キーごとでは全レイヤーの欄が並んでいてどれが消えるか分かりにくいので、削除はレイヤーごとのときだけ出す
-    const remove =
-      this.mode === 'layer' &&
-      h(
-        'button',
-        { type: 'button', class: 'link-button layer-delete', title: `レイヤーのファイル ${layer.file} を消す（確認のダイアログで参照の数を出す）` },
-        'レイヤーを削除',
-      );
+    // キー別では全レイヤーの欄が並ぶので、選んでいるレイヤーの見出し（説明と削除）は意味がない。レイヤー別のときだけ出す
+    if (this.mode === 'key') {
+      this.layerInfo.replaceChildren();
+      return;
+    }
+    const remove = h(
+      'button',
+      { type: 'button', class: 'link-button layer-delete', title: `レイヤーのファイル ${layer.file} を消す（確認のダイアログで参照の数を出す）` },
+      'レイヤーを削除',
+    );
     // 名前は重なってよいのでファイルで指す
-    if (remove) remove.addEventListener('click', () => this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, file: layer.file }));
+    remove.addEventListener('click', () => this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, file: layer.file }));
     this.layerInfo.replaceChildren(
       ...nodes(
-        h('h2', {}, `レイヤー ${layerTitle(layer)}`, h('span', { class: 'layer-file' }, layer.file), ...nodes(remove)),
+        h('h2', {}, `レイヤー ${layerTitle(layer)}`, h('span', { class: 'layer-file' }, layer.file), remove),
         layer.description && h('p', { class: 'layer-description' }, layer.description),
       ),
     );

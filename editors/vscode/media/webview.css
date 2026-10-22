@@ -945,7 +945,15 @@ button {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  margin: 4px 0 6px;
+  margin: 4px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-input-border, #555));
+}
+
+/* 編集フォーム全体のモード（レイヤー別 / キー別）であることを見出しで示す */
+.editor-mode-title {
+  margin-right: 6px;
+  font-weight: 600;
 }
 
 .mode-button {

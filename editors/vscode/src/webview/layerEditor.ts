@@ -4,8 +4,8 @@
 // 割り当てのない欄は空白のまま（placeholder を出さない）。キー入力欄の候補の下には「同梱から選ぶ…」（v0.3）。
 // キーの欄のラベルは位置の名前（position_map の名前。紫）で、名前を書いている場所の分かる位置（v0.2 のサーバー）は「名前を変える」で書き換えられる。
 //
-// v0.4（issue #84）: 「キーごと」の並べ方（setPositions）。グループの並びと見出しはレイヤーごとと同じで、位置ごとに位置の名前（紫）の下へ
-// ファイルのあるレイヤーを index の順に「番号 名前」と入力欄の行で並べる。行の欄はレイヤーごとの欄と同じ部品（入力欄・注記・消す・未保存の印）。
+// v0.4（issue #84）: 「キー別」の並べ方（setPositions）。グループの並びと見出しはレイヤー別と同じで、位置ごとに位置の名前（紫）の下へ
+// ファイルのあるレイヤーを index の順に「番号 名前」と入力欄の行で並べる。行の欄はレイヤー別の欄と同じ部品（入力欄・注記・消す・未保存の印）。
 // 図で選んでいるレイヤーの行は current-layer（setCurrentLayer）。「▽ と空欄を畳む」（setFoldQuiet）では、▽ と書いていない行を
 // 今のレイヤー・選んでいる行・未保存の行を除いて隠す。
 import type { Diagnostic } from '../protocol';
@@ -38,14 +38,14 @@ export type FieldView = {
   changed: boolean;
   /** 今の注記（なければ空） */
   note: string;
-  /** v0.4: ▽ か書いていない（キーごとの「畳む」で隠す行） */
+  /** v0.4: ▽ か書いていない（キー別の「畳む」で隠す行） */
   quiet?: boolean;
 };
 
-/** v0.4: キーごとの並べ方の位置 1 つ。slot は見出しに使う欄（位置の名前と名前を書く場所）、rows はレイヤーごとの欄（index の順） */
+/** v0.4: キー別の位置 1 つ。slot は見出しに使う欄（位置の名前と名前を書く場所）、rows はレイヤーごとの欄（index の順） */
 export type PositionSlots = { slot: Slot; rows: { layer: { index: number; name: string }; slot: Slot }[] };
 
-/** 位置の名前を変える欄を出す場所（レイヤーごとなら欄のラベル、キーごとなら位置の見出し） */
+/** 位置の名前を変える欄を出す場所（レイヤー別なら欄のラベル、キー別なら位置の見出し） */
 type RenameTarget = { slot: Slot; labelBox: HTMLElement; element: HTMLElement; rename?: HTMLInputElement };
 
 type Field = {
@@ -60,7 +60,7 @@ type Field = {
   committedNote: string;
   /** 注記を打っている途中 */
   noteEditing: boolean;
-  /** キーごとの行のレイヤー */
+  /** キー別の行のレイヤー */
   layer?: number;
   /** 位置の名前を変える欄を出す場所 */
   target?: RenameTarget;
@@ -74,7 +74,7 @@ export class LayerEditor {
     this.element = h('div', { class: 'layer-editor' });
   }
 
-  /** v0.4: キーごとの並べ方で描いている */
+  /** v0.4: キー別で描いている */
   get byKey(): boolean {
     return this.element.classList.contains('by-key');
   }
@@ -99,7 +99,7 @@ export class LayerEditor {
     }
   }
 
-  /** v0.4: キーごとに並べる。位置の並び・グループの分け方は setSlots と同じ（positions は見出しの欄の position_map の順） */
+  /** v0.4: キー別に並べる。位置の並び・グループの分け方は setSlots と同じ（positions は見出しの欄の position_map の順） */
   setPositions(positions: PositionSlots[]): void {
     this.clear(true);
     for (const hand of ['left', 'right'] as const) {
@@ -115,7 +115,7 @@ export class LayerEditor {
     }
   }
 
-  /** v0.4: 図で選んでいるレイヤーの行を強調する（キーごとの並べ方だけ） */
+  /** v0.4: 図で選んでいるレイヤーの行を強調する（キー別だけ） */
   setCurrentLayer(index: number | undefined): void {
     for (const field of this.fields.values()) {
       field.element.classList.toggle('current-layer', field.layer !== undefined && field.layer === index);
@@ -154,7 +154,7 @@ export class LayerEditor {
     return h('div', { class: 'group' }, h('div', { class: 'group-label' }, label), blocks);
   }
 
-  /** キーごとの位置 1 つ: 位置の名前の見出しと、レイヤーごとの行 */
+  /** キー別の位置 1 つ: 位置の名前の見出しと、レイヤーごとの行 */
   private positionBlock(position: PositionSlots): HTMLElement {
     const { slot } = position;
     const heading = h('span', { class: `position-heading${slot.key ? ' position-label' : ''}`, title: slotLabel(slot) }, slot.label);

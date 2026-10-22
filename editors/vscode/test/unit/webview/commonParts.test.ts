@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
-// v0.5 の画面の共通部品（issue #110 の W0）: 追加の一覧（addMenu.ts）・「…」メニュー（moreMenu.ts）・番号の選択（indexPicker.ts）
+// v0.5 の画面の共通部品（issue #110 の W0）: 追加の一覧（addMenu.ts）・「…」メニュー（moreMenu.ts）。番号の選択（indexPicker.ts）は W2（ADR 025）でやめた
 import { afterEach, describe, expect, it } from 'vitest';
 import { AddMenu, type AddMenuOptions, type AddMenuUnusedItem } from '../../../src/webview/addMenu';
-import { IndexPicker, type IndexPickerOptions, type IndexMode } from '../../../src/webview/indexPicker';
 import { MORE_MENU_LABEL, MoreMenu, type MoreMenuItem } from '../../../src/webview/moreMenu';
 import { presetEntries } from '../../../src/webview/presetPicker';
 import * as data from '../../fake-server/fixtures';
@@ -184,7 +183,7 @@ describe('追加の一覧（AddMenu）', () => {
 
 describe('「…」メニュー（MoreMenu）', () => {
   const ITEMS: MoreMenuItem[] = [
-    { id: 'index', label: '番号を変える…' },
+    { id: 'index', label: '並び替え' },
     { id: 'unuse', label: '未使用にする', disabled: true, reason: '使っているレイヤーが 1 つだけです' },
     { id: 'rename', label: '名前を変える' },
     { separator: true },
@@ -215,7 +214,7 @@ describe('「…」メニュー（MoreMenu）', () => {
     const { menu, selected } = mount();
     menu.button.click();
     const items = [...menu.element.querySelectorAll<HTMLButtonElement>("[role='menuitem']")];
-    expect(items.map((item) => item.querySelector('.more-menu-label')?.textContent)).toEqual(['番号を変える…', '未使用にする', '名前を変える', '削除…']);
+    expect(items.map((item) => item.querySelector('.more-menu-label')?.textContent)).toEqual(['並び替え', '未使用にする', '名前を変える', '削除…']);
     expect(menu.element.querySelectorAll("[role='separator']")).toHaveLength(1);
     expect(items[3]!.classList.contains('danger')).toBe(true);
     const disabled = items[1]!;
@@ -271,103 +270,38 @@ describe('「…」メニュー（MoreMenu）', () => {
     expect(menu.isOpen).toBe(false);
     expect(menu.button.getAttribute('aria-expanded')).toBe('false');
   });
-});
 
-describe('番号の選択（IndexPicker）', () => {
-  function mount(overrides: Partial<IndexPickerOptions> = {}) {
-    const confirmed: [number, IndexMode][] = [];
-    let closed = 0;
-    const back = document.createElement('button');
-    document.body.append(back);
-    const picker = new IndexPicker({
-      noun: 'レイヤー',
-      name: '数字',
-      current: 1,
-      limit: 10,
-      used: new Map([
-        [0, '基本'],
-        [1, '数字'],
-        [2, '記号'],
-      ]),
-      onConfirm: (target, mode) => confirmed.push([target, mode]),
-      onClose: () => closed++,
-      returnFocus: back,
-      ...overrides,
-    });
-    document.body.append(picker.element);
-    return { picker, confirmed, back, closed: () => closed };
-  }
-
-  function slot(picker: IndexPicker, index: number): HTMLButtonElement {
-    return picker.element.querySelector<HTMLButtonElement>(`[data-index='${index}']`)!;
-  }
-
-  function confirmButton(picker: IndexPicker): HTMLButtonElement {
-    return picker.element.querySelector<HTMLButtonElement>("[data-focus='index-confirm']")!;
-  }
-
-  it('0〜上限-1 の番号を「今」「使っている（名前）」「空き」で並べ、今の番号は選べない', () => {
-    const { picker } = mount();
-    const states = texts(picker.element.querySelectorAll('.index-picker-state'));
-    expect(states).toHaveLength(10);
-    expect(states.slice(0, 4)).toEqual(['使っている（基本）', '今', '使っている（記号）', '空き']);
-    expect(slot(picker, 1).disabled).toBe(true);
-    expect(confirmButton(picker).disabled).toBe(true);
-  });
-
-  it('空きを選べば移動、使っている番号なら入れ替えと分かる文と決定ボタン', () => {
-    const { picker, confirmed, back, closed } = mount();
-    slot(picker, 5).click();
-    expect(picker.element.querySelector('.index-picker-plan')?.textContent).toBe('レイヤー「数字」を番号 1 から 5 に移します。');
-    expect(confirmButton(picker).textContent).toBe('移動する');
-    expect(slot(picker, 5).getAttribute('aria-checked')).toBe('true');
-    slot(picker, 2).click();
-    expect(picker.element.querySelector('.index-picker-plan')?.textContent).toBe('レイヤー「数字」（番号 1）と「記号」（番号 2）の番号を入れ替えます。');
-    expect(confirmButton(picker).textContent).toBe('入れ替える');
-    expect(slot(picker, 5).getAttribute('aria-checked')).toBe('false');
-    confirmButton(picker).click();
-    expect(confirmed).toEqual([[2, 'swap']]);
-    expect(picker.element.isConnected).toBe(false);
-    expect(document.activeElement).toBe(back);
-    expect(closed()).toBe(1);
-  });
-
-  it('注意は文字列か、選んだ番号と移動か入れ替えかに応じた関数で渡せる', () => {
-    const { picker } = mount({
-      note: (target, mode, other) => `MO(n) などの参照は書き換えないので、MO(${target}) で出るのは「${mode === 'swap' ? other : '数字'}」の中身になります`,
-    });
-    const note = picker.element.querySelector<HTMLElement>('.index-picker-note')!;
-    expect(note.hidden).toBe(true);
-    slot(picker, 0).click();
-    expect(note.hidden).toBe(false);
-    expect(note.textContent).toBe('MO(n) などの参照は書き換えないので、MO(0) で出るのは「基本」の中身になります');
-
-    const macro = mount({ noun: 'マクロ', limit: 32, note: '番号の参照も書き換えます' }).picker;
-    expect(macro.element.querySelectorAll('.index-picker-slot')).toHaveLength(32);
-    macro.element.querySelector<HTMLButtonElement>("[data-index='31']")!.click();
-    expect(macro.element.querySelector('.index-picker-note')?.textContent).toBe('番号の参照も書き換えます');
-  });
-
-  it('矢印で選べる番号を動いて選び（今の番号は飛ばす）、Escape と「やめる」で閉じる', () => {
-    const { picker, confirmed, back, closed } = mount();
-    picker.focus();
-    expect((document.activeElement as HTMLElement).dataset.index).toBe('2');
-    keydown(document.activeElement!, 'ArrowUp');
-    expect(picker.selected).toBe(0);
-    keydown(document.activeElement!, 'ArrowUp');
-    expect(picker.selected).toBe(9);
-    keydown(document.activeElement!, 'Home');
-    keydown(document.activeElement!, 'ArrowRight');
-    expect(picker.selected).toBe(2);
+  it('W2: open の at（右クリックの位置）を渡すと画面に固定してその位置に出し、returnFocus の先にフォーカスを戻す', () => {
+    const tab = document.createElement('button');
+    document.body.append(tab);
+    const menu = new MoreMenu({ items: () => ITEMS, onSelect: () => {}, returnFocus: () => tab });
+    menu.button.hidden = true;
+    document.body.append(menu.element);
+    menu.open('first', { x: 40, y: 30 });
+    const list = menu.element.querySelector<HTMLElement>('.more-menu-list')!;
+    expect(list.style.position).toBe('fixed');
+    expect(list.style.left).toBe('40px');
+    expect(list.style.top).toBe('30px');
+    expect(focusedAction()).toBe('index');
     keydown(document.activeElement!, 'Escape');
-    expect(picker.element.isConnected).toBe(false);
-    expect(document.activeElement).toBe(back);
-    expect(confirmed).toEqual([]);
-    expect(closed()).toBe(1);
+    expect(document.activeElement).toBe(tab);
+    // 次にボタンから開くとき（fixed でない）は CSS の置き方に戻す
+    menu.open();
+    expect(list.style.position).toBe('');
+  });
 
-    const again = mount().picker;
-    again.element.querySelector<HTMLButtonElement>("[data-focus='index-cancel']")!.click();
-    expect(again.element.isConnected).toBe(false);
+  it('W2: fixed なら画面に固定して出し、まわりがスクロールしたら閉じる', () => {
+    const { menu } = (() => {
+      const m = new MoreMenu({ items: () => ITEMS, onSelect: () => {}, fixed: true });
+      document.body.append(m.element);
+      return { menu: m };
+    })();
+    menu.button.click();
+    const list = menu.element.querySelector<HTMLElement>('.more-menu-list')!;
+    expect(list.style.position).toBe('fixed');
+    list.dispatchEvent(new Event('scroll'));
+    expect(menu.isOpen).toBe(true);
+    document.body.dispatchEvent(new Event('scroll'));
+    expect(menu.isOpen).toBe(false);
   });
 });
-

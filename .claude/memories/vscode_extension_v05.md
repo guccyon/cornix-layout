@@ -101,3 +101,19 @@
 - 適合テストのデータは、`baseVersions: "AUTO"` と書いたリクエストを流して、返った Change の宛先の版で埋める小さなスクリプト（scratchpad。ProtocolFixtures.prepare / run を使う）で作った。
   `JSON.pretty_generate` で書けば既存のデータと同じ形になる（空の配列は今の json では `[]`）
 - 拡張の偽のサーバー（P2）は reorder のエラー（edit.files）を同じに返すので、`protocolFixtures.test.ts` は直さずに通った
+
+## W2: 項目の横の「…」と右クリック・並び替えモード（ADR 025。Tetsuro の確認で変えた）
+
+- 一覧の行は `button.item-row`（role option）なので、中に「…」のボタンは入れられない。行を `div.item-row-wrap`（role presentation）で包み、行のボタンと `MoreMenu` を並べた。
+  背景（指したとき・選んでいるとき）は行のボタンではなく包みに付ける（「…」の所まで同じ色にするため）。「…」は opacity で隠す（display で隠すとフォーカスできない）
+- 一覧（`.item-list`）は `overflow-y: auto` なので、`MoreMenu` の absolute の一覧は切れる。`MoreMenu` に `fixed`（ボタンの位置から画面に固定して出す。まわりがスクロールしたら閉じる）と
+  `open(focus, at)`（右クリックの位置）と `returnFocus`（閉じたあとのフォーカスの先）を足した。レイヤーのタブの右クリックはボタンを `hidden` にした 1 つの `MoreMenu` を `at` で開き、フォーカスはタブに戻す
+- 右クリックと選んでいない行の「…」は、先にその行を選んでから開く。選ぶと `render` が一覧を作り直してメニューも作り直すので、作り直したあとの行のメニューを `open` する。
+  「…」のクリックは包みの capture で受けて `stopPropagation`（ボタン自身の開く処理を止める）してから選び直す
+- 並び替えモードは画面だけの状態（`reorderFiles` / `layerOrder`）。描くたびに今の使っている項目に合わせる（消えたものを外し、増えたものを末尾に。2 つ未満になったら抜ける）。
+  ⬆⬇ を押すと一覧を作り直すので、押したボタン（端で押せなくなったら反対のボタン）にフォーカスを戻す。確定は並びが今と同じなら送らない。Escape は「やめる」（メニューなどが `preventDefault` した Escape は除く）
+- `hidden` を付けても `display` を持つクラス（`.more-menu` の inline-block、`.reorder-bar` の inline-flex）は消えない。末尾の CSS で `.item-toolbar > [hidden]` などに `display: none !important`
+- 節とタブの並びの「…」は左寄りにあるので、一覧の既定（ボタンの右端にそろえる）では画面の左にはみ出す。`left: 0; right: auto` にした（画面で見て気づいた。単体テストでは分からない）
+- `indexPicker.ts` とそのテスト、`model.ts` の `layerIndexNote`、`ItemSectionMeta.indexNote` を消した。`media/webview.css` の `.index-picker*`・`.item-index-slot`・`.item-header .item-actions` は
+  末尾以外を触らない取り決めなので残した（J で消せる）
+- 画面の確かめは v0.4 のメモの「コンテナで画面を見る」のやり方で、fixture は `fakeHost.ts` と `itemFixtures.ts` を esbuild でまとめて JSON にし、小さな http サーバーから読ませた

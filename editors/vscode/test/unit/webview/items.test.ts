@@ -56,9 +56,9 @@ async function openCreate(root: HTMLElement): Promise<void> {
   root.querySelector<HTMLButtonElement>("[data-add='create']")!.click();
 }
 
-/** 見出しの「…」から操作を選ぶ */
+/** 選んでいる行の「…」から操作を選ぶ */
 function more(root: HTMLElement, action: string): void {
-  button(root, 'more-menu').click();
+  root.querySelector<HTMLButtonElement>('.item-row-wrap.selected .more-menu-button')!.click();
   root.querySelector<HTMLButtonElement>(`.more-menu-item[data-action='${action}']`)!.click();
 }
 

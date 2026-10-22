@@ -3130,3 +3130,136 @@ button.device-diff-row:hover,
 .item-index-slot:empty {
   display: none;
 }
+
+/* ---- v0.5（W2・ADR 025）: 一覧の行の「…」と右クリック、節とタブの並びの「…」の並び替えモード（itemList.ts・app.ts） ---- */
+
+/* hidden を付けた部品は、display を持つクラスがあっても隠す（並び替えモードの「追加」・「…」・確定とやめるの並び） */
+.item-toolbar > [hidden],
+.layer-tabs > [hidden],
+.reorder-bar[hidden],
+.more-menu-button[hidden] {
+  display: none !important;
+}
+
+/* 一覧の 1 行: 行のボタンと、右端の「…」（並び替えモードでは ⬆⬇）。背景は行の入れ物に付ける */
+.item-row-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.item-row-wrap > .item-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.item-row-wrap > .item-row:hover,
+.item-row-wrap > .item-row.selected {
+  background: none;
+}
+
+.item-row-wrap:hover {
+  background: var(--vscode-list-hoverBackground, #8882);
+}
+
+.item-row-wrap.selected {
+  background: var(--vscode-list-inactiveSelectionBackground, #8883);
+  color: var(--vscode-list-inactiveSelectionForeground, inherit);
+}
+
+.item-row-menu {
+  flex: none;
+  margin-right: 2px;
+}
+
+/* 行の「…」は指したとき・選んでいるとき・フォーカスがあるとき・開いているときだけ見せる（フォーカスできるように opacity で隠す） */
+.item-row-menu .more-menu-button {
+  padding: 0 6px;
+  opacity: 0;
+}
+
+.item-row-wrap:hover .item-row-menu .more-menu-button,
+.item-row-wrap.selected .item-row-menu .more-menu-button,
+.item-row-wrap:focus-within .item-row-menu .more-menu-button,
+.item-row-menu .more-menu-button[aria-expanded='true'] {
+  opacity: 1;
+}
+
+/* 並び替えモード */
+.item-section.reordering .item-row-wrap > .item-row {
+  cursor: default;
+}
+
+.item-row-wrap.reordering:hover {
+  background: none;
+}
+
+.item-row-wrap.reordering.selected {
+  background: var(--vscode-list-inactiveSelectionBackground, #8883);
+}
+
+.reorder-buttons {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.reorder-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.reorder-hint {
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* レイヤー: 右クリックのメニューは並びの場所を取らない（一覧は押した位置に固定して出す） */
+.layer-tabs > .layer-tab-menu {
+  display: contents;
+}
+
+/* タブの並びの「…」（「＋」と同じ見た目） */
+.layer-tabs-menu .layer-tab.layer-tabs-more {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border, #555));
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+}
+
+.layer-tabs-menu .layer-tab.layer-tabs-more:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+
+/* 並び替えモードのタブ: ◀ タブ ▶ */
+.layer-tab-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.layer-tabs.reordering .layer-tab {
+  cursor: default;
+}
+
+.layer-tabs.reordering .layer-tab:hover:not(.selected) {
+  background: transparent;
+}
+
+.layer-reorder-bar {
+  margin-left: 6px;
+}
+
+/* 節とタブの並びの「…」は左寄りに置くので、一覧はボタンの左端にそろえる（右端にそろえると画面の左にはみ出す） */
+.item-section-menu .more-menu-list,
+.layer-tabs-menu .more-menu-list {
+  left: 0;
+  right: auto;
+}

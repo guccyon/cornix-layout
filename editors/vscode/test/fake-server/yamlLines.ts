@@ -150,9 +150,45 @@ function parseNoted(text: string): { key: string; note: string | undefined } {
   return { key: match[1] ?? '', note: match[2] };
 }
 
+/**
+ * v0.5（protocol.md の 15.2）: まだない行を足す set。`["index"]` は `name:` の行のあと（なければ先頭の `---` のあと）に `index: N` を足し、
+ * 値のない `index:` には値を書く。`["shortcuts", 名前]` は `shortcuts:` の下の末尾に `名前: 値` を足す。足したら true
+ */
+function addMissing(lines: string[], keyPath: (string | number)[], value: string | number | boolean): boolean {
+  const text = typeof value === 'string' ? quote(value) : String(value);
+  if (keyPath.length === 1 && keyPath[0] === 'index') {
+    const line = keyLine(lines, { start: 0, end: lines.length }, 'index');
+    if (line >= 0) {
+      if (inlineRange(lines[line]!)) return false;
+      lines[line] = `index: ${text}`;
+      return true;
+    }
+    const name = keyLine(lines, { start: 0, end: lines.length }, 'name');
+    const at = name >= 0 ? name + 1 : lines[0]?.trim() === '---' ? 1 : 0;
+    lines.splice(at, 0, `index: ${text}`);
+    return true;
+  }
+  if (keyPath.length === 2 && keyPath[0] === 'shortcuts' && typeof keyPath[1] === 'string') {
+    if (resolve(lines, keyPath)) return false;
+    let head = keyLine(lines, { start: 0, end: lines.length }, 'shortcuts');
+    if (head < 0) {
+      if (lines.at(-1) === '') lines.splice(lines.length - 1, 0, 'shortcuts:');
+      else lines.push('shortcuts:');
+      head = lines.lastIndexOf('shortcuts:');
+    }
+    const region = childRegion(lines, head);
+    let at = region.end;
+    while (at > head + 1 && blank(lines[at - 1]) && !lines[at - 1]!.trim().startsWith('#')) at -= 1;
+    lines.splice(at, 0, `  ${quote(keyPath[1])}: ${text}`);
+    return true;
+  }
+  return false;
+}
+
 /** Change を 1 つ当てる（lines を書き換える）。当てられなければ NotLocal */
 export function applyChange(lines: string[], change: AnyChange): void {
   const op = change.op ?? 'set';
+  if (op === 'set' && addMissing(lines, change.address.path, (change as { value: string | number | boolean }).value)) return;
   const node = resolve(lines, change.address.path);
   if (!node) throw new NotLocal(`${change.address.path.join('.')} が見つかりません`);
   const note = (op === 'set' || op === 'remove') && 'field' in change && change.field === 'note';

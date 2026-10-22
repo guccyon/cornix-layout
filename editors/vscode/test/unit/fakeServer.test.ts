@@ -81,10 +81,11 @@ describe('偽のサーバーの profile/open・keycode/*', () => {
     return { ...server, snapshot: messages[1]?.result as { profileId: string; files: Record<string, string | null> } };
   }
 
-  it('files は設定ファイルの構成のものだけで、settings/qmk_settings.yaml がなければ null', async () => {
+  it('files は設定ファイルの構成のものだけで、settings/qmk_settings.yaml・shortcuts.yaml がなければ null', async () => {
     const { snapshot } = await opened();
-    expect(Object.keys(snapshot.files).sort()).toEqual(['layers/0_base.yaml', 'metadata.yaml', 'settings/qmk_settings.yaml']);
+    expect(Object.keys(snapshot.files).sort()).toEqual(['layers/0_base.yaml', 'metadata.yaml', 'settings/qmk_settings.yaml', 'shortcuts.yaml']);
     expect(snapshot.files['settings/qmk_settings.yaml']).toBeNull();
+    expect(snapshot.files['shortcuts.yaml']).toBeNull();
   });
 
   it('candidates の limit は 1 未満なら 1、query は前後の空白を除いて読む（typed の text は送ったまま）', async () => {
@@ -199,7 +200,7 @@ describe('偽のサーバーの profile/validate・planEdits・saved・didChange
     try {
       fs.mkdirSync(path.join(root, 'profiles/default/layers'), { recursive: true });
       fs.writeFileSync(path.join(root, 'profiles/default/metadata.yaml'), 'keyboard: cornix\n');
-      fs.writeFileSync(path.join(root, 'profiles/default', base), 'name: Base\nmapping:\n  left_hand:\n    row0:\n      Q: Tab\n');
+      fs.writeFileSync(path.join(root, 'profiles/default', base), 'name: Base\nindex: 0\nmapping:\n  left_hand:\n    row0:\n      Q: Tab\n');
       const server = start(root);
       server.send({ id: 1, method: 'initialize', params: { protocolVersion: '0.4', clientInfo: { name: 't', version: '0' } } });
       server.send({ id: 2, method: 'profile/open', params: { dir: 'profiles/default' } });

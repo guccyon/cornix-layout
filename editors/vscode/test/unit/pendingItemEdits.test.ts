@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { recordEdit, type EditContext } from '../../src/editor/editHistory';
 import { describeUnuse, itemEditErrorMessage, itemEditTitle, pendingItemEditLabel } from '../../src/editor/itemEdits';
 import { PendingChanges, snapshotValueAt, type SavedValue } from '../../src/editor/pendingChanges';
-import { describeAddress, describeChange, rebaseChanges } from '../../src/editor/rebase';
+import { describeAddress, describeChange, rebaseChanges, structureErrors } from '../../src/editor/rebase';
 import { arrangeItems, indexAddress, snapshotItems } from '../../src/itemIndex';
 import { ErrorCodes, type Address, type AnyChange, type PlanEditsResult, type PlanItemEditResult, type ProfileSnapshot, type TextEdit } from '../../src/protocol';
 import { readMessages, runFakeServer } from '../fake-server/server';
@@ -238,6 +238,13 @@ describe('取り出す → 元に戻す → やり直す → 保存', () => {
       })).result as PlanItemEditResult;
       const edit = recordEdit(doc.context, plan.changes!)!;
       expect(doc.changes.list()).toEqual([{ address: SHORTCUT('次のタブへ'), value: 'Command + Shift + ]' }]);
+      // 保存できる（runSave は planEdits の構造の error が増えれば止める）
+      const edits = (await server.call('profile/planEdits', {
+        profileId: server.snapshot.profileId,
+        baseVersions: doc.changes.baseVersions(server.snapshot.files),
+        changes: doc.changes.list(),
+      })).result as PlanEditsResult;
+      expect(structureErrors(edits.diagnostics, server.snapshot.diagnostics)).toEqual([]);
       edit.undo();
       expect(doc.changes.list()).toEqual([]);
     } finally {

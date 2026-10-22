@@ -14,3 +14,5 @@
 - 確認のダイアログは unuse で references があるときだけ（`describeUnuse`。文は「未保存の変更に積みます」で、「すぐにファイルに書きます」は出さない）。編集の名前は `pendingItemEditLabel`（「レイヤー iPad Base を使い始める」）。
   番号の操作はファイルで指すので、見出しの名前は snapshot（使っているもの・未使用のもの）から引いて `itemEditTitle(edit, name)` に渡す
 - 統合テストはコンテナでは今も走らない（update.code.visualstudio.com がプロキシで JSON を返さない）。足した 2 つ（ショートカットの追加の undo → redo → 保存、未保存の変更があるときの unuse の確認）は CI で見る
+- 偽のサーバーの表記の解釈は fixtures.ts の表にある文字列だけを読む（ない表記は構造の error）。統合テストで保存まで通す値は表にあるものにするか表に足す。
+  `Command + Shift + ]` が表になく、planEdits が構造の error を返して runSave が止まり、CI の統合テストが「保存 を待ちきれませんでした」で落ちた。単体テストでも planEdits の `structureErrors` が空であることまで確かめると、コンテナで気づける

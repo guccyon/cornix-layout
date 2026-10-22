@@ -34,13 +34,21 @@ RSpec.describe Cornix::Application::Serialize do
   end
 
   describe Cornix::Application::ValidationReport do
-    it 'to_h は { ok, diagnostics }。警告だけなら ok は真で、errors / warnings は表示用の文字列' do
+    it 'to_h は { ok, diagnostics, unused }。警告だけなら ok は真で、errors / warnings は表示用の文字列' do
       report = described_class.new(diagnostics: [warning])
-      expect(report.to_h).to eq('ok' => true, 'diagnostics' => Cornix::Application::Serialize.diagnostics([warning]))
+      expect(report.to_h).to eq('ok' => true, 'diagnostics' => Cornix::Application::Serialize.diagnostics([warning]),
+                                'unused' => [])
       expect(report.warnings).to eq(['macros/: 多い'])
       failed = described_class.new(diagnostics: [error, Cornix::Domain::Diagnostic.error('', 'path なし')])
       expect(failed.to_h['ok']).to be(false)
       expect(failed.errors).to eq(['layers/0_base.yaml: mapping.left_hand.row0.tab: 壊れている', 'path なし'])
+    end
+
+    it 'unused は未使用のファイル（kind・file・name）' do
+      unused = Cornix::Storage::UnusedFile.new(kind: :macros, file: 'macros/spare.yaml', name: 'Spare')
+      report = described_class.new(unused: [unused])
+      expect(report.to_h['unused']).to eq([{ 'kind' => 'macros', 'file' => 'macros/spare.yaml', 'name' => 'Spare' }])
+      expect(report.unused_files).to eq(['macros/spare.yaml'])
     end
   end
 end

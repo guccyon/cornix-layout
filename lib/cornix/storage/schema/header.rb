@@ -5,9 +5,13 @@ module Cornix
     module Schema
       # マクロ・タップダンスのファイルから名前と番号だけを読む（問題は記録しない）。
       # Macro('名前') / TapDance('名前') の対応表（Mapping::References）を、各ファイルを読み終える前に作るため。
-      # 名前や番号が正しくないファイルは対応表に入れない（その問題はファイルを読むときに報告される）
+      # 名前や番号が正しくないファイルは対応表に入れない（その問題はファイルを読むときに報告される）。
+      # index: のキーがないか値が空（null）のファイルは未使用（unused?。compile に含めない。issue #85）
       module Header
         module_function
+
+        # 未使用のファイルの中身か（マッピングで、index がないか null）。マッピングでなければ偽（読むときに問題になる）
+        def unused?(data) = data.is_a?(Hash) && data['index'].nil?
 
         # → [名前, 番号] または nil
         def call(data, preset: false)

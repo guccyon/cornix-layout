@@ -115,11 +115,16 @@ module Cornix
           return shortcut(name, refs) if function == 'Shortcut'
 
           if function == 'Macro'
-            index = refs.macro_index(name) or fail!("マクロ「#{name}」が見つかりません")
+            index = refs.macro_index(name) or fail!(missing_reference('マクロ', name, refs.unused_macro?(name)))
           else
-            index = refs.tap_dance_index(name) or fail!("タップダンス「#{name}」が見つかりません")
+            index = refs.tap_dance_index(name) or fail!(missing_reference('タップダンス', name, refs.unused_tap_dance?(name)))
           end
           reference_class(function).new(index: index)
+        end
+
+        # 未使用のもの（index のないファイル）は compile に含めないので引けない
+        def missing_reference(what, name, unused)
+          unused ? "#{what}「#{name}」は未使用です（ファイルに index がありません）" : "#{what}「#{name}」が見つかりません"
         end
 
         # Shortcut('名前') は shortcuts.yaml（なければ同梱の data/shortcuts/）の定義の Keycode そのもの

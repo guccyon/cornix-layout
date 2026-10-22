@@ -4,23 +4,35 @@ require_relative 'problems'
 require_relative 'yaml_file'
 require_relative 'config_files'
 require_relative 'file_source'
+require_relative 'unused_file'
 
 module Cornix
   module Storage
-    # 設定ディレクトリを読んで Domain::Profile を作る（ConfigRepository#load の中身）。
+    # 設定ディレクトリを読んで Domain::Profile を作る（ConfigRepository#load / #load_all の中身）。
     #
-    # 読む順: metadata → position_map → macros（preset: は同梱のショートカットの手順にする）→ tap_dance → shortcuts（ここで Macro('名前') / TapDance('名前') /
-    # Shortcut('名前') の対応表 Mapping::References を作る。Shortcut('名前') は shortcuts.yaml になければ同梱の
-    # ショートカット（Mapping::ShortcutCatalog）を引く）→ settings → layers → combos。
+    # 読む順: metadata → position_map → layers / macros / tap_dance / combos の YAML（ここで使っているものと未使用のものに分ける）→
+    # shortcuts（ここで Macro('名前') / TapDance('名前') / Shortcut('名前') の対応表 Mapping::References を作る。Shortcut('名前') は
+    # shortcuts.yaml になければ同梱のショートカット（Mapping::ShortcutCatalog）を引く）→ macros（preset: は同梱のショートカットの手順にする）→
+    # tap_dance → settings → layers → combos の中身 → 未使用のファイルの中身。
+    # YAML として読めない・マッピングでないファイルは未使用か分からないので、使っているほうに数える（今までどおりエラー）。
     # キーコードの文字列は KeycodeNotation#parse で 1 回だけ解析する。
     # 問題はすべて集めて最後に 1 つの InvalidConfig にする（「ファイル: キーの位置: 内容」）。
     # ファイルは source（FileSource）から読む。既定はディスクの dir で、FileSource::Overlay を渡すと保存前の中身で読む。
     #
+    # 番号は各ファイルの index: だけで決める（ファイル名の先頭の番号は読まない）。
+    # index: のないか値が空（null）のファイルは未使用（Schema::Header.unused?。issue #85）: Profile に入れず、
+    # 構造だけを同じ読み方で検証して UnusedFile にする（その問題は compile を止めない）。名前の参照は使っているものだけを引く。
+    #
     # load_partial（エディタ用）: 問題が解析できないキーコードだけなら、その割り当てを NoKey にして Profile を作り、
-    # 問題と一緒に返す（Partial）。ほかの問題があれば load と同じく InvalidConfig
+    # 問題と一緒に返す（Partial）。ほかの問題があれば load と同じく InvalidConfig。未使用のファイルは代わりの値にせず、問題は unused に入れる
     class ConfigLoader
-      # profile は作れた Domain::Profile、problems は代わりの値（NoKey）にした問題（なければ空）
-      Partial = Data.define(:profile, :problems)
+      # 読んだ結果。unused は未使用のファイル（UnusedFile。種類の順、ファイル名の順）
+      Loaded = Data.define(:profile, :unused)
+      # profile は作れた Domain::Profile、problems は代わりの値（NoKey）にした問題（なければ空）、unused は Loaded と同じ
+      Partial = Data.define(:profile, :problems, :unused)
+
+      # 未使用のファイルの構造を検証するときに仮に入れる番号（どの種類でも範囲内）
+      PLACEHOLDER_INDEX = 0
 
       def initialize(dir, notation:, settings_catalog:, shortcut_catalog:, source: FileSource::Disk.new(dir))
         @dir = dir
@@ -31,12 +43,15 @@ module Cornix
         @problems = Problems.new
         @recover = nil
         @recovered = []
+        @unused = []
       end
 
-      def load
+      def load = load_all.profile
+
+      def load_all
         profile = read_profile
-        @problems.raise_if_any!
-        profile.call
+        @problems.raise_if_any!(unused: @unused)
+        Loaded.new(profile: profile.call, unused: @unused)
       end
 
       def load_partial
@@ -45,36 +60,41 @@ module Cornix
           Domain::Keycode::NO_KEY
         end
         profile = read_profile
-        @problems.raise_if_any! unless @problems.size == @recovered.size
-        Partial.new(profile: profile.call, problems: @recovered.dup.freeze)
+        @problems.raise_if_any!(unused: @unused) unless @problems.size == @recovered.size
+        Partial.new(profile: profile.call, problems: @recovered.dup.freeze, unused: @unused)
       rescue InvalidConfig => e
         raise if @recovered.empty? || e.problems.size > 1 || e.problems.first&.file
 
         # 代わりの値で組み立てられなかった（Profile の規則）。読めない値の問題と一緒に報告する
-        raise InvalidConfig, @recovered + e.problems
+        raise InvalidConfig.new(@recovered + e.problems, unused: @unused)
       end
 
       private
 
-      # すべてのファイルを読み、Profile を作る手続きを返す（問題は @problems に集める）
+      # すべてのファイルを読み、Profile を作る手続きを返す（問題は @problems に、未使用のファイルは @unused に集める）
       def read_profile
         raise ConfigError.new('設定ディレクトリがありません', path: @dir) unless @source.directory?
 
         metadata = load_single(ConfigFiles::METADATA) { |data, ctx| Schema::MetadataFile.read(data, ctx) }
         position_map = load_single(ConfigFiles::POSITION_MAP) { |data, ctx| Schema::PositionMapFile.read(data, ctx) }
-        macro_files = read_files(:macros)
-        tap_dance_files = read_files(:tap_dances)
-        shortcuts = load_shortcuts(keycode_field(build_references(macro_files, tap_dance_files)))
-        keycodes = keycode_field(build_references(macro_files, tap_dance_files, shortcuts))
-        macros = load_macros(macro_files)
-        tap_dances = load_items(tap_dance_files, keycodes) { |d, c, k| Schema::TapDanceFile.read(d, c, k) }
+        files = ConfigFiles::KINDS.keys.to_h { |kind| [kind, read_files(kind).partition { |_, d| !Schema::Header.unused?(d) }] }
+        used = files.transform_values(&:first)
+        unused = files.transform_values(&:last)
+        shortcuts = load_shortcuts(keycode_field(build_references(used, unused)))
+        references = build_references(used, unused, shortcuts)
+        readers = readers(keycode_field(references), keycode_field, position_map)
+        macros = load_items(used[:macros], &readers[:macros])
+        tap_dances = load_items(used[:tap_dances], &readers[:tap_dances])
         settings = load_settings
-        layers = position_map ? load_layers(keycodes, position_map) : []
-        combos = load_items(read_files(:combos), keycodes) { |d, c, k| Schema::ComboFile.read(d, c, k) }
+        layers = position_map ? load_items(used[:layers], &readers[:layers]) : []
+        combos = load_items(used[:combos], &readers[:combos])
+        # 未使用のファイルは代わりの値にしない（問題はその UnusedFile に入れる）
+        strict = readers(Schema::KeycodeField.new(@notation, references), Schema::KeycodeField.new(@notation), position_map)
+        @unused = unused.flat_map { |kind, list| check_unused(kind, list, strict[kind]) }.freeze
 
         lambda do
           build_profile(metadata: metadata, settings: settings, position_map: position_map, layers: layers,
-                        macros: macros, tap_dances: tap_dances, combos: combos, shortcuts: shortcuts)
+                        macros: macros, tap_dances: tap_dances, combos: combos, shortcuts: shortcuts, unused: @unused)
         end
       end
 
@@ -82,10 +102,10 @@ module Cornix
         Schema::KeycodeField.new(@notation, references, recover: @recover)
       end
 
-      def build_profile(**parts)
+      def build_profile(unused:, **parts)
         Domain::Profile.new(**parts)
       rescue InvalidValue => e
-        raise InvalidConfig, [Problem.new(file: nil, message: e.message)]
+        raise InvalidConfig.new([Problem.new(file: nil, message: e.message)], unused: unused)
       end
 
       # ---- 1 つだけのファイル ----
@@ -135,12 +155,15 @@ module Cornix
         end
       end
 
-      # shortcuts を渡したときだけ同梱のショートカットも引けるようにする（shortcuts.yaml の値には Shortcut(...) を書けないため）
-      def build_references(macro_files, tap_dance_files, shortcuts = nil)
-        Mapping::References.new(macros: names(macro_files, preset: true), tap_dances: names(tap_dance_files),
+      # shortcuts を渡したときだけ同梱のショートカットも引けるようにする（shortcuts.yaml の値には Shortcut(...) を書けないため）。
+      # 名前で引けるのは使っているものだけ。未使用のものの名前は「未使用です」の案内のためだけに渡す
+      def build_references(used, unused, shortcuts = nil)
+        Mapping::References.new(macros: names(used[:macros], preset: true), tap_dances: names(used[:tap_dances]),
                                 shortcuts: shortcuts&.entries,
                                 preset_shortcuts: shortcuts ? @shortcut_catalog.library(@notation).entries : {},
-                                preset_macros: @shortcut_catalog.macro_names)
+                                preset_macros: @shortcut_catalog.macro_names,
+                                unused_macros: unused_names(unused[:macros], preset: true),
+                                unused_tap_dances: unused_names(unused[:tap_dances]))
       end
 
       # 名前 => 番号（名前が重複していれば先のもの。重複は Profile#diagnostics が報告する）
@@ -149,31 +172,37 @@ module Cornix
              .each_with_object({}) { |(name, index), h| h[name] = index unless h.key?(name) }
       end
 
-      # マクロのキーは名前参照を使わない（旧 Macro と同じ）。preset: は同梱のショートカットの手順にする
-      def load_macros(files)
+      def unused_names(files, preset: false)
+        files.filter_map { |_, data| Schema::Header.name_of(data, preset: preset) }.grep(String)
+      end
+
+      # 種類 => 1 ファイルを読む手続き（data, ctx → 値オブジェクト。問題があれば nil）。
+      # マクロのキーは名前参照を使わない（旧 Macro と同じ）。preset: は同梱のショートカットの手順にする。
+      # position_map が読めなければレイヤーは読まない（nil）
+      # macro_keys はマクロの手順のキー（名前参照を使わない）
+      def readers(keycodes, macro_keys, position_map)
         presets = Schema::MacroFile::Presets.new(catalog: @shortcut_catalog, notation: @notation)
-        load_items(files, keycode_field) { |d, c, k| Schema::MacroFile.read(d, c, k, presets) }
+        {
+          macros: ->(data, ctx) { Schema::MacroFile.read(data, ctx, macro_keys, presets) },
+          tap_dances: ->(data, ctx) { Schema::TapDanceFile.read(data, ctx, keycodes) },
+          layers: position_map && ->(data, ctx) { Schema::LayerFile.read(data, ctx, keycodes, position_map) },
+          combos: ->(data, ctx) { Schema::ComboFile.read(data, ctx, keycodes) }
+        }
       end
 
-      def load_items(files, keycodes)
-        files.filter_map { |rel, data| yield(data, context(rel), keycodes) }
+      def load_items(files, &reader)
+        files.filter_map { |rel, data| reader.call(data, context(rel)) }
       end
 
-      def load_layers(keycodes, position_map)
-        read_files(:layers).filter_map do |rel, data|
-          ctx = context(rel)
-          layer = Schema::LayerFile.read(data, ctx, keycodes, position_map)
-          check_layer_number(rel, layer, ctx) if layer
-          layer
+      # 未使用のファイルを、仮の番号を入れて使っているものと同じ読み方で読み、問題をファイルごとに集める。
+      # 読み方がなければ（position_map が読めないレイヤー）問題なしとする（position_map の問題が先に出る）
+      def check_unused(kind, files, reader)
+        files.map do |rel, data|
+          problems = Problems.new
+          reader&.call(data.merge('index' => PLACEHOLDER_INDEX), Schema::Context.new(rel, problems))
+          UnusedFile.new(kind: kind, file: rel, name: Schema::Header.name_of(data, preset: kind == :macros),
+                         problems: problems.to_a)
         end
-      end
-
-      # ファイル名の先頭の番号（3_symbols.yaml の 3）と index が違えば問題にする
-      def check_layer_number(rel, layer, ctx)
-        number = ConfigFiles.leading_number(rel)
-        return if number.nil? || number == layer.index
-
-        ctx.problem('index', "ファイル名の番号（#{number}）と index（#{layer.index}）が違います")
       end
 
       # ---- 共通 ----

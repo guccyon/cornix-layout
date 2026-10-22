@@ -32,6 +32,7 @@
   - [snapshots](memories/snapshots.md) - スナップショットの履歴（issue #25）で決めたこと（latest の扱い、種類 backup、restore の既定、古いものの削除、device_backups の扱い）とテストの注意
   - [vscode_extension_v02](memories/vscode_extension_v02.md) - VS Code 拡張 v0.2 の作業の知見（コンテナでの rspec の動かし方と統合テストが CI でしか走らない件、偽のサーバーの注意、並列の PR の進め方、planItemEdit の解釈、未保存の変更の並びと畳み方）
   - [empty_layers](memories/empty_layers.md) - 空のレイヤーのファイルの省略（#83）: compile の埋め方、decompile が書かない条件、authors の空のレイヤーの落とし穴
+  - [unused_files](memories/unused_files.md) - 未使用のファイルとファイル名の番号（#85）: 未使用の判定、load_all と UnusedFile、項目とファイルの対応をずらさない場所
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---
@@ -111,7 +112,7 @@ Device          HidBridge / Protocol / Session / Reader / Planner / Writer
 ```
 compile    config/ ─ConfigRepository→ Profile ─ProfileMapper→ DeviceImage ─VilFile→ tmp/build/layout.vil
 decompile  layout.vil ─VilFile→ DeviceImage ─ProfileMapper→ Profile ─ConfigRepository→ config/
-validate   ConfigRepository#load（構造検証）→ Profile#diagnostics（意味検証）
+validate   ConfigRepository#load_all（構造検証。未使用のファイルは警告）→ Profile#diagnostics（意味検証）
 device     layout.vil → DeviceImage（目標）、実機 ─Reader→ DeviceImage（現在）→ ImageDiff → Plan(token) → Writer → 読み直して検証
 ```
 

@@ -12,21 +12,29 @@
    - 値オブジェクトの生成時の `Cornix::InvalidValue`（`Domain::Checks`）
    - 問題は止まらずに `Storage::Problems` に集め、最後に `Storage::InvalidConfig(problems)` を 1 回送出する。
      表示は `ファイル: キーの位置: 内容`（`Storage::Problem#to_s`）
+   - 番号は `index:` だけで決まる。ファイル名の先頭の番号と `index:` の一致は検査しない（番号を入れ替えてファイル名はそのまま、を許す）
+   - 未使用のファイル（`index:` のないか値が空のもの。[domain-model.md](domain-model.md) の 9）も同じ形式で検査するが、
+     問題は `Storage::UnusedFile#problems` に分けて集め、`InvalidConfig` にしない（`InvalidConfig#unused` にも持たせる）。
+     YAML として読めない・マッピングでないファイルは未使用か判定できないので、今までどおり error
 2. **意味検証**（`Profile#diagnostics(env.capabilities)` → `Domain::ProfileDiagnostics`。`Application::Environment#capabilities` は
    `Capabilities::CORNIX` に `KeycodeCatalog#unsupported_keycodes` を足したもの）
    - 件数の上限（レイヤー 10、マクロ・タップダンス・コンボ 32、コンボのトリガー 4）
    - 番号・名前の重複、参照先（M(n) / TD(n)）の存在、レイヤー番号の範囲
-   - レイヤーの途中の番号の抜けは許す（compile が KC_NO で埋める）
+   - 番号の抜けは 4 種類とも許す（compile が空のデータで埋める。#83 の実機の確認で番号はずれない）
+   - 未使用のファイルは対象外（`Profile` に入らない）
    - 警告: レイヤー 0（ベース）がない、定義されていないレイヤーを指す MO(n) など、
      Cornix が対応していないとみられる特殊キー（data/unsupported_keycodes.yaml。QK_REPEAT_KEY、USER08 以降など）、
      押せないコンボ（下の「押せないコンボ」）
    - `Domain::Diagnostic(severity, path, message)` の path（`layers[0].left_hand.row0.tab` の形）は
      `Storage::DiagnosticLocator` がファイル上の位置に直す
 
-`Application::Validate` が両方をまとめて `ValidationReport(diagnostics:, profile:)` を返す（`Domain::Diagnostic` の一覧で、path はファイル上の位置。構造検証の問題は error にする）。
-`#errors` / `#warnings` は表示用の「ファイル: キーの位置: 内容」の文字列、`#to_h` は `--json` と MCP 用の `{ ok, diagnostics }`。
+`Application::Validate` が両方をまとめて `ValidationReport(diagnostics:, profile:, unused:)` を返す（`Domain::Diagnostic` の一覧で、path はファイル上の位置。構造検証の問題は error、
+未使用のファイルの構造の問題は warning にし、message の末尾に「（未使用のファイルなので compile に含めません）」を付ける）。
+`#errors` / `#warnings` は表示用の「ファイル: キーの位置: 内容」の文字列、`#unused_files` は未使用のファイルの相対パス、
+`#to_h` は `--json` と MCP 用の `{ ok, diagnostics, unused: [{ kind, file, name }] }`。
 config/ がなければ `Application::ConfigNotFound`。表示は `Interface::Cli::ConfigMessages#print_report`
-（`✓ All validations passed` / `✗ Validation failed:` + `  Error: ...`）。警告だけなら compile は続行する。
+（`✓ All validations passed` / `✗ Validation failed:` + `  Error: ...`、未使用のファイルがあれば最後に `ℹ  Unused files (no index, not compiled): N` と一覧）。警告だけなら compile は続行する。
+拡張（`cornix serve`）の問題の一覧も同じで、未使用のファイルの構造の問題は `source: "structure"` の warning（`Application::Editor::Diagnostics`。プロファイルは開ける）。
 
 **エディタ（`cornix serve`）の例外**: `Storage::ConfigRepository#load_partial` は、構造検証の問題が解析できないキーコード
 （`KC_FOOO`、ない名前の `Macro('…')` など。`Schema::KeycodeField` の `UnknownKeycode`）だけなら、その割り当てを `NoKey` にして
@@ -41,6 +49,8 @@ Error: layers/1_layer.yaml: mapping.left_hand.row0.tab: キーコード「Spce�
 Error: layers/1_layer.yaml: mapping.left_hand.row1.capz: position_map の left_hand.row1 にないキーです（使えるキー: ...）
 Error: layers/2_layer.yaml: index: レイヤーの番号が重複しています: 2
 Error: macros/01_macro.yaml: name: マクロの名前が重複しています: Macro 0
+Error: combos/00_combo.yaml: output_key: キーコード「Macro('Spare')」を解釈できません: マクロ「Spare」は未使用です（ファイルに index がありません）
+Warning: macros/spare.yaml: sequence[0].keys[0]: キーコード「Nope」を解釈できません: 「Nope」は不明なキーコードです（未使用のファイルなので compile に含めません）
 Error: layers/1_layer.yaml: mapping.left_hand.row0.T: マクロ M40 が定義されていません
 Error: layers/: レイヤーは 10 枚までです: 11 枚
 Warning: combos/03_combo.yaml: trigger_keys: 押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）

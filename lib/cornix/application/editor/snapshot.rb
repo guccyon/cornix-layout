@@ -49,6 +49,10 @@ module Cornix
           head.merge(body, diagnostics: diagnostics)
         end
 
+        # [項目, Profile の中の位置] を index の順に（同じ番号なら Profile の順）。位置は ConfigRepository#address に使う。
+        # ファイル名の接頭辞は index と違ってよいので（issue #85）、Profile の順（ファイル名の順）のままだと番号の順にならない
+        def self.by_index(items) = items.each_with_index.sort_by { |item, i| [item.index, i] }
+
         private
 
         # 読めない値（ProfileReading の説明。代わりに NoKey で読んだ割り当て）は、書いてある表記をそのまま図と欄に出す
@@ -86,7 +90,7 @@ module Cornix
           {
             metadata: profile.metadata.to_h,
             positionMap: position_map(profile.position_map, reading),
-            layers: profile.layers.each_with_index.map { |layer, i| layer(layer, i, profile.position_map, reading, values) },
+            layers: self.class.by_index(profile.layers).map { |layer, i| layer(layer, i, profile.position_map, reading, values) },
             settings: settings(env.settings_catalog, profile.settings, reading),
             references: references(profile, reading, values),
             **Items.new(reading: reading, values: values, description: description).to_h
@@ -165,9 +169,9 @@ module Cornix
         def references(profile, reading, values)
           shortcuts_doc = reading.shortcuts_file && reading.document(reading.shortcuts_file)
           {
-            layers: profile.layers.map { |layer| { index: layer.index, name: layer.name } },
-            macros: profile.macros.map { |m| { index: m.index, name: m.name, icon: values.macro_icon(m) } },
-            tapDances: profile.tap_dances.map { |t| { index: t.index, name: t.name } },
+            layers: self.class.by_index(profile.layers).map { |layer, _| { index: layer.index, name: layer.name } },
+            macros: self.class.by_index(profile.macros).map { |m, _| { index: m.index, name: m.name, icon: values.macro_icon(m) } },
+            tapDances: self.class.by_index(profile.tap_dances).map { |t, _| { index: t.index, name: t.name } },
             shortcuts: profile.shortcuts.entries.map do |name, keycode|
               { name: name, text: shortcuts_doc&.scalar(['shortcuts', name]) || values.plain(keycode) }
             end

@@ -175,7 +175,8 @@ RSpec.describe 'cornix --json（キーボードのコマンド）' do
       compile_failure = ->(_env) { ->(**) { Cornix::Application::CompileResult.new(report: failed) } }
       expect(cornix('status', '--json', use_cases: { compile: compile_failure })).to eq(1)
       expect(json['compile']).to eq('ok' => false, 'path' => nil,
-                                    'diagnostics' => [{ 'severity' => 'error', 'path' => 'a.yaml', 'message' => '壊れている' }])
+                                    'diagnostics' => [{ 'severity' => 'error', 'path' => 'a.yaml', 'message' => '壊れている' }],
+                                    'unused' => [])
       expect(json['diff']).to be_nil
       expect(opens).to be_empty
     end

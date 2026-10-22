@@ -7,7 +7,7 @@ module Cornix
       #
       #   name: Base
       #   description: ...                     # 省略可
-      #   index: 0                             # レイヤー番号
+      #   index: 0                             # レイヤー番号（省くか空にすると未使用。compile に含めない）
       #   mapping:
       #     left_hand:                         # right_hand も同じ形
       #       row0: { tab: Tab, Q: Q, ... }    # キーは position_map.yaml のシンボル。書かない・空の値はキーなし

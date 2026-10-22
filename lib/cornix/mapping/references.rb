@@ -10,15 +10,20 @@ module Cornix
     #
     # Shortcut('名前') を読むときは shortcuts（利用者の定義）を先に引き、なければ preset_shortcuts を引く（同じ名前は利用者の定義が勝つ）。
     # 書くとき（shortcut_name）は shortcuts だけを使う（同梱の定義と同じ値が勝手に Shortcut('アプリ:...') にならないように）。
-    # preset_macros は同梱のマクロの定義の名前（Shortcut('名前') では使えないので、その案内のためだけに持つ）
+    # preset_macros は同梱のマクロの定義の名前（Shortcut('名前') では使えないので、その案内のためだけに持つ）。
+    # unused_macros / unused_tap_dances は未使用のファイル（index のないもの。issue #85）の名前。引けない名前だが、
+    # 「見つかりません」ではなく「未使用です」と案内するためだけに持つ
     class References
-      def initialize(macros: {}, tap_dances: {}, shortcuts: nil, preset_shortcuts: {}, preset_macros: [])
+      def initialize(macros: {}, tap_dances: {}, shortcuts: nil, preset_shortcuts: {}, preset_macros: [],
+                     unused_macros: [], unused_tap_dances: [])
         @macros = macros.dup.freeze
         @tap_dances = tap_dances.dup.freeze
         @shortcuts_available = !shortcuts.nil?
         @shortcuts = (shortcuts || {}).dup.freeze
         @preset_shortcuts = preset_shortcuts.dup.freeze
         @preset_macros = preset_macros.to_set.freeze
+        @unused_macros = unused_macros.to_set.freeze
+        @unused_tap_dances = unused_tap_dances.to_set.freeze
         @macro_names = @macros.invert.freeze
         @tap_dance_names = @tap_dances.invert.freeze
         @shortcut_names = @shortcuts.group_by(&:last).transform_values { |pairs| pairs.map(&:first) }.freeze
@@ -28,6 +33,11 @@ module Cornix
       def macro_index(name) = @macros[name]
 
       def tap_dance_index(name) = @tap_dances[name]
+
+      # 未使用のマクロ・タップダンスの名前か（使っているものに同じ名前があれば偽）
+      def unused_macro?(name) = !@macros.key?(name) && @unused_macros.include?(name)
+
+      def unused_tap_dance?(name) = !@tap_dances.key?(name) && @unused_tap_dances.include?(name)
 
       def macro_name(index) = @macro_names[index]
 

@@ -114,7 +114,8 @@ module Cornix
 
           # ---- マクロ・タップダンス・コンボ・ショートカット ----
 
-          # ファイル => [種類, 読んだ中身]
+          # ファイル => [種類, 読んだ中身]。未使用のファイル（index のないもの）も宛先にする（中身の書き換えは別のファイルに及ばない。
+          # 未使用の項目を画面で編集するのは #105）
           def add_items(reading)
             reading.files.each_key do |file|
               kind = %i[macros tap_dances combos].find { |k| Storage::ConfigFiles.kind_file?(file, k) }

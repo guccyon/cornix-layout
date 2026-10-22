@@ -38,6 +38,26 @@ RSpec.describe 'end-to-end（cornix compile / decompile）' do
     end
   end
 
+  describe 'ファイル名の番号と未使用のファイル（issue #85）' do
+    it '番号の接頭辞を外し・入れ替え、未使用のファイルを置いても compile の結果は変わらず、validate も通る' do
+      install_config('authors_config')
+      expect(cornix('compile').first).to eq(0)
+      before = image(env.layout_path)
+      FileUtils.mv(config_file('layers/1_symbols.yml'), config_file('layers/symbols.yml'))
+      FileUtils.mv(config_file('macros/00_bracket_pair.yml'), config_file('macros/tmp.yml'))
+      FileUtils.mv(config_file('macros/01_curly_brace_pair.yml'), config_file('macros/00_curly_brace_pair.yml'))
+      FileUtils.mv(config_file('macros/tmp.yml'), config_file('macros/01_bracket_pair.yml'))
+      File.write(config_file('layers/0_spare.yml'),
+                 File.read(config_file('layers/0_base.yml')).sub(/^index: 0\n/, '').sub(/^name: .*$/, 'name: Spare'))
+      File.write(config_file('macros/00_old_bracket_pair.yml'),
+                 File.read(config_file('macros/01_bracket_pair.yml')).sub(/^index: 0$/, 'index:'))
+      expect(cornix('compile').first).to eq(0)
+      expect(image(env.layout_path)).to eq(before)
+      expect(cornix('validate')).to eq([0, "✓ All validations passed\nℹ  Unused files (no index, not compiled): 2\n" \
+                                           "    layers/0_spare.yml\n    macros/00_old_bracket_pair.yml\n"])
+    end
+  end
+
   describe '空のレイヤーのファイル' do
     # authors_config の 5〜8 をエンコーダも含めて NoKey だけのレイヤーにする（9 はエンコーダの割り当てを残す）。
     # 8 は 4_ipad_base.yml の fn キーのレイヤー操作が指している
@@ -123,9 +143,9 @@ RSpec.describe 'end-to-end（cornix compile / decompile）' do
                                           'backup_cleaned_up' => true)
     expect(read_config('layers/2_numbers.yml')).to include("V: Macro('Clip')")
 
-    File.write(File.join(@root, 'plans.json'), JSON.generate([{ old_path: 'config/macros/07_clip.yml', new_basename: '08_x.yml' }]))
+    File.write(File.join(@root, 'plans.json'), JSON.generate([{ old_path: 'config/macros/07_clip.yml', new_basename: '00_bracket_pair.yml' }]))
     output, status = run.('--batch', 'plans.json')
     expect(status.exitstatus).to eq(1)
-    expect(JSON.parse(output)['errors']).to eq(["Plan 0: Index prefix mismatch: expected '07_', got '08_'"])
+    expect(JSON.parse(output)['errors']).to match([match(%r{\APlan 0: Destination file already exists: .*/config/macros/00_bracket_pair\.yml\z})])
   end
 end

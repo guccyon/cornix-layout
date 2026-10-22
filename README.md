@@ -169,7 +169,7 @@ Normally `.cornix.yml` decides the settings directory, so you don't need `--prof
 Exit codes: `0` = success, `1` = error, `2` = there are differences (`status` only). Errors are printed to standard error as `エラー: …` ("Error: …").
 
 With `--json`, standard output holds only one JSON value, with no other text, and the exit codes stay the same. Errors become `{ "error": "..." }` on standard output.
-For example, `cornix status --json` prints `{ "config", "compile", "diff" }`, and `cornix validate --json` prints `{ "config", "ok", "diagnostics": [{ "severity", "path", "message" }] }`.
+For example, `cornix status --json` prints `{ "config", "compile", "diff" }`, and `cornix validate --json` prints `{ "config", "ok", "diagnostics": [{ "severity", "path", "message" }], "unused": [{ "kind", "file", "name" }] }`.
 `apply` / `restore` / `device apply` / `device restore` cannot ask for confirmation, so they also need `--yes` (without it they stop before touching the keyboard).
 `cleanup -f`, `rename`, `mcp` and `serve` do not support `--json` (`help` ignores it).
 
@@ -208,7 +208,8 @@ profiles/default/
 └── combos/00_combo.yaml       # combos
 ```
 
-- You can rename files freely (both `.yaml` and `.yml` are read). The number comes from `index` in the YAML; only for layers must the leading number of the file name match `index`
+- You can rename files freely (both `.yaml` and `.yml` are read). The number comes only from `index` in the YAML; the leading number of the file name is not read. The number prefix is just for sorting the files; you may leave it out, and it may differ from `index` (`pull` and adding items in the extension write the prefix)
+- A file in `layers/`, `macros/`, `tap_dance/` or `combos/` without `index` (or with an empty `index:`) is an unused file. It is left out of `compile`, so you can keep definitions you don't use without deleting them, and enable one by writing its number. Unused files are still checked for their format, and problems are shown as warnings (`compile` does not stop). A file that cannot be read as YAML is still an error, since it cannot be told whether it is unused
 - `pull` writes keys in the most readable form (alias → modifier expression → function form → `0xHHHH`), and refers to macros and tap dances by name
 
 ### Layers
@@ -245,7 +246,7 @@ mapping:
 
 - Under `mapping` the structure is the same as `position_map.yaml`. Each hand must list all of `row0`–`row3` and `thumb_keys` (an empty value is fine)
 - Keys you leave out inside a group are unassigned, and `compile` / `apply` write them as `NoKey` (KC_NO). To use the layer below, write `Trans`. Encoder actions you leave out are `NoKey`
-- To change a layer's number, change the file name and `index`, and update `MO(2)` and the like in other files
+- To change a layer's number, change only `index` (the file name can stay as it is). `MO(2)` and the like point to the number "layer 2", so other files don't change. To swap the contents of two layers, just swap the `index` of the two files; `MO(2)` and the like then point to the new layer 2
 
 ### Notes (`note`)
 
@@ -349,7 +350,8 @@ The available names and value widths are in [data/qmk_settings.yaml](data/qmk_se
 | QMK form | `M0` | `TD(2)` |
 
 - The name is the file's `name`. Put names containing `'` in `"..."` (`Macro("Rock'n Roll")`)
-- A name that cannot be found, or a number with nothing defined, is a validation error
+- A name that cannot be found, or a number with nothing defined, is a validation error. Referring to the name of an unused file (one without `index`) is also a validation error
+- When you refer by name, changing the `index` of a macro or tap dance makes the reference point to the new number naturally (references written by number or in QMK form are not rewritten)
 - References cannot be used inside macros (in `keys` of a `sequence`)
 
 ### Named shortcuts (`shortcuts.yaml`)
@@ -470,6 +472,7 @@ cornix validate
 - The file format (YAML syntax, fields, keycodes, key names, number ranges) is checked first; once that passes, the whole setup (limits, duplicate numbers and names, reference targets, layer numbers) is checked
 - Limits: 10 layers, 32 macros, 32 tap dances, 32 combos, 4 trigger keys per combo
 - If there are only warnings (`⚠  Warning: …`), it continues
+- If there are unused files (without `index`), it prints `ℹ  Unused files (no index, not compiled): count` and the list at the end. Only the format of unused files is checked (not reference targets and so on), and problems are warnings
 
 ## Naming (`rename`)
 

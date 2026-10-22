@@ -136,6 +136,7 @@ mapper.to_profile(image, position_map:, previous: nil) #=> Domain::Profile   # p
 ```ruby
 repo = Storage::ConfigRepository.new(dir, notation:, settings_catalog:, shortcut_catalog: Mapping::ShortcutCatalog.default)
 repo.load    #=> Domain::Profile（問題はすべて集めて Storage::InvalidConfig(problems) で送出）
+repo.load_all #=> ConfigLoader::Loaded(profile:, unused: [Storage::UnusedFile])（未使用のファイル。issue #85）
 repo.save(profile) #=> [書いたファイル]   # decompile。ファイル名の規則は旧 YamlWriter と同じ
 ```
 
@@ -158,7 +159,7 @@ Storage::VilFile.new(vial:).read(path) #=> Image::DeviceImage / #write(image, pa
 
 ```ruby
 env = Application::Environment.new(root: dir, claude: fake)     # repository / config_editor / decompile_lock / claude
-Application::Validate.new(env).call          #=> ValidationReport(diagnostics:, profile:)。#errors / #warnings は文字列（config/ がなければ ConfigNotFound）
+Application::Validate.new(env).call          #=> ValidationReport(diagnostics:, profile:, unused:)。#errors / #warnings は文字列（config/ がなければ ConfigNotFound）
 Application::Compile.new(env).call(output: nil)   #=> CompileResult(report:, path:, image:)
 Application::Decompile.new(env).call(input: nil)  #=> DecompileResult(status: :decompiled | :input_missing | :config_exists, ...)
 Application::Cleanup.new(env).call(force: false, confirm: ->(lock) { ... })   #=> CleanupResult(status:, lock:, deleted:)

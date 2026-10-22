@@ -3,7 +3,8 @@
 import * as crypto from 'node:crypto';
 import * as vscode from 'vscode';
 import type { CornixServer } from '../server/cornixServer';
-import type { HostMessage, WebviewMessage } from '../webviewMessages';
+import type { DeviceAction, DeviceViewState, HostMessage, WebviewMessage } from '../webviewMessages';
+import { isDeviceAction } from '../device/deviceTexts';
 import type { ProfileSnapshot } from '../protocol';
 import { isItemEdit } from './itemEdits';
 import { ProfileDocument } from './profileDocument';
@@ -12,6 +13,15 @@ import { openProfileFile, profileFileUri } from './profileFiles';
 import { vscodePrompts, type ProfilePrompts } from './prompts';
 import { textDiagnostics } from './textDiagnostics';
 import { relayRequest } from './webviewRelay';
+
+/** 実機と比べた状態と操作（v0.4。device/deviceController.ts がつなぐ） */
+export interface DeviceBridge {
+  stateOf(dir: string): DeviceViewState;
+  /** 状態が変わった dir（undefined はすべて） */
+  readonly onDidChangeState: vscode.Event<string | undefined>;
+  /** 画面のボタン（コマンド cornix.device.* と同じことをする） */
+  run(action: DeviceAction, dir: string): void;
+}
 
 export class ProfileEditorProvider implements vscode.CustomEditorProvider<ProfileDocument>, vscode.Disposable {
   static readonly viewType = PROFILE_EDITOR_VIEW_TYPE;
@@ -22,6 +32,13 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
   private readonly onDidReceiveMessageEmitter = new vscode.EventEmitter<{ document: ProfileDocument; message: WebviewMessage }>();
   /** 編集画面から届いたメッセージ（統合テストが描画を待つため） */
   readonly onDidReceiveWebviewMessage = this.onDidReceiveMessageEmitter.event;
+
+  private readonly onDidChangeDocumentEmitter = new vscode.EventEmitter<ProfileDocument>();
+  /** プロファイルを開いた・snapshot や未保存の変更が変わった（実機と比べた状態を「未確認」に戻すかを見るため） */
+  readonly onDidChangeDocument = this.onDidChangeDocumentEmitter.event;
+  private readonly onDidCloseDocumentEmitter = new vscode.EventEmitter<ProfileDocument>();
+  readonly onDidCloseDocument = this.onDidCloseDocumentEmitter.event;
+  private device: DeviceBridge | undefined;
 
   private readonly documents = new Set<ProfileDocument>();
   /** 保存と外での変更で利用者に聞くこと（統合テストが差し替える） */
@@ -55,6 +72,11 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     return provider;
   }
 
+  /** 実機の状態と操作をつなぐ（開いている画面にも今の状態を送る） */
+  attachDevice(bridge: DeviceBridge): void {
+    this.device = bridge;
+  }
+
   /** 開いているドキュメント（テスト用） */
   get openDocuments(): readonly ProfileDocument[] {
     return [...this.documents];
@@ -72,12 +94,17 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     const document = await ProfileDocument.open(uri, dir, env, openContext.backupId);
     this.documents.add(document);
     document.onDidEdit((edit) => this.onDidChangeEmitter.fire(edit));
-    document.onDidChangeContent(() => this.publishDiagnostics(document));
+    document.onDidChangeContent(() => {
+      this.publishDiagnostics(document);
+      this.onDidChangeDocumentEmitter.fire(document);
+    });
     document.onDidDispose(() => {
       this.documents.delete(document);
       this.clearDiagnostics(document);
+      this.onDidCloseDocumentEmitter.fire(document);
     });
     this.publishDiagnostics(document);
+    this.onDidChangeDocumentEmitter.fire(document);
     return document;
   }
 
@@ -137,13 +164,24 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
       };
       void panel.webview.postMessage(message);
     };
+    const postDevice = () => {
+      if (!this.device) return;
+      const message: HostMessage = { type: 'device', state: this.device.stateOf(document.dir) };
+      void panel.webview.postMessage(message).then(undefined, () => undefined);
+    };
     const subscriptions = [
       document.onDidChangeContent(post),
+      ...(this.device ? [this.device.onDidChangeState((dir) => (dir === undefined || dir === document.dir) && postDevice())] : []),
       panel.webview.onDidReceiveMessage((message: WebviewMessage) => {
         this.onDidReceiveMessageEmitter.fire({ document, message });
         switch (message.type) {
           case 'ready':
             post();
+            postDevice();
+            return;
+          case 'deviceAction':
+            // 画面のボタン。コマンドと同じ流れ（保存の促し・確認のダイアログ）を通す
+            if (isDeviceAction(message.action)) this.device?.run(message.action, document.dir);
             return;
           case 'change':
           case 'edit':
@@ -201,6 +239,8 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
     for (const disposable of this.disposables) disposable.dispose();
     this.onDidChangeEmitter.dispose();
     this.onDidReceiveMessageEmitter.dispose();
+    this.onDidChangeDocumentEmitter.dispose();
+    this.onDidCloseDocumentEmitter.dispose();
   }
 
   private html(webview: vscode.Webview): string {

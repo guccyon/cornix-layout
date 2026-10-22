@@ -1,13 +1,14 @@
 // v0.4（tasks-v0.4.md の「画面」）: 実機への反映（プレビュー → 確定）。
 // - TransferSection: 編集フォームの一番下の畳める節「デバイス転送」。「反映のプレビュー…」を押すとホストに deviceAction('preview') を送る。
 //   保存済みのプロファイルに検証のエラーがあれば押せなくし、横に理由を出す（実機を読む 10 秒を無駄にしない）。
+//   押す前に気づけるよう、検証のエラーと警告の一覧も節に出す（警告だけなら押せる。見出しにも件数）。
 // - TransferDialog: ホストの transfer がある間に出すモーダル。読んでいる間は進み具合と「やめる」。プレビューでは
 //   図（違うキー・エンコーダの操作を橙の枠）・レイヤーのタブ（違いの件数）・違いの一覧・「確定」「やめる」。書いている間は進み具合（取り消せない）。
 //   開いている間は編集画面を操作できない（App が編集画面に inert を付ける）。
 // - 違いを図の欄・レイヤーに結びつける関数（DOM に依存しない）。
 // 状態はホストが送る（webviewMessages.ts の DeviceViewState）。画面は自分では読まない・書かない。
 import type { DeviceChange } from '../deviceProtocol';
-import type { LayerSnapshot, ProfileSnapshot } from '../protocol';
+import type { Diagnostic, LayerSnapshot, ProfileSnapshot } from '../protocol';
 import type { DeviceAction, DeviceTransfer, DeviceViewState } from '../webviewMessages';
 import { h, nodes } from './dom';
 import { KeyboardView } from './keyboardView';
@@ -96,9 +97,20 @@ export function snapshotErrors(snapshot: Pick<ProfileSnapshot, 'status' | 'diagn
   return snapshot.status === 'invalid' ? Math.max(errors, 1) : errors;
 }
 
+/** 検証の結果の場所（「ファイル: キーの位置」。validate の表示と同じ並び） */
+export function diagnosticPlace(diagnostic: Diagnostic): string | undefined {
+  const file = diagnostic.address?.file ?? diagnostic.file;
+  const path = diagnostic.address?.path.join('.');
+  return file && path ? `${file}: ${path}` : file;
+}
+
 const WRITE_SETTING_NOTE = '書き込みは設定 cornix.device.allowWrites を有効にしたときだけできます（既定は無効。プレビューはいつでもできます）。';
 
-export type TransferSectionOptions = { onPreview: () => void };
+export type TransferSectionOptions = {
+  onPreview: () => void;
+  /** 検証の結果の 1 行（App の問題の行と同じもの。「ファイルを開く」付き） */
+  problemRow: (diagnostic: Diagnostic) => HTMLElement;
+};
 
 /** 編集フォームの一番下の節「デバイス転送」 */
 export class TransferSection {
@@ -107,10 +119,14 @@ export class TransferSection {
   private readonly note = h('p', { class: 'device-transfer-note', hidden: true }, WRITE_SETTING_NOTE);
   /** 検証のエラーで押せない理由（ボタンの横） */
   private readonly blocked = h('span', { class: 'device-transfer-blocked', role: 'status', hidden: true });
+  /** 見出しの横の件数（畳んでいても気づけるように） */
+  private readonly count = h('span', { class: 'device-transfer-count', hidden: true });
+  /** 保存済みのプロファイルの検証のエラーと警告の一覧 */
+  private readonly problems = h('div', { class: 'device-transfer-problems' });
   private state: DeviceViewState = IDLE_DEVICE_STATE;
   private errors = 0;
 
-  constructor(options: TransferSectionOptions) {
+  constructor(private readonly options: TransferSectionOptions) {
     this.button = h('button', { type: 'button', class: 'device-preview-button' }, '反映のプレビュー…');
     this.button.addEventListener('click', () => {
       if (!this.button.disabled) options.onPreview();
@@ -121,7 +137,7 @@ export class TransferSection {
       h(
         'details',
         { class: 'section-details' },
-        h('summary', {}, h('h2', {}, 'デバイス転送')),
+        h('summary', {}, h('h2', {}, 'デバイス転送'), this.count),
         h(
           'p',
           { class: 'device-transfer-description' },
@@ -129,9 +145,11 @@ export class TransferSection {
         ),
         h('div', { class: 'device-transfer-actions' }, this.button, this.blocked),
         this.note,
+        this.problems,
       ),
     );
     this.update(IDLE_DEVICE_STATE);
+    this.setSnapshot(undefined);
   }
 
   /** 状態を描く。errors は保存済みのプロファイルの検証のエラーの数（snapshotErrors。あれば実機を読む前に止める） */
@@ -145,8 +163,30 @@ export class TransferSection {
     this.note.hidden = state.allowWrites;
   }
 
-  /** 保存済みのプロファイルが変わった（検証のエラーの数を描き直す） */
-  setErrors(errors: number): void {
+  /** 保存済みのプロファイルが変わった（検証のエラーと警告の一覧と、押せるかを描き直す） */
+  setSnapshot(snapshot: ProfileSnapshot | undefined): void {
+    const diagnostics = snapshot?.diagnostics ?? [];
+    const errors = snapshotErrors(snapshot);
+    const warnings = diagnostics.filter((diagnostic) => diagnostic.severity === 'warning').length;
+    const counts = [errors > 0 && `エラー ${errors} 件`, warnings > 0 && `警告 ${warnings} 件`].filter(Boolean).join('・');
+    this.count.hidden = counts === '';
+    this.count.className = `device-transfer-count${errors > 0 ? ' error' : ' warning'}`;
+    this.count.textContent = counts;
+    // エラーを先に
+    const sorted = [...diagnostics].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1));
+    this.problems.replaceChildren(
+      ...(sorted.length === 0
+        ? [h('p', { class: 'device-transfer-clean' }, snapshot ? '保存済みのプロファイルに検証の問題はありません。' : '')]
+        : [
+            h(
+              'p',
+              { class: 'device-transfer-problems-title' },
+              `保存済みのプロファイルの検証: ${counts}`,
+              errors === 0 ? '（警告だけなので反映できます。意図どおりか確かめてください）' : '',
+            ),
+            ...sorted.map((diagnostic) => this.options.problemRow(diagnostic)),
+          ]),
+    );
     this.update(this.state, errors);
   }
 }
@@ -171,6 +211,8 @@ export class TransferDialog {
   private snapshot: ProfileSnapshot | undefined;
   /** 保存済みのプロファイルの検証のエラーの数（あれば確定できない） */
   private errors = 0;
+  /** 保存済みのプロファイルの検証の警告（モーダルに一覧で出す。確定は止めない） */
+  private validationWarnings: Diagnostic[] = [];
   /** 図と一覧を描いたときの plan と snapshot（進み具合だけが変わったときは描き直さない） */
   private drawnKey = '';
   private layer: number | undefined;
@@ -226,6 +268,7 @@ export class TransferDialog {
     this.state = state;
     this.snapshot = snapshot?.status === 'invalid' ? undefined : snapshot;
     this.errors = snapshotErrors(snapshot);
+    this.validationWarnings = snapshot?.diagnostics.filter((diagnostic) => diagnostic.severity === 'warning') ?? [];
     const transfer = state.transfer;
     this.element.hidden = transfer === null;
     if (!transfer) {
@@ -421,6 +464,14 @@ export class TransferDialog {
         writable &&
           this.errors > 0 &&
           h('p', { class: 'device-modal-errors', role: 'alert' }, `プロファイルに検証のエラーが ${this.errors} 件あるので確定できません。直して保存してから、もう一度比べてください。`),
+        writable &&
+          this.validationWarnings.length > 0 &&
+          h(
+            'div',
+            { class: 'device-modal-validation' },
+            h('strong', {}, `検証の警告が ${this.validationWarnings.length} 件あります（確定はできます）`),
+            h('ul', {}, ...this.validationWarnings.map((diagnostic) => h('li', {}, [diagnosticPlace(diagnostic), diagnostic.message].filter(Boolean).join(': ')))),
+          ),
         writable && !this.state.allowWrites && h('p', { class: 'device-modal-locked' }, WRITE_SETTING_NOTE, ' ', settings),
         writable && h('p', { class: 'device-modal-backup' }, '確定すると、書く前に実機の今の状態をバックアップし、書いたあと読み直して確かめます。'),
         transfer.step === 'writing' && h('p', { class: 'device-modal-backup' }, '書き始めたら取り消せません。終わるまでキーボードをつないだままにしてください。'),

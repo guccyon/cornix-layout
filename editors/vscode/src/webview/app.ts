@@ -20,7 +20,7 @@
 // 押すと host.deviceAction('preview')）と、反映の途中のモーダル（TransferDialog。プレビューと確定）。モーダルを出している間は編集画面に inert を付ける。
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange } from '../protocol';
 import type { DeviceViewState, HostMessage, WebviewMessage } from '../webviewMessages';
-import { IDLE_DEVICE_STATE, TransferDialog, TransferSection, snapshotErrors } from './deviceView';
+import { IDLE_DEVICE_STATE, TransferDialog, TransferSection, diagnosticPlace } from './deviceView';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
 import { comboTargets, effectiveKey, triggerKeys } from './comboHighlight';
@@ -122,7 +122,7 @@ export class App {
     private readonly options: AppOptions,
   ) {
     this.inspector = new Inspector(options.host);
-    this.transferSection = new TransferSection({ onPreview: () => options.host.deviceAction('preview') });
+    this.transferSection = new TransferSection({ onPreview: () => options.host.deviceAction('preview'), problemRow: (diagnostic) => this.problemRow(diagnostic) });
     this.transferDialog = new TransferDialog({ onAction: (action) => options.host.deviceAction(action) });
     // モーダルは編集画面（root）の外に置く（root に inert を付けても操作できるように）
     (root.ownerDocument.body ?? root).append(this.transferDialog.element);
@@ -265,8 +265,8 @@ export class App {
     }
     this.snapshotKey = key;
     this.snapshot = snapshot;
-    // 検証のエラーがあれば節のボタンを押せなくする。プレビューの図と検証のエラーは保存済みの snapshot から描く
-    this.transferSection.setErrors(snapshotErrors(snapshot));
+    // 節「デバイス転送」に検証のエラーと警告を出す（エラーがあればボタンを押せない）。プレビューの図と検証の結果は保存済みの snapshot から描く
+    this.transferSection.setSnapshot(snapshot);
     if (this.device.transfer) this.transferDialog.update(this.device, snapshot);
     this.inspector.clear();
     const { byAddress, general } = diagnosticsByAddress(snapshot);
@@ -698,7 +698,7 @@ export class App {
       'div',
       { class: `problem ${diagnostic.severity}` },
       h('span', { class: 'problem-severity' }, diagnostic.severity === 'error' ? 'エラー' : '警告'),
-      file ? h('span', { class: 'problem-file' }, file) : null,
+      file ? h('span', { class: 'problem-file' }, diagnosticPlace(diagnostic)) : null,
       h('span', { class: 'problem-message' }, diagnostic.message),
     );
     if (file && !file.endsWith('/')) {

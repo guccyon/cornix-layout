@@ -10,6 +10,7 @@ module Cornix
       #   reading.files        #=> { "metadata.yaml" => "sha256:…", "settings/qmk_settings.yaml" => nil, ... }
       #   reading.profile      #=> Domain::Profile（構造検証で読めなければ nil）
       #   reading.problems     #=> [Storage::Problem]（構造検証の問題。読めたときは空）
+      #   reading.unused       #=> [Storage::UnusedFile]（未使用のファイル。index のないもの。その構造の問題は読めないことにしない）
       #   reading.repository   #=> 読んだ中身で読む Storage::ConfigRepository（意味検証の位置もこの中身で決める）
       #   reading.document(rel) #=> Storage::YamlDocument（なければ・YAML として読めなければ nil）
       #   reading.text(rel)    #=> 読んだ中身（UTF-8 の文字列。なければ nil）
@@ -22,7 +23,7 @@ module Cornix
       class ProfileReading
         SETTINGS_FILE = Storage::ConfigFiles.single_path(Storage::ConfigFiles::SETTINGS)
 
-        attr_reader :files, :profile, :problems, :repository
+        attr_reader :files, :profile, :problems, :unused, :repository
 
         def self.read(env) = new(env)
 
@@ -86,11 +87,15 @@ module Cornix
         end
 
         def load_profile
-          @profile = @repository.load
+          @unused = [].freeze
+          loaded = @repository.load_all
+          @profile = loaded.profile
+          @unused = loaded.unused
           @problems = [].freeze
         rescue Storage::InvalidConfig => e
           @profile = nil
           @problems = e.problems
+          @unused = e.unused
         rescue ConfigError
           raise if @source.directory?
 

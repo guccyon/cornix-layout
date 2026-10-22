@@ -60,6 +60,15 @@ module Cornix
             report.errors.each { |e| out.line("  Error: #{e}") }
             report.warnings.each { |w| out.line("  Warning: #{w}") }
           end
+          print_unused(report.unused_files)
+        end
+
+        # 未使用のファイル（index のないもの。compile に含めない）の一覧。なければ何も出さない
+        def print_unused(files)
+          return if files.empty?
+
+          out.line("ℹ  Unused files (no index, not compiled): #{files.size}")
+          files.each { |file| out.line("    #{file}") }
         end
       end
     end

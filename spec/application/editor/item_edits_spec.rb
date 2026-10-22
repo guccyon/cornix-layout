@@ -216,6 +216,55 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
     end
   end
 
+  describe '未使用のファイル・番号の接頭辞のないファイル（issue #85）' do
+    # 0_layer_0 と 1_layer_1 のあいだに並ぶ未使用のレイヤー（ずれると後ろのレイヤーがすべて別のファイルを指す）
+    let(:spare_layer) { read('layers/1_layer_1.yaml').sub(/^index: 1\n/, '').sub('name: Layer 1', 'name: Spare') }
+
+    before { write('layers/0_spare.yaml', spare_layer) }
+
+    it '消す・名前を変えるのは、未使用のファイルを除いて対応させたそのレイヤーのファイル' do
+      result = plan(op: 'delete', kind: 'layer', name: 'Layer 9')
+      expect(result[:files].map { |f| f[:file] }).to eq(['layers/9_layer_9.yaml'])
+      result = plan(op: 'rename', kind: 'layer', name: 'Layer 1', to: 'Symbols')
+      expect(result[:files].map { |f| f.slice(:file, :renameTo) }).to eq([{ file: 'layers/1_layer_1.yaml', renameTo: 'layers/1_symbols.yaml' }])
+      expect(applied(result, 'layers/1_layer_1.yaml')).to include('name: Symbols')
+    end
+
+    it '位置の名前の変更は、未使用のレイヤーのファイルのキーも書き換える' do
+      result = plan(op: 'renamePosition', hand: 'left', row: 0, col: 0, to: 'esc')
+      expect(result[:files].map { |f| f[:file] }).to include('layers/0_layer_0.yaml', 'layers/0_spare.yaml', 'layers/1_layer_1.yaml')
+      expect(applied(result, 'layers/0_spare.yaml')).to include("      esc: ")
+      expect(result[:diagnostics]).to eq([])
+    end
+
+    it '追加の空いている番号・名前の重複は使っているものだけで決める（未使用のファイルと同じファイル名なら _2）' do
+      write('macros/09_spare.yaml', "name: Macro 0\nsequence: [{ action: tap, keys: [KC_A] }]\n")
+      write('macros/09_new.yaml', "name: Old New\nsequence: [{ action: tap, keys: [KC_A] }]\n")
+      result = plan(op: 'create', kind: 'macro', name: 'New')
+      expect(result[:files].map { |f| f[:file] }).to eq(['macros/09_new_2.yaml'])
+      expect(YAML.safe_load(applied(result, 'macros/09_new_2.yaml'))['index']).to eq(9)
+      expect { plan(op: 'create', kind: 'macro', name: 'Old New') }.not_to raise_error
+      expect { plan(op: 'rename', kind: 'macro', name: 'Macro 1', to: 'Old New') }.not_to raise_error
+    end
+
+    it '番号の接頭辞のないファイルも名前を変えられる（接頭辞は付けない）' do
+      FileUtils.mv(path('macros/00_macro.yaml'), path('macros/brackets.yaml'))
+      FileUtils.mv(path('combos/01_combo.yaml'), path('combos/07_pair.yaml'))
+      result = plan(op: 'rename', kind: 'macro', name: 'Macro 0', to: 'Bracket Pair')
+      expect(result[:files].first).to include(file: 'macros/brackets.yaml', renameTo: 'macros/bracket_pair.yaml')
+      result = plan(op: 'rename', kind: 'combo', name: 'Combo 1', to: 'Jump')
+      expect(result[:files].first).to include(file: 'combos/07_pair.yaml', renameTo: 'combos/07_jump.yaml')
+    end
+
+    it '未使用のファイルの構造の問題は diagnostics の warning（操作は止めない）' do
+      write('tap_dance/spare.yaml', "name: Spare\nactions: { on_tap: Nope }\n")
+      result = plan(op: 'rename', kind: 'tapDance', name: 'TapDance 1', to: 'Screenshot')
+      expect(result[:diagnostics]).to contain_exactly(
+        include(severity: 'warning', source: 'structure', address: { file: 'tap_dance/spare.yaml', path: %w[actions on_tap] })
+      )
+    end
+  end
+
   describe 'rename' do
     it 'name の行・参照・ファイル名を変え、references は変える前の参照の場所' do
       write('layers/2_layer_2.yaml', read('layers/2_layer_2.yaml').sub('A: M0', "A: Macro('Macro 0') # 括弧"))

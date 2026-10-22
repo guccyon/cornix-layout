@@ -4,6 +4,7 @@ require_relative 'yaml_file'
 require_relative 'config_files'
 require_relative 'file_source'
 require_relative 'problem'
+require_relative 'schema/header'
 
 module Cornix
   module Storage
@@ -17,8 +18,10 @@ module Cornix
     #   combos[0].output_key                  → combos/00_x.yml: output_key.key（注記付きの形 { key:, note: } のとき）
     #   macros                                → macros/
     #
-    # layers[i] などの i は Profile の配列の位置で、ConfigLoader は各ディレクトリのファイルを名前順に読むので
-    # i 番目のファイルに対応する。ファイルの中身（actions: の有無、keys が 1 つだけの文字列か）も見て位置を決める。
+    # layers[i] などの i は Profile の配列の位置で、ConfigLoader は各ディレクトリのファイルを名前順に読み、
+    # 未使用のファイル（index のないもの。Schema::Header.unused?）は Profile に入れないので、
+    # 未使用のファイルを除いて名前順に並べた i 番目のファイルに対応する（issue #85。除かないと後ろの項目が別のファイルを指す）。
+    # ファイルの中身（actions: の有無、keys が 1 つだけの文字列か）も見て位置を決める。
     # ファイルは source（FileSource。既定はディスクの dir）から読むので、保存前の中身でも位置を決められる。
     #
     #   locator.address('layers[0].left_hand.row0.tab')   # => ["layers/0_base.yml", ["mapping", "left_hand", "row0", "tab"]]
@@ -110,7 +113,8 @@ module Cornix
         value.is_a?(Hash) && value.key?('key') ? "#{location}.key" : location
       end
 
-      def files(kind) = @files[kind] ||= @source.list(kind)
+      # 使っているファイル（Profile の並びと同じ）。YAML として読めないファイルは使っているほうに数える（ConfigLoader と同じ）
+      def files(kind) = @files[kind] ||= @source.list(kind).reject { |rel| Schema::Header.unused?(content(rel)) }
 
       def content(rel)
         return @contents[rel] if @contents.key?(rel)

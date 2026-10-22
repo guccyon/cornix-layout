@@ -26,7 +26,8 @@ ruby bin/rename_file --batch tmp/rename_plans.json [--dry-run] [--cleanup-backup
 - `Application::SuggestRenames`: `RenamePrompt` を `ClaudeCli`（`claude` コマンド）に渡し、出力から JSON を取り出して
   `tmp/rename_plans.json` に保存する。出力は `tmp/claude_output.log`。Claude CLI は `Environment#claude` で差し替えられる
 - `Application::RenameFiles#check(plan)` / `#call(plans, verify: true)` → `RenameOutcome`
-  1. 事前検証（ファイルがある、番号の接頭辞が同じ、行き先が空いている、YAML が読める）
+  1. 事前検証（ファイルがある、行き先が空いている、YAML が読める）。番号は `index:` だけで決まるので、ファイル名の番号の接頭辞は
+     変えても足しても外してもよい（issue #85 で「番号の接頭辞が同じ」の検査をやめた。Claude への依頼の文は今どおり接頭辞を保つよう頼む）
   2. 変更前の設定を `ProfileMapper#to_image` まで通した DeviceImage を覚える
   3. `config.backup_<YYYYmmdd_HHMMSS>/` にバックアップ（`.backup_manifest.yaml` 付き）
   4. 1 件ずつ name / description の行を書き換え、ファイル名を変え、マクロ・タップダンスの name が変わったら
@@ -41,9 +42,9 @@ ruby bin/rename_file --batch tmp/rename_plans.json [--dry-run] [--cleanup-backup
 - `Application::Editor::ItemEdits`（`cornix serve` の `profile/planItemEdit`。[protocol.md](vscode-extension/protocol.md) の 12.5）: VS Code 拡張の項目の名前の変更。
   `RenameFiles` と同じ考え方（参照をテキストで置き換え、前後の compile の結果を 16bit 値で照合する）だが、ファイルは書かずに書き換え（範囲と新しい文字）として返す
   - 設定ディレクトリを読み、操作をメモリの上の `ItemEdits::Changeset` に積む。`name` の行を書き換え、全設定ファイルの `Macro` / `TapDance` / `Shortcut('旧名')` を
-    `reference_pattern` で探して参照 1 つずつの範囲を `replace_references_in` で置き換え、ファイル名の slug を変える（`renameTo`。番号の接頭辞と拡張子は保つ）
+    `reference_pattern` で探して参照 1 つずつの範囲を `replace_references_in` で置き換え、ファイル名の slug を変える（`renameTo`。番号の接頭辞と拡張子は保つ。接頭辞のないファイルには付けない）
   - 当てたあとの中身を compile して前の 16bit 値と違えば `ItemEdits::Unverified`（`-32061` の reason `"verify"`）で、何も返さない。
-    レイヤーとコンボは名前で参照されないので `name` の行とファイル名だけ、位置の名前の変更（`RenamePosition`）は `position_map.yaml` と全レイヤーの `mapping` のキーを書き換える
+    レイヤーとコンボは名前で参照されないので `name` の行とファイル名だけ、位置の名前の変更（`RenamePosition`）は `position_map.yaml` と全レイヤー（未使用のレイヤーのファイルも）の `mapping` のキーを書き換える
   - 削除（`ItemEdits::Delete`）は参照を書き換えず、壊れる参照の場所を返す（`reference_pattern` で表記を探すほか、16bit 値で番号の参照も数える）
 - パスは `Environment#root` 基準で解決する
 

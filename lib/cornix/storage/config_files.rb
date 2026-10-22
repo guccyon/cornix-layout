@@ -11,6 +11,10 @@ module Cornix
     #   layers/{番号}_{名前}.yaml   レイヤー
     #   macros/{番号 2 桁}_{名前}.yaml、tap_dance/...、combos/...
     #
+    # 番号は各ファイルの index: だけで決まり、ファイル名の先頭の番号の接頭辞は読まない（付けても付けなくてもよく、index と違ってもよい）。
+    # 書くとき（decompile、拡張の追加）は表示の並びのために接頭辞を付ける（item_path）。
+    # index: のないか値が空のファイルは未使用（compile に含めない。Schema::Header.unused?）
+    #
     # 拡張子は .yaml と .yml のどちらでも読む（同じ名前で両方あれば .yaml）。書くときは .yaml
     module ConfigFiles
       METADATA = 'metadata'
@@ -74,12 +78,6 @@ module Cornix
         suffix = name.match?(default_name) ? fallback : sanitize(name)
         suffix = fallback if suffix.empty?
         "#{sub}/#{index.to_s.rjust(digits, '0')}_#{suffix}#{WRITE_EXTENSION}"
-      end
-
-      # ファイル名の先頭の番号（"3_symbols.yaml" → 3）。なければ nil
-      def leading_number(rel)
-        m = /\A(\d+)_/.match(File.basename(rel))
-        m && Integer(m[1], 10)
       end
 
       def sanitize(name)

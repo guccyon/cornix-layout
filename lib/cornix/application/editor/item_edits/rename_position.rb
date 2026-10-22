@@ -7,7 +7,7 @@ module Cornix
     module Editor
       class ItemEdits
         # 位置の名前を変える（protocol.md の 12.5 の renamePosition）。position_map.yaml のその位置の名前（並びの 1 要素）と、
-        # すべてのレイヤーのファイルの mapping の下のその名前のキーを書き換える（書いていないレイヤーはそのまま）。
+        # すべてのレイヤーのファイル（未使用のものも）の mapping の下のその名前のキーを書き換える（書いていないレイヤーはそのまま）。
         # compile の結果は変わらないはずだが、名前の変更と同じく前後を照合する。新しい名前が今と同じなら何もしない
         class RenamePosition < Operation
           private
@@ -48,11 +48,11 @@ module Cornix
                                             .find { |file| reading.files[file] }
           end
 
+          # 未使用のレイヤーのファイル（index のないもの）も書き換える（残すと位置の名前が position_map にないという警告になる）
           def rename_layer_keys(path, name)
-            profile.layers.each_index do |i|
-              file, = reading.repository.address("layers[#{i}]")
-              next unless file
-
+            used = profile.layers.each_index.filter_map { |i| reading.repository.address("layers[#{i}]")&.first }
+            unused = reading.unused.select { |file| file.kind == :layers }.map(&:file)
+            (used + unused).each do |file|
               edit_file(file) { |text| YamlKeys.new(text).rename_key(path, name) }
             end
           end

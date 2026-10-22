@@ -79,6 +79,17 @@ RSpec.describe 'cornix compile / decompile / validate / cleanup / rename' do
       expect(out.string).to start_with("✗ Validation failed:\n  Error: macros/00_macro.yaml: YAML の文法エラー")
     end
 
+    it '未使用のファイル（index のないもの）を一覧で表示する' do
+      install_config
+      File.write(config_file('macros/spare.yaml'), "name: Spare\nsequence: [{ action: tap, keys: [KC_A] }]\n")
+      expect(cornix('validate')).to eq(0)
+      expect(out.string).to eq("✓ All validations passed\nℹ  Unused files (no index, not compiled): 1\n    macros/spare.yaml\n")
+      out.truncate(0)
+      out.rewind
+      expect(cornix('validate', '--json')).to eq(0)
+      expect(JSON.parse(out.string)['unused']).to eq([{ 'kind' => 'macros', 'file' => 'macros/spare.yaml', 'name' => 'Spare' }])
+    end
+
     it 'config/ がなければ exit 1' do
       expect(cornix('validate')).to eq(1)
       expect(out.string).to eq("Error: #{env.config_dir} not found\n")

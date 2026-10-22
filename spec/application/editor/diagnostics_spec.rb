@@ -9,7 +9,7 @@ RSpec.describe Cornix::Application::Editor::Diagnostics do
   # 今の意味検証にはファイル全体を指す規則がないので、Profile#diagnostics の結果を差し替えて確かめる
   def located(*diagnostics)
     profile = double('profile', diagnostics: diagnostics)
-    fake = double('reading', ok?: true, profile: profile, repository: reading.repository)
+    fake = double('reading', ok?: true, profile: profile, repository: reading.repository, unused: [])
     allow(fake).to receive(:document) { |rel| reading.document(rel) }
     described_class.new(fake, env.capabilities).call
   end

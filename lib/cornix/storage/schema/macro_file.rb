@@ -10,7 +10,7 @@ module Cornix
       #   name: Copy Selected
       #   description: ...          # 省略可
       #   enabled: true             # 省略可（読み飛ばす）
-      #   index: 2                  # マクロ番号（M2）
+      #   index: 2                  # マクロ番号（M2）。省くか空にすると未使用（compile に含めない）
       #   sequence:
       #     - action: down          # tap / down / up は keys（キーコード 1 つ、またはリスト）
       #       keys: KC_LGUI

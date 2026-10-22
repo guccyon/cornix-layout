@@ -49,6 +49,35 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
                                      'Cornix は Repeat Key に対応していません（書き込みますが、押しても動かない可能性があります）'])
     end
 
+    it '未使用のファイル（index のないもの）は unused に並べ、その構造の問題は warnings にする（compile は止めない）' do
+      install_config
+      File.write(config_file('macros/spare.yaml'), "name: Spare\nsequence: [{ action: tap, keys: [Nope] }]\n")
+      File.write(config_file('layers/symbols.yaml'), read_config('layers/1_layer_1.yaml').sub(/^index: 1\n/, ''))
+      report = validate.call
+      expect(report).to be_valid
+      expect(report.unused_files).to eq(['layers/symbols.yaml', 'macros/spare.yaml'])
+      expect(report.warnings).to match([a_string_starting_with('macros/spare.yaml: sequence[0].keys[0]: ')
+                                          .and(a_string_ending_with('（未使用のファイルなので compile に含めません）'))])
+      expect(report.profile.layers.size).to eq(10)
+
+      File.write(config_file('metadata.yaml'), "- 1\n")
+      failed = validate.call
+      expect(failed).not_to be_valid
+      expect(failed.unused_files).to eq(['layers/symbols.yaml', 'macros/spare.yaml'])
+      expect(failed.warnings.size).to eq(1)
+    end
+
+    it 'ファイル名に番号がなくても、番号の接頭辞が index と違っても compile の結果は変わらない' do
+      install_config
+      before = described_class.new(env).call
+      File.rename(config_file('layers/3_layer_3.yaml'), config_file('layers/nav.yaml'))
+      File.rename(config_file('tap_dance/00_tap_dance.yaml'), config_file('tap_dance/05_x.yaml'))
+      File.rename(config_file('combos/01_combo.yaml'), config_file('combos/x.yaml'))
+      expect(described_class.new(env).call.diagnostics).to eq(before.diagnostics)
+      expect(Cornix::Application::Compile.new(env).call).to be_compiled
+      expect(image(env.layout_path)).to eq(image(File.join(fixtures, 'layout.vil')))
+    end
+
     it 'config/ がなければ ConfigNotFound' do
       expect { validate.call }.to raise_error(Cornix::Application::ConfigNotFound) { |e| expect(e.dir).to eq(env.config_dir) }
     end

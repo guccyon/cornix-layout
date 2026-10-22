@@ -10,7 +10,8 @@ module Cornix
     #   RenameFiles.new(env).call([plan, ...])    # 全部成功するか、全部元に戻すか
     #
     # call の流れ:
-    # 1. すべての計画を事前検証する（ファイルがある、番号の接頭辞が同じ、行き先が空いている、YAML が読める）
+    # 1. すべての計画を事前検証する（ファイルがある、行き先が空いている、YAML が読める）。
+    #    番号はファイルの index: だけで決まるので、ファイル名の番号の接頭辞は変えても足しても外してもよい（issue #85）
     # 2. 変更前の設定を読み込んで compile した DeviceImage を覚える（verify: false なら省く）
     # 3. config/ を config.backup_<日時>/ に複写する
     # 4. 1 件ずつ: name / description を書き換え（その行だけ）、ファイル名を変え、マクロ・タップダンスの name が
@@ -19,6 +20,7 @@ module Cornix
     # どこかで失敗したらバックアップから元に戻す（バックアップ自体は残す）
     class RenameFiles < UseCase
       REFERENCE_FUNCTIONS = { 'macro' => 'Macro', 'tap_dance' => 'TapDance' }.freeze
+      # ファイル名の番号の接頭辞（03_）。拡張の名前の変更（Editor::ItemEdits::Rename）が保つのに使う
       INDEX_PREFIX = /\A(\d+_)/
 
       # → 問題の文字列の配列
@@ -32,7 +34,6 @@ module Cornix
         path = resolve(plan.old_path)
         return ["File not found: #{path}"] unless File.file?(path)
 
-        prefix_error(File.basename(path), plan.new_basename)&.then { |e| errors << e }
         new_path = File.join(File.dirname(path), plan.new_basename)
         errors << "Destination file already exists: #{new_path}" if File.exist?(new_path) && new_path != path
         begin
@@ -84,16 +85,6 @@ module Cornix
       def editor = env.config_editor
 
       def resolve(path) = editor.resolve(path, base: env.root)
-
-      def prefix_error(old_basename, new_basename)
-        expected = old_basename[INDEX_PREFIX, 1]
-        actual = new_basename[INDEX_PREFIX, 1]
-        if expected && actual != expected
-          "Index prefix mismatch: expected '#{expected}', got '#{actual || 'none'}'"
-        elsif !expected && actual
-          "Unexpected index prefix: '#{actual}'"
-        end
-      end
 
       # → [DeviceImage, nil] または [nil, エラーメッセージ]
       def compiled

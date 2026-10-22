@@ -96,7 +96,7 @@ type FileVersion = string | null;   // ディスク上のバイト列そのも�
 type Diagnostic = {
   severity: "error" | "warning";
   message: string;              // 利用者向けの日本語。validate の表示から「ファイル: キーの位置: 」を除いた文
-  source: "structure" | "semantic";   // 構造検証（読み込み）か意味検証（Profile#diagnostics）か
+  source: "structure" | "semantic";   // 構造検証（読み込み）か意味検証（Profile#diagnostics）か。未使用のファイル（index のないもの。#85）の構造の問題は "structure" の warning
   address?: Address;            // どの値の問題か。ファイルやディレクトリ全体の問題では省く
   file?: string;                // address がないときの、問題のあるファイル（ディレクトリの問題は "macros/"）
   range?: Range;                // 波線を引く範囲（値の部分）。位置が分からなければ省く
@@ -310,6 +310,9 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 - `status: "invalid"` のときは `files` と `diagnostics` だけを信じてよい（`layers` などは空）。
   拡張はエラーの一覧と、ファイルを開くボタンを出す（[11. 決めたこと](#11-決めたこと) の 6）
 - マクロ・タップダンス・コンボ・ショートカットの中身の画面は v0.2。v0.1 では `references` の名前の一覧だけを返す
+- 未使用のファイル（`index:` のないか値が空のもの。#85）の項目は `layers` や `references` などに返さない（`files` には版が入る）。
+  レイヤーなどの `file` / Address は未使用のファイルを除いて対応させるので、未使用のファイルがあっても別のファイルを指さない。
+  未使用のファイルの構造の問題は `diagnostics` に `source: "structure"` の warning で入り、`status` は `"ok"` のまま。未使用の項目を返して編集するのは #105
 
 各項目の決まり（`null` になるものと、項目ごと省くもの）:
 

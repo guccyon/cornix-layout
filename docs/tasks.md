@@ -136,6 +136,7 @@ mapper.to_profile(image, position_map:, previous: nil) #=> Domain::Profile   # p
 ```ruby
 repo = Storage::ConfigRepository.new(dir, notation:, settings_catalog:, shortcut_catalog: Mapping::ShortcutCatalog.default)
 repo.load    #=> Domain::Profile（問題はすべて集めて Storage::InvalidConfig(problems) で送出）
+repo.load_all #=> ConfigLoader::Loaded(profile:, unused: [Storage::UnusedFile])（未使用のファイル。issue #85）
 repo.save(profile) #=> [書いたファイル]   # decompile。ファイル名の規則は旧 YamlWriter と同じ
 ```
 

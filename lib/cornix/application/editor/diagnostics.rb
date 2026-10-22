@@ -13,6 +13,8 @@ module Cornix
       #   shortcuts.yaml の問題は位置の文字列から道筋を正しく戻せないことがある（名前に . [ ] を含む）ので file だけにする
       # 意味検証（読めたとき）: Profile#diagnostics のモデル内のパスを ConfigRepository#address で Address にする。
       #   ファイル全体（道筋が空）なら file だけ、一覧全体（macros など）なら file に "macros/"
+      # 未使用のファイル（index のないもの。issue #85）の構造の問題: 読めたかどうかに関係なく、構造検証と同じ形の warning にする
+      #   （開けなくしない。未使用の項目を拡張で扱うのは #105）
       # range は Address の値の部分（YamlDocument#range）。分からなければ省く
       class Diagnostics
         def initialize(reading, capabilities)
@@ -21,15 +23,21 @@ module Cornix
         end
 
         def call
-          return @reading.problems.map { |problem| structure(problem) } unless @reading.ok?
-
-          @reading.profile.diagnostics(@capabilities).map { |diagnostic| semantic(diagnostic) }
+          found =
+            if @reading.ok?
+              @reading.profile.diagnostics(@capabilities).map { |diagnostic| semantic(diagnostic) }
+            else
+              @reading.problems.map { |problem| structure(problem) }
+            end
+          found + @reading.unused.flat_map(&:problems).map { |problem| structure(problem, 'warning', UNUSED_NOTE) }
         end
+
+        UNUSED_NOTE = Validate::UNUSED_NOTE
 
         private
 
-        def structure(problem)
-          base = { severity: 'error', message: problem.message, source: 'structure' }
+        def structure(problem, severity = 'error', note = '')
+          base = { severity: severity, message: problem.message + note, source: 'structure' }
           file = problem.file
           return base if file.nil?
 

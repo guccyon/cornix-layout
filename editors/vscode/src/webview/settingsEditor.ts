@@ -41,6 +41,17 @@ export class SettingsEditor {
     );
   }
 
+  /** v0.4: 検証の結果の行から移る。節を開いてその設定の欄へ（address は settings/qmk_settings.yaml の [group, name]）。移ったら true */
+  revealAddress(address: { file: string; path: (string | number)[] }): boolean {
+    const row = [...this.rows.values()].find((r) => r.setting.address.file === address.file && r.setting.address.path.join('.') === address.path.join('.'));
+    if (!row) return false;
+    const details = this.element.querySelector('details');
+    if (details) details.open = true;
+    row.element.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    row.input.focus();
+    return true;
+  }
+
   /** 開いている入力欄（テスト用） */
   input(key: string): HTMLInputElement | undefined {
     return this.rows.get(key)?.input;

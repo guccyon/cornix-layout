@@ -115,6 +115,7 @@ describe('節「デバイス転送」', () => {
     expect(section().querySelector('.device-transfer-problems-title')!.textContent).toContain('警告だけなので反映できます');
     const rowsOf = () => [...section().querySelectorAll<HTMLElement>('.device-transfer-problems .problem')];
     expect(rowsOf().map((row) => row.querySelector('.problem-file')!.textContent)).toEqual(['layers/4_ipad_base.yml: mapping.encoders.right.push']);
+    // 編集フォームにないファイル（このテストの App には下の節もない）は、ファイルを開く
     rowsOf()[0]!.querySelector<HTMLButtonElement>('.link-button')!.click();
     expect(host.opened.at(-1)).toMatchObject({ file: 'layers/4_ipad_base.yml' });
 
@@ -265,6 +266,21 @@ describe('反映のプレビューのモーダル', () => {
     expect(dialog().querySelector('.device-modal-errors')).toBeNull();
     expect(snapshotErrors({ status: 'invalid', diagnostics: [] })).toBe(1);
     expect(snapshotErrors({ status: 'ok', diagnostics: [{ severity: 'warning', source: 'semantic', message: 'w' }] })).toBe(0);
+  });
+
+  it('レイヤーのキー・エンコーダの問題は「キーを表示」で、そのレイヤーに切り替えて編集フォームの欄にフォーカスする（ファイルは開かない）', () => {
+    const diagnostics = [
+      { severity: 'warning' as const, source: 'semantic' as const, message: 'レイヤー 9 が定義されていません', address: { file: 'layers/1_symbols.yml', path: ['mapping', 'encoders', 'right', 'push'] } },
+      { severity: 'warning' as const, source: 'semantic' as const, message: 'レイヤー全体の問題', file: 'layers/1_symbols.yml' },
+    ];
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ diagnostics }), changes: [] });
+    const reveal = [...section().querySelectorAll<HTMLButtonElement>('.device-transfer-problems .problem-reveal')];
+    expect(reveal.map((b) => b.textContent)).toEqual(['キーを表示', '表示']);
+    expect(section().querySelectorAll('.device-transfer-problems .problem .link-button:not(.problem-reveal)')).toHaveLength(0);
+    reveal[0]!.click();
+    expect(host.opened).toEqual([]);
+    expect(root.querySelector('.layer-tabs .layer-tab[data-layer="1"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(document.activeElement?.closest<HTMLElement>('.field')?.dataset.slot).toBe(encoderId(1, 'right', 'push'));
   });
 
   it('検証の警告はモーダルにも一覧で出し、確定は押せる', () => {

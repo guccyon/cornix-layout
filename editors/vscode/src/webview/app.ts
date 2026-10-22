@@ -69,6 +69,8 @@ export type AppOptions = {
   state?: { get(): ViewState | undefined; set(state: ViewState): void };
   /** 下のペインのレイヤーの欄のあとに置く部品（QMK 設定・メタデータ）。読めないプロファイルの表示では出ない */
   sections?: HTMLElement[];
+  /** v0.4: 検証の結果の行から、レイヤー以外の節（マクロなど・QMK 設定）の項目へ移る。移れたら true */
+  revealProblem?: (diagnostic: Diagnostic) => boolean;
 };
 
 /** 作り直す前のフォーカスと打ちかけ */
@@ -701,12 +703,49 @@ export class App {
       file ? h('span', { class: 'problem-file' }, diagnosticPlace(diagnostic)) : null,
       h('span', { class: 'problem-message' }, diagnostic.message),
     );
-    if (file && !file.endsWith('/')) {
+    // 編集画面で直せるもの（レイヤーのキー・エンコーダ、マクロなどの項目、QMK 設定）は、生のファイルではなく編集フォームのその欄へ移る
+    const target = this.problemTarget(diagnostic);
+    if (target) {
+      const show = h('button', { type: 'button', class: 'link-button problem-reveal' }, target === 'key' ? 'キーを表示' : '表示');
+      show.addEventListener('click', () => this.revealProblem(diagnostic));
+      row.append(show);
+    } else if (file && !file.endsWith('/')) {
       const open = h('button', { type: 'button', class: 'link-button' }, 'ファイルを開く');
       open.addEventListener('click', () => this.options.host.openFile(file, diagnostic.range));
       row.append(open);
     }
     return row;
+  }
+
+  /** 検証の結果を編集フォームのどこで直せるか（key: レイヤーのキー・エンコーダの欄、layer: そのレイヤー、item: 下の節の項目） */
+  private problemTarget(diagnostic: Diagnostic): 'key' | 'layer' | 'item' | undefined {
+    if (!this.snapshot || this.snapshot.status === 'invalid') return undefined;
+    const file = diagnostic.address?.file ?? diagnostic.file;
+    const layer = this.snapshot.layers.find((l) => l.file === file);
+    if (layer) return diagnostic.address && this.layerSlotIds(layer).has(addressKey(diagnostic.address)) ? 'key' : 'layer';
+    return file && this.options.revealProblem && !file.endsWith('/') ? 'item' : undefined;
+  }
+
+  private layerSlotIds(layer: LayerSnapshot): Set<string> {
+    return new Set(layerSlots(layer, this.snapshot?.positionMap ?? []).map((slot) => slot.id));
+  }
+
+  /** 検証の結果の行から、編集フォームのその欄へ移る（レイヤーを切り替えて欄にフォーカス）。移れなければファイルを開く */
+  revealProblem(diagnostic: Diagnostic): void {
+    const file = diagnostic.address?.file ?? diagnostic.file;
+    const layer = this.snapshot?.layers.find((l) => l.file === file);
+    if (layer) {
+      if (layer.index !== this.layerIndex) this.selectLayer(layer.index);
+      const id = diagnostic.address ? addressKey(diagnostic.address) : undefined;
+      if (id && this.layerSlotIds(layer).has(id)) {
+        this.reveal(id);
+        return;
+      }
+      this.tabs.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      return;
+    }
+    if (this.options.revealProblem?.(diagnostic)) return;
+    if (file && !file.endsWith('/')) this.options.host.openFile(file, diagnostic.range);
   }
 
   private renderInvalid(snapshot: ProfileSnapshot): void {

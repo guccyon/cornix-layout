@@ -63,6 +63,17 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+describe('検証の結果の行から移る（revealFile）', () => {
+  it('そのファイルの項目を選び、節を開く。ほかの節のファイルなら何もしない', () => {
+    const macros = mount(new MacroEditor({ host }));
+    macros.update(snapshot(), []);
+    expect(macros.revealFile(TAP_DANCE_FILE)).toBe(false);
+    expect(macros.revealFile(PRESET_FILE)).toBe(true);
+    expect(macros.selected).toBe(PRESET_MACRO.name);
+    expect(macros.element.querySelector('details')!.open).toBe(true);
+  });
+});
+
 describe('節の出し方', () => {
   it('v0.1 のサーバー（snapshot に macros などがない）と読めないプロファイルでは出さない。0 件なら「追加」だけの節を出す', () => {
     const sections = [new MacroEditor({ host }), new TapDanceEditor({ host }), new ComboEditor({ host }), new ShortcutEditor({ host })];

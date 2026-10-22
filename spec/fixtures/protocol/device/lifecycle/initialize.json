@@ -7,13 +7,13 @@
     "id": 1,
     "method": "initialize",
     "params": {
-      "protocolVersion": "0.3"
+      "protocolVersion": "0.4"
     }
   },
   "response": {
     "id": 1,
     "result": {
-      "protocolVersion": "0.3",
+      "protocolVersion": "0.4",
       "serverInfo": {
         "name": "cornix",
         "implementation": "ruby"

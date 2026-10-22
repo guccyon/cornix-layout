@@ -116,6 +116,8 @@ describe('偽の device のサーバー', () => {
   it('使えない・compile できない・書き込み禁止・途中で切れたときのエラー', async () => {
     const server = await initialized({ config: { unavailable: 'bridge' } });
     expect((await server.request('device/compare', dir)).error).toMatchObject({ code: DeviceErrorCodes.DeviceUnavailable, data: { reason: 'bridge' } });
+    // device/backups は実機を読まないので、使えなくても一覧を返す（Ruby と同じ。protocol.md の 14.5）
+    expect((await server.request('device/backups', dir)).result).toEqual({ backups: [] });
 
     server.send({ method: FAKE_DEVICE_CONFIGURE, params: { unavailable: null, compileFailed: true } });
     expect((await server.request('device/compare', dir)).error).toMatchObject({ code: DeviceErrorCodes.CompileFailed, data: { diagnostics: [{ severity: 'error' }] } });

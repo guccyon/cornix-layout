@@ -624,7 +624,8 @@ Open it with the Cornix icon in the activity bar or the command "Cornix: プロ�
 - **Text editor**: when you open a settings file as text, the same validation results appear as squiggles
 - **The keyboard**: the "デバイス転送" (Device transfer) section at the bottom of the edit form writes the saved profile to the connected keyboard. Like `cornix device`, this needs macOS and the HID bridge (see [Requirements](#requirements))
   - "反映のプレビュー…" (Preview apply), or the command "Cornix: 実機に反映…", compiles the saved profile (unsaved changes are saved first), reads the keyboard (about 10 seconds over Bluetooth) and shows the differences in a modal over the editor: the diagram with the differing keys outlined in orange, the number of differences on each layer tab, and a list of "place: keyboard value → profile value". Nothing is written until you press "確定" (Confirm), and "やめる" (Cancel) closes it. The editor cannot be edited while the modal is open
-  - Confirm backs up the keyboard, writes and reads it back. It cannot be pressed while the profile has validation errors, or when the files changed after the preview (press "もう一度比べる" (Compare again) instead)
+  - While the profile has validation errors, "反映のプレビュー…" cannot be pressed, and the number of errors and a request to fix them and save first are shown next to it (it stops before reading the keyboard)
+  - Confirm backs up the keyboard, writes and reads it back. It cannot be pressed when the files changed after the preview (press "もう一度比べる" (Compare again) instead)
   - Writing is allowed only when the setting `cornix.device.allowWrites` is on (off by default; the preview always works). The extension starts `cornix serve --device` with `--allow-writes` only when the setting is on, and without it the server refuses to write
   - To go back, undo or use git on the settings files and apply again. Restoring a backup is done on the command line (`cornix restore` / `cornix device restore`)
 

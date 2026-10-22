@@ -1,5 +1,6 @@
 // v0.4（tasks-v0.4.md の「画面」）: 実機への反映（プレビュー → 確定）。
 // - TransferSection: 編集フォームの一番下の畳める節「デバイス転送」。「反映のプレビュー…」を押すとホストに deviceAction('preview') を送る。
+//   保存済みのプロファイルに検証のエラーがあれば押せなくし、横に理由を出す（実機を読む 10 秒を無駄にしない）。
 // - TransferDialog: ホストの transfer がある間に出すモーダル。読んでいる間は進み具合と「やめる」。プレビューでは
 //   図（違うキー・エンコーダの操作を橙の枠）・レイヤーのタブ（違いの件数）・違いの一覧・「確定」「やめる」。書いている間は進み具合（取り消せない）。
 //   開いている間は編集画面を操作できない（App が編集画面に inert を付ける）。
@@ -104,6 +105,10 @@ export class TransferSection {
   readonly element: HTMLElement;
   readonly button: HTMLButtonElement;
   private readonly note = h('p', { class: 'device-transfer-note', hidden: true }, WRITE_SETTING_NOTE);
+  /** 検証のエラーで押せない理由（ボタンの横） */
+  private readonly blocked = h('span', { class: 'device-transfer-blocked', role: 'status', hidden: true });
+  private state: DeviceViewState = IDLE_DEVICE_STATE;
+  private errors = 0;
 
   constructor(options: TransferSectionOptions) {
     this.button = h('button', { type: 'button', class: 'device-preview-button' }, '反映のプレビュー…');
@@ -122,17 +127,27 @@ export class TransferSection {
           { class: 'device-transfer-description' },
           '保存済みのプロファイルを、接続中の Cornix に書き込みます。押すと実機を読んで（Bluetooth では 10 秒ほど）違いをプレビューし、「確定」を押すまでは書き込みません。未保存の変更があれば先に保存します。',
         ),
-        h('div', { class: 'device-transfer-actions' }, this.button),
+        h('div', { class: 'device-transfer-actions' }, this.button, this.blocked),
         this.note,
       ),
     );
     this.update(IDLE_DEVICE_STATE);
   }
 
-  update(state: DeviceViewState): void {
-    this.button.disabled = state.transfer !== null || state.busyElsewhere;
+  /** 状態を描く。errors は保存済みのプロファイルの検証のエラーの数（snapshotErrors。あれば実機を読む前に止める） */
+  update(state: DeviceViewState, errors = this.errors): void {
+    this.state = state;
+    this.errors = errors;
+    this.button.disabled = state.transfer !== null || state.busyElsewhere || errors > 0;
     this.button.title = state.busyElsewhere ? 'ほかのプロファイルの反映の途中です' : '';
+    this.blocked.hidden = errors === 0;
+    this.blocked.textContent = errors > 0 ? `検証のエラーが ${errors} 件あるので反映できません。先にエラーを直して保存してください。` : '';
     this.note.hidden = state.allowWrites;
+  }
+
+  /** 保存済みのプロファイルが変わった（検証のエラーの数を描き直す） */
+  setErrors(errors: number): void {
+    this.update(this.state, errors);
   }
 }
 

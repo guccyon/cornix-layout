@@ -89,5 +89,6 @@ v0.4 のうち issue #84（下の欄の「キー別」の並べ方・レイヤ�
 - モーダルは `document.body` に置き、編集画面の `#app` に `inert` を付ける（モーダルを `#app` の中に置くと一緒に操作できなくなる）。
   モーダルの図は `KeyboardView` をもう 1 つ作って使い回す（作るたびに Alt の keydown の listener が増えるので、作るのは 1 回）
 - 確定はプレビューの token のまま `device/apply`。プレビューのあとで snapshot の `files` が変わったら `stale`（読んでいる間に変わっても、読み終えたときに stale にする）。
-  検証のエラー（snapshot の diagnostics の error、`invalid` は 1 件以上）があれば、画面は確定を押せなくし、ホストも止める
+  検証のエラー（snapshot の diagnostics の error、`invalid` は 1 件以上）があれば、画面は節の「反映のプレビュー…」を押せなくして横に理由を出し（`TransferSection#setErrors`。App#setSnapshot で呼ぶ）、
+  ホストは保存を促したあと実機を読む前に止める（Tetsuro: 確定で止めると読む 10 秒が無駄）。確定でも同じく止める（プレビューのあとで外の変更でエラーが出た場合）
 - 画面のモーダルを Playwright で見るとき、VS Code の色の変数がないと背景が透けるので、`var(--vscode-…, #252526)` のように最後の値を付けておく

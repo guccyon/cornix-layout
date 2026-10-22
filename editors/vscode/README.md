@@ -153,7 +153,7 @@ editors/vscode/
       deviceServer.ts     device のサーバー（cornix serve --device [--allow-writes]。最初の device/* で起動し、残す）
     device/               実機への反映（v0.4。プレビュー → 確定。ADR 020）
       deviceController.ts コマンド「実機に反映…」・保存の促し・通知・設定の変更（VS Code の部分）
-      deviceFlow.ts       反映の流れ（保存の促し → 読む → プレビュー → 確定で書く、読む間だけの取り消し、検証のエラーで止める。vscode に依存しない）
+      deviceFlow.ts       反映の流れ（保存の促し → 読む → プレビュー → 確定で書く、読む間だけの取り消し、検証のエラーなら実機を読む前に止める。vscode に依存しない）
       deviceStates.ts     反映の途中の状態（読む・プレビュー・書く。プレビューのあとで設定ファイルの版が変われば古い。vscode に依存しない）
       deviceTexts.ts      通知に出す文（結果・実機が使えないときの直し方。vscode に依存しない）
       deviceSettings.ts   設定 cornix.device.allowWrites と、device のサーバーの起動の引数（vscode に依存しない）

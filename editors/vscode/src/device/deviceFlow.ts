@@ -37,7 +37,7 @@ export interface DeviceHost {
   filesKey(dir: string): string | undefined;
   /** モーダルに出すプロファイルの名前 */
   profileName(dir: string): string;
-  /** 保存済みのプロファイルの検証のエラーの数（あれば確定させない） */
+  /** 保存済みのプロファイルの検証のエラーの数（あれば実機を読まず、確定もさせない） */
   errorCount(dir: string): number;
 }
 
@@ -87,6 +87,12 @@ export class DeviceFlow {
     if (!(await this.host.ensureSaved(dir))) return 'declined';
     // 保存を促している間に、ほかの反映が始まったかもしれない
     if (this.states.busy) return this.blocked();
+    // 検証のエラーがあれば、実機を読む前に止める（読む 10 秒を無駄にしない。画面の節のボタンも押せない）
+    const errors = this.host.errorCount(dir);
+    if (errors > 0) {
+      this.notify(validationErrorNotice(errors));
+      return 'blocked';
+    }
     this.states.start(dir, this.host.filesKey(dir));
     const source = new CancellationTokenSource();
     this.reading = { dir, source };

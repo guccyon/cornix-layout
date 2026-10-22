@@ -66,7 +66,7 @@ VS Code 拡張 v0.4 の反映（編集フォームの節「デバイス転送」
   `Application::Editor::DeviceOperations` から呼ぶ。マトリクスの座標を位置（レイヤー・位置の名前）に直すのは `Application::Editor::DeviceChanges`（`Domain::PositionMap`）
 - 比べるのは保存済みのファイルを compile したもの（未保存の変更は見ない）。`device/apply` はサーバーが計画し直し、`device/compare` の token と違えば何も書かない（MCP の confirm_token と同じ）
 - 書き込みの止めは二重（ADR 019）:
-  1. 拡張: 設定 `cornix.device.allowWrites`（既定 `false`）が `true` のときだけ `--allow-writes` を付けて起動する。書くのは毎回、違い・件数・書き込み先のキーボード名を見せるプレビューで「確定」を押したときだけ（検証のエラーがあるときは押せない）
+  1. 拡張: 設定 `cornix.device.allowWrites`（既定 `false`）が `true` のときだけ `--allow-writes` を付けて起動する。書くのは毎回、違い・件数・書き込み先のキーボード名を見せるプレビューで「確定」を押したときだけ（検証のエラーがあるときは反映のプレビューも確定も押せない）
   2. サーバー: `--allow-writes` なしで起動したものは `device/apply`・`device/restore` を `-32074`（WritesNotAllowed）で断り、実機を読みもしない
 - バックアップ・1 件ずつの書き込み・読み直しの検証・boot 系キーコードの拒否は、下の「安全設計」のまま（CLI・MCP と同じ `Device::Writer` / `ChangePolicy`）
 - 進み具合は `Device::Reader` / `Writer` の progress のコールバックから `device/progress` の通知にする。取り消し（`$/cancelRequest`）は読む間だけ受け付け、

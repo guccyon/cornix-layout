@@ -16,8 +16,8 @@
   - [検証](../docs/validation.md) - 構造検証と意味検証
   - [rename](../docs/rename.md) - `cornix rename` と `bin/rename_file`
   - [コマンドの体系と cornix self](../docs/cli.md) - サブコマンドの並べ方の方針、`cornix self link`（Ruby を固定した shim を PATH に置く。設計だけ）
-  - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp`、RMK 0.8 の挙動と安全設計
-  - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・ロードマップ・バックエンドとのリクエストの約束（v0.1・v0.2・v0.3、v0.4 は設計と #84 のキーごとの並べ方。コードは `editors/vscode/`、バックエンドは `cornix serve`）
+  - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp` / `cornix serve --device`、RMK 0.8 の挙動と安全設計
+  - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・ロードマップ・バックエンドとのリクエストの約束（v0.1〜v0.4。v0.4 は実機と比べる・反映・戻すと #84 のキーごとの並べ方。コードは `editors/vscode/`、バックエンドは `cornix serve` と `cornix serve --device`）
 - **Memories**: [memories/](memories/)
   - [domain_architecture_refactor](memories/domain_architecture_refactor.md) - 作り直しの知見・意図的に変えた振る舞い
   - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
@@ -91,7 +91,7 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
   （compile の出力は `tmp/build/layout.vil`、pull は `tmp/layout.vil` に読み出してから decompile）
 - `cornix init` と共通のオプション `--config` / `--profile` / `--root` / `--json`: 設定ディレクトリの作成と場所の指定、結果の JSON での出力
 - `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
-- `cornix serve`: VS Code 拡張（`editors/vscode/`）のバックエンド。標準入出力の JSON-RPC（docs/vscode-extension/protocol.md）でプロファイルを読み、候補・検証・書き換えを返す（実機には触らない）
+- `cornix serve`: VS Code 拡張（`editors/vscode/`）のバックエンド。標準入出力の JSON-RPC（docs/vscode-extension/protocol.md）でプロファイルを読み、候補・検証・書き換えを返す（実機には触らない）。`cornix serve --device [--allow-writes]` は別のプロセスで、実機と比べる・反映・戻すを受け持つ（書き込みは `--allow-writes` のときだけ）
 - 名前参照（`Macro('名前')`）、名前付きショートカット（`Shortcut('名前')`、`config/shortcuts.yaml` と同梱の `data/shortcuts/`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
 - decompile → compile で 16bit 値が元と一致する
 

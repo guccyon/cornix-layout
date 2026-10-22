@@ -1,7 +1,7 @@
 # VS Code 拡張の仕様
 
 cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 画面で構造化して見せ、補完つきで編集できる VS Code 拡張を作る。
-仕様は 2026-10-19 の相談ですべて決まり、自分用の v0.1（レイヤーと QMK 設定）と v0.2（すべての設定ファイル。[tasks-v0.2.md](tasks-v0.2.md)）、v0.3（使い勝手。[tasks-v0.3.md](tasks-v0.3.md)）ができている。v0.4（実機とつなぐ。[tasks-v0.4.md](tasks-v0.4.md)）も統合ブランチに入った（main への PR は Tetsuro の確認のあと）。決定の理由は [adr.md](adr.md)、版の割り振りは [roadmap.md](roadmap.md)、
+仕様は 2026-10-19 の相談ですべて決まり、自分用の v0.1（レイヤーと QMK 設定）と v0.2（すべての設定ファイル。[tasks-v0.2.md](tasks-v0.2.md)）、v0.3（使い勝手。[tasks-v0.3.md](tasks-v0.3.md)）ができている。v0.4（実機とつなぐ。[tasks-v0.4.md](tasks-v0.4.md)）も main に入った。v0.5（未使用の項目と番号の操作。[tasks-v0.5.md](tasks-v0.5.md)）は統合ブランチに入った（main への PR は Tetsuro の確認のあと）。決定の理由は [adr.md](adr.md)、版の割り振りは [roadmap.md](roadmap.md)、
 バックエンドとのやりとりは [protocol.md](protocol.md)。
 
 ## 背景と目標
@@ -136,7 +136,7 @@ Tetsuro の確認（2026-10-22）で、比べる・反映・戻すの 3 つの�
 
 ## 未使用の項目と番号（v0.5）
 
-設計は [tasks-v0.5.md](tasks-v0.5.md)、約束は [protocol.md](protocol.md) の 15、理由は ADR 022・023。**状態: 作業中**（2026-10-22 決定。画面の案 https://claude.ai/artifact/HnkoBCY41deiqX9TvZzjLs ）。
+設計は [tasks-v0.5.md](tasks-v0.5.md)、約束は [protocol.md](protocol.md) の 15、理由は ADR 022・023。**状態: 入れた**（2026-10-22 決定。画面の案 https://claude.ai/artifact/HnkoBCY41deiqX9TvZzjLs 。W0 #116・P #117・H #118・I #119・L #120・R #121、仕上げは J #115）。
 
 - 未使用の項目（`index:` のないファイル。#85）は、使っているものと並べない。レイヤーはタブの末尾の「＋」、マクロ・タップダンス・コンボ・ショートカットは節の「追加」から出す一覧に、
   検索・「新しく作る」・「未使用（N）」・（マクロとショートカットは）同梱から、を並べる。開くボタンには未使用の数を小さく出す

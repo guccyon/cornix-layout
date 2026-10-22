@@ -278,6 +278,7 @@ describe('未使用にするときの確認と、失敗の知らせ', () => {
     expect(pendingItemEditLabel(use, 'iPad Base')).toBe('レイヤー iPad Base を使い始める');
     expect(pendingItemEditLabel({ op: 'unuse', kind: 'macro', file: 'macros/a.yml' }, 'A')).toBe('マクロ A を未使用にする');
     expect(pendingItemEditLabel({ op: 'setIndex', kind: 'tapDance', file: 'tap_dance/a.yml', index: 3 }, 'A')).toBe('タップダンス A の番号を 3 に変える');
+    expect(pendingItemEditLabel({ op: 'reorder', kind: 'layer', files: ['layers/0.yml'] })).toBe('レイヤーを並び替える');
     expect(pendingItemEditLabel({ op: 'create', kind: 'shortcut', name: 'X', value: 'KC_A' })).toBe('ショートカット X を追加する');
     expect(itemEditTitle(use)).toBe('レイヤー（layers/ipad.yml）を使い始めます。');
     const error = { code: ErrorCodes.InvalidParams, message: '空いている番号がありません。先にどれかを未使用にしてください' };

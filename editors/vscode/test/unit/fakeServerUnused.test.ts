@@ -110,14 +110,49 @@ describe('偽のサーバーの番号の操作（15.3）', () => {
         { address: key, value: 'Macro(2)' },
       ]);
       expect(plan.references).toEqual([key]);
-      // レイヤーの入れ替えでは参照を書き換えない
+      // レイヤーの入れ替えでは、レイヤー操作（MO(1) など）の番号も新しい番号に書き換える（ADR 025）
       const layers = (await call('profile/planItemEdit', { ...params, edit: { op: 'setIndex', kind: 'layer', file: 'layers/0_base.yml', index: 1 } })).result as PlanItemEditResult;
-      expect(layers.changes).toEqual([
+      expect(layers.changes!.slice(0, 2)).toEqual([
         { address: indexAddress('layers/0_base.yml'), value: 1 },
         { address: indexAddress('layers/1_symbols.yml'), value: 0 },
       ]);
+      const texts = new Map(snapshot.layers.flatMap((layer) => layer.keys.map((k) => [JSON.stringify(k.address), k.value?.text] as const)));
+      const rewrites = layers.changes!.slice(2);
+      expect(rewrites.length).toBeGreaterThan(0);
+      for (const change of rewrites) {
+        const before = texts.get(JSON.stringify(change.address));
+        expect(before).toMatch(/\b(MO|TG|TO|TT|OSL|DF|PDF|LT|LM)\(?[01]\b/);
+        expect((change as { value: unknown }).value).toBe(before!.replace(/([01])/, (n) => (n === '0' ? '1' : '0')));
+      }
+      expect(layers.references).toEqual(rewrites.map((c) => c.address));
       const out = await call('profile/planItemEdit', { ...params, edit: { op: 'setIndex', kind: 'layer', file: 'layers/0_base.yml', index: 10 } });
       expect(out.error).toMatchObject({ code: ErrorCodes.InvalidParams, data: { field: 'edit.index' } });
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('偽のサーバーの並び替え（15.3 の reorder）', () => {
+  it('今の番号を小さい順に新しい並びへ当て、番号の参照を追従させる。同じ並びなら変更なし', async () => {
+    const { call, snapshot, cleanup } = await opened();
+    try {
+      const key = snapshot.layers[0]!.keys.find((k) => k.value?.text === 'Q')!.address;
+      const pending: AnyChange[] = [{ address: key, value: 'M2' }];
+      const params = { profileId: snapshot.profileId, baseVersions: snapshot.files, changes: pending };
+      const files = ['macros/02_copy_selected.yml', 'macros/00_bracket_pair.yml', 'macros/01_curly_brace_pair.yml'];
+      const plan = (await call('profile/planItemEdit', { ...params, edit: { op: 'reorder', kind: 'macro', files } })).result as PlanItemEditResult;
+      expect(plan.files).toEqual([]);
+      expect(plan.changes!.slice(0, 3)).toEqual([
+        { address: indexAddress('macros/02_copy_selected.yml'), value: 0 },
+        { address: indexAddress('macros/00_bracket_pair.yml'), value: 1 },
+        { address: indexAddress('macros/01_curly_brace_pair.yml'), value: 2 },
+      ]);
+      expect(plan.changes).toContainEqual({ address: key, value: 'M0' });
+      const same = (await call('profile/planItemEdit', { ...params, edit: { op: 'reorder', kind: 'macro', files: [...files.slice(1), files[0]] } })).result as PlanItemEditResult;
+      expect(same.changes).toEqual([]);
+      const out = await call('profile/planItemEdit', { ...params, edit: { op: 'reorder', kind: 'macro', files: files.slice(1) } });
+      expect(out.error).toMatchObject({ code: ErrorCodes.InvalidParams, data: { field: 'edit.files' } });
     } finally {
       cleanup();
     }

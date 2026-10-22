@@ -35,6 +35,8 @@ export function isItemEdit(value: unknown): value is ItemEdit {
       return indexedKind(edit.kind) && typeof edit.file === 'string';
     case 'setIndex':
       return indexedKind(edit.kind) && typeof edit.file === 'string' && Number.isInteger(edit.index);
+    case 'reorder':
+      return indexedKind(edit.kind) && Array.isArray(edit.files) && edit.files.length > 0 && edit.files.every((file) => typeof file === 'string');
     default:
       return false;
   }
@@ -73,6 +75,8 @@ export function itemEditTitle(edit: ItemEdit, name?: string): string {
       return `${indexedItem(edit, name)}を未使用にします。`;
     case 'setIndex':
       return `${indexedItem(edit, name)}の番号を ${edit.index} に変えます。`;
+    case 'reorder':
+      return `${KIND_NAMES[edit.kind]}を並び替えます。`;
   }
 }
 

@@ -54,6 +54,7 @@ describe('isPendingItemEdit', () => {
     expect(isPendingItemEdit({ op: 'use', kind: 'layer', file: 'l.yml' })).toBe(true);
     expect(isPendingItemEdit({ op: 'unuse', kind: 'macro', file: 'm.yml' })).toBe(true);
     expect(isPendingItemEdit({ op: 'setIndex', kind: 'combo', file: 'c.yml', index: 2 })).toBe(true);
+    expect(isPendingItemEdit({ op: 'reorder', kind: 'macro', files: ['a.yml', 'b.yml'] })).toBe(true);
     expect(isPendingItemEdit({ op: 'create', kind: 'shortcut', name: 'a', value: 'KC_A' })).toBe(true);
     expect(isPendingItemEdit({ op: 'create', kind: 'macro', name: 'a' })).toBe(false);
     expect(isPendingItemEdit({ op: 'delete', kind: 'layer', name: 'a', file: 'l.yml' })).toBe(false);

@@ -799,8 +799,8 @@ class FakeServer {
   }
 
   /**
-   * v0.5 の use / unuse / setIndex と create（shortcut）（protocol.md の 15.3）。素朴に作る: 番号の参照の書き換えはレイヤーのキーとエンコーダの
-   * `Macro(n)` / `M<n>` / `TD(n)` / `TapDance(n)` だけ、壊れる参照は表記が同じものとレイヤー操作の display.hold だけを数える
+   * v0.5 の use / unuse / setIndex / reorder と create（shortcut）（protocol.md の 15.3）。素朴に作る: 番号の参照の書き換えはレイヤーのキーとエンコーダの
+   * `Macro(n)` / `M<n>` / `TD(n)` / `TapDance(n)` とレイヤー操作（MO(n)・LT(n, …) など）だけ、壊れる参照は表記が同じものとレイヤー操作の display.hold だけを数える
    */
   private planPendingItemEdit(
     edit: ItemEdit,
@@ -817,6 +817,8 @@ class FakeServer {
     const pending = (rawChanges ?? []) as AnyChange[];
     const changes: AnyChange[] = [];
     const references: Address[] = [];
+    // setIndex / reorder で変わる番号（元 → 新）
+    let moves: Map<number, number> | undefined;
     const slots = snapshot.layers.flatMap((layer) => [...layer.keys, ...[layer.encoders.left, layer.encoders.right].flatMap((e) => [e.push, e.ccw, e.cw])]);
     // 当てたあとの値（未保存の変更で書き換えた値を優先する）
     const textAtSlot = (address: Address, saved: string | undefined) => {
@@ -861,7 +863,7 @@ class FakeServer {
           const texts = [...numeric(item.index), kind === 'macro' ? `Macro('${item.name}')` : kind === 'tapDance' ? `TapDance('${item.name}')` : undefined];
           for (const text of texts) references.push(...referencesTo(text));
         }
-      } else {
+      } else if (edit.op === 'setIndex') {
         if (!isUsed) invalid(`${file} は未使用です。先に使ってください`, 'edit.file');
         const item = isUsed!;
         const index = edit.index;
@@ -870,18 +872,37 @@ class FakeServer {
         const other = used.find((i) => i.index === index);
         changes.push({ address: indexAddress(file), value: index });
         if (other) changes.push({ address: indexAddress(other.file), value: item.index });
-        // マクロ・タップダンスの番号の参照は新しい番号に書き換える（レイヤーの参照は書き換えない）
-        const moves = new Map<number, number>([[item.index, index], ...(other ? ([[index, item.index]] as [number, number][]) : [])]);
-        for (const slot of slots) {
-          const text = textAtSlot(slot.address, slot.value?.text);
-          if (text === undefined) continue;
-          for (const [from, to] of moves) {
-            const at = numeric(from).indexOf(text);
-            if (at < 0) continue;
-            changes.push({ address: slot.address, value: numeric(to)[at]! });
-            references.push(slot.address);
-          }
-        }
+        moves = new Map<number, number>([[item.index, index], ...(other ? ([[index, item.index]] as [number, number][]) : [])]);
+      }
+    } else if (edit.op === 'reorder') {
+      const kind = edit.kind;
+      if (!(kind in INDEX_LIMITS)) invalid(`知らない種類です: ${String(kind)}`, 'edit.kind');
+      const items = snapshotItems(snapshot, kind) as { file: string; name: string; index: number | null }[];
+      const { used } = arrangeItems(items, pending);
+      const files = edit.files;
+      const same = Array.isArray(files) && files.length === used.length && new Set(files).size === files.length && used.every((item) => files.includes(item.file));
+      if (!same) invalid('files は使っている項目すべての並びです', 'edit.files');
+      // 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）
+      const slotsInOrder = used.map((item) => item.index).sort((a, b) => a - b);
+      moves = new Map();
+      files.forEach((f, at) => {
+        const item = used.find((i) => i.file === f)!;
+        const to = slotsInOrder[at]!;
+        if (item.index === to) return;
+        changes.push({ address: indexAddress(f), value: to });
+        moves!.set(item.index, to);
+      });
+    }
+    // 番号の参照を新しい番号に書き換える（表記はそのまま。マクロ・タップダンスは番号の形、レイヤーはレイヤー操作）
+    if (moves && moves.size > 0 && (edit.op === 'setIndex' || edit.op === 'reorder')) {
+      const kind = edit.kind;
+      for (const slot of slots) {
+        const text = textAtSlot(slot.address, slot.value?.text);
+        if (text === undefined) continue;
+        const moved = moveReference(kind, text, moves);
+        if (moved === undefined) continue;
+        changes.push({ address: slot.address, value: moved });
+        references.push(slot.address);
       }
     }
     const touched = [...new Set(changes.map((c) => c.address.file))];
@@ -1375,4 +1396,23 @@ function indentOfLine(line: string): number {
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** 番号の参照の表記を、番号を変えたあとの表記にする（表記はそのまま）。番号の参照でないか、動かない番号なら undefined */
+function moveReference(kind: string, text: string, moves: Map<number, number>): string | undefined {
+  const patterns =
+    kind === 'macro'
+      ? [/^(Macro\()(\d+)(\))$/, /^(M)(\d+)()$/]
+      : kind === 'tapDance'
+        ? [/^(TD\()(\d+)(\))$/, /^(TapDance\()(\d+)(\))$/]
+        : kind === 'layer'
+          ? [/^((?:MO|TG|TO|TT|OSL|DF|PDF)\()(\d+)(\))$/, /^((?:LT|LM)\()(\d+)(,.*\))$/, /^(LT)(\d+)(\(.*\))$/]
+          : [];
+  for (const pattern of patterns) {
+    const match = pattern.exec(text);
+    if (!match) continue;
+    const to = moves.get(Number(match[2]));
+    return to === undefined ? undefined : `${match[1]}${to}${match[3]}`;
+  }
+  return undefined;
 }

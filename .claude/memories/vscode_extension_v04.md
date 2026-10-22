@@ -79,3 +79,15 @@ v0.4 のうち issue #84（下の欄の「キー別」の並べ方・レイヤ�
 - 偽の実機は `spec/device/fake_cornix_device.rb`（FakeRmkDevice を Cornix の大きさにし、`fail_write_after`・`ignore_writes`・`unavailable` を足したもの）
 - コンテナでの rspec は `LANG=ja_JP.UTF-8 bundle exec ruby $(bundle info rspec-core --path)/exe/rspec`。spec/storage などで psych の違いによる失敗が出るが、
   ベースのブランチでも同じで CI では通る
+
+## Tetsuro の確認で作り直した反映（ADR 020）
+
+- 2026-10-22、.vsix を見た Tetsuro の指摘で、図の上の「比べる」「反映」「戻す」と印・状態バーをやめ、編集フォームの一番下の節「デバイス転送」と
+  反映のプレビューのモーダル（確定 / やめる）にした。比べるは反映の前に見るだけ、戻すは Undo や git で設定を戻して反映し直せば足りる、という使い方の話
+- 画面の上のボタンを増やす前に、その操作の頻度と、ほかの操作の一部で足りないかを聞くとよい（今回は 3 つのボタンが 1 つの流れにまとまった）
+- 状態は `DeviceViewState = { transfer, busyElsewhere, allowWrites }`。`transfer` は `reading` / `preview` / `writing`。読む・書く進み具合は VS Code の通知ではなくモーダルに出す
+- モーダルは `document.body` に置き、編集画面の `#app` に `inert` を付ける（モーダルを `#app` の中に置くと一緒に操作できなくなる）。
+  モーダルの図は `KeyboardView` をもう 1 つ作って使い回す（作るたびに Alt の keydown の listener が増えるので、作るのは 1 回）
+- 確定はプレビューの token のまま `device/apply`。プレビューのあとで snapshot の `files` が変わったら `stale`（読んでいる間に変わっても、読み終えたときに stale にする）。
+  検証のエラー（snapshot の diagnostics の error、`invalid` は 1 件以上）があれば、画面は確定を押せなくし、ホストも止める
+- 画面のモーダルを Playwright で見るとき、VS Code の色の変数がないと背景が透けるので、`var(--vscode-…, #252526)` のように最後の値を付けておく

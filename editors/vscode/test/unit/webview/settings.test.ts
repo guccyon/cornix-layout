@@ -168,7 +168,8 @@ describe('App の下のペイン', () => {
     const app = new App(root, { host: new FakeHost(), sections: [editor.element, metadata.element] });
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     const bottom = root.querySelector('.bottom-pane');
-    expect([...(bottom?.children ?? [])].slice(-2)).toEqual([editor.element, metadata.element]);
+    // v0.4: 一番下は節「デバイス転送」（App が置く）
+    expect([...(bottom?.children ?? [])].slice(-3, -1)).toEqual([editor.element, metadata.element]);
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ status: 'invalid', layers: [], settings: [], positionMap: [] }), changes: [] });
     expect(root.contains(editor.element)).toBe(false);
     expect(root.querySelector('.invalid')).not.toBeNull();

@@ -14,12 +14,12 @@ import { vscodePrompts, type ProfilePrompts } from './prompts';
 import { textDiagnostics } from './textDiagnostics';
 import { relayRequest } from './webviewRelay';
 
-/** 実機と比べた状態と操作（v0.4。device/deviceController.ts がつなぐ） */
+/** 実機への反映の途中の状態と操作（v0.4。device/deviceController.ts がつなぐ） */
 export interface DeviceBridge {
   stateOf(dir: string): DeviceViewState;
   /** 状態が変わった dir（undefined はすべて） */
   readonly onDidChangeState: vscode.Event<string | undefined>;
-  /** 画面のボタン（コマンド cornix.device.* と同じことをする） */
+  /** 画面のボタン（節の「反映のプレビュー」とモーダルの「確定」「やめる」など） */
   run(action: DeviceAction, dir: string): void;
 }
 
@@ -180,7 +180,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
             postDevice();
             return;
           case 'deviceAction':
-            // 画面のボタン。コマンドと同じ流れ（保存の促し・確認のダイアログ）を通す
+            // 画面のボタン。プレビューはコマンドと同じ流れ（保存の促し）を通す
             if (isDeviceAction(message.action)) this.device?.run(message.action, document.dir);
             return;
           case 'change':

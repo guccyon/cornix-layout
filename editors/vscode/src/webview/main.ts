@@ -45,11 +45,6 @@ const app = new App(document.getElementById('app') as HTMLElement, {
   sections: [...items.map((item) => item.element), settings.element, metadata.element],
   onRendered: (message) => vscode.postMessage(message),
   state: { get: () => vscode.getState(), set: (state) => vscode.setState(state) },
-  // v0.4: 「実機との差分」の行から下の節へ
-  revealItem: (change) => {
-    if (change.kind === 'setting') settings.reveal(change.name ?? '');
-    else items.find((item) => item.kind === change.kind)?.reveal({ index: change.index, name: change.name });
-  },
 });
 
 window.addEventListener('message', (event: MessageEvent<HostMessage>) => {

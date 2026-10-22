@@ -1,17 +1,16 @@
 // @vitest-environment happy-dom
-// v0.4（tasks-v0.4.md の D3）: 実機と比べた状態の画面。ボタンと印、違うキーの橙の枠、レイヤーのタブの点、「実機との差分」の節と行から欄へ移る動き
+// v0.4（tasks-v0.4.md の D3）: 実機への反映の画面。編集フォームの一番下の節「デバイス転送」と、反映のプレビューのモーダル
+// （図の橙の枠・レイヤーのタブの件数・違いの一覧・確定とやめる・検証のエラー・古いプレビュー・読む間と書く間）
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DeviceChange } from '../../../src/deviceProtocol';
 import { App } from '../../../src/webview/app';
-import { changePlace, deviceBadgeText } from '../../../src/webview/deviceView';
-import { MacroEditor } from '../../../src/webview/macroEditor';
+import type { DevicePlan } from '../../../src/deviceProtocol';
+import { changePlace, snapshotErrors, transferProgressText } from '../../../src/webview/deviceView';
 import { addressKey } from '../../../src/webview/model';
-import { SettingsEditor } from '../../../src/webview/settingsEditor';
 import { hideTooltip } from '../../../src/webview/tooltip';
-import type { DeviceViewState } from '../../../src/webviewMessages';
+import type { DeviceTransfer, DeviceViewState } from '../../../src/webviewMessages';
 import * as data from '../../fake-server/fixtures';
 import { FakeHost, fixtureSnapshot } from './fakeHost';
-import { MACRO, PRESET_MACRO } from './itemFixtures';
 
 /** 偽の device のサーバーの既定の違いと同じもの（test/fake-device-server/server.ts の DEFAULT_DIFFERENCES に text を足した） */
 const CHANGES: DeviceChange[] = [
@@ -24,7 +23,16 @@ const CHANGES: DeviceChange[] = [
   { kind: 'other', device: '', profile: '', text: 'レイヤー0 (4,0): KC_NO → KC_A' },
 ];
 
-const different = (overrides: Partial<DeviceViewState> = {}): DeviceViewState => ({ status: 'different', changes: CHANGES, busy: null, allowWrites: true, ...overrides });
+const PLAN: DevicePlan = { token: 'tok', empty: false, changes: CHANGES, warnings: [], keyboard: { name: 'Cornix (fake)', uid: '1' } };
+
+const preview = (overrides: Partial<Extract<DeviceTransfer, { step: 'preview' }>> = {}, state: Partial<DeviceViewState> = {}): DeviceViewState => ({
+  transfer: { step: 'preview', plan: PLAN, profile: 'default', stale: false, ...overrides },
+  busyElsewhere: false,
+  allowWrites: true,
+  ...state,
+});
+
+const idle = (state: Partial<DeviceViewState> = {}): DeviceViewState => ({ transfer: null, busyElsewhere: false, allowWrites: true, ...state });
 
 function keyId(layer: number, hand: 'left' | 'right', row: number, col: number): string {
   const key = data.LAYERS.find((l) => l.index === layer)!.keys.find((k) => k.hand === hand && k.row === row && k.col === col)!;
@@ -38,21 +46,21 @@ function encoderId(layer: number, hand: 'left' | 'right', op: 'cw' | 'ccw' | 'pu
 let host: FakeHost;
 let root: HTMLElement;
 let app: App;
-let revealed: DeviceChange[];
 
-const badge = () => root.querySelector<HTMLElement>('.device-badge')!;
-const actionButton = (action: string) => root.querySelector<HTMLButtonElement>(`[data-device-action='${action}']`)!;
-const section = () => root.querySelector<HTMLElement>('section.device-diff')!;
-const rows = () => [...root.querySelectorAll<HTMLElement>('.device-diff-row')];
-const tab = (layer: number) => root.querySelector<HTMLElement>(`.layer-tab[data-layer='${layer}']`)!;
-const deviceDot = (layer: number) => tab(layer).querySelector('.layer-tab-dot.device');
+const section = () => root.querySelector<HTMLElement>('section.device-transfer')!;
+const previewButton = () => section().querySelector<HTMLButtonElement>('.device-preview-button')!;
+const modal = () => document.querySelector<HTMLElement>('.device-modal-backdrop')!;
+const dialog = () => modal().querySelector<HTMLElement>('[role=dialog]')!;
+const footerButton = (action: string) => modal().querySelector<HTMLButtonElement>(`.device-modal-footer [data-device-action='${action}']`);
+const footerLabels = () => [...modal().querySelectorAll<HTMLButtonElement>('.device-modal-footer button')].map((b) => [b.textContent, b.disabled]);
+const rows = () => [...modal().querySelectorAll<HTMLElement>('.device-diff-row')];
+const modalTab = (layer: number) => modal().querySelector<HTMLElement>(`.device-modal-tabs .layer-tab[data-layer='${layer}']`)!;
 
 beforeEach(() => {
   host = new FakeHost();
   root = document.createElement('div');
   document.body.replaceChildren(root);
-  revealed = [];
-  app = new App(root, { host, revealItem: (change) => revealed.push(change) });
+  app = new App(root, { host });
   app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
 });
 
@@ -61,131 +69,87 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-describe('ボタンと印', () => {
-  it('ホストから状態が来る前は「未確認」。ボタンは図の上の並び（位置の名前のボタンの前）にあり、押すと deviceAction を送る', () => {
-    expect(badge().textContent).toBe('実機: 未確認');
-    const toggles = root.querySelector('.keyboard-toggles')!;
-    expect(toggles.querySelector('.device-bar')).not.toBeNull();
-    expect(toggles.lastElementChild?.classList.contains('position-toggle')).toBe(true);
-    for (const action of ['compare', 'apply', 'restore']) actionButton(action).click();
-    expect(host.deviceActions).toEqual(['compare', 'apply', 'restore']);
-  });
-
-  it('印は状態ごとに「同じ」「違う N 件」「未確認」', () => {
-    app.receive({ type: 'device', state: { status: 'same', changes: [], busy: null, allowWrites: false } });
-    expect(badge().textContent).toBe('実機: 同じ');
-    app.receive({ type: 'device', state: different() });
-    expect(badge().textContent).toBe('実機: 違う 7 件');
-    expect(badge().classList.contains('different')).toBe(true);
-    app.receive({ type: 'device', state: { status: 'unknown', changes: [], busy: null, allowWrites: true } });
-    expect(badge().textContent).toBe('実機: 未確認');
-    expect(deviceBadgeText(different({ changes: [] }))).toBe('実機: 違う 0 件');
-  });
-
-  it('busy の間はボタンを押せず、何をしているかを印に出す', () => {
-    app.receive({ type: 'device', state: different({ busy: 'apply' }) });
-    expect(badge().textContent).toBe('実機に反映しています…');
-    for (const action of ['compare', 'apply', 'restore']) expect(actionButton(action).disabled).toBe(true);
-    expect(actionButton('apply').classList.contains('running')).toBe(true);
-    actionButton('compare').click();
-    expect(host.deviceActions).toEqual([]);
-
-    app.receive({ type: 'device', state: { status: 'unknown', changes: [], busy: 'compare', allowWrites: true } });
-    expect(badge().textContent).toBe('実機と比べています…');
-    app.receive({ type: 'device', state: different() });
-    expect(actionButton('compare').disabled).toBe(false);
-  });
-
-  it('書き込みを許可していなくても反映・戻すは押せる（見た目で分かる印と説明を付ける）', () => {
-    app.receive({ type: 'device', state: different({ allowWrites: false }) });
-    expect(actionButton('apply').classList.contains('locked')).toBe(true);
-    expect(actionButton('restore').classList.contains('locked')).toBe(true);
-    expect(actionButton('compare').classList.contains('locked')).toBe(false);
-    expect(actionButton('apply').title).toContain('cornix.device.allowWrites');
-    actionButton('apply').click();
-    expect(host.deviceActions).toEqual(['apply']);
-    app.receive({ type: 'device', state: different({ allowWrites: true }) });
-    expect(actionButton('apply').classList.contains('locked')).toBe(false);
-  });
-
-  it('snapshot の前に状態が来ても、snapshot を描いたあとに枠を出す', () => {
-    const other = document.createElement('div');
-    document.body.append(other);
-    const late = new App(other, { host });
-    late.receive({ type: 'device', state: different() });
-    late.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
-    expect(late.keyboardView.deviceDiffIds.sort()).toEqual([keyId(0, 'left', 0, 1), keyId(0, 'right', 1, 5), encoderId(0, 'left', 'cw')].sort());
-  });
-});
-
-describe('違うキーの枠とレイヤーのタブの点', () => {
-  it('different: 今のレイヤーの違うキーとエンコーダの操作を囲み、読み上げに実機の値を添える', () => {
-    app.receive({ type: 'device', state: different() });
-    const ids = app.keyboardView.deviceDiffIds;
-    expect(ids.sort()).toEqual([keyId(0, 'left', 0, 1), keyId(0, 'right', 1, 5), encoderId(0, 'left', 'cw')].sort());
-    const q = root.querySelector<HTMLElement>(`.board [data-slot='${keyId(0, 'left', 0, 1)}']`)!;
-    expect(q.getAttribute('aria-label')).toContain('実機は KC_A');
-    expect(root.querySelector(`.board [data-slot='${keyId(0, 'left', 0, 0)}']`)!.classList.contains('device-diff')).toBe(false);
-  });
-
-  it('違いのあるレイヤーのタブに点（件数はツールチップ）。レイヤーを選び直すと、そのレイヤーの違うキーを囲む', () => {
-    app.receive({ type: 'device', state: different() });
-    expect(deviceDot(0)).not.toBeNull();
-    expect(deviceDot(1)).not.toBeNull();
-    expect(tab(1).title).toContain('実機と違うキー 1 件');
-    expect(tab(0).title).toContain('実機と違うキー 3 件');
-
-    app.selectLayer(1);
-    expect(app.keyboardView.deviceDiffIds).toEqual([keyId(1, 'left', 0, 0)]);
-    expect(deviceDot(0)).not.toBeNull();
-  });
-
-  it('違いがないレイヤーには点を付けない', () => {
-    app.receive({ type: 'device', state: different({ changes: CHANGES.filter((c) => c.layer !== 1) }) });
-    expect(deviceDot(0)).not.toBeNull();
-    expect(deviceDot(1)).toBeNull();
-  });
-
-  it('キー別の並べ方でも、図は今のレイヤーの違うキーを囲む', () => {
-    app.setMode('key');
-    app.receive({ type: 'device', state: different() });
-    app.selectLayer(1);
-    expect(app.keyboardView.deviceDiffIds).toEqual([keyId(1, 'left', 0, 0)]);
-  });
-
-  it('same・unknown では枠も点も出さず、different から戻ったら消す', () => {
-    app.receive({ type: 'device', state: different() });
-    app.receive({ type: 'device', state: { status: 'same', changes: [], busy: null, allowWrites: true } });
-    expect(app.keyboardView.deviceDiffIds).toEqual([]);
-    expect(root.querySelector('.layer-tab-dot.device')).toBeNull();
-    // unknown なのに changes が来ても描かない
-    app.receive({ type: 'device', state: { status: 'unknown', changes: CHANGES, busy: null, allowWrites: true } });
-    expect(app.keyboardView.deviceDiffIds).toEqual([]);
-    expect(root.querySelector('.layer-tab-dot.device')).toBeNull();
-  });
-
-  it('snapshot を受け直しても（保存・外での変更）枠を保つ', () => {
-    app.receive({ type: 'device', state: different() });
-    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ files: { 'layers/0_base.yml': 'sha256:01' } }), changes: [] });
-    expect(app.keyboardView.deviceDiffIds).toHaveLength(3);
-  });
-});
-
-describe('「実機との差分」の節', () => {
-  it('unknown では節を出さず、same では「実機と同じです」', () => {
-    expect(section().hidden).toBe(true);
-    app.receive({ type: 'device', state: { status: 'same', changes: [], busy: null, allowWrites: true } });
-    expect(section().hidden).toBe(false);
-    expect(section().textContent).toContain('実機と同じです');
-    expect(rows()).toHaveLength(0);
-  });
-
-  it('different: 行は「場所: 実機の値 → このプロファイルの値」。キーは「レイヤー名 / 位置の名前」、other は text', () => {
-    app.receive({ type: 'device', state: different() });
+describe('節「デバイス転送」', () => {
+  it('編集フォームの一番下にあり、最初は畳んでいる。「反映のプレビュー…」で preview を送る', () => {
+    const pane = root.querySelector('.bottom-pane')!;
+    expect(pane.lastElementChild).toBe(section());
     expect(section().querySelector('details')!.open).toBe(false);
-    expect(section().querySelector('.device-diff-count')!.textContent).toBe('7 件');
-    const texts = rows().map((row) => row.textContent);
-    expect(texts).toEqual([
+    expect(section().querySelector('h2')!.textContent).toBe('デバイス転送');
+    previewButton().click();
+    expect(host.deviceActions).toEqual(['preview']);
+  });
+
+  it('図の上に実機のボタンはない', () => {
+    expect(root.querySelector('.keyboard-toggles .device-bar')).toBeNull();
+    expect(root.querySelector('[data-device-action]')).toBeNull();
+  });
+
+  it('反映の途中とほかのプロファイルの途中は押せない。書き込みを許していなければ案内を出す', () => {
+    app.receive({ type: 'device', state: idle({ allowWrites: false }) });
+    expect(previewButton().disabled).toBe(false);
+    expect(section().querySelector<HTMLElement>('.device-transfer-note')!.hidden).toBe(false);
+    app.receive({ type: 'device', state: idle({ busyElsewhere: true }) });
+    expect(previewButton().disabled).toBe(true);
+    expect(section().querySelector<HTMLElement>('.device-transfer-note')!.hidden).toBe(true);
+    app.receive({ type: 'device', state: preview() });
+    expect(previewButton().disabled).toBe(true);
+    previewButton().click();
+    expect(host.deviceActions).toEqual([]);
+  });
+});
+
+describe('反映のプレビューのモーダル', () => {
+  it('transfer がなければ出さない。出している間は編集画面に inert を付ける', () => {
+    expect(modal().hidden).toBe(true);
+    expect(root.hasAttribute('inert')).toBe(false);
+    app.receive({ type: 'device', state: preview() });
+    expect(modal().hidden).toBe(false);
+    expect(dialog().getAttribute('aria-modal')).toBe('true');
+    expect(root.hasAttribute('inert')).toBe(true);
+    expect(modal().parentElement).toBe(document.body);
+    app.receive({ type: 'device', state: idle() });
+    expect(modal().hidden).toBe(true);
+    expect(root.hasAttribute('inert')).toBe(false);
+  });
+
+  it('読んでいる間: 進み具合と「やめる」', () => {
+    app.receive({ type: 'device', state: { transfer: { step: 'reading', progress: { done: 2, total: 4 } }, busyElsewhere: false, allowWrites: true } });
+    expect(dialog().querySelector('h2')!.textContent).toBe('実機を読んでいます');
+    expect(dialog().querySelector('.device-modal-progress')!.textContent).toBe('実機を読んでいます（2/4）');
+    expect(footerLabels()).toEqual([['やめる', false]]);
+    footerButton('cancel')!.click();
+    expect(host.deviceActions).toEqual(['cancel']);
+    expect(transferProgressText({ step: 'reading', progress: null })).toBe('実機を読んでいます…');
+  });
+
+  it('プレビュー: 書き込み先・件数、図は違いのある最初のレイヤーで違うキーとエンコーダの操作を囲む', () => {
+    app.receive({ type: 'device', state: preview() });
+    expect(dialog().querySelector('h2')!.textContent).toBe('実機への反映のプレビュー');
+    expect(dialog().querySelector('.device-modal-summary')!.textContent).toContain('Cornix (fake)');
+    expect(dialog().querySelector('.device-modal-summary')!.textContent).toContain('違い: 7 件');
+    expect(app.transfer.currentLayer).toBe(0);
+    expect(app.transfer.keyboardView.deviceDiffIds.sort()).toEqual([keyId(0, 'left', 0, 1), keyId(0, 'right', 1, 5), encoderId(0, 'left', 'cw')].sort());
+    const q = dialog().querySelector<HTMLElement>(`.board [data-slot='${keyId(0, 'left', 0, 1)}']`)!;
+    expect(q.getAttribute('aria-label')).toContain('実機は KC_A');
+    // 編集画面の図には枠を出さない
+    expect(app.keyboardView.deviceDiffIds).toEqual([]);
+  });
+
+  it('レイヤーのタブに違いの件数。押すとそのレイヤーの図にする', () => {
+    app.receive({ type: 'device', state: preview() });
+    expect(modalTab(0).querySelector('.device-tab-count')!.textContent).toBe('3');
+    expect(modalTab(1).querySelector('.device-tab-count')!.textContent).toBe('1');
+    modalTab(1).click();
+    expect(app.transfer.currentLayer).toBe(1);
+    expect(app.transfer.keyboardView.deviceDiffIds).toEqual([keyId(1, 'left', 0, 0)]);
+    expect(modalTab(1).getAttribute('aria-pressed')).toBe('true');
+    // 編集画面のレイヤーは変えない
+    expect(app.currentLayer).toBe(0);
+  });
+
+  it('一覧: 「場所: 実機の値 → このプロファイルの値」。キーの行を押すと図のそのキーを示す', () => {
+    app.receive({ type: 'device', state: preview() });
+    expect(rows().map((row) => row.textContent)).toEqual([
       'Base / Q: KC_A → KC_Q',
       'Base / enter: KC_NO → KC_ENTER',
       'Symbols / tab: KC_TRNS → KC_ESCAPE',
@@ -194,85 +158,117 @@ describe('「実機との差分」の節', () => {
       '設定 tapping_term: 200 → 180',
       'レイヤー0 (4,0): KC_NO → KC_A',
     ]);
-    // other は移り先がないので押せない
+    expect(rows()[4]!.tagName).toBe('DIV');
     expect(rows()[6]!.tagName).toBe('DIV');
-    expect(rows()[0]!.tagName).toBe('BUTTON');
+    rows()[2]!.click();
+    expect(app.transfer.currentLayer).toBe(1);
+    expect(dialog().querySelector(`.board [data-slot='${keyId(1, 'left', 0, 0)}']`)!.classList.contains('selected')).toBe(true);
+    expect(rows()[2]!.classList.contains('selected')).toBe(true);
+    // 編集画面は動かさない
+    expect(app.selectedSlot).toBeUndefined();
   });
 
-  it('プロファイルにないレイヤーの違いは番号で出し、押せない', () => {
+  it('プロファイルにないレイヤーの違いは番号で出し、図には出さない', () => {
     const change: DeviceChange = { kind: 'key', layer: 5, key: { hand: 'left', row: 0, col: 0 }, position: 'tab', device: 'KC_A', profile: 'KC_TRNS', text: '' };
-    app.receive({ type: 'device', state: different({ changes: [change] }) });
+    app.receive({ type: 'device', state: preview({ plan: { ...PLAN, changes: [change] } }) });
     expect(rows()[0]!.textContent).toBe('レイヤー 5 / tab: KC_A → KC_TRNS');
     expect(rows()[0]!.tagName).toBe('DIV');
+    expect(dialog().querySelector<HTMLElement>('.device-modal-board')!.hidden).toBe(true);
     expect(changePlace({ kind: 'tapDance', index: 4, name: 'Tab Escape', device: '', profile: '', text: '' }, new Map())).toBe('タップダンス 4 Tab Escape');
     expect(changePlace({ kind: 'combo', index: 2, device: '', profile: '', text: '' }, new Map())).toBe('コンボ 2');
   });
 
-  it('キーの行を押すと、そのレイヤーを選んでその位置の欄へ移る', () => {
-    app.receive({ type: 'device', state: different() });
-    rows()[2]!.click();
-    expect(app.currentLayer).toBe(1);
-    expect(app.selectedSlot).toBe(keyId(1, 'left', 0, 0));
-    expect(root.querySelector(`.board [data-slot='${keyId(1, 'left', 0, 0)}']`)!.classList.contains('selected')).toBe(true);
-    expect(document.activeElement).toBe(app.inputs.get(keyId(1, 'left', 0, 0))!.input);
-
-    rows()[3]!.click();
-    expect(app.currentLayer).toBe(0);
-    expect(app.selectedSlot).toBe(encoderId(0, 'left', 'cw'));
+  it('「確定」で confirm、「やめる」と Esc で cancel', () => {
+    app.receive({ type: 'device', state: preview() });
+    expect(footerLabels()).toEqual([
+      ['やめる', false],
+      ['確定（7 件を書き込む）', false],
+    ]);
+    footerButton('confirm')!.click();
+    footerButton('cancel')!.click();
+    modal().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(host.deviceActions).toEqual(['confirm', 'cancel', 'cancel']);
   });
 
-  it('マクロ・設定の行は revealItem に渡す', () => {
-    app.receive({ type: 'device', state: different() });
-    rows()[4]!.click();
-    rows()[5]!.click();
-    expect(revealed.map((c) => c.kind)).toEqual(['macro', 'setting']);
+  it('警告を出す', () => {
+    app.receive({ type: 'device', state: preview({ plan: { ...PLAN, warnings: ['KC_FOO は RMK が対応していません'] } }) });
+    expect(dialog().querySelector('.device-modal-warnings')!.textContent).toContain('KC_FOO は RMK が対応していません');
   });
 
-  it('revealItem がなければ項目の行は押せない', () => {
+  it('書き込みを許していなければ確定は押せず、設定を開くボタンを出す。許したら押せる', () => {
+    app.receive({ type: 'device', state: preview({}, { allowWrites: false }) });
+    expect(footerButton('confirm')!.disabled).toBe(true);
+    const locked = dialog().querySelector<HTMLElement>('.device-modal-locked')!;
+    expect(locked.textContent).toContain('cornix.device.allowWrites');
+    locked.querySelector('button')!.click();
+    expect(host.deviceActions).toEqual(['openSettings']);
+    app.receive({ type: 'device', state: preview() });
+    expect(footerButton('confirm')!.disabled).toBe(false);
+    expect(dialog().querySelector('.device-modal-locked')).toBeNull();
+  });
+
+  it('検証のエラーがあるあいだは確定を押せず、理由を出す', () => {
+    const diagnostics = [{ severity: 'error' as const, source: 'semantic' as const, message: '知らないキーコードです: KC_FOO', file: 'layers/0_base.yml' }];
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ diagnostics }), changes: [] });
+    app.receive({ type: 'device', state: preview() });
+    expect(footerButton('confirm')!.disabled).toBe(true);
+    expect(dialog().querySelector('.device-modal-errors')!.textContent).toContain('検証のエラーが 1 件');
+    // 直して保存したら押せる
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    expect(footerButton('confirm')!.disabled).toBe(false);
+    expect(dialog().querySelector('.device-modal-errors')).toBeNull();
+    expect(snapshotErrors({ status: 'invalid', diagnostics: [] })).toBe(1);
+    expect(snapshotErrors({ status: 'ok', diagnostics: [{ severity: 'warning', source: 'semantic', message: 'w' }] })).toBe(0);
+  });
+
+  it('古いプレビュー: 確定の代わりに「もう一度比べる」（preview を送る）', () => {
+    app.receive({ type: 'device', state: preview({ stale: true }) });
+    expect(dialog().querySelector('.device-modal-stale')).not.toBeNull();
+    expect(footerButton('confirm')).toBeNull();
+    footerButton('preview')!.click();
+    expect(host.deviceActions).toEqual(['preview']);
+  });
+
+  it('違いがなければ「同じです」と「閉じる」だけ', () => {
+    app.receive({ type: 'device', state: preview({ plan: { ...PLAN, empty: true, changes: [] } }) });
+    expect(dialog().querySelector('h2')!.textContent).toBe('実機はこのプロファイルと同じです');
+    expect(footerLabels()).toEqual([['閉じる', false]]);
+    expect(rows()).toHaveLength(0);
+  });
+
+  it('書いている間: 進み具合を出し、ボタンはどれも押せない。Esc も効かない', () => {
+    const writing = (progress: Extract<DeviceTransfer, { step: 'writing' }>['progress']): DeviceViewState => ({
+      transfer: { step: 'writing', plan: PLAN, profile: 'default', progress },
+      busyElsewhere: false,
+      allowWrites: true,
+    });
+    app.receive({ type: 'device', state: writing({ phase: 'write', done: 1, total: 7 }) });
+    expect(dialog().querySelector('h2')!.textContent).toBe('実機に書き込んでいます');
+    expect(dialog().querySelector('.device-modal-progress')!.textContent).toBe('書き込んでいます（1/7）');
+    expect(footerLabels().every(([, disabled]) => disabled)).toBe(true);
+    modal().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(host.deviceActions).toEqual([]);
+    app.receive({ type: 'device', state: writing({ phase: 'read', done: 3, total: 9 }) });
+    expect(dialog().querySelector('.device-modal-progress')!.textContent).toBe('書く前に実機を読み直しています（3/9）');
+  });
+
+  it('進み具合が変わっても図と一覧は作り直さない（選んだレイヤーを保つ）', () => {
+    app.receive({ type: 'device', state: preview() });
+    modalTab(1).click();
+    const list = rows()[0];
+    app.receive({ type: 'device', state: { transfer: { step: 'writing', plan: PLAN, profile: 'default', progress: { phase: 'write', done: 1, total: 7 } }, busyElsewhere: false, allowWrites: true } });
+    expect(app.transfer.currentLayer).toBe(1);
+    expect(rows()[0]).toBe(list);
+  });
+
+  it('snapshot の前に状態が来ても、snapshot が来たら図を描く', () => {
+    document.body.replaceChildren();
     const other = document.createElement('div');
     document.body.append(other);
-    const bare = new App(other, { host });
-    bare.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
-    bare.receive({ type: 'device', state: different() });
-    const list = [...other.querySelectorAll<HTMLElement>('.device-diff-row')];
-    expect(list[4]!.tagName).toBe('DIV');
-    expect(list[0]!.tagName).toBe('BUTTON');
-  });
-
-  it('開いた節は状態が変わっても開いたまま', () => {
-    app.receive({ type: 'device', state: different() });
-    section().querySelector('details')!.open = true;
-    app.receive({ type: 'device', state: different({ changes: CHANGES.slice(0, 2) }) });
-    expect(section().querySelector('details')!.open).toBe(true);
-    expect(rows()).toHaveLength(2);
-  });
-});
-
-describe('下の節へ移る（main.ts の revealItem の先）', () => {
-  it('マクロの節: 番号で探して選び、節を開く。番号がなければ名前で探す', () => {
-    const macros = new MacroEditor({ host });
-    document.body.append(macros.element);
-    macros.update(fixtureSnapshot({ macros: [MACRO, PRESET_MACRO] }), []);
-    expect(macros.details.open).toBe(false);
-    expect(macros.reveal({ index: PRESET_MACRO.index, name: 'ちがう名前' })).toBe(true);
-    expect(macros.selected).toBe(PRESET_MACRO.name);
-    expect(macros.details.open).toBe(true);
-    expect((document.activeElement as HTMLElement).dataset.item).toBe(PRESET_MACRO.name);
-    expect(macros.reveal({ name: MACRO.name })).toBe(true);
-    expect(macros.selected).toBe(MACRO.name);
-    expect(macros.reveal({ index: 99 })).toBe(false);
-  });
-
-  it('QMK 設定の節: 節を開いてその設定の欄にフォーカスする', () => {
-    const settings = new SettingsEditor({ onCommit: () => undefined });
-    document.body.append(settings.element);
-    settings.update(fixtureSnapshot(), []);
-    const details = settings.element.querySelector('details')!;
-    expect(details.open).toBe(false);
-    expect(settings.reveal('tapping_term')).toBe(true);
-    expect(details.open).toBe(true);
-    expect(document.activeElement).toBe(settings.input(addressKey({ file: 'settings/qmk_settings.yaml', path: ['keyboard', 'tapping_term'] })));
-    expect(settings.reveal('keyboard.permissive_hold')).toBe(true);
-    expect(settings.reveal('no_such_setting')).toBe(false);
+    const late = new App(other, { host });
+    late.receive({ type: 'device', state: preview() });
+    expect(late.transfer.isOpen).toBe(true);
+    late.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    expect(late.transfer.keyboardView.deviceDiffIds).toHaveLength(3);
   });
 });

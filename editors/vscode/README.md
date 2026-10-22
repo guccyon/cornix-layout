@@ -3,7 +3,7 @@
 cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 画面で見て、候補から選びながら編集する VS Code 拡張。
 v0.1 はレイヤーと QMK 設定、v0.2 はすべての設定ファイル（マクロ・タップダンス・コンボ・ショートカット・位置の名前、項目の追加・削除・名前の変更）を画面で編集できる。
 v0.3 は使い勝手（コンボの強調・図からキーを選ぶ・あいまい検索・同梱のショートカットの選択とコピー・preset の展開・押せないコンボの印）。
-v0.4 では下の欄の「キー別」の並べ方（位置ごとに全レイヤー）とレイヤーの追加・削除、実機とつなぐ「比べる」「反映」「戻す」を入れた。
+v0.4 では下の欄の「キー別」の並べ方（位置ごとに全レイヤー）とレイヤーの追加・削除、実機とつなぐ反映（編集フォームの一番下の節「デバイス転送」から、プレビューのモーダルで違いを見て「確定」）を入れた。
 利用者向けの説明は [README.ja.md](../../README.ja.md) の「VS Code の画面で編集する」。
 仕様・決定・約束は [docs/vscode-extension/](../../docs/vscode-extension/README.md)。
 
@@ -58,8 +58,8 @@ Marketplace には出していないので、.vsix を作って自分の VS Code
    ```
 
 5. アクティビティバーの Cornix のアイコンか、コマンドパレットの「Cornix: プロファイルを開く」で開く。保存は Ctrl+S（Cmd+S）。
-   保存したら `bin/cornix validate` や `bin/cornix compile` は今までどおりターミナルで。実機と比べる・書き込むのは図の上の「比べる」「反映」「戻す」か
-   コマンド「Cornix: 実機と比べる」など（書き込みは設定 `cornix.device.allowWrites` を有効にしたときだけ。macOS とブリッジ `tmp/cornix-hid` が要る）
+   保存したら `bin/cornix validate` や `bin/cornix compile` は今までどおりターミナルで。実機に書き込むのは編集フォームの一番下の節「デバイス転送」か
+   コマンド「Cornix: 実機に反映…」（プレビューで違いを見てから「確定」。書き込みは設定 `cornix.device.allowWrites` を有効にしたときだけ。macOS とブリッジ `tmp/cornix-hid` が要る）
 
 起動できないとき（「cornix のサーバーを起動できませんでした」）は出力パネル「Cornix」を見る。
 ``undefined method `define' for Data:Class`` などが出ていれば、VS Code が古い Ruby（macOS の `/usr/bin/ruby` 2.6）で動かしている。
@@ -114,14 +114,14 @@ devDependencies（ビルドとテストの道具）は .vsix に入らないの�
 戻すとバックアップの表になる（ファイルには書かない。プロファイルのファイルも読まないので、保存しても比べる結果は変わらない）。
 
 - 起動: `test/fake-server/cornix serve --device --root <ワークスペース> [--allow-writes]`（偽のサーバーと同じ入口。`--device` のときこちらになる）。
-  `cornix.path` に偽のサーバーを指定してあれば（`test/integration/workspace`）、拡張の「比べる」などがこれとつながる
-- 既定の違いは 6 件（`DEFAULT_DIFFERENCES`。偽のサーバーの Base / Symbols のレイヤーのキー 3 つ・左のエンコーダの左回し・マクロ・`tapping_term`）。図の枠と差分の節を確かめられる
+  `cornix.path` に偽のサーバーを指定してあれば（`test/integration/workspace`）、拡張の反映のプレビューなどがこれとつながる
+- 既定の違いは 6 件（`DEFAULT_DIFFERENCES`。偽のサーバーの Base / Symbols のレイヤーのキー 3 つ・左のエンコーダの左回し・マクロ・`tapping_term`）。プレビューのモーダルの図の枠と一覧を確かめられる
 - シナリオは環境変数 `CORNIX_FAKE_DEVICE`（`scenarioConfig`）で選ぶ
 
   | シナリオ | 振る舞い |
   |---|---|
   | `default`（空） | 既定の違いがある |
-  | `same` | 違いがない（「実機: 同じ」） |
+  | `same` | 違いがない（プレビューは「実機はこのプロファイルと同じです」） |
   | `compileFailed` | `device/compare`・`device/apply` が `-32075` |
   | `rejected` | `QK_BOOT` を含む計画として `-32073` |
   | `writeFail` | 2 件書いたところで `-32072` |
@@ -151,11 +151,11 @@ editors/vscode/
       serverProcess.ts    子プロセスの起動・つなぎ方・標準エラー出力・落ちたときの再起動のボタン（編集のサーバーと device のサーバーで共通）
       cornixServer.ts     編集のサーバー（cornix serve）。メソッドの呼び口（planItemEdit も）
       deviceServer.ts     device のサーバー（cornix serve --device [--allow-writes]。最初の device/* で起動し、残す）
-    device/               実機の操作（v0.4。比べる・反映・戻す）
-      deviceController.ts コマンド・状態バー・確認のダイアログ・バックアップの QuickPick・withProgress・設定の変更（VS Code の部分）
-      deviceFlow.ts       操作の流れ（保存の促し → 比べる → 確認 → 書く、読む間だけの取り消し。vscode に依存しない）
-      deviceStates.ts     プロファイルごとの「実機と比べた状態」（同じ・違う・未確認。設定ファイルの版が変われば未確認。vscode に依存しない）
-      deviceTexts.ts      利用者に見せる文（確認のダイアログ・結果・実機が使えないときの直し方。vscode に依存しない）
+    device/               実機への反映（v0.4。プレビュー → 確定。ADR 020）
+      deviceController.ts コマンド「実機に反映…」・保存の促し・通知・設定の変更（VS Code の部分）
+      deviceFlow.ts       反映の流れ（保存の促し → 読む → プレビュー → 確定で書く、読む間だけの取り消し、検証のエラーで止める。vscode に依存しない）
+      deviceStates.ts     反映の途中の状態（読む・プレビュー・書く。プレビューのあとで設定ファイルの版が変われば古い。vscode に依存しない）
+      deviceTexts.ts      通知に出す文（結果・実機が使えないときの直し方。vscode に依存しない）
       deviceSettings.ts   設定 cornix.device.allowWrites と、device のサーバーの起動の引数（vscode に依存しない）
     profiles/
       openProfile.ts      コマンド「Cornix: プロファイルを開く」（1 つならそれを、複数なら QuickPick で選ぶ）
@@ -195,7 +195,7 @@ editors/vscode/
       metadataView.ts     metadata.yaml と position_map の表示（読むだけ）
       inspector.ts        keycode/inspect の結果のとっておき（同じ表記は 1 回だけ聞く）
       tooltip.ts          説明の吹き出し（マウスを載せた要素かフォーカスした要素の下に 1 つ）
-      deviceView.ts       実機と比べた状態（図の上のボタンと印、節「実機との差分」、違う欄・タブを探す関数）
+      deviceView.ts       実機への反映（編集フォームの一番下の節「デバイス転送」、反映のプレビューのモーダル、違う欄・タブを探す関数）
       hostClient.ts       ホストへのリクエストの中継（keycode/candidates・keycode/inspect・keycode/shortcutTree）と、変更・項目の操作の送り口
       icons/              アイコン ID → 要素（manifest.ts は media/icons/extract.mjs が作る。badges.ts は自前のバッジ）
   media/                  画面の CSS（webview.css）と同梱のアイコン（SVG とライセンス表記。media/icons/NOTICE.md）

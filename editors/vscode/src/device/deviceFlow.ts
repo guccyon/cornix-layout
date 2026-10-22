@@ -1,31 +1,12 @@
-// 実機の操作の流れ（比べる・反映・戻す。tasks-v0.4.md の決めたこと 3〜7、protocol.md の 14.）。
+// 実機への反映の流れ（プレビュー → 確定。tasks-v0.4.md の決めたこと 3〜7、protocol.md の 14.）。
+// 編集フォームの節「デバイス転送」かコマンドで始め、実機を読んで違いを編集画面のモーダルに出し（DeviceStates の transfer）、
+// 「確定」でその token のまま書く。「やめる」・読む間の取り消しは何も書かない。
 // vscode に依存しない（VS Code の部分は DeviceHost と DevicePrompts に分け、単体テストで偽の device のサーバーとつないで確かめる）。
 import { CancellationTokenSource, type CancellationToken } from 'vscode-jsonrpc';
-import {
-  DeviceErrorCodes,
-  type DeviceBackup,
-  type DevicePhase,
-  type DeviceProgressParams,
-  type DeviceRequestMap,
-  type DeviceRequestMethod,
-} from '../deviceProtocol';
+import { DeviceErrorCodes, type DeviceProgressParams, type DeviceRequestMap, type DeviceRequestMethod } from '../deviceProtocol';
 import type { DeviceAction } from '../webviewMessages';
 import type { DeviceStates } from './deviceStates';
-import {
-  backupLabel,
-  backupPickItems,
-  confirmApplyText,
-  confirmRestoreText,
-  deviceFailure,
-  differentNotice,
-  progressMessage,
-  sameNotice,
-  writeResultNotice,
-  writesDisabledNotice,
-  type BackupPickItem,
-  type ConfirmText,
-  type Notice,
-} from './deviceTexts';
+import { deviceFailure, validationErrorNotice, writeResultNotice, writesDisabledNotice, type FailedStep, type Notice } from './deviceTexts';
 
 /** device のサーバーへのリクエスト（DeviceServer） */
 export interface DeviceClient {
@@ -42,34 +23,36 @@ export interface DeviceClient {
 export interface DevicePrompts {
   /** 未保存の変更を保存して続けるか（やめる・閉じたら false） */
   confirmSaveFirst(profile: string, pending: number): PromiseLike<boolean>;
-  /** 書き込みの確認（モーダル。「次から聞かない」は付けない） */
-  confirmWrite(text: ConfirmText): PromiseLike<boolean>;
-  /** 戻す先のバックアップ（items は新しい順、先頭が既定） */
-  pickBackup(items: BackupPickItem[]): PromiseLike<DeviceBackup | undefined>;
   notify(notice: Notice): void;
+  /** 設定 cornix.device.allowWrites を開く（モーダルの「設定を開く」） */
+  openWriteSetting(): void;
 }
 
-export type ProgressTask<T> = (report: (message: string) => void, token: CancellationToken) => Promise<T>;
-
-/** VS Code の側（プロファイルの保存・進み具合の表示） */
+/** VS Code の側（プロファイルの保存） */
 export interface DeviceHost {
   readonly prompts: DevicePrompts;
   /** 未保存の変更があれば保存を促して保存する。続けてよければ true */
   ensureSaved(dir: string): Promise<boolean>;
   /** 開いているプロファイルの設定ファイルの版（deviceStates.ts の filesKey）。開いていなければ undefined */
   filesKey(dir: string): string | undefined;
-  /** 確認の文に出すプロファイルの名前 */
+  /** モーダルに出すプロファイルの名前 */
   profileName(dir: string): string;
-  /** 進み具合を出しながら task を動かす（取り消しのボタン付き） */
-  withProgress<T>(title: string, task: ProgressTask<T>): Promise<T>;
+  /** 保存済みのプロファイルの検証のエラーの数（あれば確定させない） */
+  errorCount(dir: string): number;
 }
 
-/** 操作の終わり方（テストと統合テストで確かめる） */
+/**
+ * 操作の終わり方（テストと統合テストで確かめる）。
+ * preview: same（違いなし）・different（プレビューを出した）。confirm: written・same（書くものがなかった）。
+ * declined は保存しなかった・やめた、blocked はできない状態（ほかの反映の途中・書き込みを許していない・検証のエラーがある・プレビューが古い）
+ */
 export type DeviceOutcome = 'same' | 'different' | 'written' | 'declined' | 'blocked' | 'cancelled' | 'failed';
 
 export class DeviceFlow {
-  /** そのとき進み具合を出している先（device/progress の通知を流す） */
+  /** そのとき進み具合を流す先（device/progress の通知） */
   private sink: ((progress: DeviceProgressParams) => void) | undefined;
+  /** 読んでいる間の取り消し（「やめる」） */
+  private reading: { dir: string; source: CancellationTokenSource } | undefined;
 
   constructor(
     private readonly client: DeviceClient,
@@ -84,129 +67,99 @@ export class DeviceFlow {
 
   run(action: DeviceAction, dir: string): Promise<DeviceOutcome> {
     switch (action) {
-      case 'compare':
-        return this.compare(dir);
-      case 'apply':
-        return this.apply(dir);
-      case 'restore':
-        return this.restore(dir);
+      case 'preview':
+        return this.preview(dir);
+      case 'confirm':
+        return this.confirm(dir);
+      case 'cancel':
+        return Promise.resolve(this.cancel(dir));
+      case 'openSettings':
+        this.host.prompts.openWriteSetting();
+        return Promise.resolve('declined');
     }
   }
 
-  /** 比べる（読むだけ。14.3）。保存済みのファイルと実機を比べる */
-  compare(dir: string): Promise<DeviceOutcome> {
-    return this.exclusive(dir, 'compare', async () => {
-      if (!(await this.host.ensureSaved(dir))) return 'declined';
-      const files = this.host.filesKey(dir);
-      const { plan } = await this.progress('Cornix: 実機と比べています', (token) => this.client.request('device/compare', { dir }, token));
-      this.states.setCompared(dir, plan.changes, files);
-      this.notify(plan.empty ? sameNotice(plan) : differentNotice(plan, dir, this.states.writesAllowed));
-      return plan.empty ? 'same' : 'different';
-    });
-  }
-
-  /** 反映（14.4）。比べ直して確認のダイアログのあと、その token で書く */
-  apply(dir: string): Promise<DeviceOutcome> {
-    if (!this.states.writesAllowed) return this.blocked(writesDisabledNotice('apply'));
-    return this.exclusive(dir, 'apply', async () => {
-      if (!(await this.host.ensureSaved(dir))) return 'declined';
-      await this.client.prepareWrites();
-      const files = this.host.filesKey(dir);
-      const { plan } = await this.progress('Cornix: 実機と比べています', (token) => this.client.request('device/compare', { dir }, token));
-      this.states.setCompared(dir, plan.changes, files);
-      if (plan.empty) {
-        this.notify(sameNotice(plan));
-        return 'same';
-      }
-      if (!(await this.host.prompts.confirmWrite(confirmApplyText(plan, this.host.profileName(dir))))) return 'declined';
-      const result = await this.progress('Cornix: 実機に反映しています', (token) =>
-        this.client.request('device/apply', { dir, token: plan.token }, token),
-      );
-      this.states.setCompared(dir, result.remaining, files);
-      this.notify(result.applied === 0 && result.remaining.length === 0 ? sameNotice(plan) : writeResultNotice(result, 'apply', dir));
-      return result.applied === 0 ? 'same' : 'written';
-    });
-  }
-
-  /** 戻す（14.5）。バックアップを選び、比べて確認のダイアログのあと、その token で書く */
-  restore(dir: string): Promise<DeviceOutcome> {
-    if (!this.states.writesAllowed) return this.blocked(writesDisabledNotice('restore'));
-    return this.exclusive(dir, 'restore', async () => {
-      await this.client.prepareWrites();
-      const { backups } = await this.client.request('device/backups', { dir });
-      if (backups.length === 0) {
-        this.notify({ level: 'info', message: '戻せるバックアップがありません（反映の前などに取ったものが、ここに並びます）。', actions: [] });
-        return 'declined';
-      }
-      const backup = await this.host.prompts.pickBackup(backupPickItems(backups));
-      if (!backup) return 'declined';
-      const { plan } = await this.progress('Cornix: 実機とバックアップを比べています', (token) =>
-        this.client.request('device/compareBackup', { dir, backup: backup.name }, token),
-      );
-      if (plan.empty) {
-        this.notify(sameNotice(plan, `バックアップ ${backupLabel(backup)}`));
-        return 'same';
-      }
-      if (!(await this.host.prompts.confirmWrite(confirmRestoreText(plan, backup)))) return 'declined';
-      const result = await this.progress('Cornix: 実機をバックアップから戻しています', (token) =>
-        this.client.request('device/restore', { dir, backup: backup.name, token: plan.token }, token),
-      );
-      // 実機はバックアップの状態になった。このプロファイルと同じかは分からない（もう一度読むと 10 秒かかるので、比べるのは利用者に任せる）
-      this.states.setUnknown(dir);
-      this.notify(writeResultNotice(result, 'restore', dir, backup));
-      return 'written';
-    });
-  }
-
-  /** 操作は 1 つずつ（実機は 1 台。device のサーバーも 1 つずつ処理する） */
-  private async exclusive(dir: string, action: DeviceAction, run: () => Promise<DeviceOutcome>): Promise<DeviceOutcome> {
-    if (this.states.busy) {
-      return this.blocked({ level: 'info', message: '実機の操作の最中です。終わってから、もう一度試してください。', actions: [] });
-    }
-    this.states.setBusy(dir, action);
+  /** 反映のプレビュー（14.3）。保存済みのファイルと実機を比べ、違いをモーダルに出す（書き込みは許していなくてもできる） */
+  async preview(dir: string): Promise<DeviceOutcome> {
+    // プレビューを出している（古くなった）ときの「もう一度比べる」は、そのプレビューを閉じてから読み直す
+    if (this.states.transferOf(dir)?.step === 'preview') this.states.finish(dir);
+    if (this.states.busy) return this.blocked();
+    if (!(await this.host.ensureSaved(dir))) return 'declined';
+    // 保存を促している間に、ほかの反映が始まったかもしれない
+    if (this.states.busy) return this.blocked();
+    this.states.start(dir, this.host.filesKey(dir));
+    const source = new CancellationTokenSource();
+    this.reading = { dir, source };
+    this.sink = (progress) => this.states.update(dir, { step: 'reading', progress: { done: progress.done, total: progress.total } });
     try {
-      return await run();
+      const { plan } = await this.client.request('device/compare', { dir }, source.token);
+      this.states.update(dir, { step: 'preview', plan, profile: this.host.profileName(dir), stale: false });
+      return plan.empty ? 'same' : 'different';
     } catch (error) {
-      const failure = deviceFailure(error, action, dir);
-      if (failure.resetState) this.states.setUnknown(dir);
-      if (failure.notice) this.notify(failure.notice);
-      return (error as { code?: unknown } | null)?.code === DeviceErrorCodes.RequestCancelled ? 'cancelled' : 'failed';
+      this.states.finish(dir);
+      return this.failed(error, 'preview', dir);
     } finally {
-      this.states.setBusy(dir, null);
+      this.sink = undefined;
+      this.reading = undefined;
+      source.dispose();
     }
   }
 
-  /**
-   * 進み具合を出しながら 1 つのリクエストを送る。取り消しのボタンは読む間（phase: read）だけ効かせる（14.6）。
-   * 書き始めたあとに押されたら、サーバーには送らず、取り消せないことを出す
-   */
-  private progress<T>(title: string, send: (token: CancellationToken) => Promise<T>): Promise<T> {
-    return this.host.withProgress(title, async (report, outer) => {
-      const source = new CancellationTokenSource();
-      let phase: DevicePhase = 'read';
-      this.sink = (progress) => {
-        phase = progress.phase;
-        report(progressMessage(progress));
-      };
-      const cancel = () => {
-        if (phase === 'read') source.cancel();
-        else report('書き込みを始めたので取り消せません。終わるまでお待ちください。');
-      };
-      const subscription = outer.onCancellationRequested(cancel);
-      if (outer.isCancellationRequested) cancel();
-      try {
-        return await send(source.token);
-      } finally {
-        this.sink = undefined;
-        subscription.dispose();
-        source.dispose();
-      }
-    });
+  /** 確定（14.4）。プレビューの token のまま書く。サーバーは比べ直し、違えば何も書かずに -32071 */
+  async confirm(dir: string): Promise<DeviceOutcome> {
+    const transfer = this.states.transferOf(dir);
+    if (transfer?.step !== 'preview' || transfer.plan.empty || transfer.stale) return 'blocked';
+    if (!this.states.writesAllowed) {
+      this.notify(writesDisabledNotice());
+      return 'blocked';
+    }
+    const errors = this.host.errorCount(dir);
+    if (errors > 0) {
+      this.notify(validationErrorNotice(errors));
+      return 'blocked';
+    }
+    const { plan, profile } = transfer;
+    this.states.update(dir, { step: 'writing', plan, profile, progress: null });
+    this.sink = (progress) => this.states.update(dir, { step: 'writing', plan, profile, progress });
+    try {
+      await this.client.prepareWrites();
+      const result = await this.client.request('device/apply', { dir, token: plan.token });
+      this.notify(writeResultNotice(result, dir));
+      return result.applied === 0 ? 'same' : 'written';
+    } catch (error) {
+      return this.failed(error, 'confirm', dir);
+    } finally {
+      this.sink = undefined;
+      this.states.finish(dir);
+    }
   }
 
-  private blocked(notice: Notice): Promise<DeviceOutcome> {
-    this.notify(notice);
-    return Promise.resolve('blocked');
+  /** やめる。読んでいる間は取り消し（14.6）、プレビューなら閉じる。書いている間は何もしない（取り消せない） */
+  cancel(dir: string): DeviceOutcome {
+    const transfer = this.states.transferOf(dir);
+    switch (transfer?.step) {
+      case 'reading':
+        if (this.reading?.dir === dir) this.reading.source.cancel();
+        return 'cancelled';
+      case 'preview':
+        this.states.finish(dir);
+        return 'declined';
+      case 'writing':
+        return 'blocked';
+      default:
+        return 'declined';
+    }
+  }
+
+  private failed(error: unknown, step: FailedStep, dir: string): DeviceOutcome {
+    const notice = deviceFailure(error, step, dir);
+    if (notice) this.notify(notice);
+    return (error as { code?: unknown } | null)?.code === DeviceErrorCodes.RequestCancelled ? 'cancelled' : 'failed';
+  }
+
+  private blocked(): DeviceOutcome {
+    this.notify({ level: 'info', message: '実機への反映の途中です。終わってから、もう一度試してください。', actions: [] });
+    return 'blocked';
   }
 
   private notify(notice: Notice): void {

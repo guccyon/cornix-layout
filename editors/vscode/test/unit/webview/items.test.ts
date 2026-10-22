@@ -86,7 +86,8 @@ describe('節の出し方', () => {
     const app = new App(root, { host, sections: [macros.element] });
     app.receive({ type: 'snapshot', snapshot: snapshot(), changes: [] });
     macros.update(snapshot(), []);
-    expect(root.querySelector('.bottom-pane')?.lastElementChild).toBe(macros.element);
+    // v0.4: 一番下は節「デバイス転送」（App が置く）。渡した節はその前
+    expect(root.querySelector('.bottom-pane > .device-transfer')?.previousElementSibling).toBe(macros.element);
   });
 });
 

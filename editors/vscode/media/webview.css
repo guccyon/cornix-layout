@@ -2468,72 +2468,162 @@ button {
   box-sizing: border-box;
 }
 
-/* ---- v0.4: 実機と比べた状態（deviceView.ts。tasks-v0.4.md の「画面」） ---- */
+/* ---- v0.4: 実機への反映（deviceView.ts。tasks-v0.4.md の「画面」） ---- */
 
 :root {
   --device-diff: var(--vscode-charts-orange, #d18616);
 }
 
-/* 図の上の並び: 印と「比べる」「反映」「戻す」（位置の名前のボタンの前） */
-.device-bar {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-right: 8px;
+/* 編集フォームの一番下の節「デバイス転送」 */
+.device-transfer {
+  margin-top: 20px;
+  border-top: 1px solid var(--vscode-editorWidget-border, #8883);
+  padding-top: 8px;
 }
 
-.device-badge {
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-size: 0.9em;
+.device-transfer-description,
+.device-transfer-note {
+  margin: 6px 0;
   color: var(--vscode-descriptionForeground);
-  white-space: nowrap;
 }
 
-.device-badge.same {
-  color: var(--vscode-testing-iconPassed, var(--vscode-charts-green, #388a34));
+.device-transfer-actions {
+  margin: 8px 0;
 }
 
-.device-badge.different {
-  color: var(--device-diff);
-  background: color-mix(in srgb, var(--device-diff) 14%, transparent);
-  font-weight: 600;
-}
-
-.device-badge.busy {
-  color: var(--vscode-foreground);
-}
-
-.device-button {
-  padding: 1px 8px;
-  border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border, #555));
-  border-radius: 10px;
-  background: transparent;
-  font-size: 0.9em;
+.device-preview-button,
+.device-modal-button {
+  padding: 4px 12px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: var(--radius);
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  background: var(--vscode-button-secondaryBackground, transparent);
   cursor: pointer;
 }
 
-.device-button:hover:not(:disabled) {
-  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+.device-preview-button:hover:not(:disabled),
+.device-modal-button:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
 }
 
-.device-button:disabled {
+.device-modal-button.primary {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+.device-modal-button.primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+}
+
+.device-preview-button:disabled,
+.device-modal-button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.device-button.running {
-  border-color: var(--selected);
+/* 反映のプレビューのモーダル（編集画面の上に重ね、開いている間は後ろを操作できない） */
+.device-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.45);
 }
 
-/* 書き込みを許可していない（押すとホストが案内する）: 押せるが控えめに */
-.device-button.locked {
-  border-style: dashed;
+.device-modal-backdrop[hidden] {
+  display: none;
+}
+
+.device-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(1100px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 16px 20px;
+  border: 1px solid var(--vscode-widget-border, var(--vscode-input-border, #555));
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526));
+  box-shadow: 0 4px 24px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.4));
+}
+
+.device-modal h2 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.device-modal-summary,
+.device-modal-progress,
+.device-modal-backup {
+  margin: 0;
   color: var(--vscode-descriptionForeground);
 }
 
-/* 実機と違うキー・エンコーダの操作: 橙の枠（未保存の変更の内側の線と重なるときは、その内側に） */
+.device-modal-bar {
+  width: 100%;
+}
+
+.device-modal-board .keyboard {
+  margin-top: 4px;
+}
+
+.device-tab-count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 0.85em;
+  color: var(--vscode-editor-background, #1e1e1e);
+  background: var(--device-diff);
+}
+
+.device-modal-warnings,
+.device-modal-stale,
+.device-modal-errors,
+.device-modal-locked {
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--device-diff);
+  background: color-mix(in srgb, var(--device-diff) 10%, transparent);
+}
+
+.device-modal-errors {
+  border-left-color: var(--vscode-errorForeground, #f14c4c);
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 10%, transparent);
+}
+
+.device-modal-warnings ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.device-modal-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.device-modal-notes:empty {
+  display: none;
+}
+
+.device-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.device-tooltip code {
+  color: var(--device-diff);
+}
+
+/* 実機と違うキー・エンコーダの操作: 橙の枠 */
 .key.device-diff::after,
 .encoder-part.device-diff::after {
   content: '';
@@ -2544,47 +2634,20 @@ button {
   pointer-events: none;
 }
 
-.key.device-diff.changed::after,
-.encoder-part.device-diff.changed::after {
-  inset: 2px;
-  border-radius: 4px;
-}
-
 .encoder-part.device-diff {
   background-color: color-mix(in srgb, var(--device-diff) 16%, transparent);
 }
 
-.layer-tab-dot.device {
-  background: var(--device-diff);
-}
-
-/* 図の下の畳める節「実機との差分」（開くと一覧。長いときは節の中でスクロール） */
-.device-diff {
-  max-width: 1100px;
-  margin: 6px auto 0;
-}
-
-.device-diff-details > summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.device-diff-count {
-  margin-left: 6px;
-  font-weight: normal;
-  color: var(--device-diff);
-}
-
+/* プレビューの違いの一覧（長いときは一覧の中でスクロール） */
 .device-diff-list {
   max-height: 30vh;
   overflow-y: auto;
-  margin-top: 4px;
-  padding-left: 12px;
+  padding: 4px 0;
+  border-top: 1px solid var(--vscode-widget-border, var(--vscode-input-border, #555));
 }
 
-.device-diff-legend,
-.device-diff-empty {
-  margin: 2px 0;
+.device-diff-legend {
+  margin: 2px 6px;
   font-size: 0.9em;
   color: var(--vscode-descriptionForeground);
 }
@@ -2605,8 +2668,13 @@ button.device-diff-row {
   cursor: pointer;
 }
 
-button.device-diff-row:hover {
+button.device-diff-row:hover,
+.device-diff-row.selected {
   background: var(--vscode-list-hoverBackground);
+}
+
+.device-diff-row.selected {
+  outline: 1px solid var(--device-diff);
 }
 
 .device-diff-place {

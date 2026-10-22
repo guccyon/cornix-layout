@@ -1,22 +1,20 @@
-// v0.4（tasks-v0.4.md の D3・「画面」）: 実機と比べた状態の表示。
-// - DeviceBar: 図の上の「比べる」「反映」「戻す」のボタンと、印「実機: 同じ／違う N 件／未確認」。押すとホストに deviceAction を送る
-//   （ホストがコマンドと同じことをする）。操作の最中（busy）はボタンを押せなくし、何をしているかを出す。
-//   書き込みの許可（allowWrites）が false でも反映・戻すは出す（押すとホストが案内する。tasks-v0.4.md の「決めたこと」5・7）。
-// - DeviceDiffSection: 図の下の畳める節「実機との差分」。行は「場所: 実機の値 → このプロファイルの値」で、押すと該当の欄へ移る（onReveal）。
-// - 違いを図の欄・レイヤーのタブに結びつける関数（DOM に依存しない）。
-// 状態はホストが送る（webviewMessages.ts の DeviceViewState）。画面は自分では比べない（自動では読まない。「決めたこと」6）。
+// v0.4（tasks-v0.4.md の「画面」）: 実機への反映（プレビュー → 確定）。
+// - TransferSection: 編集フォームの一番下の畳める節「デバイス転送」。「反映のプレビュー…」を押すとホストに deviceAction('preview') を送る。
+// - TransferDialog: ホストの transfer がある間に出すモーダル。読んでいる間は進み具合と「やめる」。プレビューでは
+//   図（違うキー・エンコーダの操作を橙の枠）・レイヤーのタブ（違いの件数）・違いの一覧・「確定」「やめる」。書いている間は進み具合（取り消せない）。
+//   開いている間は編集画面を操作できない（App が編集画面に inert を付ける）。
+// - 違いを図の欄・レイヤーに結びつける関数（DOM に依存しない）。
+// 状態はホストが送る（webviewMessages.ts の DeviceViewState）。画面は自分では読まない・書かない。
 import type { DeviceChange } from '../deviceProtocol';
-import type { DeviceAction, DeviceViewState } from '../webviewMessages';
+import type { LayerSnapshot, ProfileSnapshot } from '../protocol';
+import type { DeviceAction, DeviceTransfer, DeviceViewState } from '../webviewMessages';
 import { h, nodes } from './dom';
-import { ENCODER_OPS, HAND_LABEL, type Slot } from './model';
+import { KeyboardView } from './keyboardView';
+import { ENCODER_OPS, HAND_LABEL, baseLayerValue, layerSlots, layerTitle, type Slot } from './model';
+import { attachTooltip } from './tooltip';
 
 /** ホストから状態が来る前（と v0.3 までのホスト）の状態 */
-export const UNKNOWN_DEVICE_STATE: DeviceViewState = { status: 'unknown', changes: [], busy: null, allowWrites: false };
-
-/** 違いを描く状態か（unknown・same では枠・点・行を出さない） */
-export function deviceDifferences(state: DeviceViewState): DeviceChange[] {
-  return state.status === 'different' ? state.changes : [];
-}
+export const IDLE_DEVICE_STATE: DeviceViewState = { transfer: null, busyElsewhere: false, allowWrites: false };
 
 /** 違いがその欄（レイヤー layer の欄）のものか。キーは論理位置、エンコーダは手と操作で比べる */
 export function changeMatchesSlot(change: DeviceChange, slot: Pick<Slot, 'hand' | 'key' | 'encoder'>, layer: number | undefined): boolean {
@@ -32,7 +30,7 @@ export function changeMatchesSlot(change: DeviceChange, slot: Pick<Slot, 'hand' 
   return false;
 }
 
-/** 図の欄の id → その欄の違い（今のレイヤーの欄だけ） */
+/** 図の欄の id → その欄の違い（そのレイヤーの欄だけ） */
 export function deviceSlotChanges(changes: readonly DeviceChange[], slots: readonly Slot[], layer: number | undefined): Map<string, DeviceChange> {
   const result = new Map<string, DeviceChange>();
   for (const change of changes) {
@@ -79,108 +77,368 @@ export function changePlace(change: DeviceChange, layerNames: ReadonlyMap<number
   }
 }
 
-/** 印の文（「実機: 同じ」など） */
-export function deviceBadgeText(state: DeviceViewState): string {
-  if (state.status === 'same') return '実機: 同じ';
-  if (state.status === 'different') return `実機: 違う ${state.changes.length} 件`;
-  return '実機: 未確認';
+const PHASE_TEXT = { read: '実機を読んでいます', write: '書き込んでいます', verify: '読み直して確かめています' } as const;
+
+/** 読む・書く間の進み具合の文（「実機を読んでいます（12/40）」） */
+export function transferProgressText(transfer: DeviceTransfer): string {
+  if (transfer.step === 'preview') return '';
+  const progress = transfer.progress;
+  const phase = transfer.step === 'reading' ? 'read' : (transfer.progress?.phase ?? 'read');
+  const base = transfer.step === 'writing' && phase === 'read' ? '書く前に実機を読み直しています' : PHASE_TEXT[phase];
+  return progress ? `${base}（${progress.done}/${progress.total}）` : `${base}…`;
 }
 
-const BUSY_TEXT: Record<DeviceAction, string> = { compare: '実機と比べています…', apply: '実機に反映しています…', restore: '実機を戻しています…' };
+/** 保存済みのプロファイルの検証のエラーの数（読めないプロファイルは少なくとも 1） */
+export function snapshotErrors(snapshot: Pick<ProfileSnapshot, 'status' | 'diagnostics'> | undefined): number {
+  if (!snapshot) return 0;
+  const errors = snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === 'error').length;
+  return snapshot.status === 'invalid' ? Math.max(errors, 1) : errors;
+}
 
-const ACTIONS: { action: DeviceAction; label: string; title: string; writes: boolean }[] = [
-  { action: 'compare', label: '比べる', title: '保存済みのプロファイルと実機を比べる（読むだけ。BLE で 10 秒ほどかかる）', writes: false },
-  { action: 'apply', label: '反映', title: '保存済みのプロファイルを実機に書き込む（違いを確かめるダイアログのあと。書く前にバックアップを取る）', writes: true },
-  { action: 'restore', label: '戻す', title: 'バックアップを選んで実機を戻す（確かめるダイアログのあと）', writes: true },
-];
+const WRITE_SETTING_NOTE = '書き込みは設定 cornix.device.allowWrites を有効にしたときだけできます（既定は無効。プレビューはいつでもできます）。';
 
-const LOCKED_TITLE = '\n書き込みは設定 cornix.device.allowWrites を有効にしたときだけ（押すと案内を出す）';
+export type TransferSectionOptions = { onPreview: () => void };
 
-export type DeviceBarOptions = { onAction: (action: DeviceAction) => void };
-
-/** 図の上のボタンと印 */
-export class DeviceBar {
+/** 編集フォームの一番下の節「デバイス転送」 */
+export class TransferSection {
   readonly element: HTMLElement;
-  private readonly buttons = new Map<DeviceAction, HTMLButtonElement>();
-  private readonly badge = h('span', { class: 'device-badge', role: 'status' });
+  readonly button: HTMLButtonElement;
+  private readonly note = h('p', { class: 'device-transfer-note', hidden: true }, WRITE_SETTING_NOTE);
 
-  constructor(options: DeviceBarOptions) {
-    for (const { action, label } of ACTIONS) {
-      const button = h('button', { type: 'button', class: 'device-button', 'data-device-action': action }, label);
-      button.addEventListener('click', () => {
-        if (!button.disabled) options.onAction(action);
-      });
-      this.buttons.set(action, button);
-    }
-    this.element = h('div', { class: 'device-bar', role: 'group', 'aria-label': '実機' }, this.badge, ...this.buttons.values());
-    this.update(UNKNOWN_DEVICE_STATE);
+  constructor(options: TransferSectionOptions) {
+    this.button = h('button', { type: 'button', class: 'device-preview-button' }, '反映のプレビュー…');
+    this.button.addEventListener('click', () => {
+      if (!this.button.disabled) options.onPreview();
+    });
+    this.element = h(
+      'section',
+      { class: 'device-transfer', 'aria-label': 'デバイス転送' },
+      h(
+        'details',
+        { class: 'section-details' },
+        h('summary', {}, h('h2', {}, 'デバイス転送')),
+        h(
+          'p',
+          { class: 'device-transfer-description' },
+          '保存済みのプロファイルを、接続中の Cornix に書き込みます。押すと実機を読んで（Bluetooth では 10 秒ほど）違いをプレビューし、「確定」を押すまでは書き込みません。未保存の変更があれば先に保存します。',
+        ),
+        h('div', { class: 'device-transfer-actions' }, this.button),
+        this.note,
+      ),
+    );
+    this.update(IDLE_DEVICE_STATE);
   }
 
   update(state: DeviceViewState): void {
-    const busy = state.busy;
-    for (const { action, title, writes } of ACTIONS) {
-      const button = this.buttons.get(action)!;
-      button.disabled = busy !== null;
-      const locked = writes && !state.allowWrites;
-      button.classList.toggle('locked', locked);
-      button.classList.toggle('running', busy === action);
-      button.title = locked ? `${title}${LOCKED_TITLE}` : title;
-    }
-    this.element.classList.toggle('busy', busy !== null);
-    this.badge.className = `device-badge ${busy ? 'busy' : state.status}`;
-    this.badge.textContent = busy ? BUSY_TEXT[busy] : deviceBadgeText(state);
-    this.badge.title =
-      state.status === 'unknown' ? '実機とはまだ比べていません（保存すると未確認に戻る）。「比べる」で確かめる' : '最後に比べた（反映・戻した）ときの結果。保存すると未確認に戻る';
+    this.button.disabled = state.transfer !== null || state.busyElsewhere;
+    this.button.title = state.busyElsewhere ? 'ほかのプロファイルの反映の途中です' : '';
+    this.note.hidden = state.allowWrites;
   }
 }
 
-export type DeviceDiffSectionOptions = {
-  /** 行を押した（その欄へ移る） */
-  onReveal: (change: DeviceChange) => void;
-  /** 行を押して移れるか（移り先がない行は押せない文にする） */
-  canReveal: (change: DeviceChange) => boolean;
-};
+export type TransferDialogOptions = { onAction: (action: DeviceAction) => void };
 
-/** 図の下の畳める節「実機との差分」 */
-export class DeviceDiffSection {
+/** 反映のプレビューのモーダル（transfer がないときは隠す） */
+export class TransferDialog {
   readonly element: HTMLElement;
-  readonly details: HTMLDetailsElement;
-  private readonly count = h('span', { class: 'device-diff-count' });
-  private readonly body = h('div', { class: 'device-diff-list' });
+  private readonly dialog: HTMLElement;
+  private readonly title = h('h2', { id: 'device-modal-title' });
+  private readonly summary = h('p', { class: 'device-modal-summary' });
+  private readonly progressText = h('p', { class: 'device-modal-progress', role: 'status' });
+  private readonly progressBar = h('progress', { class: 'device-modal-bar' }) as HTMLProgressElement;
+  private readonly tabs = h('div', { class: 'layer-tabs device-modal-tabs', role: 'group', 'aria-label': 'レイヤー' });
+  private readonly keyboard: KeyboardView;
+  private readonly board: HTMLElement;
+  private readonly list = h('div', { class: 'device-diff-list' });
+  private readonly notes = h('div', { class: 'device-modal-notes' });
+  private readonly footer = h('div', { class: 'device-modal-footer' });
+  private state: DeviceViewState = IDLE_DEVICE_STATE;
+  private snapshot: ProfileSnapshot | undefined;
+  /** 保存済みのプロファイルの検証のエラーの数（あれば確定できない） */
+  private errors = 0;
+  /** 図と一覧を描いたときの plan と snapshot（進み具合だけが変わったときは描き直さない） */
+  private drawnKey = '';
+  private layer: number | undefined;
+  /** 今の図の欄 */
+  private slots: Slot[] = [];
+  private slotChanges = new Map<string, DeviceChange>();
 
-  constructor(private readonly options: DeviceDiffSectionOptions) {
-    this.details = h('details', { class: 'device-diff-details' }, h('summary', {}, h('span', { class: 'device-diff-title' }, '実機との差分'), this.count), this.body);
-    this.element = h('section', { class: 'device-diff', 'aria-label': '実機との差分', hidden: true }, this.details);
+  constructor(private readonly options: TransferDialogOptions) {
+    this.keyboard = new KeyboardView({
+      onSelect: (id) => this.highlight(this.slotChanges.get(id)),
+      decorate: (element, id) => attachTooltip(element, () => Promise.resolve(this.describe(id)), { focus: 'visible' }),
+    });
+    this.board = h('div', { class: 'device-modal-board' }, this.tabs, this.keyboard.element);
+    this.dialog = h(
+      'div',
+      { class: 'device-modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'device-modal-title' },
+      this.title,
+      this.summary,
+      this.progressText,
+      this.progressBar,
+      this.board,
+      this.list,
+      this.notes,
+      this.footer,
+    );
+    this.element = h('div', { class: 'device-modal-backdrop', hidden: true }, this.dialog);
+    this.element.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      const step = this.state.transfer?.step;
+      if (step === 'reading' || step === 'preview') {
+        event.preventDefault();
+        this.options.onAction('cancel');
+      }
+    });
   }
 
-  update(state: DeviceViewState, layerNames: ReadonlyMap<number, string>): void {
-    // 未確認のときは節を出さない（比べるまで何もない）
-    this.element.hidden = state.status === 'unknown';
-    const changes = deviceDifferences(state);
-    this.count.textContent = state.status === 'different' ? `${changes.length} 件` : '';
-    if (state.status !== 'different') {
-      this.body.replaceChildren(...nodes(state.status === 'same' && h('p', { class: 'device-diff-empty' }, '実機と同じです')));
+  get isOpen(): boolean {
+    return !this.element.hidden;
+  }
+
+  /** 図（テスト用） */
+  get keyboardView(): KeyboardView {
+    return this.keyboard;
+  }
+
+  /** 今の図のレイヤー（テスト用） */
+  get currentLayer(): number | undefined {
+    return this.layer;
+  }
+
+  update(state: DeviceViewState, snapshot: ProfileSnapshot | undefined): void {
+    const wasOpen = this.isOpen;
+    this.state = state;
+    this.snapshot = snapshot?.status === 'invalid' ? undefined : snapshot;
+    this.errors = snapshotErrors(snapshot);
+    const transfer = state.transfer;
+    this.element.hidden = transfer === null;
+    if (!transfer) {
+      this.drawnKey = '';
       return;
     }
-    const header = h('div', { class: 'device-diff-legend', 'aria-hidden': 'true' }, '場所: 実機の値 → このプロファイルの値');
-    this.body.replaceChildren(header, ...changes.map((change, i) => this.row(change, i, layerNames)));
+    this.dialog.dataset.step = transfer.step;
+    this.renderHeader(transfer);
+    const plan = transfer.step === 'reading' ? undefined : transfer.plan;
+    const key = plan ? JSON.stringify([plan.token, plan.changes, this.snapshot?.layers, this.snapshot?.positionMap]) : '';
+    if (key !== this.drawnKey) {
+      this.drawnKey = key;
+      this.renderChanges(plan?.changes ?? []);
+    }
+    this.renderNotes(transfer);
+    this.renderFooter(transfer);
+    if (!wasOpen) this.footer.querySelector<HTMLButtonElement>('button.primary:not(:disabled)')?.focus() ?? this.footer.querySelector('button')?.focus();
   }
 
-  private row(change: DeviceChange, index: number, layerNames: ReadonlyMap<number, string>): HTMLElement {
+  private renderHeader(transfer: DeviceTransfer): void {
+    const progress = transfer.step !== 'preview';
+    this.progressText.hidden = !progress;
+    this.progressBar.hidden = !progress;
+    if (progress) {
+      this.progressText.textContent = transferProgressText(transfer);
+      const value = transfer.progress;
+      if (value && value.total > 0) {
+        this.progressBar.max = value.total;
+        this.progressBar.value = value.done;
+      } else {
+        this.progressBar.removeAttribute('value');
+      }
+    }
+    if (transfer.step === 'reading') {
+      this.title.textContent = '実機を読んでいます';
+      this.summary.textContent = '保存済みのプロファイルと比べるため、接続中の Cornix を読んでいます（読むだけ。Bluetooth では 10 秒ほど）。';
+      return;
+    }
+    const { plan, profile } = transfer;
+    if (transfer.step === 'preview' && plan.empty) {
+      this.title.textContent = '実機はこのプロファイルと同じです';
+      this.summary.textContent = `${plan.keyboard.name} はプロファイル ${profile} と同じなので、書き込むものはありません。`;
+      return;
+    }
+    this.title.textContent = transfer.step === 'writing' ? '実機に書き込んでいます' : '実機への反映のプレビュー';
+    this.summary.textContent = `書き込み先: ${plan.keyboard.name}　プロファイル: ${profile}　違い: ${plan.changes.length} 件`;
+  }
+
+  /** 図・レイヤーのタブ・一覧を描き直す（plan か snapshot が変わったときだけ） */
+  private renderChanges(changes: readonly DeviceChange[]): void {
+    const snapshot = this.snapshot;
+    const counts = deviceLayerCounts(changes);
+    const layers = snapshot?.layers ?? [];
+    const shown = layers.some((layer) => counts.has(layer.index));
+    this.board.hidden = !shown;
+    if (shown) {
+      if (!layers.some((layer) => layer.index === this.layer && counts.has(layer.index))) {
+        this.layer = layers.find((layer) => counts.has(layer.index))?.index;
+      }
+      this.renderTabs(layers, counts);
+      this.renderBoard();
+    } else {
+      this.layer = undefined;
+      this.slots = [];
+      this.slotChanges = new Map();
+    }
+    const names = new Map(layers.map((layer) => [layer.index, layer.name]));
+    this.list.hidden = changes.length === 0;
+    this.list.replaceChildren(
+      ...nodes(
+        changes.length > 0 && h('div', { class: 'device-diff-legend', 'aria-hidden': 'true' }, '場所: 実機の今の値 → このプロファイルの値（書き込む値）'),
+        ...changes.map((change, i) => this.row(change, i, names)),
+      ),
+    );
+  }
+
+  private renderTabs(layers: readonly LayerSnapshot[], counts: ReadonlyMap<number, number>): void {
+    this.tabs.replaceChildren(
+      ...layers.map((layer) => {
+        const count = counts.get(layer.index) ?? 0;
+        const selected = layer.index === this.layer;
+        const tab = h(
+          'button',
+          {
+            type: 'button',
+            class: `layer-tab${selected ? ' selected' : ''}${count > 0 ? ' has-device-diff' : ''}`,
+            'aria-pressed': String(selected),
+            'data-layer': layer.index,
+            title: count > 0 ? `実機と違うキー ${count} 件` : '実機と同じ',
+          },
+          layerTitle(layer),
+          ...nodes(count > 0 && h('span', { class: 'device-tab-count' }, String(count))),
+        );
+        tab.addEventListener('click', () => this.selectLayer(layer.index));
+        return tab;
+      }),
+    );
+  }
+
+  /** プレビューの図のレイヤーを選ぶ */
+  selectLayer(index: number): void {
+    if (!this.snapshot?.layers.some((layer) => layer.index === index)) return;
+    this.layer = index;
+    const plan = this.state.transfer && this.state.transfer.step !== 'reading' ? this.state.transfer.plan : undefined;
+    this.renderTabs(this.snapshot.layers, deviceLayerCounts(plan?.changes ?? []));
+    this.renderBoard();
+  }
+
+  private renderBoard(): void {
+    const snapshot = this.snapshot;
+    const layer = snapshot?.layers.find((l) => l.index === this.layer);
+    const plan = this.state.transfer && this.state.transfer.step !== 'reading' ? this.state.transfer.plan : undefined;
+    if (!snapshot || !layer) return;
+    this.slots = layerSlots(layer, snapshot.positionMap);
+    this.slotChanges = deviceSlotChanges(plan?.changes ?? [], this.slots, this.layer);
+    this.keyboard.setLayerNames(new Map(snapshot.layers.map((l) => [l.index, l.name])));
+    this.keyboard.setSlots(this.slots);
+    for (const slot of this.slots) {
+      this.keyboard.update(slot.id, {
+        text: slot.saved?.text ?? '',
+        value: slot.saved,
+        diagnostics: [],
+        changed: false,
+        base: slot.saved?.kind === 'transparent' ? baseLayerValue(snapshot, this.layer, slot) : null,
+      });
+    }
+    this.keyboard.setDeviceDiffs(new Map([...this.slotChanges].map(([id, change]) => [id, change.device])));
+    this.keyboard.setSelected(undefined);
+  }
+
+  /** 図のキーの説明（違うキーだけ: 実機の値 → このプロファイルの値） */
+  private describe(id: string): Node | null {
+    const change = this.slotChanges.get(id);
+    if (!change) return null;
+    return h(
+      'div',
+      { class: 'device-tooltip' },
+      h('div', {}, '実機: ', h('code', {}, change.device)),
+      h('div', {}, 'このプロファイル: ', h('code', {}, change.profile)),
+    );
+  }
+
+  private row(change: DeviceChange, index: number, names: ReadonlyMap<number, string>): HTMLElement {
     if (change.kind === 'other') {
       return h('div', { class: 'device-diff-row other', 'data-change': index }, h('span', { class: 'device-diff-text' }, change.text));
     }
-    const place = changePlace(change, layerNames);
     const content = [
-      h('span', { class: 'device-diff-place' }, place),
+      h('span', { class: 'device-diff-place' }, changePlace(change, names)),
       ': ',
       h('code', { class: 'device-diff-device', title: '実機の今の値' }, change.device),
       h('span', { class: 'device-diff-arrow' }, ' → '),
       h('code', { class: 'device-diff-profile', title: 'このプロファイルの値' }, change.profile),
     ];
-    if (!this.options.canReveal(change)) return h('div', { class: 'device-diff-row', 'data-change': index, title: change.text }, ...content);
-    const button = h('button', { type: 'button', class: 'device-diff-row', 'data-change': index, title: `${change.text}\n押すとその欄へ移る` }, ...content);
-    button.addEventListener('click', () => this.options.onReveal(change));
+    const onBoard = (change.kind === 'key' || change.kind === 'encoder') && !!this.snapshot?.layers.some((layer) => layer.index === change.layer);
+    if (!onBoard) return h('div', { class: 'device-diff-row', 'data-change': index, title: change.text }, ...content);
+    const button = h('button', { type: 'button', class: 'device-diff-row', 'data-change': index, title: `${change.text}\n押すと図のそのキーを示す` }, ...content);
+    button.addEventListener('click', () => this.reveal(change));
     return button;
+  }
+
+  /** 一覧の行を押した: そのレイヤーの図を出して、そのキーを選ぶ */
+  private reveal(change: DeviceChange): void {
+    if (change.layer === undefined) return;
+    if (change.layer !== this.layer) this.selectLayer(change.layer);
+    const [id] = deviceSlotChanges([change], this.slots, this.layer).keys();
+    this.keyboard.setSelected(id);
+    this.highlight(change);
+  }
+
+  /** 一覧のその行を強調する（図のキーを押したとき・行を押したとき） */
+  private highlight(change: DeviceChange | undefined): void {
+    for (const row of this.list.querySelectorAll('.device-diff-row')) row.classList.remove('selected');
+    if (!change) return;
+    const plan = this.state.transfer && this.state.transfer.step !== 'reading' ? this.state.transfer.plan : undefined;
+    const index = plan?.changes.indexOf(change) ?? -1;
+    const row = this.list.querySelector<HTMLElement>(`[data-change='${index}']`);
+    row?.classList.add('selected');
+    row?.scrollIntoView?.({ block: 'nearest' });
+  }
+
+  private renderNotes(transfer: DeviceTransfer): void {
+    const warnings = transfer.step === 'reading' ? [] : transfer.plan.warnings;
+    const stale = transfer.step === 'preview' && transfer.stale;
+    const writable = transfer.step === 'preview' && !transfer.plan.empty;
+    const settings = h('button', { type: 'button', class: 'link-button' }, '設定を開く');
+    settings.addEventListener('click', () => this.options.onAction('openSettings'));
+    this.notes.replaceChildren(
+      ...nodes(
+        warnings.length > 0 &&
+          h('div', { class: 'device-modal-warnings' }, h('strong', {}, '注意'), h('ul', {}, ...warnings.map((warning) => h('li', {}, warning)))),
+        stale &&
+          h('p', { class: 'device-modal-stale', role: 'alert' }, 'プレビューのあとで設定ファイルが変わりました。もう一度比べてから確定してください。'),
+        writable &&
+          this.errors > 0 &&
+          h('p', { class: 'device-modal-errors', role: 'alert' }, `プロファイルに検証のエラーが ${this.errors} 件あるので確定できません。直して保存してから、もう一度比べてください。`),
+        writable && !this.state.allowWrites && h('p', { class: 'device-modal-locked' }, WRITE_SETTING_NOTE, ' ', settings),
+        writable && h('p', { class: 'device-modal-backup' }, '確定すると、書く前に実機の今の状態をバックアップし、書いたあと読み直して確かめます。'),
+        transfer.step === 'writing' && h('p', { class: 'device-modal-backup' }, '書き始めたら取り消せません。終わるまでキーボードをつないだままにしてください。'),
+      ),
+    );
+  }
+
+  private renderFooter(transfer: DeviceTransfer): void {
+    const button = (label: string, action: DeviceAction | null, options: { primary?: boolean; disabled?: boolean } = {}) => {
+      const element = h('button', { type: 'button', class: `device-modal-button${options.primary ? ' primary' : ''}`, 'data-device-action': action ?? '' }, label);
+      element.disabled = options.disabled === true;
+      if (action) element.addEventListener('click', () => !element.disabled && this.options.onAction(action));
+      return element;
+    };
+    switch (transfer.step) {
+      case 'reading':
+        this.footer.replaceChildren(button('やめる', 'cancel'));
+        return;
+      case 'writing':
+        this.footer.replaceChildren(button('やめる', null, { disabled: true }), button(`確定（${transfer.plan.changes.length} 件を書き込む）`, null, { primary: true, disabled: true }));
+        return;
+      case 'preview':
+        if (transfer.plan.empty) {
+          this.footer.replaceChildren(button('閉じる', 'cancel', { primary: true }));
+        } else if (transfer.stale) {
+          this.footer.replaceChildren(button('やめる', 'cancel'), button('もう一度比べる', 'preview', { primary: true }));
+        } else {
+          this.footer.replaceChildren(
+            button('やめる', 'cancel'),
+            button(`確定（${transfer.plan.changes.length} 件を書き込む）`, 'confirm', { primary: true, disabled: !this.state.allowWrites || this.errors > 0 }),
+          );
+        }
+        return;
+    }
   }
 }

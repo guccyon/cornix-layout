@@ -16,13 +16,11 @@
 // 欄（this.editorSlots）は図の欄（this.slots）とは別に持ち、キー別では全レイヤーの欄になる。欄は id（addressKey）で引く。
 // レイヤーの追加（レイヤーの並びの末尾の「＋」）と削除（レイヤーの見出しの「削除」）は host.itemEdit（ホストが確認してすぐ書く）。
 //
-// v0.4（tasks-v0.4.md の D3）: 実機と比べた状態（ホストの { type: 'device' }）。図の上のボタンと印（deviceView.ts の DeviceBar。押すと host.deviceAction）、
-// 今のレイヤーの違うキーの橙の枠、違いのあるレイヤーのタブの点、図の下の節「実機との差分」（行を押すとその欄へ。キー・エンコーダはここで、
-// マクロ・タップダンス・コンボ・設定は options.revealItem で下の節へ）。status が different のときだけ枠・点・行を出す。
+// v0.4（tasks-v0.4.md の D3）: 実機への反映（ホストの { type: 'device' }）。下のペインの一番下の節「デバイス転送」（deviceView.ts の TransferSection。
+// 押すと host.deviceAction('preview')）と、反映の途中のモーダル（TransferDialog。プレビューと確定）。モーダルを出している間は編集画面に inert を付ける。
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange } from '../protocol';
-import type { DeviceChange } from '../deviceProtocol';
 import type { DeviceViewState, HostMessage, WebviewMessage } from '../webviewMessages';
-import { DeviceBar, DeviceDiffSection, UNKNOWN_DEVICE_STATE, deviceDifferences, deviceLayerCounts, deviceSlotChanges } from './deviceView';
+import { IDLE_DEVICE_STATE, TransferDialog, TransferSection } from './deviceView';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
 import { comboTargets, effectiveKey, triggerKeys } from './comboHighlight';
@@ -71,8 +69,6 @@ export type AppOptions = {
   state?: { get(): ViewState | undefined; set(state: ViewState): void };
   /** 下のペインのレイヤーの欄のあとに置く部品（QMK 設定・メタデータ）。読めないプロファイルの表示では出ない */
   sections?: HTMLElement[];
-  /** v0.4: 「実機との差分」の行から、マクロ・タップダンス・コンボ・設定の欄へ移る（main.ts が下の節につなぐ）。なければその行は押せない */
-  revealItem?: (change: DeviceChange) => void;
 };
 
 /** 作り直す前のフォーカスと打ちかけ */
@@ -104,10 +100,10 @@ export class App {
   /** 図からキーを選んでいる間の受け取り手 */
   private picking: { onPick: (text: string) => void } | undefined;
   private readonly inspector: Inspector;
-  /** v0.4: 実機と比べた状態（ホストが送る） */
-  private device: DeviceViewState = UNKNOWN_DEVICE_STATE;
-  private readonly deviceBar: DeviceBar;
-  private readonly deviceDiff: DeviceDiffSection;
+  /** v0.4: 実機への反映の途中の状態（ホストが送る） */
+  private device: DeviceViewState = IDLE_DEVICE_STATE;
+  private readonly transferSection: TransferSection;
+  private readonly transferDialog: TransferDialog;
 
   private readonly keyboard: KeyboardView;
   private readonly editor: LayerEditor;
@@ -126,8 +122,10 @@ export class App {
     private readonly options: AppOptions,
   ) {
     this.inspector = new Inspector(options.host);
-    this.deviceBar = new DeviceBar({ onAction: (action) => options.host.deviceAction(action) });
-    this.deviceDiff = new DeviceDiffSection({ onReveal: (change) => this.revealDevice(change), canReveal: (change) => this.canRevealDevice(change) });
+    this.transferSection = new TransferSection({ onPreview: () => options.host.deviceAction('preview') });
+    this.transferDialog = new TransferDialog({ onAction: (action) => options.host.deviceAction(action) });
+    // モーダルは編集画面（root）の外に置く（root に inert を付けても操作できるように）
+    (root.ownerDocument.body ?? root).append(this.transferDialog.element);
     const saved = options.state?.get();
     this.layerIndex = saved?.layer;
     this.selected = saved?.selected;
@@ -146,7 +144,6 @@ export class App {
         attachTooltip(element, () => Promise.resolve(this.describeCombo(index)), { focus: 'visible', avoid: () => this.keyboard.boardElement }),
       onPick: (id) => this.picked(id),
       onPickCancel: () => this.endPick(),
-      tools: [this.deviceBar.element],
     });
     this.editor = new LayerEditor({
       host: options.host,
@@ -159,8 +156,17 @@ export class App {
       decorate: (input: KeyInput, id) =>
         attachTooltip(input.input, () => this.describe(id), { focus: 'always', canShow: () => !input.isOpen && !input.isEditing }),
     });
-    this.topPane = h('div', { class: 'top-pane' }, this.header, this.banner, this.tabs, this.layerForm, this.keyboard.element, this.deviceDiff.element);
-    this.bottomPane = h('div', { class: 'bottom-pane' }, this.modeBar, this.layerInfo, this.problems, this.editor.element, ...(options.sections ?? []));
+    this.topPane = h('div', { class: 'top-pane' }, this.header, this.banner, this.tabs, this.layerForm, this.keyboard.element);
+    this.bottomPane = h(
+      'div',
+      { class: 'bottom-pane' },
+      this.modeBar,
+      this.layerInfo,
+      this.problems,
+      this.editor.element,
+      ...(options.sections ?? []),
+      this.transferSection.element,
+    );
     this.renderModeBar();
     this.root.replaceChildren(h('div', { class: 'loading' }, '読み込んでいます…'));
   }
@@ -211,44 +217,27 @@ export class App {
     this.editor.setFoldQuiet(fold && this.mode === 'key');
   }
 
-  /** v0.4: 実機と比べた状態を描く（ボタンと印・枠・タブの点・差分の節） */
+  /** v0.4: 実機への反映の途中の状態を描く（節のボタンとモーダル） */
   setDevice(state: DeviceViewState): void {
     this.device = state;
-    this.deviceBar.update(state);
-    if (!this.snapshot || this.snapshot.status === 'invalid') return;
-    this.renderTabs();
-    this.renderDevice();
+    this.transferSection.update(state);
+    this.transferDialog.update(state, this.snapshot);
+    const open = this.transferDialog.isOpen;
+    if (open) {
+      hideTooltip();
+      this.endPick();
+    }
+    this.root.toggleAttribute('inert', open);
   }
 
-  /** 実機と比べた状態（テスト用） */
+  /** 実機への反映の途中の状態（テスト用） */
   get deviceState(): DeviceViewState {
     return this.device;
   }
 
-  /** 図の枠と差分の節を描き直す（図を作り直したあと・レイヤーを選び直したあとにも呼ぶ） */
-  private renderDevice(): void {
-    const diffs = deviceSlotChanges(deviceDifferences(this.device), this.slots, this.layerIndex);
-    this.keyboard.setDeviceDiffs(new Map([...diffs].map(([id, change]) => [id, change.device])));
-    this.deviceDiff.update(this.device, this.layerNames());
-  }
-
-  private canRevealDevice(change: DeviceChange): boolean {
-    if (change.kind === 'key' || change.kind === 'encoder') return !!this.snapshot?.layers.some((layer) => layer.index === change.layer);
-    if (change.kind === 'other') return false;
-    return !!this.options.revealItem;
-  }
-
-  /** 「実機との差分」の行を押した: キー・エンコーダならそのレイヤーのその欄を選んで下の欄へ、ほかは下の節へ */
-  revealDevice(change: DeviceChange): void {
-    if (change.kind === 'key' || change.kind === 'encoder') {
-      const layer = change.layer;
-      if (layer === undefined || !this.snapshot?.layers.some((l) => l.index === layer)) return;
-      if (layer !== this.layerIndex) this.selectLayer(layer);
-      const [id] = deviceSlotChanges([change], this.slots, this.layerIndex).keys();
-      if (id) this.reveal(id);
-      return;
-    }
-    if (change.kind !== 'other') this.options.revealItem?.(change);
+  /** 反映のプレビューのモーダル（テスト用） */
+  get transfer(): TransferDialog {
+    return this.transferDialog;
   }
 
   /** 下の欄の入力欄（テスト用） */
@@ -276,6 +265,8 @@ export class App {
     }
     this.snapshotKey = key;
     this.snapshot = snapshot;
+    // プレビューの図と検証のエラーは保存済みの snapshot から描く
+    if (this.device.transfer) this.transferDialog.update(this.device, snapshot);
     this.inspector.clear();
     const { byAddress, general } = diagnosticsByAddress(snapshot);
     this.diagnostics = byAddress;
@@ -306,7 +297,6 @@ export class App {
       this.keyboard.replaceSlots(this.slots);
       this.editor.replaceSlots(this.editorSlots);
       this.updateSlots();
-      this.renderDevice();
       this.rendered();
       return;
     }
@@ -374,7 +364,6 @@ export class App {
       this.editor.setCurrentLayer(this.layerIndex);
       this.select(this.selected);
       this.updateSlots();
-      this.renderDevice();
     } else {
       this.renderLayer();
     }
@@ -504,21 +493,18 @@ export class App {
     const snapshot = this.snapshot;
     if (!snapshot) return;
     const focused = document.activeElement instanceof HTMLElement && this.tabs.contains(document.activeElement) ? document.activeElement.dataset.layer : undefined;
-    const deviceCounts = deviceLayerCounts(deviceDifferences(this.device));
     this.tabs.replaceChildren(
       ...snapshot.layers.map((l) => {
         const selected = l.index === this.layerIndex;
         // v0.4: 保存済みの中身に検証の問題があるレイヤーには点を付け、件数と文をツールチップに出す
         const problems = layerProblems(snapshot, l.file);
         const severity = severityOf(problems);
-        // v0.4: 実機と違うキー・エンコーダがあるレイヤーには橙の点（件数はツールチップ）
-        const device = deviceCounts.get(l.index) ?? 0;
-        const title = [l.file, problems.length > 0 && problemSummary(problems), device > 0 && `実機と違うキー ${device} 件`].filter(Boolean).join('\n');
+        const title = [l.file, problems.length > 0 && problemSummary(problems)].filter(Boolean).join('\n');
         const tab = h(
           'button',
           {
             type: 'button',
-            class: `layer-tab${selected ? ' selected' : ''}${severity ? ` has-${severity}` : ''}${device > 0 ? ' has-device-diff' : ''}`,
+            class: `layer-tab${selected ? ' selected' : ''}${severity ? ` has-${severity}` : ''}`,
             'aria-pressed': String(selected),
             'data-layer': l.index,
             title,
@@ -526,7 +512,6 @@ export class App {
           layerTitle(l),
           ...nodes(
             severity && h('span', { class: `layer-tab-dot ${severity}`, 'aria-label': severity === 'error' ? 'エラーあり' : '警告あり' }),
-            device > 0 && h('span', { class: 'layer-tab-dot device', 'aria-label': `実機と違う ${device} 件` }),
           ),
         );
         tab.addEventListener('click', () => this.selectLayer(l.index));
@@ -692,7 +677,6 @@ export class App {
     if (this.selected && !this.slotById.has(this.selected)) this.selected = undefined;
     this.select(this.selected);
     this.updateSlots();
-    this.renderDevice();
   }
 
   private renderProblems(): void {

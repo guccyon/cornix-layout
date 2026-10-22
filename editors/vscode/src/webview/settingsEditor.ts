@@ -41,16 +41,6 @@ export class SettingsEditor {
     );
   }
 
-  /** v0.4: 「実機との差分」の行から移る。節を開いてその設定の欄へ（名前は "tapping_term"。group 付きでもよい）。見つけたら true */
-  reveal(name: string): boolean {
-    const details = this.element.querySelector('details');
-    if (details) details.open = true;
-    const row = [...this.rows.values()].find((r) => [r.setting.name, `${r.setting.group}.${r.setting.name}`, `${r.setting.group}/${r.setting.name}`].includes(name));
-    (row?.element ?? this.element).scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-    row?.input.focus();
-    return !!row;
-  }
-
   /** 開いている入力欄（テスト用） */
   input(key: string): HTMLInputElement | undefined {
     return this.rows.get(key)?.input;

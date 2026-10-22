@@ -150,15 +150,15 @@ test('外で変わったとき、未保存の変更があれば聞き、画面�
 
 // v0.4: 本物の device のサーバー（cornix serve --device）とつなぐ。CI（Linux）では実機を使えないので、macOS 以外の案内が出ることと、
 // 実機を読まない device/backups が答えることを見る。macOS では本物のキーボードを読みにいくので動かさない（書き込みはどちらでもしない）
-test('実機と比べると、本物の device のサーバーが macOS 以外では使えないと答え、その案内を出す', async () => {
+test('反映のプレビューを始めると、本物の device のサーバーが macOS 以外では使えないと答え、その案内を出す', async () => {
   if (process.platform === 'darwin') return;
   const devicePrompts = new FakeDevicePrompts();
   api.device.prompts = devicePrompts;
   assert.equal(vscode.workspace.getConfiguration('cornix').get('device.allowWrites'), false);
-  assert.equal(await vscode.commands.executeCommand('cornix.device.compare', 'profiles/default'), 'failed');
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', 'profiles/default'), 'failed');
   assert.equal(devicePrompts.last?.level, 'error');
   assert.match(devicePrompts.last?.message ?? '', /macOS でだけ使えます/);
-  assert.equal(api.device.states.get('profiles/default').status, 'unknown');
+  assert.equal(api.device.states.get('profiles/default').transfer, null);
   assert.deepEqual(await api.device.server.request('device/backups', { dir: 'profiles/default' }), { backups: [] });
   assert.equal(await api.device.server.writesAllowed(), false);
 });

@@ -111,7 +111,11 @@ module Cornix
         parent = steps.last.node
         case parent
         when nil then insert_at_end(new_lines(missing, value, 0))
-        when Nodes::Mapping then insert_into_mapping(parent, path, depth, value, order)
+        when Nodes::Mapping
+          # 空のフロー表記（"row1: {}"。レイヤーを足したときのファイルの形）は、値なしの見出しと同じく下に字下げして足す
+          return insert_under_empty(steps.last, missing, value, path) if empty_flow_mapping?(parent) && steps.last.key
+
+          insert_into_mapping(parent, path, depth, value, order)
         when Nodes::Scalar
           raise ArgumentError, "値の中には足せません: #{path[0, depth].join('.')}" unless null?(parent)
 
@@ -357,7 +361,12 @@ module Cornix
         [TextEdit.new(range: TextRange.at(key.start_line, 0), new_text: lines.join(nl) + nl)]
       end
 
-      # 値なしの見出し（"row2:"）の下に字下げして足す。~ や null と書いてあればそれを消す
+      # 中身のない 1 行のフロー表記のマッピング（{}）
+      def empty_flow_mapping?(node)
+        node.style == Nodes::Mapping::FLOW && node.children.empty? && node.start_line == node.end_line
+      end
+
+      # 値なしの見出し（"row2:"）の下に字下げして足す。~ や null、{} と書いてあればそれを消す
       def insert_under_empty(step, missing, value, path)
         key = step.key
         unless key
@@ -369,7 +378,7 @@ module Cornix
 
         lines = new_lines(missing, value, key.start_column + indent_step)
         edits = []
-        unless step.node.value.empty?
+        unless step.node.is_a?(Nodes::Scalar) && step.node.value.empty?
           start_line, start_character = after_colon(key)
           stop = node_range(step.node)
           edits << TextEdit.new(range: TextRange.new(start_line: start_line, start_character: start_character,

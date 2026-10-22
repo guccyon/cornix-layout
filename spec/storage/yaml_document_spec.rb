@@ -212,6 +212,19 @@ RSpec.describe Cornix::Storage::YamlDocument do
       expect(edited(text, %w[mapping row3 caps], 'Esc', order: [])).to eq("  # x\nmapping:\n  row2:   # 空\n  row3:\n    caps: Esc\n")
     end
 
+    it '空のフロー表記（{}。足したレイヤーの形）の見出しは、{} を消して下に字下げして足す' do
+      text = "mapping:\n  left_hand:\n    row0: {}\n    row1: {}  # 空\n"
+      expect(edited(text, %w[mapping left_hand row1 A], 'A', order: []))
+        .to eq("mapping:\n  left_hand:\n    row0: {}\n    row1:  # 空\n      A: A\n")
+      expect(edited(text, %w[mapping left_hand row0 Q], 'Q', order: []))
+        .to eq("mapping:\n  left_hand:\n    row0:\n      Q: Q\n    row1: {}  # 空\n")
+    end
+
+    it '中身のあるフロー表記の中には足さない' do
+      text = "mapping:\n  left_hand:\n    row0: { Q: Q }\n"
+      expect { edited(text, %w[mapping left_hand row0 W], 'W', order: []) }.to raise_error(Cornix::Storage::EditNotLocal)
+    end
+
     it 'グループの見出しや mapping: ごとないときも並びの順に見出しを足す' do
       text = "name: Base\nindex: 0\n"
       order = { [] => %w[name index description mapping] }

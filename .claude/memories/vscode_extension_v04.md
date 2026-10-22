@@ -91,5 +91,6 @@ v0.4 のうち issue #84（下の欄の「キー別」の並べ方・レイヤ�
 - 確定はプレビューの token のまま `device/apply`。プレビューのあとで snapshot の `files` が変わったら `stale`（読んでいる間に変わっても、読み終えたときに stale にする）。
   検証のエラー（snapshot の diagnostics の error、`invalid` は 1 件以上）があれば、画面は節の「反映のプレビュー…」を押せなくして横に理由を出し（`TransferSection#setErrors`。App#setSnapshot で呼ぶ）、
   ホストは保存を促したあと実機を読む前に止める（Tetsuro: 確定で止めると読む 10 秒が無駄）。確定でも同じく止める（プレビューのあとで外の変更でエラーが出た場合）。
-  節には検証のエラーと警告の一覧と見出しの件数（`TransferSection#setSnapshot`。行は App の problemRow を使い回す。場所は `diagnosticPlace` で「ファイル: path」）。警告だけなら押せる（Tetsuro: 押せてよいが押す前に気づきたい）
+  節には検証のエラーと警告の一覧と見出しの件数（`TransferSection#setSnapshot`。行は App の problemRow を使い回す。場所は `diagnosticPlace` で「ファイル: path」）。警告だけなら押せる（Tetsuro: 押せてよいが押す前に気づきたい）。
+  行のボタンは生のファイルを開かず編集フォームへ移る（`App#revealProblem`。main.ts の `revealProblem` で下の節へ）。Tetsuro: 生のファイルを直すと画面とずれる
 - 画面のモーダルを Playwright で見るとき、VS Code の色の変数がないと背景が透けるので、`var(--vscode-…, #252526)` のように最後の値を付けておく

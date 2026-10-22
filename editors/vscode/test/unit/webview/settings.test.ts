@@ -41,6 +41,14 @@ afterEach(() => {
 });
 
 describe('QMK 設定の欄', () => {
+  it('revealAddress: 節を開いてその設定の欄にフォーカスする。ほかのファイルなら何もしない', () => {
+    editor.update(fixtureSnapshot(), []);
+    expect(editor.revealAddress({ file: 'macros/a.yml', path: [] })).toBe(false);
+    expect(editor.revealAddress({ file: settingsFile, path: ['keyboard', 'tapping_term'] })).toBe(true);
+    expect(editor.element.querySelector('details')!.open).toBe(true);
+    expect(document.activeElement?.closest<HTMLElement>('[data-setting]')?.dataset.setting).toBe(tapping);
+  });
+
   it('整数は数値の欄、真偽値はチェックボックスで、グループごとに並べ、説明と既定値を添える', () => {
     editor.update(fixtureSnapshot(), []);
     expect([...editor.element.querySelectorAll('.settings-group h3')].map((e) => e.textContent)).toEqual(['Vial（vial）', 'キーボード（keyboard）']);

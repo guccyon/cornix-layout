@@ -118,8 +118,11 @@ describe('App の描画', () => {
     expect(keyElement(id).classList.contains('error')).toBe(true);
     expect(field(id).querySelector('.message-line.error')?.textContent).toBe('マクロ M20 が定義されていません');
     expect(root.querySelector('.problems summary')?.textContent).toBe('ファイルの問題（1 件）');
+    // レイヤーのファイルの問題は、ファイルを開かずにそのレイヤーに切り替える
+    expect(root.querySelector<HTMLElement>('.problems .link-button')!.textContent).toBe('表示');
     root.querySelector<HTMLElement>('.problems .link-button')?.click();
-    expect(host.opened).toEqual([{ file: 'layers/1_symbols.yml' }]);
+    expect(host.opened).toEqual([]);
+    expect(root.querySelector('.layer-tab[data-layer="1"]')!.getAttribute('aria-pressed')).toBe('true');
   });
 });
 

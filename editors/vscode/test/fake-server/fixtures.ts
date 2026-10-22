@@ -165,6 +165,13 @@ const KEYS: Record<string, KeyInfo> = {
     kind: 'modified',
     display: { label: '⇧⌘[' },
   },
+  // v0.5: ショートカットの追加（未保存の変更に積んで保存する。統合テスト）で使う
+  'Command + Shift + ]': {
+    canonical: 'Shift + Command + ]',
+    code: 0x0a30,
+    kind: 'modified',
+    display: { label: '⇧⌘]' },
+  },
   "Macro('Curly Brace Pair')": {
     canonical: "Macro('Curly Brace Pair')",
     code: 30465,

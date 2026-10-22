@@ -1,5 +1,6 @@
-// 項目の追加・削除・名前の変更（protocol.md の 12.5）と preset の展開（13.1）、レイヤーの追加・削除（14.9）で、確認のダイアログに出す文と、失敗の知らせの文を作る。vscode に依存しない。
-import { ErrorCodes, type ItemEdit, type ItemFileEdits, type PlanItemEditResult } from '../protocol';
+// 項目の追加・削除・名前の変更（protocol.md の 12.5）と preset の展開（13.1）、レイヤーの追加・削除（14.9）で、確認のダイアログに出す文と、失敗の知らせの文を作る。
+// v0.5: 番号の操作とショートカットの追加（15.3。未保存の変更に積む）の編集の名前と、未使用にするときの確認の文も。vscode に依存しない。
+import { ErrorCodes, type Address, type ItemEdit, type ItemFileEdits, type PlanItemEditResult } from '../protocol';
 
 const KIND_NAMES: Record<string, string> = {
   macro: 'マクロ',
@@ -48,8 +49,11 @@ function layerFileOk(edit: Record<string, unknown>): boolean {
   return edit.index === undefined && (edit.file === undefined || (edit.kind === 'layer' && typeof edit.file === 'string'));
 }
 
-/** 操作の見出し（「マクロ Bracket Pair を削除します。」） */
-export function itemEditTitle(edit: ItemEdit): string {
+/**
+ * 操作の見出し（「マクロ Bracket Pair を削除します。」）。
+ * name は番号の操作（ファイルで指す）の項目の名前（分かれば「レイヤー iPad Base を使い始めます。」、なければファイル）
+ */
+export function itemEditTitle(edit: ItemEdit, name?: string): string {
   switch (edit.op) {
     case 'create':
       if (edit.kind === 'layer' && edit.index !== undefined) return `レイヤー ${edit.index} ${edit.name} を追加します。`;
@@ -64,12 +68,46 @@ export function itemEditTitle(edit: ItemEdit): string {
     case 'expandPreset':
       return `${KIND_NAMES[edit.kind]} ${edit.name} の preset を手順に展開します。`;
     case 'use':
-      return `${KIND_NAMES[edit.kind]}（${edit.file}）を使い始めます。`;
+      return `${indexedItem(edit, name)}を使い始めます。`;
     case 'unuse':
-      return `${KIND_NAMES[edit.kind]}（${edit.file}）を未使用にします。`;
+      return `${indexedItem(edit, name)}を未使用にします。`;
     case 'setIndex':
-      return `${KIND_NAMES[edit.kind]}（${edit.file}）の番号を ${edit.index} に変えます。`;
+      return `${indexedItem(edit, name)}の番号を ${edit.index} に変えます。`;
   }
+}
+
+/** 番号の操作の項目（「レイヤー iPad Base 」か「レイヤー（layers/ipad.yml）」） */
+function indexedItem(edit: { kind: string; file: string }, name: string | undefined): string {
+  return name !== undefined ? `${KIND_NAMES[edit.kind]} ${name} ` : `${KIND_NAMES[edit.kind]}（${edit.file}）`;
+}
+
+/**
+ * 未保存の変更に積む操作（15.3）の、VS Code の編集の名前（元に戻す・やり直しの単位。「レイヤー iPad Base を使い始める」）。
+ * name は itemEditTitle と同じ
+ */
+export function pendingItemEditLabel(edit: ItemEdit, name?: string): string {
+  return itemEditTitle(edit, name).replace(/します。$/, 'する').replace(/ます。$/, 'る');
+}
+
+/** 確認のダイアログの detail に出す参照の数の上限（それより多ければ「ほか N 件」） */
+const REFERENCE_LINES = 20;
+
+/**
+ * 未使用にする（15.3 の unuse）ときの確認のダイアログの文。壊れる参照（references）があるときだけ聞く（ほかの未保存の変更に積む操作は聞かない）。
+ * message は見出しと壊れる参照の件数、detail は参照の場所（describe で名前にする）
+ */
+export function describeUnuse(edit: ItemEdit & { op: 'unuse' }, result: PlanItemEditResult, describe: (address: Address) => string, name?: string): { message: string; detail: string } {
+  const count = result.references.length;
+  const references =
+    edit.kind === 'layer'
+      ? `このレイヤーを指すレイヤー操作（MO・LT・TG など）が ${count} 件あり、未使用にすると参照している側に警告が出ます。compile ではこのレイヤーのキーはすべて何もしない（KC_NO）になります。`
+      : `この項目への参照が ${count} 件あり、未使用にすると参照している側がエラーになります。`;
+  const lines = result.references.slice(0, REFERENCE_LINES).map(describe);
+  if (count > REFERENCE_LINES) lines.push(`ほか ${count - REFERENCE_LINES} 件`);
+  return {
+    message: [itemEditTitle(edit, name), references, '未保存の変更に積みます（Ctrl+S で保存します。元に戻すで戻せます）。'].join(''),
+    detail: lines.length > 0 ? `壊れる参照:\n${lines.join('\n')}` : '',
+  };
 }
 
 /** ファイル 1 つの操作の 1 行（「作成: macros/05_new.yml」） */
@@ -107,10 +145,10 @@ export function describeItemEdit(edit: ItemEdit, result: PlanItemEditResult): { 
   };
 }
 
-/** profile/planItemEdit の失敗の知らせ（-32061 の verify と -32602 は理由を出す） */
-export function itemEditErrorMessage(edit: ItemEdit, error: unknown): string {
+/** profile/planItemEdit の失敗の知らせ（-32061 の verify と -32602 は理由を出す。name は itemEditTitle と同じ） */
+export function itemEditErrorMessage(edit: ItemEdit, error: unknown, name?: string): string {
   const { code, data, message } = (error ?? {}) as { code?: unknown; data?: unknown; message?: unknown };
-  const what = itemEditTitle(edit).replace(/します。$/, 'できませんでした').replace(/ます。$/, 'られませんでした');
+  const what = itemEditTitle(edit, name).replace(/します。$/, 'できませんでした').replace(/ます。$/, 'られませんでした');
   const reason = typeof message === 'string' ? message : error instanceof Error ? error.message : String(error);
   if (code === ErrorCodes.EditNotLocal) {
     const why = (data as { reason?: string } | undefined)?.reason;

@@ -21,18 +21,22 @@ module Cornix
 
         attr_reader :references
 
-        def initialize(notation, references = Mapping::References::NONE)
+        # recover: 解析できないキーコードの問題を受け取り、代わりの Keycode を返すもの（ConfigLoader の lenient）。
+        #   省けば問題を記録して nil（その割り当てを含むものは読まない）
+        def initialize(notation, references = Mapping::References::NONE, recover: nil)
           @notation = notation
           @references = references
+          @recover = recover
         end
 
-        # 値（文字列、または 16bit の値そのものの整数）→ Keycode。解析できなければ問題を記録して nil
+        # 値（文字列、または 16bit の値そのものの整数）→ Keycode。解析できなければ問題を記録して nil（recover があればその値）
         def read(raw, ctx, loc)
           return ctx.type_error(raw, loc, 'キーコード（文字列）') unless raw.is_a?(String) || raw.is_a?(Integer)
 
           @notation.parse(raw, references: @references)
         rescue UnknownKeycode => e
           ctx.problem(loc, e.message)
+          @recover&.call(ctx.problems.to_a.last)
         end
 
         def write(keycode) = @notation.format(keycode, references: @references)

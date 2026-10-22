@@ -145,6 +145,13 @@ describe('知らせに使う道具', () => {
     expect(errors.map((d) => d.message)).toEqual(['c']);
   });
 
+  it('保存済みの snapshot にすでにある読めない値（同じ場所・同じ文）は除く（保存で増えるものだけ止める）', () => {
+    const address = { file: 'layers/0_base.yml', path: ['mapping', 'left_hand', 'row0', 'tab'] };
+    const old = { severity: 'error' as const, source: 'structure' as const, message: '「KC_FOOO」は読めない表記です', address };
+    const added = { ...old, message: '「KC_BAR」は読めない表記です', address: { ...address, path: ['mapping', 'left_hand', 'row0', 'Q'] } };
+    expect(structureErrors([old, added], [old]).map((d) => d.message)).toEqual(['「KC_BAR」は読めない表記です']);
+  });
+
   it('場所と値の名前', () => {
     const snapshot = fixtureSnapshot();
     expect(describeAddress(snapshot, tab)).toBe('レイヤー 0 Base の左手 row0 tab');

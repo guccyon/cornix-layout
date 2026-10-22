@@ -135,7 +135,7 @@ describe('偽のサーバーの profile/validate・planEdits・saved・didChange
     return { root, file, call, notify, snapshot, didChanges, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
   }
 
-  it('validate は保存済みの問題に変更の問題を足し、読めない表記があれば構造の error だけを返す', async () => {
+  it('validate は保存済みの問題に変更の問題を足し、読めない表記は構造の error として先に並べる（意味検証の結果も続ける）', async () => {
     const { call, snapshot, cleanup } = await opened();
     try {
       const baseVersions = { [base]: snapshot.files[base] };
@@ -143,8 +143,9 @@ describe('偽のサーバーの profile/validate・planEdits・saved・didChange
       const messages = (semantic.result as { diagnostics: { message: string; address?: { path: string[] } }[] }).diagnostics;
       expect(messages.map((d) => d.address?.path.at(-1) ?? null)).toEqual([null, 'Q', 'fn']);
       const structure = await call('profile/validate', { profileId: snapshot.profileId, baseVersions, changes: [{ address: q, value: 'ないキー' }] });
-      expect(structure.result).toMatchObject({ diagnostics: [{ source: 'structure', address: q }] });
-      expect((structure.result as { diagnostics: unknown[] }).diagnostics).toHaveLength(1);
+      const list = (structure.result as { diagnostics: { source: string }[] }).diagnostics;
+      expect(list[0]).toMatchObject({ source: 'structure', address: q });
+      expect(list.slice(1).every((d) => d.source === 'semantic')).toBe(true);
     } finally {
       cleanup();
     }

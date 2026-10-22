@@ -411,14 +411,14 @@ export class ProfileDocument implements vscode.CustomDocument {
       this.stop(`${dirty.join('、')} がテキストエディタで未保存です。テキストの変更を先に保存するか戻してください。`, dirty[0]);
     }
 
-    // 2. 書き換えを作る。構造の error があれば保存しない（意味検証の error と warning は止めない）
+    // 2. 書き換えを作る。構造の error が増えるなら保存しない（意味検証の error と warning、保存済みの読めない値は止めない）
     let plan: PlanEditsResult;
     try {
       plan = await this.server.request('profile/planEdits', this.draftParams());
     } catch (error) {
       return this.planFailed(error);
     }
-    const errors = structureErrors(plan.diagnostics);
+    const errors = structureErrors(plan.diagnostics, this.snapshot.diagnostics);
     if (errors.length > 0) {
       this.draftDiagnostics = plan.diagnostics;
       this.fire();

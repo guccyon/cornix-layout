@@ -244,7 +244,7 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
   "profileId": "p1",         // 以降のリクエストで使う。profile/close まで有効
   "name": "default",
   "dir": "profiles/default",
-  "status": "ok",            // "ok" | "invalid"（構造検証で読めなかった）
+  "status": "ok",            // "ok" | "invalid"（構造検証で読めなかった。読めない値（解析できないキーコード）だけなら "ok"）
   "files": {                 // 読んだファイルとその中身の版。外での変更と保存のときの照合に使う
     "metadata.yaml": "sha256:9f2c…",
     "layers/0_base.yml": "sha256:41ab…",
@@ -309,6 +309,10 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 - `settings` は `data/qmk_settings.yaml` のすべての設定を返す（ファイルにない設定は `value: null`）
 - `status: "invalid"` のときは `files` と `diagnostics` だけを信じてよい（`layers` などは空）。
   拡張はエラーの一覧と、ファイルを開くボタンを出す（[11. 決めたこと](#11-決めたこと) の 6）
+- v0.4（ADR 021）: 構造検証の問題が読めない値（解析できないキーコード）だけなら、その値を `NoKey` として読み続けて `status: "ok"` で返す。
+  その欄の `value` は書いてある表記のまま（`text` と `canonical` と `display.label` が書いてある表記。`code` などは `NoKey` のもの）で、
+  `diagnostics` には構造の error（その `address`）を先に並べ、意味検証の結果を続ける。`profile/validate`・`profile/planEdits` の `diagnostics` も同じ。
+  この状態では `profile/planItemEdit` は `-32602`（field `"edit"`、先にその値を直す）
 - マクロ・タップダンス・コンボ・ショートカットの中身の画面は v0.2。v0.1 では `references` の名前の一覧だけを返す
 
 各項目の決まり（`null` になるものと、項目ごと省くもの）:
@@ -552,7 +556,7 @@ type CandidateCategory =
 
 1. 拡張は、書き換える対象のファイルがテキストエディタで未保存（dirty）のまま開いていれば保存を止め、「テキストの変更を先に保存するか戻してください」と知らせる
 2. `profile/planEdits` を呼ぶ。`diagnostics` に構造の error があれば保存しない（保存するとプロファイル全体が `invalid` になり、画面で直せなくなるため）。
-   意味検証の error と warning は保存を止めない
+   意味検証の error と warning は保存を止めない。v0.4: 保存済みの snapshot にすでにある構造の error（同じ場所・同じ文。ディスクにすでにある読めない値）は数えない
 3. 拡張は当てる前に、対象のファイルのディスクのバイト列の版（[2.](#fileversion) の FileVersion）が `files` の `baseVersion` と同じか確かめる
    （`create: true` ならファイルがないこと）。違えば（2 のあとに外で変わった）当てずに、[7.3](#73-拡張の扱い) の扱いをしてから 2 からやり直す
    （サーバーは planEdits の時点のディスクと比べるだけなので、古い位置の書き換えが新しい中身に当たって外の変更を壊さないように）。

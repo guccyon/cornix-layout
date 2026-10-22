@@ -5,7 +5,7 @@
 作業ごとの PR は `feature/vscode-extension` 向け・版ができたら main への PR を 1 つ。main への PR は Tetsuro が .vsix で確かめてからマージする）。
 
 2026-10-21 に v0.4 の範囲を「まず設計だけ」と決め、チャットでまとめを出して Tetsuro の OK をもらった（この文書と protocol.md の 14、ADR 018・019）。
-実装はまだ始めていない。
+2026-10-22 に Tetsuro の指示で実装を始めた（統合ブランチ `feature/vscode-extension` を main から作り直した）。
 
 ## 進み具合
 
@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 0 | 設計（この文書・protocol.md の 14・ADR・roadmap・spec） | — | 済み |
 | — | K. 下の欄の「キー別」の並べ方とレイヤーの追加・削除（issue #84。実機とは別の作業。足しただけなので約束の版は `"0.3"` のまま） | — | 済み |
-| 1 | P. 約束の型（`editors/vscode/src/deviceProtocol.ts`）と偽の実機のサーバーの入れ物 | — | これから |
+| 1 | P. 約束の型（`editors/vscode/src/deviceProtocol.ts`）と偽の device のサーバー | — | 進行中 |
 | 2 | D1. device のサーバー（Ruby。`cornix serve --device`） | — | これから |
 | 2 | D2. 拡張のホスト（device のサーバーの起動・コマンド・確認のダイアログ・設定） | — | これから |
 | 2 | D3. 画面（違うキーの色・差分の一覧・「実機と同じ／違う」の印・ボタン） | — | これから |
@@ -84,8 +84,14 @@
 
 ### P. 約束の型と入れ物
 
-`editors/vscode/src/deviceProtocol.ts`（14 の型）、偽の device のサーバー（`editors/vscode/test/fake-device-server/`）の入れ物、
-`spec/fixtures/protocol/device/` のデータの形（偽の実機の状態と、リクエストと応答）。
+`editors/vscode/src/deviceProtocol.ts`（14 の型）、偽の device のサーバー（`editors/vscode/test/fake-device-server/`。
+`test/fake-server/cornix serve --device` で起動する。状態は環境変数 `CORNIX_FAKE_DEVICE` と通知 `$/fake/configure`）、
+`spec/fixtures/protocol/device/` のデータの形（protocol.md の 14.10。データそのものは D1 が書く）。
+
+P で約束に足したもの: `DeviceChange.key`（論理位置 hand / row / col。図と欄は位置をこれで引く）、`DeviceBackup.kind`（一覧に出す種類は
+`pre-apply`・`pre-restore`・`backup`・`legacy`）、`changes` の並び。
+ホストと画面の間のメッセージ（`webviewMessages.ts`）も P で決めた: ホスト → 画面 `{ type: 'device', state: DeviceViewState }`（状態・違い・操作中・書き込みの許可）、
+画面 → ホスト `{ type: 'deviceAction', action: 'compare' | 'apply' | 'restore' }`。D2 が送り・受け、D3 が描き・押す。
 
 ## 段 2（並列）
 

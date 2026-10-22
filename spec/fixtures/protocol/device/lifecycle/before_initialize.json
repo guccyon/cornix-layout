@@ -1,0 +1,20 @@
+{
+  "description": "initialize の前の device/compare は -32002",
+  "setup": {
+    "initialize": false,
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32002
+    }
+  }
+}

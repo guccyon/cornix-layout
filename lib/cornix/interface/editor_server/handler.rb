@@ -18,38 +18,54 @@ module Cornix
       #   end
       #
       # 失敗は RpcError を送出する。Application::Editor::ProfileNotFound は -32050、ほかの Cornix::Error は -32603 になる
+      #
+      # サーバーは 2 種類ある: 編集のサーバー（:editor。cornix serve）と device のサーバー（:device。cornix serve --device）。
+      # ハンドラはどちらのサーバーのものかを servers で持ち（既定は :editor だけ）、サーバーは自分のものだけを振り分ける
+      # （ほかのサーバーのメソッドは知らないメソッドとして -32601）。ライフサイクルのメソッドは両方に載せる:
+      #   rpc 'initialize', servers: SERVERS
+      #   rpc 'device/compare', servers: [:device]
       class Handler
         REGISTRY = {} # サブクラスの定義（rpc / notification）で埋まる。読み書きは registry / fetch / unregister で
+        SERVERS = %i[editor device].freeze
 
         class << self
           attr_reader :method_name
 
-          def rpc(name) = register(name, notification: false)
+          def rpc(name, servers: [:editor]) = register(name, notification: false, servers: servers)
 
-          def notification(name) = register(name, notification: true)
+          def notification(name, servers: [:editor]) = register(name, notification: true, servers: servers)
 
           def notification? = @notification == true
 
-          # { 'profile/open' => Handlers::ProfileOpen, ... }（写し）
-          def registry = REGISTRY.dup.freeze
+          # このハンドラを載せるサーバー（:editor / :device）
+          def servers = @servers || [:editor]
 
-          # name を受け持つハンドラのクラス（なければ nil）
-          def fetch(name) = REGISTRY[name]
+          # server（既定は :editor）のハンドラ { 'profile/open' => Handlers::ProfileOpen, ... }（写し）
+          def registry(server = :editor) = REGISTRY.select { |_, handler| handler.servers.include?(server) }.freeze
+
+          # server のハンドラで name を受け持つクラス（なければ nil）
+          def fetch(name, server: :editor)
+            handler = REGISTRY[name]
+            handler&.servers&.include?(server) ? handler : nil
+          end
 
           # 登録を外す（テストで仮のハンドラを足したあとの片付け用）
           def unregister(name) = REGISTRY.delete(name)
 
           private
 
-          def register(name, notification:)
+          def register(name, notification:, servers:)
             existing = REGISTRY[name]
             raise ArgumentError, "#{name} のハンドラはもうあります: #{existing}" if existing && existing != self
             if @method_name && @method_name != name
               raise ArgumentError, "#{self} はもう #{@method_name} を受け持っています（1 クラスに 1 メソッド）"
             end
+            unknown = servers - SERVERS
+            raise ArgumentError, "知らないサーバーです: #{unknown.join(', ')}" unless unknown.empty? && !servers.empty?
 
             @method_name = name
             @notification = notification
+            @servers = servers.dup.freeze
             REGISTRY[name] = self
           end
         end

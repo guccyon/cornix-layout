@@ -52,6 +52,30 @@ RSpec.describe Cornix::Interface::Cli::Commands::Serve do
     end
   end
 
+  it 'cornix serve --device は device のサーバー（device/* だけ。--allow-writes で deviceWrites: true）' do
+    Dir.mktmpdir do |root|
+      [[[], false], [['--allow-writes'], true]].each do |flags, writes|
+        input = framed({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.3' } },
+                       { jsonrpc: '2.0', id: 2, method: 'profile/list', params: {} },
+                       { jsonrpc: '2.0', id: 3, method: 'device/backups', params: { dir: 'nope' } },
+                       { jsonrpc: '2.0', id: 4, method: 'shutdown' }, { jsonrpc: '2.0', method: 'exit' })
+        out = StringIO.new(+'')
+        expect(run('serve', '--device', *flags, '--root', root, input: input, out: out)).to eq(0)
+        out.rewind
+        responses = Array.new(4) { framing.read(out) }
+        expect(responses[0]['result']['capabilities']).to include('device' => true, 'deviceWrites' => writes)
+        expect(responses[1]['error']['code']).to eq(-32_601)
+        expect(responses[2]['error']).to include('code' => -32_050, 'data' => { 'dir' => 'nope' })
+      end
+    end
+  end
+
+  it '--allow-writes は --device と一緒に使う（UsageError）' do
+    err = StringIO.new
+    expect(run('serve', '--allow-writes', input: StringIO.new, out: StringIO.new, err: err)).to eq(1)
+    expect(err.string).to include('--allow-writes は --device と一緒に使います')
+  end
+
   it 'help に載る' do
     out = StringIO.new
     run('help', input: StringIO.new, out: out)

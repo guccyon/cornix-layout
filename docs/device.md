@@ -76,6 +76,9 @@ CLI の apply / restore は 1 回の接続の中で計画 → 確認（y/N、`--
   CLI は標準エラー出力に `エラー: ...` を表示して終了コード 1、MCP はツール結果を isError: true で返す。何も書き込まない。
 - 送信後 1 秒応答がないとブリッジが ERROR を返す（BLE 切断・スリープ）。apply 中なら、書き込み済み件数と
   反映前バックアップのパスを含む DeviceError になる。apply / restore は差分だけ書くので、再実行で続きから揃う。
+- 使えないときの例外は `Cornix::DeviceUnavailable`（`DeviceError` の子）で、`reason` が理由（`:platform` macOS でない・`:bridge` ブリッジをビルド・起動できない・
+  `:not_connected` 見つからない／開けない・`:timeout` 応答がない／ブリッジが終わった）。書き込みの途中の失敗は `Cornix::WriteIncomplete`（`applied`・`backup`）。
+  VS Code 拡張の device のサーバー（`cornix serve --device`）がこれでエラーの code を分ける（docs/vscode-extension/protocol.md の 14.7）
 - テストでは `CORNIX_HID_BRIDGE` でブリッジを差し替えられる（spec/device/hid_bridge_spec.rb）。
   ユースケースのテストは `Environment.new(device_opener: ...)` で FakeRmkDevice を渡す（spec/application/device_environment_context.rb）。
 

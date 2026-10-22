@@ -1,0 +1,31 @@
+{
+  "description": "実機がプロファイルの compile の出力と同じなら empty: true・changes は空",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "plan": {
+        "empty": true,
+        "changes": [],
+        "warnings": [],
+        "keyboard": {
+          "name": "Cornix",
+          "uid": "578437695752307201"
+        }
+      },
+      "source": "tmp/profiles/default/build/layout.vil"
+    }
+  }
+}

@@ -4,7 +4,7 @@ module Cornix
   module Device
     # Planning::Change が書き込むキーコードを検査する。
     #
-    # - KeycodeCatalog#dangerous?（data/dangerous_keycodes.yaml。QK_BOOT など）に当たる値があれば PlanError（何も書かない）
+    # - KeycodeCatalog#dangerous?（data/dangerous_keycodes.yaml。QK_BOOT など）に当たる値があれば PlanRejected（PlanError。何も書かない）
     # - RMK 0.8 の from_via_keycode が解釈できない値は警告（ファームウェアが KC_NO として保存しうる）
     class ChangePolicy
       # RMK 0.8 の from_via_keycode が解釈できる範囲（それ以外は KC_NO として保存される）
@@ -18,13 +18,14 @@ module Cornix
         @describer = describer
       end
 
-      # => [String] 警告。拒否するキーコードがあれば PlanError
+      # => [String] 警告。拒否するキーコードがあれば PlanRejected（keycodes に拒否したキーコードの表記。重なりは除く）。
+      # message は最初に見つかったものの場所とキーコード
       def check!(changes)
-        changes.each do |change|
-          dangerous = change.keycodes.find { |code| @catalog.dangerous?(code) }
-          next unless dangerous
-
-          raise PlanError, "#{@describer.describe(change)}: #{@describer.keycode(dangerous)} は安全のため書き込めません"
+        rejected = changes.flat_map { |change| change.keycodes.select { |code| @catalog.dangerous?(code) }.map { |code| [change, code] } }
+        unless rejected.empty?
+          change, code = rejected.first
+          raise PlanRejected.new("#{@describer.describe(change)}: #{@describer.keycode(code)} は安全のため書き込めません",
+                                 keycodes: rejected.map { |_, c| @describer.keycode(c) }.uniq)
         end
         changes.flat_map do |change|
           change.keycodes.reject { |code| supported?(code) }.map do |code|

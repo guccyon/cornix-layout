@@ -1,0 +1,89 @@
+{
+  "description": "違うキーを論理位置（key）と記号（position）にする。右手は列が反転、エンコーダのプッシュは kind: encoder",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile",
+      "keys": [
+        {
+          "layer": 0,
+          "row": 0,
+          "col": 1,
+          "value": "KC_A"
+        },
+        {
+          "layer": 0,
+          "row": 4,
+          "col": 0,
+          "value": "KC_NO"
+        },
+        {
+          "layer": 1,
+          "row": 2,
+          "col": 6,
+          "value": "KC_B"
+        }
+      ]
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "plan": {
+        "empty": false,
+        "changes": [
+          {
+            "kind": "key",
+            "layer": 0,
+            "key": {
+              "hand": "left",
+              "row": 0,
+              "col": 1
+            },
+            "position": "Q",
+            "device": "KC_A",
+            "profile": "KC_Q",
+            "text": "レイヤー0 (0,1): KC_A → KC_Q"
+          },
+          {
+            "kind": "key",
+            "layer": 0,
+            "key": {
+              "hand": "right",
+              "row": 0,
+              "col": 5
+            },
+            "position": "backspace",
+            "device": "KC_NO",
+            "profile": "KC_BSPACE",
+            "text": "レイヤー0 (4,0): KC_NO → KC_BSPACE"
+          },
+          {
+            "kind": "encoder",
+            "layer": 1,
+            "encoder": {
+              "side": "left",
+              "direction": "push"
+            },
+            "device": "KC_B",
+            "profile": "KC_MUTE",
+            "text": "レイヤー1 (2,6): KC_B → KC_MUTE"
+          }
+        ],
+        "warnings": [],
+        "keyboard": {
+          "name": "Cornix",
+          "uid": "578437695752307201"
+        }
+      },
+      "source": "tmp/profiles/default/build/layout.vil"
+    }
+  }
+}

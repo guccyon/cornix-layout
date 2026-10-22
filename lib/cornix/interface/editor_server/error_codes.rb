@@ -16,6 +16,14 @@ module Cornix
         NOT_SUPPORTED = -32_052
         VERSION_CONFLICT = -32_060
         EDIT_NOT_LOCAL = -32_061
+        # device のサーバー（protocol.md の 14.7）
+        DEVICE_UNAVAILABLE = -32_070
+        PLAN_CHANGED = -32_071
+        WRITE_INCOMPLETE = -32_072
+        PLAN_REJECTED = -32_073
+        WRITES_NOT_ALLOWED = -32_074
+        COMPILE_FAILED = -32_075
+        REQUEST_CANCELLED = -32_800 # LSP と同じ
       end
     end
   end

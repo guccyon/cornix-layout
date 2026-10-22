@@ -1,0 +1,29 @@
+{
+  "description": "前の版の device_backups のバックアップとも比べられる",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile"
+    },
+    "snapshots": {
+      "20261019-080000": "profile"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compareBackup",
+    "params": {
+      "dir": "profiles/default",
+      "backup": "20261019-080000"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "plan": {
+        "empty": true
+      },
+      "source": "tmp/profiles/default/device_backups/20261019-080000.vil"
+    }
+  }
+}

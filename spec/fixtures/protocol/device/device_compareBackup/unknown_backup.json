@@ -1,0 +1,26 @@
+{
+  "description": "一覧にない backup は -32602（field: backup）。read のスナップショットも戻す先にしない",
+  "setup": {
+    "profile": "test_config",
+    "snapshots": {
+      "20261021-101500-read": "profile"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compareBackup",
+    "params": {
+      "dir": "profiles/default",
+      "backup": "20261021-101500-read"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "backup"
+      }
+    }
+  }
+}

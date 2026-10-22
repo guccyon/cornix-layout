@@ -8,7 +8,7 @@ module Cornix
       module Handlers
         # initialized（通知）: 拡張の準備ができた。v0.1 では何もしない
         class Initialized < Handler
-          notification 'initialized'
+          notification 'initialized', servers: SERVERS
 
           def call(_params, _context) = nil
         end

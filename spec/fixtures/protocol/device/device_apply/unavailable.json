@@ -1,0 +1,27 @@
+{
+  "description": "実機が使えなければ -32070",
+  "setup": {
+    "profile": "test_config",
+    "allowWrites": true,
+    "device": {
+      "unavailable": "notConnected"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/apply",
+    "params": {
+      "dir": "profiles/default",
+      "token": "828ecd9225e5c798"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32070,
+      "data": {
+        "reason": "notConnected"
+      }
+    }
+  }
+}

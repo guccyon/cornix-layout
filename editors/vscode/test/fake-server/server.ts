@@ -403,7 +403,7 @@ class FakeServer {
         ],
       };
     }
-    const layers = data.LAYERS.flatMap((layer) => layerFromDisk(base, layer) ?? []);
+    const layers = [...data.LAYERS.flatMap((layer) => layerFromDisk(base, layer) ?? []), ...extraLayersFromDisk(base)].sort((a, b) => a.index - b.index);
     const items = itemsFromDisk(base);
     return {
       profileId,
@@ -595,6 +595,11 @@ class FakeServer {
               .filter((slot) => slot.value?.text === text)
               .map((slot) => slot.address),
           );
+    // レイヤーは名前が重なってよいので、file があればファイルで探す（issue #84）
+    const findItem = (kind: string, name: string, file: string | undefined) =>
+      kind === 'layer' && file !== undefined
+        ? (itemsOf(kind).find((i) => i.file === file) ?? invalid(`レイヤーのファイル ${file} はありません`, 'edit.file'))
+        : (itemsOf(kind).find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name'));
     const zero = { line: 0, character: 0 };
 
     switch (edit.op) {
@@ -610,6 +615,20 @@ class FakeServer {
           } else {
             files.push({ file: 'shortcuts.yaml', baseVersion: null, create: true, edits: [{ range: { start: zero, end: zero }, newText: `---\nshortcuts:\n${line}` }] });
           }
+          break;
+        }
+        if (edit.index !== undefined && edit.kind !== 'layer') invalid('index はレイヤーだけに書けます', 'edit.index');
+        if (edit.kind === 'layer') {
+          // v0.4（protocol.md の 14.9）: 選んだ番号（省けば空いているいちばん小さい番号）で layers/<番号>_<slug> を作る
+          const layers = snapshot.layers;
+          let index = edit.index ?? 0;
+          if (edit.index === undefined) while (layers.some((layer) => layer.index === index)) index += 1;
+          if (!Number.isInteger(index) || index < 0 || index > 9) invalid('レイヤーの番号は 0〜9 です', edit.index === undefined ? 'edit' : 'edit.index');
+          if (layers.some((layer) => layer.index === index)) invalid(`レイヤー ${index} はもうあります`, 'edit.index');
+          const file = `layers/${index}_${slug(name) || 'layer'}.${extensionIn(base, 'layers')}`;
+          const groups = ['row0', 'row1', 'row2', 'row3', 'thumb_keys'].map((group) => `    ${group}: {}\n`).join('');
+          const body = `---\nname: ${quote(name)}\ndescription: ''\nindex: ${index}\nmapping:\n  left_hand:\n${groups}  right_hand:\n${groups}`;
+          files.push({ file, baseVersion: null, create: true, edits: [{ range: { start: zero, end: zero }, newText: body }] });
           break;
         }
         const folder = { macro: 'macros', tapDance: 'tap_dance', combo: 'combos' }[edit.kind];
@@ -643,8 +662,22 @@ class FakeServer {
           if (line < 0) invalid(`ショートカット ${name} はありません`, 'edit.name');
           editOf('shortcuts.yaml').edits.push({ range: { start: { line, character: 0 }, end: { line: line + 1, character: 0 } }, newText: '' });
         } else {
-          const item = itemsOf(edit.kind).find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name');
+          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.file : undefined);
           files.push({ file: item.file, baseVersion: current[item.file] ?? null, create: false, delete: true, edits: [] });
+          if (edit.kind === 'layer') {
+            // そのレイヤーを指すレイヤー操作（display.hold が "L<番号>"）。消すファイルの中は入れない
+            for (const layer of snapshot.layers) {
+              if (layer.file === item.file) continue;
+              for (const slot of [...layer.keys, ...[layer.encoders.left, layer.encoders.right].flatMap((e) => [e.push, e.ccw, e.cw])]) {
+                const kind = slot.value?.kind;
+                if ((kind === 'layerAction' || kind === 'layerTap' || kind === 'layerMod') && slot.value?.display.hold === `L${item.index}`) {
+                  references.push(slot.address);
+                  diagnostics.push({ severity: 'warning', source: 'semantic', message: `レイヤー ${item.index} が定義されていません`, address: slot.address });
+                }
+              }
+            }
+            break;
+          }
         }
         references.push(...referencesTo(referenceText(edit.kind, name)));
         for (const address of references) diagnostics.push({ severity: 'error', source: 'structure', message: `「${referenceText(edit.kind, name)}」は読めない表記です（定義がありません）`, address });
@@ -666,8 +699,8 @@ class FakeServer {
           editOf('shortcuts.yaml').edits.push({ range: { start: { line, character: start }, end: { line, character: end } }, newText: quote(to) });
         } else {
           const items = itemsOf(edit.kind);
-          const item = items.find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name');
-          if (items.some((i) => i.name === to)) invalid(`${to} はすでにあります`, 'edit.to');
+          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.file : undefined);
+          if (edit.kind !== 'layer' && items.some((i) => i.name === to)) invalid(`${to} はすでにあります`, 'edit.to');
           if (to === VERIFY_FAIL_NAME) this.verifyFail({ file: item.file, path: ['name'] });
           const lines = read(item.file).split('\n');
           const range = findValue(lines, ['name']);
@@ -928,6 +961,28 @@ function layerFromDisk(base: string, layer: LayerSnapshot): LayerSnapshot | unde
     keys: layer.keys.map((key) => ({ ...key, value: read(key.address.path, key.value) })),
     encoders: { left: encoder(layer.encoders.left), right: encoder(layer.encoders.right) },
   };
+}
+
+/**
+ * v0.4: fixtures にないレイヤーのファイル（拡張から足したもの）。name と index の行だけを読み、割り当ては layerFromDisk と同じく読む
+ */
+function extraLayersFromDisk(base: string): LayerSnapshot[] {
+  const dir = path.join(base, 'layers');
+  if (!fs.existsSync(dir)) return [];
+  const known = new Set(data.LAYERS.map((layer) => layer.file));
+  return fs
+    .readdirSync(dir)
+    .filter((name) => /\.ya?ml$/.test(name) && !known.has(`layers/${name}`))
+    .sort()
+    .flatMap((name) => {
+      const file = `layers/${name}`;
+      const text = fs.readFileSync(path.join(dir, name), 'utf-8');
+      const index = /^index:\s*(\d+)/m.exec(text)?.[1];
+      const layerName = /^name:\s*(.+)$/m.exec(text)?.[1];
+      if (index === undefined || layerName === undefined) return [];
+      const layer = data.buildLayer({ index: Number(index), name: unquote(layerName.trim()), description: '', file, keys: {} });
+      return layerFromDisk(base, layer) ?? [];
+    });
 }
 
 /** QMK 設定の値をディスクの settings/qmk_settings.yaml から読む（ファイルがなければ fixtures のまま、書いていなければ null） */

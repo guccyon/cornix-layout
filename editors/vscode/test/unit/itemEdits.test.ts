@@ -19,6 +19,27 @@ describe('describeItemEdit', () => {
     expect(detail).toBe('削除: macros/00_bracket_pair.yml');
   });
 
+  it('v0.4: レイヤーの追加は番号と名前を、削除はそのレイヤーを指すレイヤー操作の件数と KC_NO になることを出す', () => {
+    const created: PlanItemEditResult = {
+      files: [{ file: 'layers/5_mouse.yml', baseVersion: null, create: true, edits: [] }],
+      references: [],
+      diagnostics: [],
+    };
+    const add = describeItemEdit({ op: 'create', kind: 'layer', name: 'Mouse', index: 5 }, created);
+    expect(add.message).toBe('レイヤー 5 Mouse を追加します。すぐにファイルに書きます（元に戻すで戻せます）。');
+    expect(add.detail).toBe('作成: layers/5_mouse.yml');
+    const deleted: PlanItemEditResult = {
+      files: [{ file: 'layers/3_function.yml', baseVersion: 'sha256:a', create: false, delete: true, edits: [] }],
+      references: [ref, ref],
+      diagnostics: [],
+    };
+    const remove = describeItemEdit({ op: 'delete', kind: 'layer', name: 'Function', file: 'layers/3_function.yml' }, deleted);
+    expect(remove.message).toContain('レイヤー Function（layers/3_function.yml）を削除します。');
+    expect(remove.message).toContain('レイヤー操作（MO・LT・TG など）が 2 件あり');
+    expect(remove.message).toContain('KC_NO');
+    expect(describeItemEdit({ op: 'delete', kind: 'layer', name: 'Function' }, { ...deleted, references: [] }).message).toContain('指すレイヤー操作はありません');
+  });
+
   it('名前の変更は書き換える参照の件数と、改名・書き換えのファイルを出す', () => {
     const result: PlanItemEditResult = {
       files: [
@@ -78,7 +99,18 @@ describe('isItemEdit', () => {
     expect(isItemEdit({ op: 'create', kind: 'shortcut', name: 'X', value: 'A' })).toBe(true);
     expect(isItemEdit({ op: 'create', kind: 'shortcut', name: 'X' })).toBe(false);
     expect(isItemEdit({ op: 'rename', kind: 'layer', name: 'Base', to: 'Main' })).toBe(true);
-    expect(isItemEdit({ op: 'delete', kind: 'layer', name: 'Base' })).toBe(false);
+    // v0.4: レイヤーの追加（index は省ける。ほかの種類には書けない）と削除
+    expect(isItemEdit({ op: 'delete', kind: 'layer', name: 'Base' })).toBe(true);
+    expect(isItemEdit({ op: 'create', kind: 'layer', name: 'Mouse', index: 5 })).toBe(true);
+    expect(isItemEdit({ op: 'create', kind: 'layer', name: 'Mouse' })).toBe(true);
+    expect(isItemEdit({ op: 'create', kind: 'layer', name: 'Mouse', index: '5' })).toBe(false);
+    expect(isItemEdit({ op: 'create', kind: 'macro', name: 'X', index: 3 })).toBe(false);
+    // レイヤーの名前は重なってよいので、削除と名前の変更はファイルで指せる（ほかの種類には書けない。index は書けない）
+    expect(isItemEdit({ op: 'delete', kind: 'layer', name: 'Empty', file: 'layers/9_empty.yml' })).toBe(true);
+    expect(isItemEdit({ op: 'rename', kind: 'layer', name: 'Empty', to: 'Mouse', file: 'layers/9_empty.yml' })).toBe(true);
+    expect(isItemEdit({ op: 'delete', kind: 'macro', name: 'X', file: 'macros/03_x.yml' })).toBe(false);
+    expect(isItemEdit({ op: 'delete', kind: 'layer', name: 'Empty', file: 9 })).toBe(false);
+    expect(isItemEdit({ op: 'delete', kind: 'layer', name: 'Empty', index: 9 })).toBe(false);
     expect(isItemEdit({ op: 'renamePosition', hand: 'left', row: 0, col: 1, to: 'q' })).toBe(true);
     expect(isItemEdit({ op: 'renamePosition', hand: 'up', row: 0, col: 1, to: 'q' })).toBe(false);
     expect(isItemEdit({ op: 'expandPreset', kind: 'macro', name: 'Copy Selected' })).toBe(true);

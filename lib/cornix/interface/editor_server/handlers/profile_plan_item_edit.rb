@@ -7,7 +7,7 @@ module Cornix
     module EditorServer
       module Handlers
         # profile/planItemEdit: 項目の追加・削除・名前の変更・位置の名前の変更・preset の展開を、ファイルの作成・削除・改名と書き換えにする
-        # （protocol.md の 12.5 と 13.1）。
+        # （protocol.md の 12.5・13.1・14.9）。
         #   params: { profileId, baseVersions?: { file => FileVersion | null }（省けば {}）, edit: ItemEdit }
         #   VersionConflict → -32060（data: { files: }）、InvalidChange → -32602（data: { field: }）、
         #   NotLocal と Unverified → -32061（data: { address:, reason: }。名前の変更・preset の展開の照合は reason "verify"）
@@ -17,8 +17,8 @@ module Cornix
           PlanEdits = Application::Editor::PlanEdits
           ITEM_KINDS = %w[macro tapDance combo shortcut].freeze
           KINDS = {
-            'create' => ITEM_KINDS,
-            'delete' => ITEM_KINDS,
+            'create' => ITEM_KINDS + ['layer'],
+            'delete' => ITEM_KINDS + ['layer'],
             'rename' => ITEM_KINDS + ['layer'],
             'expandPreset' => %w[macro]
           }.freeze
@@ -55,8 +55,9 @@ module Cornix
             name = text(edit, 'name')
             case op
             when 'create' then create_edit(edit, kind, name)
-            when 'delete', 'expandPreset' then ItemEdits::Edit.new(op: op, kind: kind, name: name)
-            else ItemEdits::Edit.new(op: op, kind: kind, name: name, to: text(edit, 'to'))
+            when 'delete' then ItemEdits::Edit.new(op: op, kind: kind, name: name, file: layer_file(edit, kind))
+            when 'expandPreset' then ItemEdits::Edit.new(op: op, kind: kind, name: name)
+            else ItemEdits::Edit.new(op: op, kind: kind, name: name, to: text(edit, 'to'), file: layer_file(edit, kind))
             end
           end
 
@@ -67,7 +68,22 @@ module Cornix
 
             preset = param(edit, 'preset', String, optional: true, field: 'edit.preset')
             invalid('edit.preset', 'preset はマクロだけに書けます') if preset && kind != 'macro'
-            ItemEdits::Edit.new(op: 'create', kind: kind, name: name, preset: preset)
+            ItemEdits::Edit.new(op: 'create', kind: kind, name: name, preset: preset, index: layer_index(edit, kind))
+          end
+
+          # create のレイヤーの番号
+          def layer_index(edit, kind)
+            index = param(edit, 'index', Integer, optional: true, field: 'edit.index')
+            invalid('edit.index', 'index はレイヤーだけに書けます') if !index.nil? && kind != 'layer'
+            index
+          end
+
+          # delete・rename で探すレイヤーのファイル（レイヤーの名前は重なってよく、番号のないレイヤーも予定しているため。issue #84・#85）
+          def layer_file(edit, kind)
+            invalid('edit.index', 'index は create のときだけ書けます') if edit.key?('index')
+            file = param(edit, 'file', String, optional: true, field: 'edit.file')
+            invalid('edit.file', 'file はレイヤーだけに書けます') if !file.nil? && kind != 'layer'
+            file
           end
 
           def position_edit(edit)

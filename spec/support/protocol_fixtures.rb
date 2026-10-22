@@ -79,6 +79,9 @@ module ProtocolFixtures
     profiles.each { |dir, source| copy_profile(root, dir, source) }
     (setup['files'] || {}).each do |rel, text|
       path = File.join(root, rel)
+      # null は消す（profile で置いたファイルを除くとき）
+      next FileUtils.rm_f(path) if text.nil?
+
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, text)
     end

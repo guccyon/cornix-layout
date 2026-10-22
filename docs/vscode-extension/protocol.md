@@ -677,7 +677,7 @@ Ruby の RSpec と、将来の TypeScript の vitest の両方から同じデー
     "profile": "test_config",          // spec/fixtures/<名前> をワークスペースの profiles/default に置き、開いておく（profileId は "p1"）
     "open": false,                     // profile を置くだけで開かない（profile/open 自体を確かめるとき）
     "profiles": { "profiles/ipad": "test_config", "config": null },   // ほかの設定ディレクトリ（null なら空のディレクトリ。profile と重ねない）
-    "files": { ".cornix.yml": "profile: ipad\n" },   // ワークスペースに書くファイル（ワークスペースからの相対パス）
+    "files": { ".cornix.yml": "profile: ipad\n", "profiles/default/layers/5_empty.yml": null },   // ワークスペースに書くファイル（ワークスペースからの相対パス。null なら消す）
     "initialize": false,               // initialize（protocolVersion "0.2"）と initialized を先に送らない
     "before": [{ "id": "b1", "method": "shutdown" }]  // request の前に送るメッセージ（応答は確かめない）
   },
@@ -910,7 +910,7 @@ type MacroStepValue =
 ```
 
 ```ts
-type ItemKind = "macro" | "tapDance" | "combo" | "shortcut";   // rename だけ "layer" も使える
+type ItemKind = "macro" | "tapDance" | "combo" | "shortcut";   // rename だけ "layer" も使える（v0.4 で create・delete も。14.9）
 type ItemEdit =
   | { op: "create"; kind: "macro" | "tapDance" | "combo"; name: string; preset?: string }
   | { op: "create"; kind: "shortcut"; name: string; value: string }
@@ -1000,7 +1000,8 @@ type ItemEdit =
 ## 14. v0.4 で足すもの
 
 [tasks-v0.4.md](tasks-v0.4.md) の「決めたこと」を約束にしたもの。実機の操作は、`cornix serve` とは別のプロセスの device のサーバーで行う（ADR 018）。
-**状態: 設計（実装はこれから）。** 約束の版（`protocolVersion`）は段 3 で `"0.4"` に上げる。編集のサーバー（`cornix serve`）の形は変えない。
+**状態: 設計（実装はこれから）。** ただし 14.9（レイヤーの追加と削除。issue #84）は入れた。14.9 は足しただけ（今のリクエストの形は変えない）なので、約束の版（`protocolVersion`）は `"0.3"` のまま。
+`"0.4"` に上げるのは段 3（device のサーバーを入れるとき）。device のサーバー（14.1〜14.8）のほかは、編集のサーバー（`cornix serve`）の形は変えない。
 
 ### 14.1 device のサーバー
 
@@ -1114,3 +1115,34 @@ interface DevicePlan {
 約束は変えない。[tasks-v0.4.md](tasks-v0.4.md) の「画面」: ボタンと「実機: 同じ／違う N 件／未確認」の印（状態バーにも）、違うキーの橙の枠とレイヤーのタブの点、
 「実機との差分」の節、確認のダイアログ（件数・警告・`keyboard.name`）、バックアップの選択（QuickPick）、設定 `cornix.device.allowWrites`。
 保存したら印を「未確認」に戻す（`profile/saved` のあと）。
+
+### 14.9 `profile/planItemEdit` に足すもの（レイヤーの追加と削除。issue #84）
+
+**状態: 入れた。** 空のレイヤーのファイルを置かなくてよくなった（issue #83）ので、ファイルのないレイヤーは画面に出ない。拡張からレイヤーのファイルを作る・消す。
+
+```ts
+type ItemEdit =
+  | /* 12.5・13.1 のもの */
+  | { op: "create"; kind: "layer"; name: string; index?: number }   // index は 0〜9。省けば空いているいちばん小さい番号
+  | { op: "delete"; kind: "layer"; name: string; file?: string }   // file があればファイルで探す（下の「レイヤーの指し方」）
+  | { op: "rename"; kind: "layer"; name: string; to: string; file?: string };   // rename は 12.5 のもの。file を足した
+```
+
+- **レイヤーの指し方**: レイヤーの名前は重なってよい（decompile は空のレイヤーをどれも `Empty` などにする。ファイル名は番号の接頭辞で分かれる）。
+  また番号のない（使わない）レイヤーのファイルも予定している（issue #85）。名前でも番号でも 1 つに決まらないので、`delete`・`rename` は
+  `file`（設定ディレクトリからの相対パス。snapshot の `layers[].file`）があればそのファイルのレイヤーを探す（省けば `name` の最初のもの。v0.2 の拡張のため）。
+  ファイルのパスは設定ディレクトリの中で一意。そのファイルのレイヤーがなければ `-32602`（`"edit.file"`）。`file` はレイヤーだけ、`index` は `create` だけに書ける。
+  `create`・`rename` の新しい名前は、ほかのレイヤーと同じでもよい（空・前後の空白・改行はだめ）。拡張は削除と名前の変更にいつも `file` を付ける。
+  名前を変えるとファイル名も変わるが、結果の `renameTo` と次の snapshot で新しいパスが分かる。
+  マクロ・タップダンス・コンボも #85 で同じことになるので、そのときにそろえる
+
+- **create**: `layers/<番号>_<名前>.<拡張子>` を作る。名前の部分は `Storage::ConfigFiles.item_path` と同じ（decompile が書く名前とそろえる。既定の名前 `Layer N` なら `layer`）、
+  拡張子はそのディレクトリでいちばん多いもの（なければ `yaml`）。中身は `Schema::LayerFile` が受け付ける最小の形（`name`・`description: ''`・`index`・`mapping` の両手の空のグループ。エンコーダは書かない）。
+  その番号のレイヤーがもうある・範囲の外なら `-32602`（`data: { "field": "edit.index" }`）、`index` を省いて空いている番号がなければ `"edit"`。
+  名前は空でなければよい（上の「名前の重なり」）。`index` はレイヤーのときだけ書ける（ほかの種類に書けば `-32602`、`"edit.index"`）
+- **delete**: そのファイルを消す。参照は書き換えず、`references` にそのレイヤーを指すレイヤー操作（`MO` / `TG` / `TO` / `OSL` / `LT` / `LM` など。
+  16bit 値で数える。消すファイルの中は入れない）の場所を返す。`diagnostics` は消したあとの検証の結果（指していた側に警告「レイヤー N が定義されていません」）。
+  compile では消したレイヤーは `KC_NO` で埋まる（#83）
+- 結果の形・確認のダイアログのあとすぐ当てて保存することは 12.5 と同じ
+- 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `create_layer*.json`・`create_index_not_layer.json`・`delete_layer*.json`
+- 同じ issue の下の欄の「キー別」の並べ方（位置ごとに全レイヤーの欄を並べる）は拡張だけで作る。欄の変更は今と同じ `Change`（そのレイヤーのファイルの `address`）で、約束は変えない

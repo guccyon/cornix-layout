@@ -772,6 +772,21 @@ test('項目の名前の変更はファイルを改名し、参照も書き換�
   assert.ok(!document.snapshot.combos?.some((c) => c.name === 'Right Bracket'));
 });
 
+test('v0.4: レイヤーを足すとファイルを作って snapshot に出し、消すとファイルを消す（確認には参照の件数）', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  assert.equal(await document.applyItemEdit({ op: 'create', kind: 'layer', name: 'Mouse', index: 5 }), true);
+  assert.ok(readWorkspaceFile('profiles/default/layers/5_mouse.yml').includes('name: Mouse\n'));
+  assert.ok(document.snapshot.layers.some((layer) => layer.index === 5 && layer.name === 'Mouse'));
+
+  assert.equal(await document.applyItemEdit({ op: 'delete', kind: 'layer', name: 'Mouse', file: 'layers/5_mouse.yml' }), true);
+  const [message] = prompts.of('confirmItemEdit').map((c) => String(c.args[0])).slice(-1);
+  assert.ok(message?.includes('レイヤー Mouse（layers/5_mouse.yml）を削除します。'), message);
+  assert.equal(document.snapshot.files['layers/5_mouse.yml'], undefined);
+  assert.ok(!document.snapshot.layers.some((layer) => layer.index === 5));
+});
+
 test('項目の操作の -32602 と -32061（verify）は利用者に見せ、ファイルは変えない', async () => {
   const document = api.profileEditor.openDocuments[0];
   assert.ok(document);

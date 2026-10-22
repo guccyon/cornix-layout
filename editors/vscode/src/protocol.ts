@@ -444,10 +444,15 @@ export type PlanEditsResult = {
 export type ItemKind = 'macro' | 'tapDance' | 'combo' | 'shortcut';
 
 export type ItemEdit =
-  | { op: 'create'; kind: 'macro' | 'tapDance' | 'combo'; name: string; preset?: string }
-  | { op: 'create'; kind: 'shortcut'; name: string; value: string }
+  | { op: 'create'; kind: 'macro' | 'tapDance' | 'combo'; name: string; preset?: string; index?: undefined }
+  | { op: 'create'; kind: 'shortcut'; name: string; value: string; index?: undefined }
+  /** v0.4: レイヤーを足す（protocol.md の 14.9）。index を省けば空いているいちばん小さい番号 */
+  | { op: 'create'; kind: 'layer'; name: string; index?: number }
   | { op: 'delete'; kind: ItemKind; name: string }
-  | { op: 'rename'; kind: ItemKind | 'layer'; name: string; to: string }
+  | { op: 'rename'; kind: ItemKind; name: string; to: string }
+  /** v0.4: レイヤーは名前が重なってよく、番号のないレイヤーも予定している（#85）のでファイルで探す（省けば name。protocol.md の 14.9） */
+  | { op: 'delete'; kind: 'layer'; name: string; file?: string }
+  | { op: 'rename'; kind: 'layer'; name: string; to: string; file?: string }
   | { op: 'renamePosition'; hand: Hand; row: number; col: number; to: string }
   /** v0.3: preset: のマクロを同梱の定義の手順に置き換える（protocol.md の 13.1） */
   | { op: 'expandPreset'; kind: 'macro'; name: string };

@@ -8,18 +8,23 @@
 // 保存や外での変更で files の版・diagnostics・値が変わっただけなら、値だけを描き直す（打っている欄のフォーカスと文字が残る）。
 // 作り直すときも、フォーカスのある欄・打ちかけの文字・下のペインのスクロール位置を戻す。
 //
-// v0.3（tasks-v0.3.md の E1）: 図の全レイヤーの表示の行（ほかのレイヤーも保存済みの値に未保存の変更を重ねる）、コンボのボタンと
-// トリガーのキーの強調（comboHighlight.ts。トリガーもコンボの未保存の変更を重ねる）、図からキーを選ぶ状態（pickKey）。
+// v0.3（tasks-v0.3.md の E1）: コンボのボタンとトリガーのキーの強調（comboHighlight.ts。トリガーもコンボの未保存の変更を重ねる）、
+// 図からキーを選ぶ状態（pickKey）。
+//
+// v0.4（issue #84）: 下の欄の「レイヤー別 / キー別」の切り替え。キー別では、位置ごとにファイルのあるレイヤーの欄を並べる
+// （layerEditor.ts の setPositions）。図は今までどおり選んでいるレイヤーを描き、そのレイヤーの行を強調する。
+// 欄（this.editorSlots）は図の欄（this.slots）とは別に持ち、キー別では全レイヤーの欄になる。欄は id（addressKey）で引く。
+// レイヤーの追加（レイヤーの並びの末尾の「＋」）と削除（レイヤーの見出しの「削除」）は host.itemEdit（ホストが確認してすぐ書く）。
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange } from '../protocol';
 import type { HostMessage, WebviewMessage } from '../webviewMessages';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
 import { comboTargets, effectiveKey, triggerKeys } from './comboHighlight';
 import { Inspector } from './inspector';
-import { comboView } from './itemsModel';
+import { comboView, nameProblem } from './itemsModel';
 import type { KeyInput } from './keyInput';
 import { KeyboardView } from './keyboardView';
-import { LayerEditor } from './layerEditor';
+import { LayerEditor, type PositionSlots } from './layerEditor';
 import {
   addPending,
   addressKey,
@@ -29,22 +34,29 @@ import {
   diagnosticsByAddress,
   keyAt,
   keyFaceNote,
-  layerLineLabel,
+  layerProblems,
   layerSlots,
   layerTitle,
+  problemSummary,
+  severityOf,
   slotChanged,
   slotEdits,
   slotLabel,
   structureKey,
   valueChanged,
-  type LayerLine,
   type Slot,
   type SlotEdits,
 } from './model';
 import { attachTooltip, comboContent, describeContent, hideTooltip } from './tooltip';
 
 /** 画面を閉じても覚えておくもの（Webview の getState / setState。タブを裏に回すと Webview は作り直される） */
-export type ViewState = { layer?: number; selected?: string };
+export type ViewState = { layer?: number; selected?: string; mode?: EditorMode; foldQuiet?: boolean };
+
+/** v0.4: 下の欄の並べ方。layer はレイヤー別（選んでいるレイヤー 1 枚）、key はキー別（位置ごとに全レイヤー） */
+export type EditorMode = 'layer' | 'key';
+
+/** レイヤーの番号の範囲（Domain::LayerRef::RANGE と同じ 0〜9） */
+const LAYER_INDEXES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export type AppOptions = {
   host: HostClient;
@@ -69,7 +81,16 @@ export class App {
   private generalDiagnostics: Diagnostic[] = [];
   private layerIndex: number | undefined;
   private selected: string | undefined;
+  /** 図の欄（選んでいるレイヤー） */
   private slots: Slot[] = [];
+  /** 下の欄（レイヤー別なら slots と同じ、キー別なら全レイヤー）と、それぞれのレイヤーの番号 */
+  private editorSlots: Slot[] = [];
+  private readonly slotById = new Map<string, Slot>();
+  private readonly slotLayer = new Map<string, number>();
+  private mode: EditorMode = 'layer';
+  private foldQuiet = false;
+  /** 足したレイヤー（次の snapshot に現れたら選ぶ） */
+  private wantedLayer: number | undefined;
   /** 図に描いた今の値（欄の id → 値。コンボの強調で比べる） */
   private readonly values = new Map<string, KeyValue | null | undefined>();
   /** 図からキーを選んでいる間の受け取り手 */
@@ -83,6 +104,8 @@ export class App {
   private readonly problems = h('div', { class: 'problems' });
   private readonly banner = h('div', { class: 'banner', role: 'alert', hidden: true });
   private readonly layerInfo = h('div', { class: 'layer-info' });
+  private readonly layerForm = h('div', { class: 'layer-form-slot' });
+  private readonly modeBar = h('div', { class: 'editor-mode', role: 'group', 'aria-label': '編集フォームのモード' });
   private readonly topPane: HTMLElement;
   private readonly bottomPane: HTMLElement;
 
@@ -94,6 +117,8 @@ export class App {
     const saved = options.state?.get();
     this.layerIndex = saved?.layer;
     this.selected = saved?.selected;
+    this.mode = saved?.mode === 'key' ? 'key' : 'layer';
+    this.foldQuiet = saved?.foldQuiet === true;
     this.keyboard = new KeyboardView({
       onSelect: (id) => this.reveal(id),
       decorate: (element, id) => attachTooltip(element, () => this.describe(id), { focus: 'visible' }),
@@ -119,8 +144,9 @@ export class App {
       decorate: (input: KeyInput, id) =>
         attachTooltip(input.input, () => this.describe(id), { focus: 'always', canShow: () => !input.isOpen && !input.isEditing }),
     });
-    this.topPane = h('div', { class: 'top-pane' }, this.header, this.banner, this.tabs, this.keyboard.element);
-    this.bottomPane = h('div', { class: 'bottom-pane' }, this.layerInfo, this.problems, this.editor.element, ...(options.sections ?? []));
+    this.topPane = h('div', { class: 'top-pane' }, this.header, this.banner, this.tabs, this.layerForm, this.keyboard.element);
+    this.bottomPane = h('div', { class: 'bottom-pane' }, this.modeBar, this.layerInfo, this.problems, this.editor.element, ...(options.sections ?? []));
+    this.renderModeBar();
     this.root.replaceChildren(h('div', { class: 'loading' }, '読み込んでいます…'));
   }
 
@@ -140,6 +166,33 @@ export class App {
 
   get selectedSlot(): string | undefined {
     return this.selected;
+  }
+
+  /** 下の欄の並べ方 */
+  get editorMode(): EditorMode {
+    return this.mode;
+  }
+
+  /** v0.4: 下の欄の並べ方を変える（描き直しや外での変更による読み直しでも保つ） */
+  setMode(mode: EditorMode): void {
+    if (mode === this.mode) return;
+    this.mode = mode;
+    this.saveState();
+    this.renderModeBar();
+    if (!this.snapshot || this.snapshot.status === 'invalid') return;
+    hideTooltip();
+    const scroll = this.bottomPane.scrollTop;
+    this.renderLayer();
+    this.bottomPane.scrollTop = scroll;
+    this.rendered();
+  }
+
+  /** v0.4: キー別で ▽ と書いていない行を畳む */
+  setFoldQuiet(fold: boolean): void {
+    this.foldQuiet = fold;
+    this.saveState();
+    this.renderModeBar();
+    this.editor.setFoldQuiet(fold && this.mode === 'key');
   }
 
   /** 下の欄の入力欄（テスト用） */
@@ -179,6 +232,11 @@ export class App {
       this.rendered();
       return;
     }
+    if (this.wantedLayer !== undefined && snapshot.layers.some((layer) => layer.index === this.wantedLayer)) {
+      this.layerIndex = this.wantedLayer;
+      this.wantedLayer = undefined;
+      this.saveState();
+    }
     if (!snapshot.layers.some((layer) => layer.index === this.layerIndex)) this.layerIndex = snapshot.layers[0]?.index;
     const structure = structureKey(snapshot);
     if (structure === this.structure && this.topPane.isConnected) {
@@ -187,10 +245,10 @@ export class App {
       this.renderTabs();
       this.renderProblems();
       this.renderLayerInfo();
-      this.slots = this.currentSlots();
+      this.setEditorSlots(this.currentSlots(), this.mode === 'key' ? this.allPositions() : undefined);
       this.keyboard.setLayerNames(this.layerNames());
       this.keyboard.replaceSlots(this.slots);
-      this.editor.replaceSlots(this.slots);
+      this.editor.replaceSlots(this.editorSlots);
       this.updateSlots();
       this.rendered();
       return;
@@ -248,16 +306,41 @@ export class App {
     this.layerIndex = index;
     this.saveState();
     hideTooltip();
-    this.renderLayer();
+    if (this.mode === 'key' && this.editor.byKey) {
+      // キー別: 下の欄は作り直さず（スクロールとフォーカスを残す）、図と強調する行だけを変える
+      this.renderTabs();
+      this.renderLayerInfo();
+      this.setEditorSlots(this.currentSlots(), this.allPositions());
+      this.values.clear();
+      this.keyboard.setLayerNames(this.layerNames());
+      this.keyboard.setSlots(this.slots);
+      this.editor.setCurrentLayer(this.layerIndex);
+      this.select(this.selected);
+      this.updateSlots();
+    } else {
+      this.renderLayer();
+    }
     this.rendered();
   }
 
-  /** 欄を選ぶ（上下で共有） */
+  /** 欄を選ぶ（上下で共有。キー別でほかのレイヤーの行なら、図では同じ位置のキーを選ぶ） */
   select(slotId: string | undefined): void {
     this.selected = slotId;
-    this.keyboard.setSelected(slotId);
+    this.keyboard.setSelected(this.boardSlotFor(slotId));
     this.editor.setSelected(slotId);
     this.saveState();
+  }
+
+  /** 欄に対応する図のキー（選んでいるレイヤーの同じ位置） */
+  private boardSlotFor(slotId: string | undefined): string | undefined {
+    if (slotId === undefined || this.slots.some((s) => s.id === slotId)) return slotId;
+    const slot = this.slotById.get(slotId);
+    if (!slot) return undefined;
+    return this.slots.find(
+      (s) =>
+        s.hand === slot.hand &&
+        (slot.key ? s.key?.row === slot.key.row && s.key?.col === slot.key.col : !!slot.encoder && s.encoder === slot.encoder),
+    )?.id;
   }
 
   /** 図のキーを押した: 下の該当の欄へ移る */
@@ -275,12 +358,46 @@ export class App {
     this.options.state?.set({
       ...(this.layerIndex === undefined ? {} : { layer: this.layerIndex }),
       ...(this.selected === undefined ? {} : { selected: this.selected }),
+      ...(this.mode === 'layer' ? {} : { mode: this.mode }),
+      ...(this.foldQuiet ? { foldQuiet: true } : {}),
     });
   }
 
   private currentSlots(): Slot[] {
     const layer = this.snapshot?.layers.find((l) => l.index === this.layerIndex);
     return layer && this.snapshot ? layerSlots(layer, this.snapshot.positionMap) : [];
+  }
+
+  /**
+   * キー別の位置（図の欄の並びの順）。位置ごとに、ファイルのあるレイヤーの同じ位置の欄を index の順に並べる。
+   * 見出しの欄は選んでいるレイヤーの欄（なければ最初のレイヤーの欄）
+   */
+  private allPositions(): PositionSlots[] {
+    const snapshot = this.snapshot;
+    if (!snapshot) return [];
+    const layers = [...snapshot.layers].sort((a, b) => a.index - b.index);
+    const perLayer = layers.map((layer) => ({ layer, slots: layerSlots(layer, snapshot.positionMap) }));
+    const first = perLayer[0]?.slots ?? [];
+    return first.map((_, i) => {
+      const rows = perLayer.map(({ layer, slots }) => ({ layer: { index: layer.index, name: layer.name }, slot: slots[i]! }));
+      const heading = rows.find((row) => row.layer.index === this.layerIndex)?.slot ?? rows[0]!.slot;
+      return { slot: heading, rows };
+    });
+  }
+
+  /** 図の欄と下の欄を決め、id とレイヤーの引き先を作り直す（positions はキー別のとき） */
+  private setEditorSlots(slots: Slot[], positions?: PositionSlots[]): void {
+    this.slots = slots;
+    this.slotById.clear();
+    this.slotLayer.clear();
+    if (positions) {
+      this.editorSlots = positions.flatMap((p) => p.rows.map((row) => row.slot));
+      for (const p of positions) for (const row of p.rows) this.slotLayer.set(row.slot.id, row.layer.index);
+    } else {
+      this.editorSlots = slots;
+    }
+    for (const slot of [...this.editorSlots, ...slots]) this.slotById.set(slot.id, slot);
+    if (this.layerIndex !== undefined) for (const slot of slots) this.slotLayer.set(slot.id, this.layerIndex);
   }
 
   private layerNames(): Map<number, string> {
@@ -332,27 +449,161 @@ export class App {
     this.tabs.replaceChildren(
       ...snapshot.layers.map((l) => {
         const selected = l.index === this.layerIndex;
+        // v0.4: 保存済みの中身に検証の問題があるレイヤーには点を付け、件数と文をツールチップに出す
+        const problems = layerProblems(snapshot, l.file);
+        const severity = severityOf(problems);
+        const title = problems.length > 0 ? `${l.file}\n${problemSummary(problems)}` : l.file;
         const tab = h(
           'button',
-          { type: 'button', class: `layer-tab${selected ? ' selected' : ''}`, 'aria-pressed': String(selected), 'data-layer': l.index, title: l.file },
+          {
+            type: 'button',
+            class: `layer-tab${selected ? ' selected' : ''}${severity ? ` has-${severity}` : ''}`,
+            'aria-pressed': String(selected),
+            'data-layer': l.index,
+            title,
+          },
           layerTitle(l),
+          ...nodes(severity && h('span', { class: `layer-tab-dot ${severity}`, 'aria-label': severity === 'error' ? 'エラーあり' : '警告あり' })),
         );
         tab.addEventListener('click', () => this.selectLayer(l.index));
         return tab;
       }),
+      this.addLayerButton(snapshot),
     );
     if (focused !== undefined) this.tabs.querySelector<HTMLElement>(`[data-layer="${focused}"]`)?.focus();
+  }
+
+  /** レイヤーの並びの末尾の「＋」（空いている番号がなければ押せない） */
+  private addLayerButton(snapshot: ProfileSnapshot): HTMLElement {
+    const free = this.freeLayerIndexes(snapshot);
+    const button = h(
+      'button',
+      {
+        type: 'button',
+        class: 'layer-tab layer-add',
+        'data-layer-add': '',
+        title: free.length > 0 ? 'レイヤーを追加する（layers/ にファイルを作る）' : '空いている番号（0〜9）がありません',
+        'aria-label': 'レイヤーを追加',
+        ...(free.length > 0 ? {} : { disabled: true }),
+      },
+      '＋',
+    );
+    button.addEventListener('click', () => this.openLayerForm());
+    return button;
+  }
+
+  private freeLayerIndexes(snapshot: ProfileSnapshot): number[] {
+    return LAYER_INDEXES.filter((index) => !snapshot.layers.some((layer) => layer.index === index));
+  }
+
+  /** v0.4: レイヤーを足す欄（空いている番号と名前）。足すとホストが確認してすぐファイルに書く */
+  openLayerForm(): void {
+    const snapshot = this.snapshot;
+    if (!snapshot) return;
+    const free = this.freeLayerIndexes(snapshot);
+    if (free.length === 0) return;
+    const select = h('select', { class: 'layer-index-select', 'aria-label': '新しいレイヤーの番号' });
+    for (const index of free) select.append(h('option', { value: String(index) }, String(index)));
+    const name = h('input', {
+      type: 'text',
+      class: 'item-name-input',
+      'aria-label': '新しいレイヤーの名前',
+      placeholder: '名前（Symbols など）',
+      spellcheck: 'false',
+      autocomplete: 'off',
+    });
+    const message = h('div', { class: 'layer-form-message' });
+    const submit = h('button', { type: 'button', class: 'item-button primary' }, '追加する');
+    const cancel = h('button', { type: 'button', class: 'item-button' }, 'やめる');
+    const close = () => {
+      this.layerForm.replaceChildren();
+      this.tabs.querySelector<HTMLElement>('[data-layer-add]')?.focus();
+    };
+    const send = () => {
+      // レイヤーの名前は重なってよい（ファイル名は番号で分かれる）
+      const problem = nameProblem(name.value, []);
+      if (problem) {
+        message.replaceChildren(h('div', { class: 'message-line error' }, problem));
+        return;
+      }
+      const index = Number(select.value);
+      this.wantedLayer = index;
+      this.options.host.itemEdit({ op: 'create', kind: 'layer', name: name.value, index });
+      close();
+    };
+    submit.addEventListener('click', send);
+    cancel.addEventListener('click', close);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        send();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+    name.addEventListener('keydown', onKey);
+    select.addEventListener('keydown', onKey);
+    this.layerForm.replaceChildren(
+      h(
+        'div',
+        { class: 'item-name-form layer-form', role: 'group', 'aria-label': 'レイヤーを追加' },
+        h('span', { class: 'item-form-title' }, '新しいレイヤー'),
+        h('label', { class: 'layer-index-label' }, '番号 ', select),
+        name,
+        submit,
+        cancel,
+        message,
+      ),
+    );
+    name.focus();
+  }
+
+  /** 下の欄の並べ方の切り替え（とキー別の「畳む」） */
+  private renderModeBar(): void {
+    const button = (mode: EditorMode, label: string, title: string) => {
+      const pressed = this.mode === mode;
+      const element = h('button', { type: 'button', class: `mode-button${pressed ? ' selected' : ''}`, 'aria-pressed': String(pressed), 'data-mode': mode, title }, label);
+      element.addEventListener('click', () => this.setMode(mode));
+      return element;
+    };
+    const focused = document.activeElement instanceof HTMLElement && this.modeBar.contains(document.activeElement) ? document.activeElement.dataset.mode : undefined;
+    const fold = h('input', { type: 'checkbox', class: 'fold-quiet-input' });
+    fold.checked = this.foldQuiet;
+    fold.addEventListener('change', () => this.setFoldQuiet(fold.checked));
+    this.modeBar.replaceChildren(
+      ...nodes(
+        h('span', { class: 'editor-mode-title' }, '編集フォーム'),
+        button('layer', 'レイヤー別', '編集フォーム: 図で選んでいるレイヤーの割り当てを並べる'),
+        button('key', 'キー別', '編集フォーム: キーの位置ごとに、全レイヤーの割り当てを並べる（図で選んでいるレイヤーの行を強調）'),
+        this.mode === 'key' &&
+          h('label', { class: 'fold-quiet-toggle', title: '▽（下のレイヤーへ）と書いていない行を隠す（図で選んでいるレイヤー・選んでいる行・未保存の行は残す）' }, fold, '▽ と空欄を畳む'),
+      ),
+    );
+    if (focused) this.modeBar.querySelector<HTMLElement>(`[data-mode="${focused}"]`)?.focus();
   }
 
   private renderLayerInfo(): void {
     const layer = this.snapshot?.layers.find((l) => l.index === this.layerIndex);
     if (!layer) {
-      this.layerInfo.replaceChildren(h('p', {}, 'レイヤーがありません'));
+      this.layerInfo.replaceChildren(h('p', {}, 'レイヤーがありません（レイヤーの並びの「＋」で足せます）'));
       return;
     }
+    // キー別では全レイヤーの欄が並ぶので、選んでいるレイヤーの見出し（説明と削除）は意味がない。レイヤー別のときだけ出す
+    if (this.mode === 'key') {
+      this.layerInfo.replaceChildren();
+      return;
+    }
+    const remove = h(
+      'button',
+      { type: 'button', class: 'link-button layer-delete', title: `レイヤーのファイル ${layer.file} を消す（確認のダイアログで参照の数を出す）` },
+      'レイヤーを削除',
+    );
+    // 名前は重なってよいのでファイルで指す
+    remove.addEventListener('click', () => this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, file: layer.file }));
     this.layerInfo.replaceChildren(
       ...nodes(
-        h('h2', {}, `レイヤー ${layerTitle(layer)}`, h('span', { class: 'layer-file' }, layer.file)),
+        h('h2', {}, `レイヤー ${layerTitle(layer)}`, h('span', { class: 'layer-file' }, layer.file), remove),
         layer.description && h('p', { class: 'layer-description' }, layer.description),
       ),
     );
@@ -362,12 +613,19 @@ export class App {
     if (!this.snapshot) return;
     this.renderTabs();
     this.renderLayerInfo();
-    this.slots = this.currentSlots();
+    const positions = this.mode === 'key' ? this.allPositions() : undefined;
+    this.setEditorSlots(this.currentSlots(), positions);
     this.values.clear();
     this.keyboard.setLayerNames(this.layerNames());
     this.keyboard.setSlots(this.slots);
-    this.editor.setSlots(this.slots);
-    if (this.selected && !this.slots.some((slot) => slot.id === this.selected)) this.selected = undefined;
+    if (positions) {
+      this.editor.setPositions(positions);
+      this.editor.setCurrentLayer(this.layerIndex);
+    } else {
+      this.editor.setSlots(this.slots);
+    }
+    this.editor.setFoldQuiet(this.foldQuiet && !!positions);
+    if (this.selected && !this.slotById.has(this.selected)) this.selected = undefined;
     this.select(this.selected);
     this.updateSlots();
   }
@@ -404,8 +662,9 @@ export class App {
   private renderInvalid(snapshot: ProfileSnapshot): void {
     const list = h('div', { class: 'problems-list open' });
     for (const diagnostic of snapshot.diagnostics) list.append(this.problemRow(diagnostic));
-    this.slots = [];
+    this.setEditorSlots([]);
     this.editor.setSlots([]);
+    this.layerForm.replaceChildren();
     this.endPick();
     this.root.replaceChildren(
       h(
@@ -423,7 +682,7 @@ export class App {
   /** 欄の値・印・メッセージを描き直す（コンボのボタンも） */
   private updateSlots(): void {
     this.keyboard.setCombos((this.snapshot?.combos ?? []).map((combo) => ({ index: combo.index, name: combo.name, reachable: combo.reachable })));
-    for (const slot of this.slots) this.updateSlot(slot, false);
+    for (const slot of this.slotById.values()) this.updateSlot(slot, false);
     this.keyboard.refreshCombo();
   }
 
@@ -451,11 +710,13 @@ export class App {
         );
       }
     }
-    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.layerIndex, slot) : null;
-    this.values.set(slot.id, value);
-    const layers = slot.key ? this.layerLines(slot, text, value) : undefined;
-    this.keyboard.update(slot.id, { text, value, diagnostics, changed, base, ...(layers ? { layers } : {}) });
-    this.editor.update(slot.id, { text, diagnostics, changed, note: currentNote(slot, this.edits) });
+    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.slotLayer.get(slot.id), slot) : null;
+    if (this.slots.includes(slot)) {
+      this.values.set(slot.id, value);
+      this.keyboard.update(slot.id, { text, value, diagnostics, changed, base });
+    }
+    const quiet = text === '' || value?.kind === 'transparent';
+    this.editor.update(slot.id, { text, diagnostics, changed, note: currentNote(slot, this.edits), quiet });
     if (refreshCombo) this.keyboard.refreshCombo();
   }
 
@@ -478,24 +739,6 @@ export class App {
     const text = currentText(target, this.edits);
     if (!valueChanged(target, this.edits)) return { text, value: saved };
     return { text, value: this.resolveValue(text, saved, 'layerKey', onLoaded) };
-  }
-
-  /** 全レイヤーの表示の行（今のレイヤーは図に描く値、ほかのレイヤーは同じ位置の値） */
-  private layerLines(slot: Slot, text: string, value: KeyValue | null | undefined): LayerLine[] {
-    const lines: LayerLine[] = [];
-    for (const layer of this.snapshot?.layers ?? []) {
-      const current = layer.index === this.layerIndex;
-      let lineText = text;
-      let lineValue = value;
-      if (!current) {
-        const key = keyAt(layer, slot);
-        if (!key) continue;
-        ({ text: lineText, value: lineValue } = this.positionValue(key.address, key.value, () => this.refresh(slot.id)));
-      }
-      const label = layerLineLabel(lineText, lineValue);
-      if (label !== null) lines.push({ index: layer.index, label, current });
-    }
-    return lines;
   }
 
   /** レイヤー 0 の同じ位置の今の値（KC_TRNS の位置をコンボのトリガーと比べるため。未保存の変更も重ねる） */
@@ -542,13 +785,13 @@ export class App {
   }
 
   private refresh(slotId: string): void {
-    const slot = this.slots.find((s) => s.id === slotId);
+    const slot = this.slotById.get(slotId);
     if (slot) this.updateSlot(slot);
   }
 
   /** 欄で値を決めた: ホストに Change を渡し、すぐに検証する（ホストからの snapshot を待たずに描く） */
   private commit(slotId: string, text: string): void {
-    const slot = this.slots.find((s) => s.id === slotId);
+    const slot = this.slotById.get(slotId);
     if (!slot) return;
     const change: Change = { address: slot.address, value: text };
     this.setPending(addPending(this.pending, change, slot.saved));
@@ -559,7 +802,7 @@ export class App {
 
   /** 「割り当てを消す」: 行ごと消して「書いていない」にする（tasks-v0.2.md の決めたことの 3） */
   private remove(slotId: string): void {
-    const slot = this.slots.find((s) => s.id === slotId);
+    const slot = this.slotById.get(slotId);
     if (!slot || currentText(slot, this.edits) === '') return;
     const change: RemoveChange = { op: 'remove', address: slot.address };
     this.setPending(addPending(this.pending, change, slot.saved));
@@ -570,7 +813,7 @@ export class App {
 
   /** 注記を決めた。空なら注記だけを消す */
   private commitNote(slotId: string, note: string): void {
-    const slot = this.slots.find((s) => s.id === slotId);
+    const slot = this.slotById.get(slotId);
     if (!slot || note === currentNote(slot, this.edits)) return;
     if (note === '') {
       const change: RemoveChange = { op: 'remove', address: slot.address, field: 'note' };
@@ -587,7 +830,7 @@ export class App {
 
   /** 位置の名前を変える（ホストが確認してすぐ書く）。名前の決まりに合わなければその理由 */
   private renamePosition(slotId: string, to: string): string | null {
-    const slot = this.slots.find((s) => s.id === slotId);
+    const slot = this.slotById.get(slotId);
     const key = slot?.key;
     if (!slot || !key) return null;
     if (to === '') return '名前を入れてください';
@@ -601,7 +844,7 @@ export class App {
   }
 
   private async describe(slotId: string): Promise<Node | null> {
-    const slot = this.slots.find((s) => s.id === slotId);
+    const slot = this.slotById.get(slotId);
     if (!slot) return null;
     const text = currentText(slot, this.edits);
     if (!text) return null;
@@ -613,7 +856,7 @@ export class App {
     const context = slot.encoder ? slotLabel(slot) : undefined;
     const value = result ? result.value : slot.saved;
     const face = keyFaceNote(value);
-    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.layerIndex, slot) : null;
+    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.slotLayer.get(slot.id), slot) : null;
     return describeContent(text, result, {
       context,
       note: currentNote(slot, this.edits),

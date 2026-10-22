@@ -6,8 +6,7 @@
 // 表示中はキーの面に割り当ての代わりに position_map の名前を紫で描き、読み上げも位置の名前にする。表示中にキーを押すと、
 // 名前を変えられる位置（positionAddress のある位置）なら onRenamePosition（下の欄で名前を変える）。
 // v0.3: 「位置の名前」のボタンにマウスを載せている間も出す。出している間は図の下に名前の出所（position_map.yaml）を 1 行。
-// 「全レイヤー」のトグル: 各キーの面にレイヤーごとの値を「番号 ラベル」の小さな行で並べる（SlotView.layers。位置の名前の表示とは
-// 同時に出さず、あとから押したほうに切り替える。Alt やボタンに載せている間の一時表示は位置の名前が勝つ）。
+// v0.3 の「全レイヤー」のトグルは v0.4 でやめた（下の欄の「キー別」に置き換えた。issue #84）。
 // コンボ: 図の上にコンボの番号のボタン。押す（固定）か載せている（一時）間、そのトリガーのキーを強調する（どの欄かは options.comboTargets）。
 // 選ぶ状態（setPicking。App#pickKey）: 図の上に案内を出し、キーを押すと onPick（Esc で onPickCancel）。
 // タップダンスは、キーの面を割り当てのある動作の数の窓に分けて描く（1 つは面全体、2 つ・3 つは横幅いっぱいの窓を上から順に
@@ -22,10 +21,8 @@ import {
   keyAccessibleName,
   keyMark,
   severityOf,
-  slotLabel,
   tapDanceWindows,
   windowLabels,
-  type LayerLine,
   type Slot,
 } from './model';
 
@@ -39,8 +36,6 @@ export type SlotView = {
   changed: boolean;
   /** KC_TRNS のときに薄く描く、レイヤー 0 の同じ位置の値（model.ts の baseLayerValue） */
   base?: KeyValue | null;
-  /** v0.3: 全レイヤーの表示の行（KC_TRNS・NoKey・書いていない位置の行は省いたもの。キーだけ） */
-  layers?: readonly LayerLine[];
 };
 
 /** v0.3: 図の上のコンボのボタン 1 つ */
@@ -82,8 +77,6 @@ export class KeyboardView {
   private held = false;
   /** 「位置の名前」のボタンにマウスを載せている間の一時表示 */
   private hovering = false;
-  /** 全レイヤーの表示（位置の名前の固定とは同時にしない） */
-  private allLayers = false;
   /** コンボのボタン（並びの中身が同じなら作り直さない） */
   private combos: ComboButton[] = [];
   private combosKey = '';
@@ -92,7 +85,6 @@ export class KeyboardView {
   /** 選ぶ状態（App#pickKey） */
   private pickingKey = false;
   private readonly toggle: HTMLButtonElement;
-  private readonly layersToggle: HTMLButtonElement;
   private readonly comboBar: HTMLElement;
   private readonly positionHint: HTMLElement;
   private readonly pickBanner: HTMLElement;
@@ -113,14 +105,8 @@ export class KeyboardView {
     this.toggle.addEventListener('click', () => this.setPinned(!this.pinned));
     this.toggle.addEventListener('mouseenter', () => this.setHovering(true));
     this.toggle.addEventListener('mouseleave', () => this.setHovering(false));
-    this.layersToggle = h(
-      'button',
-      { type: 'button', class: 'layers-toggle', 'aria-pressed': 'false', title: 'キーの面にレイヤーごとの値を並べる（▽ と何もしないキー・書いていない位置は省く。今のレイヤーの行を強調）' },
-      '全レイヤー',
-    );
-    this.layersToggle.addEventListener('click', () => this.setShowLayers(!this.allLayers));
     this.comboBar = h('div', { class: 'combo-buttons', role: 'group', 'aria-label': 'コンボ', hidden: true });
-    const toolbar = h('div', { class: 'keyboard-toolbar' }, this.comboBar, h('div', { class: 'keyboard-toggles' }, this.layersToggle, this.toggle));
+    const toolbar = h('div', { class: 'keyboard-toolbar' }, this.comboBar, h('div', { class: 'keyboard-toggles' }, this.toggle));
     this.pickBanner = h('div', { class: 'pick-banner', role: 'status', hidden: true }, 'キーを押して選ぶ（Esc で戻る）');
     this.positionHint = h('div', { class: 'position-hint', 'aria-hidden': 'true' });
     // 最初から文を入れて行の高さを取っておく
@@ -147,11 +133,6 @@ export class KeyboardView {
     return this.board;
   }
 
-  /** 全レイヤーの表示をしている（位置の名前を出している間は位置の名前が勝つ） */
-  get showingLayers(): boolean {
-    return this.allLayers && !this.showingPositions;
-  }
-
   /** 選ぶ状態 */
   get picking(): boolean {
     return this.pickingKey;
@@ -162,10 +143,9 @@ export class KeyboardView {
     return this.hoveredCombo ?? this.pinnedCombo;
   }
 
-  /** ボタンでの固定の切り替え。固定したら全レイヤーの表示はやめる */
+  /** ボタンでの固定の切り替え */
   setPinned(pinned: boolean): void {
     this.pinned = pinned;
-    if (pinned) this.allLayers = false;
     this.renderAll();
   }
 
@@ -183,13 +163,6 @@ export class KeyboardView {
     this.renderAll();
   }
 
-  /** 全レイヤーの表示の切り替え。出したら位置の名前の固定はやめる */
-  setShowLayers(show: boolean): void {
-    this.allLayers = show;
-    if (show) this.pinned = false;
-    this.renderAll();
-  }
-
   /** 選ぶ状態の切り替え（案内と図の見た目） */
   setPicking(picking: boolean): void {
     this.pickingKey = picking;
@@ -201,10 +174,7 @@ export class KeyboardView {
   private renderAll(): void {
     this.toggle.setAttribute('aria-pressed', String(this.pinned));
     this.toggle.classList.toggle('selected', this.pinned);
-    this.layersToggle.setAttribute('aria-pressed', String(this.allLayers));
-    this.layersToggle.classList.toggle('selected', this.allLayers);
     this.board.classList.toggle('show-positions', this.showingPositions);
-    this.board.classList.toggle('show-layers', this.showingLayers);
     this.renderHint();
     for (const id of this.elements.keys()) this.render(id);
   }
@@ -376,29 +346,16 @@ export class KeyboardView {
     const view = this.views.get(slotId);
     if (!element || !slot || !view) return;
     const severity = severityOf(view.diagnostics);
-    // 位置の名前・全レイヤーの表示はキーにだけある（エンコーダはいつも割り当てを描く）
+    // 位置の名前の表示はキーにだけある（エンコーダはいつも割り当てを描く）
     const positions = this.showingPositions && !!slot.key;
-    const layers = this.showingLayers && !!slot.key;
     element.classList.toggle('unassigned', view.text === '');
     element.classList.toggle('changed', view.changed);
     element.classList.toggle('error', severity === 'error');
     element.classList.toggle('warning', severity === 'warning');
     element.classList.toggle('position', positions);
-    element.classList.toggle('layer-lines', layers);
     if (positions) {
       element.replaceChildren(h('span', { class: `key-label position-name${slot.label.length > 6 ? ' long' : ''}` }, slot.label));
       element.setAttribute('aria-label', `${HAND_LABEL[slot.hand]} 位置の名前 ${slot.label}`);
-      element.classList.remove('dual', 'marked', 'windowed');
-      element.dataset.kind = '';
-      return;
-    }
-    if (layers) {
-      const lines = view.layers ?? [];
-      element.replaceChildren(layerLinesFace(lines));
-      element.setAttribute(
-        'aria-label',
-        `${slotLabel(slot)} 全レイヤー: ${lines.length > 0 ? lines.map((line) => `${line.index} ${line.label}`).join('、') : '割り当てなし'}`,
-      );
       element.classList.remove('dual', 'marked', 'windowed');
       element.dataset.kind = '';
       return;
@@ -423,22 +380,6 @@ export class KeyboardView {
       element.setAttribute('aria-pressed', String(selected));
     }
   }
-}
-
-/** 全レイヤーの表示のキーの面: 「番号 ラベル」の行を上から（今のレイヤーの行は current） */
-export function layerLinesFace(lines: readonly LayerLine[]): HTMLElement {
-  return h(
-    'span',
-    { class: 'layer-lines-list', 'aria-hidden': 'true' },
-    ...lines.map((line) =>
-      h(
-        'span',
-        { class: `layer-line${line.current ? ' current' : ''}`, 'data-layer': line.index },
-        h('span', { class: 'layer-line-index' }, String(line.index)),
-        h('span', { class: 'layer-line-label' }, line.label),
-      ),
-    ),
-  );
 }
 
 /** キーの面: アイコン・文字（2 役なら tap と hold を上下に）・印 */

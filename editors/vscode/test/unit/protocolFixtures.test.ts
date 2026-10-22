@@ -32,7 +32,7 @@ type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type JsonObject = { [key: string]: Json };
 type Fixture = {
   description?: string;
-  setup?: { initialize?: boolean; profile?: string; profiles?: Record<string, string | null>; files?: Record<string, string>; before?: JsonObject[] };
+  setup?: { initialize?: boolean; profile?: string; profiles?: Record<string, string | null>; files?: Record<string, string | null>; before?: JsonObject[] };
   request?: JsonObject;
   raw?: string;
   response?: JsonObject;
@@ -54,6 +54,11 @@ function prepare(root: string, setup: NonNullable<Fixture['setup']>): void {
     else fs.cpSync(path.join(REPO, 'spec/fixtures', source), dest, { recursive: true });
   }
   for (const [rel, text] of Object.entries(setup.files ?? {})) {
+    // null は消す（profile で置いたファイルを除くとき）
+    if (text === null) {
+      fs.rmSync(path.join(root, rel), { force: true });
+      continue;
+    }
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), text);
   }

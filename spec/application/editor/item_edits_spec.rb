@@ -131,6 +131,91 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
     end
   end
 
+  describe 'レイヤーの追加と削除（issue #84）' do
+    def remove(rel) = FileUtils.rm(path(rel))
+
+    it '選んだ番号で layers/<番号>_<名前>.yaml を作り、中身は LayerFile が受け付ける最小のもの' do
+      remove('layers/5_layer_5.yaml')
+      result = plan(op: 'create', kind: 'layer', name: 'Mouse Keys', index: 5)
+      expect(result[:files].map { |f| f.slice(:file, :baseVersion, :create) })
+        .to eq([{ file: 'layers/5_mouse_keys.yaml', baseVersion: nil, create: true }])
+      expect(applied(result, 'layers/5_mouse_keys.yaml')).to eq(<<~YAML)
+        ---
+        name: Mouse Keys
+        description: ''
+        index: 5
+        mapping:
+          left_hand:
+            row0: {}
+            row1: {}
+            row2: {}
+            row3: {}
+            thumb_keys: {}
+          right_hand:
+            row0: {}
+            row1: {}
+            row2: {}
+            row3: {}
+            thumb_keys: {}
+      YAML
+      expect(result[:diagnostics]).to eq([])
+    end
+
+    it '番号を省けば空いているいちばん小さい番号。既定の名前（Layer N）のファイル名は decompile と同じ layer' do
+      remove('layers/7_layer_7.yaml')
+      remove('layers/6_layer_6.yaml')
+      result = plan(op: 'create', kind: 'layer', name: 'Layer 6')
+      expect(result[:files].map { |f| f[:file] }).to eq(['layers/6_layer.yaml'])
+    end
+
+    it 'ある番号・範囲の外の番号は InvalidChange（field "edit.index"）、空いている番号がなければ field "edit"' do
+      remove('layers/5_layer_5.yaml')
+      expect { plan(op: 'create', kind: 'layer', name: 'X', index: 4) }
+        .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.index') }
+      expect { plan(op: 'create', kind: 'layer', name: 'X', index: 10) }
+        .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.index') }
+      write('layers/5_layer_5.yaml', "name: Five\nindex: 5\nmapping: { left_hand: {}, right_hand: {} }\n")
+      expect { plan(op: 'create', kind: 'layer', name: 'X') }
+        .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit') }
+    end
+
+    it '消すと references はそのレイヤーを指すレイヤー操作の欄（消すファイルの中は入れない）、diagnostics は参照している側の警告' do
+      result = plan(op: 'delete', kind: 'layer', name: 'Layer 9')
+      expect(result[:files]).to eq([{ file: 'layers/9_layer_9.yaml', baseVersion: version('layers/9_layer_9.yaml'),
+                                      create: false, edits: [], delete: true }])
+      expect(result[:references]).to eq([{ file: 'layers/0_layer_0.yaml', path: %w[mapping encoders right push] }])
+      expect(result[:diagnostics]).to include(
+        include(severity: 'warning', address: { file: 'layers/0_layer_0.yaml', path: %w[mapping encoders right push] })
+      )
+    end
+
+    context 'レイヤーの名前が重なっているとき（空のレイヤーがどれも Empty など）' do
+      before do
+        %w[7 8].each { |n| write("layers/#{n}_layer_#{n}.yaml", read("layers/#{n}_layer_#{n}.yaml").sub("name: Layer #{n}", 'name: Empty')) }
+      end
+
+      it '消すのは file のレイヤー（同じ名前の最初のものではない）。ないファイルは field "edit.file"' do
+        result = plan(op: 'delete', kind: 'layer', name: 'Empty', file: 'layers/8_layer_8.yaml')
+        expect(result[:files].map { |f| f[:file] }).to eq(['layers/8_layer_8.yaml'])
+        expect { plan(op: 'delete', kind: 'layer', name: 'Empty', file: 'layers/5_empty.yaml') }
+          .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.file') }
+      end
+
+      it '同じ名前のレイヤーを足せる（ファイル名は番号で分かれる）' do
+        remove('layers/5_layer_5.yaml')
+        result = plan(op: 'create', kind: 'layer', name: 'Empty', index: 5)
+        expect(result[:files].map { |f| f[:file] }).to eq(['layers/5_empty.yaml'])
+      end
+
+      it '名前の変更も file のレイヤー。ほかのレイヤーと同じ名前にもできる' do
+        result = plan(op: 'rename', kind: 'layer', name: 'Empty', file: 'layers/8_layer_8.yaml', to: 'Mouse')
+        expect(result[:files].map { |f| f.slice(:file, :renameTo) }).to eq([{ file: 'layers/8_layer_8.yaml', renameTo: 'layers/8_mouse.yaml' }])
+        result = plan(op: 'rename', kind: 'layer', name: 'Layer 6', file: 'layers/6_layer_6.yaml', to: 'Empty')
+        expect(result[:files].map { |f| f[:file] }).to eq(['layers/6_layer_6.yaml'])
+      end
+    end
+  end
+
   describe 'rename' do
     it 'name の行・参照・ファイル名を変え、references は変える前の参照の場所' do
       write('layers/2_layer_2.yaml', read('layers/2_layer_2.yaml').sub('A: M0', "A: Macro('Macro 0') # 括弧"))
@@ -183,10 +268,10 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
         }
     end
 
-    it '知らない名前・ほかと同じ名前は InvalidChange' do
+    it '知らない名前・ほかと同じ名前（レイヤーのほか）は InvalidChange' do
       expect { plan(op: 'rename', kind: 'layer', name: 'Nope', to: 'X') }
         .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.name') }
-      expect { plan(op: 'rename', kind: 'layer', name: 'Layer 1', to: 'Layer 2') }
+      expect { plan(op: 'rename', kind: 'macro', name: 'Macro 0', to: 'Macro 1') }
         .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.to') }
     end
   end

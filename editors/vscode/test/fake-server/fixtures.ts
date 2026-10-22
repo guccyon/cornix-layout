@@ -229,7 +229,7 @@ export const POSITION_MAP: PositionMapEntry[] = (['left', 'right'] as const).fla
   ),
 );
 
-type LayerSource = {
+export type LayerSource = {
   index: number;
   name: string;
   description: string;
@@ -316,7 +316,7 @@ function handKey(hand: 'left' | 'right'): string {
   return hand === 'left' ? 'left_hand' : 'right_hand';
 }
 
-function buildLayer(source: LayerSource): LayerSnapshot {
+export function buildLayer(source: LayerSource): LayerSnapshot {
   const keys: LayerKey[] = POSITION_MAP.map((entry) => {
     const id = `${entry.hand}.${entry.group}.${entry.symbol}`;
     const text = source.keys[id];

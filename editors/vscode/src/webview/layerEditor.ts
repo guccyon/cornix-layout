@@ -3,11 +3,16 @@
 // 欄ごとに、キー入力欄（組み立て欄付き）・注記の 1 行の欄・「割り当てを消す」を置く（注記の欄と消すボタンは、選んでいる欄と注記のある欄だけに見せる。CSS）。
 // 割り当てのない欄は空白のまま（placeholder を出さない）。キー入力欄の候補の下には「同梱から選ぶ…」（v0.3）。
 // キーの欄のラベルは位置の名前（position_map の名前。紫）で、名前を書いている場所の分かる位置（v0.2 のサーバー）は「名前を変える」で書き換えられる。
+//
+// v0.4（issue #84）: 「キー別」の並べ方（setPositions）。グループの並びと見出しはレイヤー別と同じで、位置ごとに位置の名前（紫）の下へ
+// ファイルのあるレイヤーを index の順に「番号 名前」と入力欄の行で並べる。行の欄はレイヤー別の欄と同じ部品（入力欄・注記・消す・未保存の印）。
+// 図で選んでいるレイヤーの行は current-layer（setCurrentLayer）。「▽ と空欄を畳む」（setFoldQuiet）では、▽ と書いていない行を
+// 今のレイヤー・選んでいる行・未保存の行を除いて隠す。
 import type { Diagnostic } from '../protocol';
 import { h } from './dom';
 import type { HostClient } from './hostClient';
 import { KeyInput } from './keyInput';
-import { groupLabel, HAND_LABEL, slotLabel, type Slot } from './model';
+import { groupLabel, HAND_LABEL, layerTitle, slotLabel, type Slot } from './model';
 
 export type LayerEditorOptions = {
   host: HostClient;
@@ -33,7 +38,15 @@ export type FieldView = {
   changed: boolean;
   /** 今の注記（なければ空） */
   note: string;
+  /** v0.4: ▽ か書いていない（キー別の「畳む」で隠す行） */
+  quiet?: boolean;
 };
+
+/** v0.4: キー別の位置 1 つ。slot は見出しに使う欄（位置の名前と名前を書く場所）、rows はレイヤーごとの欄（index の順） */
+export type PositionSlots = { slot: Slot; rows: { layer: { index: number; name: string }; slot: Slot }[] };
+
+/** 位置の名前を変える欄を出す場所（レイヤー別なら欄のラベル、キー別なら位置の見出し） */
+type RenameTarget = { slot: Slot; labelBox: HTMLElement; element: HTMLElement; rename?: HTMLInputElement };
 
 type Field = {
   slot: Slot;
@@ -47,8 +60,10 @@ type Field = {
   committedNote: string;
   /** 注記を打っている途中 */
   noteEditing: boolean;
-  /** 位置の名前を変えている途中の入力欄 */
-  rename?: HTMLInputElement;
+  /** キー別の行のレイヤー */
+  layer?: number;
+  /** 位置の名前を変える欄を出す場所 */
+  target?: RenameTarget;
 };
 
 export class LayerEditor {
@@ -59,15 +74,18 @@ export class LayerEditor {
     this.element = h('div', { class: 'layer-editor' });
   }
 
+  /** v0.4: キー別で描いている */
+  get byKey(): boolean {
+    return this.element.classList.contains('by-key');
+  }
+
   get inputs(): ReadonlyMap<string, KeyInput> {
     return new Map([...this.fields].map(([id, field]) => [id, field.input]));
   }
 
   /** 欄を作り直す。前の欄は dispose する（外したときの blur で決めないように） */
   setSlots(slots: Slot[]): void {
-    for (const field of this.fields.values()) field.input.dispose();
-    this.fields.clear();
-    this.element.replaceChildren();
+    this.clear(false);
     for (const hand of ['left', 'right'] as const) {
       const section = h('section', { class: 'hand' }, h('h3', {}, HAND_LABEL[hand]));
       const keys = slots.filter((slot) => slot.hand === hand && slot.key);
@@ -79,6 +97,41 @@ export class LayerEditor {
       if (encoders.length > 0) section.append(this.group('エンコーダ', encoders));
       this.element.append(section);
     }
+  }
+
+  /** v0.4: キー別に並べる。位置の並び・グループの分け方は setSlots と同じ（positions は見出しの欄の position_map の順） */
+  setPositions(positions: PositionSlots[]): void {
+    this.clear(true);
+    for (const hand of ['left', 'right'] as const) {
+      const section = h('section', { class: 'hand' }, h('h3', {}, HAND_LABEL[hand]));
+      const keys = positions.filter((p) => p.slot.hand === hand && p.slot.key);
+      const groups = [...new Set(keys.map((p) => p.slot.key!.group))];
+      for (const group of groups) {
+        section.append(this.positionGroup(groupLabel(group), keys.filter((p) => p.slot.key!.group === group)));
+      }
+      const encoders = positions.filter((p) => p.slot.hand === hand && p.slot.encoder);
+      if (encoders.length > 0) section.append(this.positionGroup('エンコーダ', encoders));
+      this.element.append(section);
+    }
+  }
+
+  /** v0.4: 図で選んでいるレイヤーの行を強調する（キー別だけ） */
+  setCurrentLayer(index: number | undefined): void {
+    for (const field of this.fields.values()) {
+      field.element.classList.toggle('current-layer', field.layer !== undefined && field.layer === index);
+    }
+  }
+
+  /** v0.4: ▽ と書いていない行を畳む（今のレイヤー・選んでいる行・未保存の行は残す。CSS） */
+  setFoldQuiet(fold: boolean): void {
+    this.element.classList.toggle('fold-quiet', fold);
+  }
+
+  private clear(byKey: boolean): void {
+    for (const field of this.fields.values()) field.input.dispose();
+    this.fields.clear();
+    this.element.replaceChildren();
+    this.element.classList.toggle('by-key', byKey);
   }
 
   /** 作り直さずに欄の中身（保存済みの値など）だけを差し替える。並びと Address は同じであること */
@@ -95,12 +148,40 @@ export class LayerEditor {
     return h('div', { class: 'group' }, h('div', { class: 'group-label' }, label), fields);
   }
 
-  private field(slot: Slot): HTMLElement {
+  private positionGroup(label: string, positions: PositionSlots[]): HTMLElement {
+    const blocks = h('div', { class: 'positions' });
+    for (const position of positions) blocks.append(this.positionBlock(position));
+    return h('div', { class: 'group' }, h('div', { class: 'group-label' }, label), blocks);
+  }
+
+  /** キー別の位置 1 つ: 位置の名前の見出しと、レイヤーごとの行 */
+  private positionBlock(position: PositionSlots): HTMLElement {
+    const { slot } = position;
+    const heading = h('span', { class: `position-heading${slot.key ? ' position-label' : ''}`, title: slotLabel(slot) }, slot.label);
+    const labelBox = h('span', { class: 'field-label-box position-heading-box' }, heading);
+    const element = h('div', { class: 'position-block', role: 'group', 'aria-label': slotLabel(slot) }, labelBox);
+    const target: RenameTarget = { slot, labelBox, element };
+    if (slot.key?.positionAddress && this.options.onRenamePosition) {
+      const rename = h(
+        'button',
+        { type: 'button', class: 'rename-position', title: '位置の名前を変える', 'aria-label': `位置の名前 ${slot.label} を変える` },
+        '✎',
+      );
+      rename.addEventListener('click', () => this.openRename(target, position.rows[0]?.slot.id));
+      labelBox.append(rename);
+    }
+    for (const row of position.rows) {
+      element.append(this.field(row.slot, { label: layerTitle(row.layer), layer: row.layer.index, target }));
+    }
+    return element;
+  }
+
+  private field(slot: Slot, row?: { label: string; layer: number; target: RenameTarget }): HTMLElement {
     const removable = !!this.options.onRemove;
     const input = new KeyInput({
       context: slot.context,
       host: this.options.host,
-      label: slotLabel(slot),
+      label: row ? `${slotLabel(slot)}（レイヤー ${row.label}）` : slotLabel(slot),
       // 割り当てのない欄は空白のまま（v0.3。図の書いていない位置と同じく何も出さない）
       onCommit: (text) => this.options.onCommit(slot.id, text),
       builder: this.options.layers ? { layers: this.options.layers } : {},
@@ -109,12 +190,20 @@ export class LayerEditor {
     });
     const label = h(
       'label',
-      { class: `field-label${slot.key ? ' position-label' : ''}`, for: input.inputId, title: slot.address.path.join('.') },
-      slot.label,
+      {
+        class: row ? 'field-label layer-row-label' : `field-label${slot.key ? ' position-label' : ''}`,
+        for: input.inputId,
+        title: row ? `${slot.address.file}: ${slot.address.path.join('.')}` : slot.address.path.join('.'),
+      },
+      row ? row.label : slot.label,
     );
     const labelBox = h('span', { class: 'field-label-box' }, label);
     const field: Field = { slot, element: h('div'), input, labelBox, label, committedNote: '', noteEditing: false };
-    if (slot.key?.positionAddress && this.options.onRenamePosition) {
+    if (row) {
+      field.layer = row.layer;
+      field.target = row.target;
+    }
+    if (!row && slot.key?.positionAddress && this.options.onRenamePosition) {
       const rename = h(
         'button',
         { type: 'button', class: 'rename-position', title: '位置の名前を変える', 'aria-label': `位置の名前 ${slot.label} を変える` },
@@ -162,7 +251,7 @@ export class LayerEditor {
       extra.append(remove);
     }
     const main = h('div', { class: 'field-main' }, input.element, extra.childElementCount > 0 ? extra : null);
-    const element = h('div', { class: 'field', 'data-slot': slot.id }, labelBox, main);
+    const element = h('div', { class: row ? 'field layer-row' : 'field', 'data-slot': slot.id, ...(row ? { 'data-layer': row.layer } : {}) }, labelBox, main);
     field.element = element;
     input.input.addEventListener('focus', () => this.options.onFocus(slot.id));
     this.options.decorate?.(input, slot.id);
@@ -184,16 +273,29 @@ export class LayerEditor {
   /** 位置の名前を変える欄を開く（ラベルの ✎ か、位置の名前を出している図のキーから） */
   startRename(slotId: string): void {
     const field = this.fields.get(slotId);
-    if (!field || !field.slot.key?.positionAddress || !this.options.onRenamePosition) return;
-    if (field.rename) {
-      field.rename.focus();
+    if (!field) return;
+    if (field.target) {
+      this.openRename(field.target, slotId);
       return;
     }
+    field.target = { slot: field.slot, labelBox: field.labelBox, element: field.element };
+    this.openRename(field.target, slotId);
+  }
+
+  /** focusId は名前を決めたあと（Enter・Esc）にフォーカスを返す欄 */
+  private openRename(target: RenameTarget, focusId: string | undefined): void {
+    const slot = target.slot;
+    if (!slot.key?.positionAddress || !this.options.onRenamePosition) return;
+    if (target.rename) {
+      target.rename.focus();
+      return;
+    }
+    const focusField = () => (focusId ? this.fields.get(focusId)?.input.input.focus() : undefined);
     const input = h('input', {
       type: 'text',
       class: 'position-name-input',
-      value: field.slot.label,
-      'aria-label': `${HAND_LABEL[field.slot.hand]} ${field.slot.label} の位置の名前`,
+      value: slot.label,
+      'aria-label': `${HAND_LABEL[slot.hand]} ${slot.label} の位置の名前`,
       spellcheck: 'false',
       autocomplete: 'off',
     });
@@ -203,8 +305,8 @@ export class LayerEditor {
     const finish = (save: boolean) => {
       if (done) return;
       const to = input.value.trim();
-      if (save && to !== field.slot.label) {
-        const error = this.options.onRenamePosition?.(slotId, to) ?? null;
+      if (save && to !== slot.label) {
+        const error = this.options.onRenamePosition?.(slot.id, to) ?? null;
         if (error) {
           message.textContent = error;
           message.hidden = false;
@@ -213,21 +315,21 @@ export class LayerEditor {
         }
       }
       done = true;
-      field.rename = undefined;
-      box.replaceWith(field.labelBox);
+      target.rename = undefined;
+      box.replaceWith(target.labelBox);
     };
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
         finish(true);
-        if (done) field.input.input.focus();
+        if (done) focusField();
       } else if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
         done = false;
-        input.value = field.slot.label;
+        input.value = slot.label;
         finish(false);
-        field.input.input.focus();
+        focusField();
       }
     });
     input.addEventListener('input', () => {
@@ -239,9 +341,9 @@ export class LayerEditor {
       finish(true);
       if (!done) finish(false);
     });
-    field.rename = input;
-    field.labelBox.replaceWith(box);
-    field.element.scrollIntoView?.({ block: 'nearest' });
+    target.rename = input;
+    target.labelBox.replaceWith(box);
+    target.element.scrollIntoView?.({ block: 'nearest' });
     input.focus();
     input.select();
   }
@@ -254,6 +356,7 @@ export class LayerEditor {
     field.element.classList.toggle('changed', view.changed);
     field.element.classList.toggle('has-note', view.note !== '');
     field.element.classList.toggle('unassigned', view.text === '');
+    field.element.classList.toggle('quiet', view.quiet === true);
     field.committedNote = view.note;
     if (field.note) {
       if (!field.noteEditing && field.note.value !== view.note) field.note.value = view.note;

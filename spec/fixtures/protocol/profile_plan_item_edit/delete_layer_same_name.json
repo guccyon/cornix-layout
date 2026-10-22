@@ -1,0 +1,75 @@
+{
+  "description": "レイヤーを消す: レイヤーの名前は重なってよい（authors のレイヤー 5〜9 はどれも Empty）ので、file のレイヤーを消す（同じ名前の最初のものではない。issue #84）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/9_empty.yml": "sha256:0b4594c8691748d30d3d8d28d034d2ed365ef0e2f590d0c2e38daaadcf9164b7"
+      },
+      "edit": {
+        "op": "delete",
+        "kind": "layer",
+        "name": "Empty",
+        "file": "layers/9_empty.yml"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "layers/9_empty.yml",
+          "baseVersion": "sha256:0b4594c8691748d30d3d8d28d034d2ed365ef0e2f590d0c2e38daaadcf9164b7",
+          "create": false,
+          "edits": [
+
+          ],
+          "delete": true
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "encoders",
+            "right",
+            "push"
+          ]
+        }
+      ],
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "レイヤー 9 が定義されていません",
+          "source": "semantic",
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "encoders",
+              "right",
+              "push"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 71,
+              "character": 12
+            },
+            "end": {
+              "line": 71,
+              "character": 18
+            }
+          }
+        }
+      ]
+    }
+  }
+}

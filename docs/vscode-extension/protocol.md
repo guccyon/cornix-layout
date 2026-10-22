@@ -1258,7 +1258,8 @@ type ItemEdit =
   | /* 12.5・13.1・14.9 のもの */
   | { op: "use"; kind: IndexedKind; file: string }                    // 未使用の項目を使い始める
   | { op: "unuse"; kind: IndexedKind; file: string }                  // 未使用にする
-  | { op: "setIndex"; kind: IndexedKind; file: string; index: number }; // 番号を変える（使っている番号なら入れ替え）
+  | { op: "setIndex"; kind: IndexedKind; file: string; index: number }  // 番号を変える（使っている番号なら入れ替え）
+  | { op: "reorder"; kind: IndexedKind; files: string[] };              // 使っている項目を並べ直す（ADR 025）
 
 // params に足す
 { "changes": AnyChange[] }   // 今の未保存の変更（当てる順の並び）。省けば []
@@ -1266,7 +1267,7 @@ type ItemEdit =
 { "files": [], "changes": AnyChange[], "references": Address[], "diagnostics": Diagnostic[] }
 ```
 
-- `use` / `unuse` / `setIndex` と `create`（`kind: "shortcut"`）は、ファイルの書き換え（`files`）ではなく、**未保存の変更に積む Change の並び**（`changes`）を返す（`files` は `[]`）。
+- `use` / `unuse` / `setIndex` / `reorder` と `create`（`kind: "shortcut"`）は、ファイルの書き換え（`files`）ではなく、**未保存の変更に積む Change の並び**（`changes`）を返す（`files` は `[]`）。
   拡張は確認なしで（`unuse` で壊れる参照があるときだけ確認して）未保存の変更の末尾に足す。1 回の操作の Change は元に戻す・やり直しで一緒に動く（ADR 022）
 - どれも params の `changes`（今の未保存の変更）を当てた状態で決める（2 つ続けて取り出したときに同じ番号にならないように）。`baseVersions` の照合は返す Change の宛先のファイルだけ（12.5 と同じ）
 - 項目はファイル（`file`）で指す（14.9 と同じ理由で、名前も番号も 1 つに決まらないため）。そのファイルのその種類の項目がなければ `-32602`（`"edit.file"`）
@@ -1278,17 +1279,23 @@ type ItemEdit =
   範囲の外・今と同じ番号なら `-32602`（`"edit.index"`）、未使用の項目なら `-32602`（`"edit.file"`。先に `use`）
   - **マクロ・タップダンス**: 番号の参照（`Macro(3)` / `M3` / `TD(2)` / `TapDance(2)` など、番号で書いた参照）を、表記の形を保ったまま新しい番号に書き換える `set` を `changes` に足す（入れ替えなら両方向）。
     名前の参照（`Macro('名前')`）は名前で引くので書き換えない。書き換えた場所を `references` に返す。参照を書き換えたあとの compile の結果は、その参照の 16bit 値だけが変わる（中身は同じものを指す）
-  - **レイヤー**: 参照（`MO(1)` など）は書き換えない（レイヤーの番号は概念として「レイヤー 1」を指すので、中身を入れ替えるのが目的。#105）。`references` は `[]`
+  - **レイヤー**: そのレイヤーを指すレイヤー操作（`MO(n)` / `TG(n)` / `TO(n)` / `TT(n)` / `OSL(n)` / `DF(n)` / `PDF(n)` / `LT(n, kc)` / `LT<n>(kc)` / `LM(n, mod)` など、16bit 値の中のレイヤーの番号）を、
+    表記の形を保ったまま新しい番号に書き換える `set` を `changes` に足し、書き換えた場所を `references` に返す（ADR 025 で変えた。v0.5 の最初は書き換えなかった）。
+    書き換えたあとの compile の結果は、そのレイヤー操作の 16bit 値の番号だけが変わる（同じ中身のレイヤーを指す）
   - **コンボ**: 参照されないので番号だけ
   - 番号の参照に数えるのは、16bit 値がその `M(n)` / `TD(n)` になる欄のうち、表記が `Macro(n)` / `M<n>` / `TapDance(n)` / `TD(n)` / `0xHHHH`（桁数と大文字・小文字を保つ）のもの。
     レイヤーのキー・エンコーダのほか、マクロの手順のキー・タップダンスの動作・コンボ・`shortcuts.yaml` の値も書き換える。
     書き換えられない番号の参照（YAML の整数で書いた 16bit 値など）が残って参照の指す先が変わるときは、書き換えを作らずに `-32061`（reason `"verify"`）（R #111 で決めた）
+- **reorder**（ADR 025）: `files` は使っている項目すべて（params の `changes` を当てた状態）を新しい並びにしたもの。今の番号を小さい順に並べ、新しい並びの順に当てる（抜け番はそのまま残る。
+  例: 番号 0・2・5 の A・B・C を `[C, A, B]` にすると C=0・A=2・B=5）。番号の変わる項目ごとに `["index"]` の `set` を返し、参照の書き換えは setIndex と同じ（番号の変わるすべての項目について、元の番号の参照を新しい番号に。
+  同時に当てるので、入れ替わる番号どうしでも取り違えない）。並びが今と同じなら `changes` は `[]`。
+  `files` が使っている項目の集まりと違う（足りない・余分・重複・未使用のファイル）なら `-32602`（`"edit.files"`）。画面の並び替えの「確定」が 1 回送る
 - `unuse` の `references` は 14.9 の delete と同じく、そのファイルの中の欄を入れない。params の `changes` が当てられなければ、5.6 と同じ `-32602`（field `"changes[i]...."`）
 - **create（shortcut）**: 12.5 の行の追加の代わりに、`["shortcuts", 名前]` の `set`（15.2）を返す。同じ名前が保存済みにも未保存の変更にもあれば `-32602`（`"edit.name"`）
 - ほかの op（create（shortcut 以外）・delete・rename・renamePosition・expandPreset）は今のまま `files` を返し、拡張は未保存の変更があれば先に保存を促す
 - 拡張がこれらの op を送るのは画面の操作だけ。YAML を手で書き換えたときは参照は追従しない（#85）
 - 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `use_*`・`unuse_*`・`set_index_*`・`create_shortcut_*`、
-  `profile_plan_edits/` の `index_*`・`shortcut_add*`、`profile_open/` の `unused*`（R が足す）
+  `profile_plan_edits/` の `index_*`・`shortcut_add*`、`profile_open/` の `unused*`（R が足す）。reorder とレイヤーの参照の書き換えは `reorder_*`・`set_index_layer_*`（R2 が足す）
 
 ### 15.4 拡張だけで作るもの
 

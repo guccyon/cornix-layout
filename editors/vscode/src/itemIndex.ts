@@ -80,5 +80,5 @@ export function nextIndex(kind: IndexedKind, usedIndexes: readonly number[]): nu
 
 /** 未保存の変更に積む項目の操作か（ホストはすぐ書かずに planItemEdit の changes を積む。protocol.md の 15.3） */
 export function isPendingItemEdit(edit: ItemEdit): boolean {
-  return edit.op === 'use' || edit.op === 'unuse' || edit.op === 'setIndex' || (edit.op === 'create' && edit.kind === 'shortcut');
+  return edit.op === 'use' || edit.op === 'unuse' || edit.op === 'setIndex' || edit.op === 'reorder' || (edit.op === 'create' && edit.kind === 'shortcut');
 }

@@ -473,7 +473,12 @@ export type ItemEdit =
   /** v0.5: 使っている項目の index: を消して未使用にする（15.3。結果は changes） */
   | { op: 'unuse'; kind: IndexedKind; file: string }
   /** v0.5: 番号を変える。index がほかの項目の番号なら入れ替える（15.3。結果は changes） */
-  | { op: 'setIndex'; kind: IndexedKind; file: string; index: number };
+  | { op: 'setIndex'; kind: IndexedKind; file: string; index: number }
+  /**
+   * v0.5: 使っている項目を並べ直す（15.3。結果は changes）。files は使っている項目すべて（未保存の変更を当てた状態）の新しい並び。
+   * 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）
+   */
+  | { op: 'reorder'; kind: IndexedKind; files: string[] };
 
 /** v0.5: 番号（index:）を持つ種類 */
 export type IndexedKind = 'layer' | 'macro' | 'tapDance' | 'combo';
@@ -483,7 +488,7 @@ export type PlanItemEditParams = {
   /** snapshot.files をそのまま */
   baseVersions: Record<string, FileVersion>;
   edit: ItemEdit;
-  /** v0.5: 今の未保存の変更（当てる順の並び）。use / unuse / setIndex と create（shortcut）は、これを当てた状態で決める（protocol.md の 15.3） */
+  /** v0.5: 今の未保存の変更（当てる順の並び）。use / unuse / setIndex / reorder と create（shortcut）は、これを当てた状態で決める（protocol.md の 15.3） */
   changes?: AnyChange[];
 };
 
@@ -495,9 +500,9 @@ export type ItemFileEdits = FileEdits & {
 };
 
 export type PlanItemEditResult = {
-  /** v0.5: use / unuse / setIndex と create（shortcut）では []（代わりに changes） */
+  /** v0.5: use / unuse / setIndex / reorder と create（shortcut）では []（代わりに changes） */
   files: ItemFileEdits[];
-  /** v0.5: 未保存の変更に積む Change の並び（use / unuse / setIndex と create（shortcut）だけ。protocol.md の 15.3） */
+  /** v0.5: 未保存の変更に積む Change の並び（use / unuse / setIndex / reorder と create（shortcut）だけ。protocol.md の 15.3） */
   changes?: AnyChange[];
   /** 書き換える（削除・unuse なら壊れる）参照の場所 */
   references: Address[];

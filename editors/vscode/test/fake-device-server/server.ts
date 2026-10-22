@@ -218,7 +218,6 @@ export class FakeDeviceServer {
         return this.apply(params, id);
       case 'device/backups':
         this.dirParam(params);
-        this.ensureAvailable();
         return { backups: this.backups.map(({ table: _table, ...backup }) => backup) };
       case 'device/compareBackup':
         return this.compareBackup(params, id);

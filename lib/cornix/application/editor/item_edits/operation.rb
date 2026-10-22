@@ -63,15 +63,24 @@ module Cornix
             raise InvalidChange.new(field, problem) if problem
           end
 
-          # 名前の項目と、そのファイル（設定ディレクトリからの相対パス）
-          def find_item(kind, name)
+          # 名前の項目と、そのファイル（設定ディレクトリからの相対パス）。
+          # レイヤーは名前が重なってよい（空のレイヤーはどれも Empty など）ので、index があれば番号で探す（issue #84）
+          def find_item(kind, name, index: nil)
             items = kind.items(profile)
-            position = items.index { |item| item.name == name }
-            raise InvalidChange.new('edit.name', "#{kind.label}「#{name}」がありません") unless position
+            if index.nil?
+              position = items.index { |item| item.name == name }
+              raise InvalidChange.new('edit.name', "#{kind.label}「#{name}」がありません") unless position
+            else
+              position = items.index { |item| item.index == index }
+              raise InvalidChange.new('edit.index', "#{kind.label} #{index} がありません") unless position
+            end
 
             file, = reading.repository.address("#{kind.collection}[#{position}]")
             [items[position], file]
           end
+
+          # 重なってはいけない名前（レイヤーの名前は重なってよい。ファイル名は番号が付くので分かれる）
+          def taken_names(kind) = kind.name == 'layer' ? [] : kind.items(profile).map(&:name)
 
           def shortcut_names = profile.shortcuts.entries.keys
 

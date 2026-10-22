@@ -10,8 +10,8 @@ module Cornix
         #   Edit.new(op: 'create', kind: 'shortcut', name: '前のタブへ', value: 'Command + Shift + [')
         #   Edit.new(op: 'create', kind: 'layer', name: 'Symbols', index: 3)   # index を省けば空いているいちばん小さい番号
         #   Edit.new(op: 'delete', kind: 'tapDance', name: 'Tab Escape')
-        #   Edit.new(op: 'delete', kind: 'layer', name: 'Symbols')
-        #   Edit.new(op: 'rename', kind: 'layer', name: 'Layer 1', to: 'Symbols')
+        #   Edit.new(op: 'delete', kind: 'layer', name: 'Empty', index: 7)      # レイヤーは index で探す（省けば name）
+        #   Edit.new(op: 'rename', kind: 'layer', name: 'Layer 1', to: 'Symbols', index: 1)
         #   Edit.new(op: 'renamePosition', hand: 'left', row: 0, col: 0, to: 'esc')
         #   Edit.new(op: 'expandPreset', kind: 'macro', name: 'Capture')
         #

@@ -18,6 +18,10 @@ v0.4 のうち issue #84（下の欄の「キーごと」の並べ方・レイ�
 - 削除の references は `Domain::Keycode.layer_index`（16bit 値の解釈。Raw のレイヤー操作は数えない。#83 の decompile と同じ）
 - 適合テストのデータの `setup.files` の値を `null` にするとファイルを消せる（Ruby と拡張の両方の読み手に足した）。authors_config はレイヤーが 10 枚そろっているので、追加のデータは 1 枚消してから
 
+- レイヤーの名前は重なってよい（authors の 5〜9 はどれも Empty）。名前で探すと最初のもの（5）が消えた不具合があり、`delete`・`rename` に `index` を足して番号で探す
+  （`Operation#find_item(kind, name, index:)`、重なりの検査は `taken_names` でレイヤーだけ外す）。Tetsuro の確認で見つかった。項目を名前で指す約束を足すときは、名前が一意かを先に確かめる
+- 適合テストのデータの `setup.files` のパスはルートから（`profiles/default/layers/...`）。`layers/...` と書くと何も消えない
+
 ## 拡張
 
 - キーごとでは、図の欄（`App#slots`。選んでいるレイヤー）と下の欄（`editorSlots`。全レイヤー）を分け、欄は `slotById`（id → Slot）で引く。

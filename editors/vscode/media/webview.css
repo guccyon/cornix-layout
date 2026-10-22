@@ -106,6 +106,21 @@ button {
   border-color: var(--vscode-button-background);
 }
 
+/* v0.4: 検証の問題があるレイヤーのタブの点（黄は警告、赤はエラー） */
+.layer-tab-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.layer-tab-dot.error {
+  background: var(--vscode-editorError-foreground, #f14c4c);
+}
+
 .keyboard {
   max-width: 1100px;
   margin: 0 auto;

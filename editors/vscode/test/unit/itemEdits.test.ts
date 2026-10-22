@@ -33,8 +33,8 @@ describe('describeItemEdit', () => {
       references: [ref, ref],
       diagnostics: [],
     };
-    const remove = describeItemEdit({ op: 'delete', kind: 'layer', name: 'Function' }, deleted);
-    expect(remove.message).toContain('レイヤー Function を削除します。');
+    const remove = describeItemEdit({ op: 'delete', kind: 'layer', name: 'Function', index: 3 }, deleted);
+    expect(remove.message).toContain('レイヤー 3 Function を削除します。');
     expect(remove.message).toContain('レイヤー操作（MO・LT・TG など）が 2 件あり');
     expect(remove.message).toContain('KC_NO');
     expect(describeItemEdit({ op: 'delete', kind: 'layer', name: 'Function' }, { ...deleted, references: [] }).message).toContain('指すレイヤー操作はありません');
@@ -105,6 +105,11 @@ describe('isItemEdit', () => {
     expect(isItemEdit({ op: 'create', kind: 'layer', name: 'Mouse' })).toBe(true);
     expect(isItemEdit({ op: 'create', kind: 'layer', name: 'Mouse', index: '5' })).toBe(false);
     expect(isItemEdit({ op: 'create', kind: 'macro', name: 'X', index: 3 })).toBe(false);
+    // レイヤーの名前は重なってよいので、削除と名前の変更は番号で指せる（ほかの種類には書けない）
+    expect(isItemEdit({ op: 'delete', kind: 'layer', name: 'Empty', index: 9 })).toBe(true);
+    expect(isItemEdit({ op: 'rename', kind: 'layer', name: 'Empty', to: 'Mouse', index: 9 })).toBe(true);
+    expect(isItemEdit({ op: 'delete', kind: 'macro', name: 'X', index: 3 })).toBe(false);
+    expect(isItemEdit({ op: 'delete', kind: 'layer', name: 'Empty', index: 1.5 })).toBe(false);
     expect(isItemEdit({ op: 'renamePosition', hand: 'left', row: 0, col: 1, to: 'q' })).toBe(true);
     expect(isItemEdit({ op: 'renamePosition', hand: 'up', row: 0, col: 1, to: 'q' })).toBe(false);
     expect(isItemEdit({ op: 'expandPreset', kind: 'macro', name: 'Copy Selected' })).toBe(true);

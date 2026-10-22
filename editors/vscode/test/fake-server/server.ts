@@ -595,6 +595,11 @@ class FakeServer {
               .filter((slot) => slot.value?.text === text)
               .map((slot) => slot.address),
           );
+    // レイヤーは名前が重なってよいので、index があれば番号で探す（issue #84）
+    const findItem = (kind: string, name: string, index: number | undefined) =>
+      kind === 'layer' && index !== undefined
+        ? (itemsOf(kind).find((i) => i.index === index) ?? invalid(`レイヤー ${index} はありません`, 'edit.index'))
+        : (itemsOf(kind).find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name'));
     const zero = { line: 0, character: 0 };
 
     switch (edit.op) {
@@ -616,7 +621,6 @@ class FakeServer {
         if (edit.kind === 'layer') {
           // v0.4（protocol.md の 14.9）: 選んだ番号（省けば空いているいちばん小さい番号）で layers/<番号>_<slug> を作る
           const layers = snapshot.layers;
-          if (layers.some((layer) => layer.name === name)) invalid(`${name} はすでにあります`, 'edit.name');
           let index = edit.index ?? 0;
           if (edit.index === undefined) while (layers.some((layer) => layer.index === index)) index += 1;
           if (!Number.isInteger(index) || index < 0 || index > 9) invalid('レイヤーの番号は 0〜9 です', edit.index === undefined ? 'edit' : 'edit.index');
@@ -658,7 +662,7 @@ class FakeServer {
           if (line < 0) invalid(`ショートカット ${name} はありません`, 'edit.name');
           editOf('shortcuts.yaml').edits.push({ range: { start: { line, character: 0 }, end: { line: line + 1, character: 0 } }, newText: '' });
         } else {
-          const item = itemsOf(edit.kind).find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name');
+          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.index : undefined);
           files.push({ file: item.file, baseVersion: current[item.file] ?? null, create: false, delete: true, edits: [] });
           if (edit.kind === 'layer') {
             // そのレイヤーを指すレイヤー操作（display.hold が "L<番号>"）。消すファイルの中は入れない
@@ -695,8 +699,8 @@ class FakeServer {
           editOf('shortcuts.yaml').edits.push({ range: { start: { line, character: start }, end: { line, character: end } }, newText: quote(to) });
         } else {
           const items = itemsOf(edit.kind);
-          const item = items.find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name');
-          if (items.some((i) => i.name === to)) invalid(`${to} はすでにあります`, 'edit.to');
+          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.index : undefined);
+          if (edit.kind !== 'layer' && items.some((i) => i.name === to)) invalid(`${to} はすでにあります`, 'edit.to');
           if (to === VERIFY_FAIL_NAME) this.verifyFail({ file: item.file, path: ['name'] });
           const lines = read(item.file).split('\n');
           const range = findValue(lines, ['name']);

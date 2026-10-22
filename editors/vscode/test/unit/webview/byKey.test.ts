@@ -166,15 +166,18 @@ describe('レイヤーの追加と削除', () => {
     const select = root.querySelector<HTMLSelectElement>('.layer-form select')!;
     expect([...select.options].map((o) => o.value)).toEqual(['2', '3', '4', '5', '6', '7', '8', '9']);
     const name = root.querySelector<HTMLInputElement>('.layer-form .item-name-input')!;
-    // 名前の決まり（空・重なり）
+    // 名前の決まり（空はだめ。ほかのレイヤーと同じ名前はよい。ファイル名は番号で分かれる）
     root.querySelector<HTMLButtonElement>('.layer-form .primary')!.click();
     expect(root.querySelector('.layer-form .message-line')?.textContent).toBe('名前を入れてください');
     name.value = 'Base';
     root.querySelector<HTMLButtonElement>('.layer-form .primary')!.click();
-    expect(root.querySelector('.layer-form .message-line')?.textContent).toBe('「Base」はもうあります');
-    select.value = '5';
-    name.value = 'Mouse';
-    name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    expect(host.itemEdits).toEqual([{ op: 'create', kind: 'layer', name: 'Base', index: 2 }]);
+    host.itemEdits.length = 0;
+    add.click();
+    root.querySelector<HTMLSelectElement>('.layer-form select')!.value = '5';
+    const nameAgain = root.querySelector<HTMLInputElement>('.layer-form .item-name-input')!;
+    nameAgain.value = 'Mouse';
+    nameAgain.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
     expect(host.itemEdits).toEqual([{ op: 'create', kind: 'layer', name: 'Mouse', index: 5 }]);
     expect(root.querySelector('.layer-form')).toBeNull();
 
@@ -190,10 +193,55 @@ describe('レイヤーの追加と削除', () => {
     expect(root.querySelector<HTMLButtonElement>('.layer-tabs [data-layer-add]')!.disabled).toBe(true);
   });
 
-  it('見出しの「レイヤーを削除」は選んでいるレイヤーを消す操作をホストに渡す（確認とファイルの削除はホスト）', () => {
+  it('見出しの「レイヤーを削除」は選んでいるレイヤーを番号で消す操作をホストに渡す（確認とファイルの削除はホスト）', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     app.selectLayer(1);
     root.querySelector<HTMLButtonElement>('.layer-info .layer-delete')!.click();
-    expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Symbols' }]);
+    expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Symbols', index: 1 }]);
+  });
+
+  it('同じ名前のレイヤーがあっても、選んでいるレイヤーの番号を渡す', () => {
+    const snapshot = fixtureSnapshot();
+    const empties = [5, 9].map((index) => copyLayer(snapshot.layers[1]!, index, 'Empty', `layers/${index}_empty.yml`));
+    app.receive({ type: 'snapshot', snapshot: { ...snapshot, layers: [...snapshot.layers, ...empties] }, changes: [] });
+    app.selectLayer(9);
+    root.querySelector<HTMLButtonElement>('.layer-info .layer-delete')!.click();
+    expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Empty', index: 9 }]);
+  });
+
+  it('キーごとでは「レイヤーを削除」を出さない（どれが消えるか分かりにくい）', () => {
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    expect(root.querySelector('.layer-info .layer-delete')).not.toBeNull();
+    app.setMode('key');
+    expect(root.querySelector('.layer-info .layer-delete')).toBeNull();
+    app.setMode('layer');
+    expect(root.querySelector('.layer-info .layer-delete')).not.toBeNull();
+  });
+});
+
+describe('レイヤーのタブの検証の印', () => {
+  it('保存済みの中身に問題があるレイヤーのタブに点を付け、ツールチップに件数と文を出す', () => {
+    const snapshot = fixtureSnapshot();
+    const address = { file: base, path: ['mapping', 'left_hand', 'row0', 'Q'] };
+    app.receive({
+      type: 'snapshot',
+      snapshot: {
+        ...snapshot,
+        diagnostics: [
+          { severity: 'warning', source: 'semantic', message: 'レイヤー 8 が定義されていません', address },
+          { severity: 'error', source: 'structure', message: '読めない表記です', file: symbols },
+        ],
+      },
+      changes: [],
+    });
+    const tab = (index: number) => root.querySelector<HTMLElement>(`.layer-tab[data-layer='${index}']`)!;
+    expect(tab(0).querySelector('.layer-tab-dot')?.className).toBe('layer-tab-dot warning');
+    expect(tab(0).title).toBe(`${base}\n警告 1 件\n・レイヤー 8 が定義されていません`);
+    expect(tab(1).querySelector('.layer-tab-dot')?.className).toBe('layer-tab-dot error');
+    expect(tab(1).title).toContain('エラー 1 件');
+
+    app.receive({ type: 'snapshot', snapshot, changes: [] });
+    expect(root.querySelector('.layer-tab-dot')).toBeNull();
+    expect(tab(0).title).toBe(base);
   });
 });

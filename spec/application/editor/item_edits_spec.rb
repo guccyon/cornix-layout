@@ -188,6 +188,33 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
         include(severity: 'warning', address: { file: 'layers/0_layer_0.yaml', path: %w[mapping encoders right push] })
       )
     end
+
+    context 'レイヤーの名前が重なっているとき（空のレイヤーがどれも Empty など）' do
+      before do
+        %w[7 8].each { |n| write("layers/#{n}_layer_#{n}.yaml", read("layers/#{n}_layer_#{n}.yaml").sub("name: Layer #{n}", 'name: Empty')) }
+      end
+
+      it '消すのは index のレイヤー（同じ名前の最初のものではない）。index のないレイヤーは field "edit.index"' do
+        result = plan(op: 'delete', kind: 'layer', name: 'Empty', index: 8)
+        expect(result[:files].map { |f| f[:file] }).to eq(['layers/8_layer_8.yaml'])
+        remove('layers/5_layer_5.yaml')
+        expect { plan(op: 'delete', kind: 'layer', name: 'Empty', index: 5) }
+          .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.index') }
+      end
+
+      it '同じ名前のレイヤーを足せる（ファイル名は番号で分かれる）' do
+        remove('layers/5_layer_5.yaml')
+        result = plan(op: 'create', kind: 'layer', name: 'Empty', index: 5)
+        expect(result[:files].map { |f| f[:file] }).to eq(['layers/5_empty.yaml'])
+      end
+
+      it '名前の変更も index のレイヤー。ほかのレイヤーと同じ名前にもできる' do
+        result = plan(op: 'rename', kind: 'layer', name: 'Empty', index: 8, to: 'Mouse')
+        expect(result[:files].map { |f| f.slice(:file, :renameTo) }).to eq([{ file: 'layers/8_layer_8.yaml', renameTo: 'layers/8_mouse.yaml' }])
+        result = plan(op: 'rename', kind: 'layer', name: 'Layer 6', index: 6, to: 'Empty')
+        expect(result[:files].map { |f| f[:file] }).to eq(['layers/6_layer_6.yaml'])
+      end
+    end
   end
 
   describe 'rename' do
@@ -242,10 +269,10 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
         }
     end
 
-    it '知らない名前・ほかと同じ名前は InvalidChange' do
+    it '知らない名前・ほかと同じ名前（レイヤーのほか）は InvalidChange' do
       expect { plan(op: 'rename', kind: 'layer', name: 'Nope', to: 'X') }
         .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.name') }
-      expect { plan(op: 'rename', kind: 'layer', name: 'Layer 1', to: 'Layer 2') }
+      expect { plan(op: 'rename', kind: 'macro', name: 'Macro 0', to: 'Macro 1') }
         .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.to') }
     end
   end

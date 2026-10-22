@@ -11,7 +11,7 @@ module Cornix
         # マクロ・タップダンス・コンボ: そのファイルを消す。references は、そのマクロ・タップダンスを指す欄
         #   （名前でも番号でも、Shortcut(...) を通してでも、16bit 値がその M(n) / TD(n) になるもの。shortcuts.yaml の値も）。
         #   コンボは参照されないので []
-        # レイヤー（v0.4。issue #84）: そのファイルを消す。references は、そのレイヤーを指すレイヤー操作（MO / TG / TO / OSL / LT / LM など。
+        # レイヤー（v0.4。issue #84）: index（省けば name）のレイヤーのファイルを消す。references は、そのレイヤーを指すレイヤー操作（MO / TG / TO / OSL / LT / LM など。
         #   16bit 値で数える。Domain::Keycode.layer_index）の欄。compile ではそのレイヤーは KC_NO で埋まる（#83）
         # ショートカット: shortcuts.yaml のその行を消す。references は Shortcut('名前') と書いた欄
         #   （同梱のショートカットに同じ名前があれば、消してもそちらを指すだけなので []）
@@ -24,7 +24,7 @@ module Cornix
             return delete_shortcut(edit) if edit.kind == 'shortcut'
 
             kind = kind_of(edit)
-            item, file = find_item(kind, edit.name)
+            item, file = find_item(kind, edit.name, index: edit.index)
             changeset.delete(file)
             outcome(references: references_to(edit.kind, item, file))
           end

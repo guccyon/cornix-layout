@@ -1,0 +1,33 @@
+{
+  "description": "レイヤーを消す: index のレイヤーがなければ -32602（field \"edit.index\"）",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/layers/9_empty.yml": null
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "delete",
+        "kind": "layer",
+        "name": "Empty",
+        "index": 9
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.index"
+      }
+    }
+  }
+}

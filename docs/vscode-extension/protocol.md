@@ -1124,16 +1124,21 @@ interface DevicePlan {
 type ItemEdit =
   | /* 12.5・13.1 のもの */
   | { op: "create"; kind: "layer"; name: string; index?: number }   // index は 0〜9。省けば空いているいちばん小さい番号
-  | { op: "delete"; kind: "layer"; name: string };
+  | { op: "delete"; kind: "layer"; name: string; index?: number }   // index があれば番号で探す（下の「名前の重なり」）
+  | { op: "rename"; kind: "layer"; name: string; to: string; index?: number };   // rename は 12.5 のもの。index を足した
 ```
+
+- **名前の重なり**: レイヤーの名前は重なってよい（decompile は空のレイヤーをどれも `Empty` などにする。ファイル名は番号の接頭辞で分かれる）。
+  そのため `delete`・`rename` は `index` があれば番号でレイヤーを探す（省けば `name` の最初のもの。v0.2 の拡張のため）。その番号のレイヤーがなければ `-32602`（`"edit.index"`）。
+  `create`・`rename` の新しい名前は、ほかのレイヤーと同じでもよい（空・前後の空白・改行はだめ）。拡張は削除と名前の変更にいつも `index` を付ける
 
 - **create**: `layers/<番号>_<名前>.<拡張子>` を作る。名前の部分は `Storage::ConfigFiles.item_path` と同じ（decompile が書く名前とそろえる。既定の名前 `Layer N` なら `layer`）、
   拡張子はそのディレクトリでいちばん多いもの（なければ `yaml`）。中身は `Schema::LayerFile` が受け付ける最小の形（`name`・`description: ''`・`index`・`mapping` の両手の空のグループ。エンコーダは書かない）。
   その番号のレイヤーがもうある・範囲の外なら `-32602`（`data: { "field": "edit.index" }`）、`index` を省いて空いている番号がなければ `"edit"`。
-  名前の決まりは 12.5 と同じ（ほかのレイヤーと重ならない）。`index` はレイヤーのときだけ書ける（ほかの種類に書けば `-32602`、`"edit.index"`）
+  名前は空でなければよい（上の「名前の重なり」）。`index` はレイヤーのときだけ書ける（ほかの種類に書けば `-32602`、`"edit.index"`）
 - **delete**: そのファイルを消す。参照は書き換えず、`references` にそのレイヤーを指すレイヤー操作（`MO` / `TG` / `TO` / `OSL` / `LT` / `LM` など。
   16bit 値で数える。消すファイルの中は入れない）の場所を返す。`diagnostics` は消したあとの検証の結果（指していた側に警告「レイヤー N が定義されていません」）。
   compile では消したレイヤーは `KC_NO` で埋まる（#83）
 - 結果の形・確認のダイアログのあとすぐ当てて保存することは 12.5 と同じ
-- 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `create_layer*.json`・`create_index_not_layer.json`・`delete_layer.json`
+- 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `create_layer*.json`・`create_index_not_layer.json`・`delete_layer*.json`
 - 同じ issue の下の欄の「キーごと」の並べ方（位置ごとに全レイヤーの欄を並べる）は拡張だけで作る。欄の変更は今と同じ `Change`（そのレイヤーのファイルの `address`）で、約束は変えない

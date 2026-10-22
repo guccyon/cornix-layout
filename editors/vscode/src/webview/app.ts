@@ -34,8 +34,11 @@ import {
   diagnosticsByAddress,
   keyAt,
   keyFaceNote,
+  layerProblems,
   layerSlots,
   layerTitle,
+  problemSummary,
+  severityOf,
   slotChanged,
   slotEdits,
   slotLabel,
@@ -446,10 +449,21 @@ export class App {
     this.tabs.replaceChildren(
       ...snapshot.layers.map((l) => {
         const selected = l.index === this.layerIndex;
+        // v0.4: 保存済みの中身に検証の問題があるレイヤーには点を付け、件数と文をツールチップに出す
+        const problems = layerProblems(snapshot, l.file);
+        const severity = severityOf(problems);
+        const title = problems.length > 0 ? `${l.file}\n${problemSummary(problems)}` : l.file;
         const tab = h(
           'button',
-          { type: 'button', class: `layer-tab${selected ? ' selected' : ''}`, 'aria-pressed': String(selected), 'data-layer': l.index, title: l.file },
+          {
+            type: 'button',
+            class: `layer-tab${selected ? ' selected' : ''}${severity ? ` has-${severity}` : ''}`,
+            'aria-pressed': String(selected),
+            'data-layer': l.index,
+            title,
+          },
           layerTitle(l),
+          ...nodes(severity && h('span', { class: `layer-tab-dot ${severity}`, 'aria-label': severity === 'error' ? 'エラーあり' : '警告あり' })),
         );
         tab.addEventListener('click', () => this.selectLayer(l.index));
         return tab;
@@ -506,7 +520,8 @@ export class App {
       this.tabs.querySelector<HTMLElement>('[data-layer-add]')?.focus();
     };
     const send = () => {
-      const problem = nameProblem(name.value, (this.snapshot?.layers ?? []).map((layer) => layer.name));
+      // レイヤーの名前は重なってよい（ファイル名は番号で分かれる）
+      const problem = nameProblem(name.value, []);
       if (problem) {
         message.replaceChildren(h('div', { class: 'message-line error' }, problem));
         return;
@@ -573,15 +588,19 @@ export class App {
       this.layerInfo.replaceChildren(h('p', {}, 'レイヤーがありません（レイヤーの並びの「＋」で足せます）'));
       return;
     }
-    const remove = h(
-      'button',
-      { type: 'button', class: 'link-button layer-delete', title: `レイヤーのファイル ${layer.file} を消す（確認のダイアログで参照の数を出す）` },
-      'レイヤーを削除',
-    );
-    remove.addEventListener('click', () => this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name }));
+    // キーごとでは全レイヤーの欄が並んでいてどれが消えるか分かりにくいので、削除はレイヤーごとのときだけ出す
+    const remove =
+      this.mode === 'layer' &&
+      h(
+        'button',
+        { type: 'button', class: 'link-button layer-delete', title: `レイヤーのファイル ${layer.file} を消す（確認のダイアログで参照の数を出す）` },
+        'レイヤーを削除',
+      );
+    // 名前は重なってよいので番号で指す
+    if (remove) remove.addEventListener('click', () => this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, index: layer.index }));
     this.layerInfo.replaceChildren(
       ...nodes(
-        h('h2', {}, `レイヤー ${layerTitle(layer)}`, h('span', { class: 'layer-file' }, layer.file), remove),
+        h('h2', {}, `レイヤー ${layerTitle(layer)}`, h('span', { class: 'layer-file' }, layer.file), ...nodes(remove)),
         layer.description && h('p', { class: 'layer-description' }, layer.description),
       ),
     );

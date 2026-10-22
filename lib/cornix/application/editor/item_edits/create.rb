@@ -27,7 +27,7 @@ module Cornix
             return create_shortcut(edit) if edit.kind == 'shortcut'
 
             kind = kind_of(edit)
-            check_name!(edit.name, 'edit.name', kind.items(profile).map(&:name))
+            check_name!(edit.name, 'edit.name', taken_names(kind))
             check_preset!(edit.preset) if edit.preset
             index = edit.index.nil? ? free_index(kind) : chosen_index(kind, edit.index)
             changeset.create(new_file(kind, index, edit.name), Storage::YamlFile.dump(content(kind, index, edit)))

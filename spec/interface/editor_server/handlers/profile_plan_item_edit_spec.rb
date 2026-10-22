@@ -51,7 +51,11 @@ RSpec.describe Cornix::Interface::EditorServer::Handlers::ProfilePlanItemEdit do
       { 'op' => 'use', 'kind' => 'shortcut', 'file' => 'shortcuts.yaml' } => 'edit.kind',
       { 'op' => 'use', 'kind' => 'macro', 'file' => 'macros/00_macro.yaml', 'index' => 3 } => 'edit.index',
       { 'op' => 'setIndex', 'kind' => 'layer', 'file' => 'layers/1_layer_1.yaml' } => 'edit.index',
-      { 'op' => 'setIndex', 'kind' => 'layer', 'file' => 'layers/1_layer_1.yaml', 'index' => '2' } => 'edit.index'
+      { 'op' => 'setIndex', 'kind' => 'layer', 'file' => 'layers/1_layer_1.yaml', 'index' => '2' } => 'edit.index',
+      { 'op' => 'reorder', 'kind' => 'layer' } => 'edit.files',
+      { 'op' => 'reorder', 'kind' => 'layer', 'files' => [1] } => 'edit.files',
+      { 'op' => 'reorder', 'kind' => 'shortcut', 'files' => [] } => 'edit.kind',
+      { 'op' => 'reorder', 'kind' => 'combo', 'files' => [], 'index' => 1 } => 'edit.index'
     }.each do |edit, field|
       expect(item_edit(edit)[:error]).to include(code: -32_602, data: { field: field })
     end

@@ -59,6 +59,30 @@ module Cornix
         end
       end
 
+      # 16bit 値の中のレイヤーの番号（LT / LM / レイヤー操作の範囲。基本キーでない LT などの Raw も含む）。ほかは nil
+      #
+      #   codec.layer_of(0x5221)   #=> 1（MO(1)）
+      #   codec.layer_of(0x4204)   #=> 2（LT2(A)）
+      #   codec.layer_of(0x7700)   #=> nil
+      def layer_of(code)
+        case code
+        when LAYER_TAP then (code >> 8) & 0x0F
+        when LAYER_MOD then (code >> 5) & 0x0F
+        else (base = layer_op_base(code)) && code - base
+        end
+      end
+
+      # code のレイヤーの番号を index にした 16bit 値。レイヤーを持たない値か、index が欄に入らなければ nil
+      #
+      #   codec.with_layer(0x5221, 3)   #=> 0x5223（MO(3)）
+      def with_layer(code, index)
+        case code
+        when LAYER_TAP then (code & ~0x0F00) | (index << 8) if index.between?(0, 0x0F)
+        when LAYER_MOD then (code & ~0x01E0) | (index << 5) if index.between?(0, 0x0F)
+        else (base = layer_op_base(code)) && (base + index if index.between?(0, LAYER_OP_SPAN - 1))
+        end
+      end
+
       private
 
       def decode_known(code)
@@ -81,6 +105,8 @@ module Cornix
         op, base = LAYER_OPS.find { |_, b| (b...(b + LAYER_OP_SPAN)).cover?(code) }
         op && K::LayerAction.new(op: op, layer: layer(code - base))
       end
+
+      def layer_op_base(code) = LAYER_OPS.each_value.find { |b| (b...(b + LAYER_OP_SPAN)).cover?(code) }
 
       def with_mods_and_base(code)
         m = mods((code >> 8) & 0x1F)

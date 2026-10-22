@@ -1,0 +1,44 @@
+{
+  "description": "reorder の files に未使用のファイルがあれば -32602（field \"edit.files\"）",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/macros/spare.yml": "---\nname: Spare\ndescription: 予備\nsequence:\n- action: tap\n  keys: KC_A\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "reorder",
+        "kind": "macro",
+        "files": [
+          "macros/spare.yml",
+          "macros/00_bracket_pair.yml",
+          "macros/02_copy_selected.yml",
+          "macros/03_copy_current_word.yml",
+          "macros/04_copy_current_line.yml",
+          "macros/05_single_quote_pair.yml",
+          "macros/06_parenthesis_pair.yml",
+          "macros/07_clipboard_history.yml",
+          "macros/08_double_quote_pair.yml",
+          "macros/09_code_block.yml",
+          "macros/01_curly_brace_pair.yml"
+        ]
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.files"
+      }
+    }
+  }
+}

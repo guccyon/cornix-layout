@@ -1,0 +1,362 @@
+{
+  "description": "並び替え（reorder。ADR 025）: レイヤー 1・2・3 を 2・3・1 の並びにすると、今の番号（小さい順）を新しい並びの順に当てる（numbers=1・function_keys=2・symbols=3）。番号の変わる項目ごとに [\"index\"] の set（新しい並びの順）と、その 3 つのレイヤーを指すレイヤー操作（MO(n) / LT<n>(kc) / TG(3) など）を同時に新しい番号へ書き換える set（入れ替わる番号どうしで取り違えない）。書き換えた場所を references に",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/2_numbers.yml": "sha256:2778d926303fe9c063986ba8b765c4cb112f3780c85973a4fe5a85858f6e2cb8",
+        "layers/3_function_keys.yml": "sha256:0713297df1df672476eb1284b7c7078eb24bc7fc59771652357eaab77b3caa14",
+        "layers/1_symbols.yml": "sha256:b764c12bb8a31ed4f248a20bb80dd6e62c11936635676161a02b1aeacc88a926",
+        "layers/0_base.yml": "sha256:edc4c5b71f08783710e5bbc6723cc738ef575467b158e2e187af23c81a07a76f",
+        "layers/4_ipad_base.yml": "sha256:91d8f20b9ffd04ccc1446f7109b8ccb432bea590a8cbff51d7d87f77258ae4fb",
+        "tap_dance/00_tap_dance.yml": "sha256:0604acf8210c9ec0813da4b13c7e754d2046ae6ca4a676ea7665f322248541eb",
+        "tap_dance/03_layer3_toggle.yml": "sha256:3f9e03f54f612be575a1805eda1e088592d128eb1b02b2dc780457ca517b33e8"
+      },
+      "edit": {
+        "op": "reorder",
+        "kind": "layer",
+        "files": [
+          "layers/0_base.yml",
+          "layers/2_numbers.yml",
+          "layers/3_function_keys.yml",
+          "layers/1_symbols.yml",
+          "layers/4_ipad_base.yml",
+          "layers/5_empty.yml",
+          "layers/6_empty.yml",
+          "layers/7_empty.yml",
+          "layers/8_empty.yml",
+          "layers/9_empty.yml"
+        ]
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+        {
+          "address": {
+            "file": "layers/2_numbers.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 1
+        },
+        {
+          "address": {
+            "file": "layers/3_function_keys.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 2
+        },
+        {
+          "address": {
+            "file": "layers/1_symbols.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 3
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row3",
+              "fn"
+            ]
+          },
+          "value": "MO(2)"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "thumb_keys",
+              "middle"
+            ]
+          },
+          "value": "LT3(Space)"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "thumb_keys",
+              "right"
+            ]
+          },
+          "value": "MO(1)"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "left"
+            ]
+          },
+          "value": "MO(2)"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "middle"
+            ]
+          },
+          "value": "MO(3)"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "right"
+            ]
+          },
+          "value": "LT1(KC_LANG1)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "thumb_keys",
+              "middle"
+            ]
+          },
+          "value": "LT3(Space)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "thumb_keys",
+              "right"
+            ]
+          },
+          "value": "LT1(Escape)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "left"
+            ]
+          },
+          "value": "LT1(Enter)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "middle"
+            ]
+          },
+          "value": "MO(3)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "right"
+            ]
+          },
+          "value": "LT2(KC_LANG1)"
+        },
+        {
+          "address": {
+            "file": "tap_dance/00_tap_dance.yml",
+            "path": [
+              "actions",
+              "on_hold"
+            ]
+          },
+          "value": "MO(3)"
+        },
+        {
+          "address": {
+            "file": "tap_dance/03_layer3_toggle.yml",
+            "path": [
+              "actions",
+              "on_tap"
+            ]
+          },
+          "value": "TG(2)"
+        },
+        {
+          "address": {
+            "file": "tap_dance/03_layer3_toggle.yml",
+            "path": [
+              "actions",
+              "on_hold"
+            ]
+          },
+          "value": "MO(2)"
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row3",
+            "fn"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "thumb_keys",
+            "middle"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "thumb_keys",
+            "right"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "left"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "middle"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "right"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "thumb_keys",
+            "middle"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "thumb_keys",
+            "right"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "left"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "middle"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "right"
+          ]
+        },
+        {
+          "file": "tap_dance/00_tap_dance.yml",
+          "path": [
+            "actions",
+            "on_hold"
+          ]
+        },
+        {
+          "file": "tap_dance/03_layer3_toggle.yml",
+          "path": [
+            "actions",
+            "on_tap"
+          ]
+        },
+        {
+          "file": "tap_dance/03_layer3_toggle.yml",
+          "path": [
+            "actions",
+            "on_hold"
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

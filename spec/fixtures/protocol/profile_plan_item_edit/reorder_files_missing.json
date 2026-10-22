@@ -1,0 +1,37 @@
+{
+  "description": "reorder の files に使っている項目が足りなければ -32602（field \"edit.files\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "reorder",
+        "kind": "combo",
+        "files": [
+          "combos/01_curly_brace_pair.yml",
+          "combos/02_parenthesis_pair.yml",
+          "combos/03_quote_pair.yml",
+          "combos/04_double_quote_pair.yml",
+          "combos/05_codeblock.yml",
+          "combos/06_left_click.yml",
+          "combos/07_right_click.yml"
+        ]
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.files"
+      }
+    }
+  }
+}

@@ -2728,3 +2728,311 @@ button.device-diff-row:hover,
 .device-diff-row.other {
   color: var(--vscode-descriptionForeground);
 }
+
+/* ---- v0.5: 画面の共通部品（issue #110。addMenu.ts / moreMenu.ts / indexPicker.ts） ---- */
+
+/* 追加の一覧（「＋」「追加」から開く。ボタンの下に重ねる） */
+.add-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.add-menu-badge {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 6px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  font-size: 0.8em;
+  line-height: 1.4;
+  text-align: center;
+  background: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+}
+
+.add-menu-panel {
+  position: absolute;
+  z-index: 21;
+  top: calc(100% + 2px);
+  left: 0;
+  width: 26em;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
+  border-radius: var(--radius);
+  background: var(--vscode-editorWidget-background, #252526);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+.add-menu-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+}
+
+.add-menu-body {
+  max-height: 22em;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.add-menu-group + .add-menu-group {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--vscode-editorWidget-border, #8884);
+}
+
+.add-menu-heading {
+  padding: 2px 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.add-menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 2px;
+  background: none;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+  cursor: pointer;
+}
+
+.add-menu-row:hover:not(:disabled),
+.add-menu-row:focus-visible {
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.add-menu-row:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+
+.add-menu-row:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.add-menu-create .add-menu-label {
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.add-menu-note,
+.add-menu-file {
+  margin-left: auto;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  overflow-wrap: anywhere;
+}
+
+.add-menu-warnings {
+  font-size: 0.85em;
+  color: var(--warning);
+}
+
+.add-menu-row-reason {
+  flex-basis: 100%;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.add-menu-reason,
+.add-menu-empty {
+  padding: 2px 6px;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.add-menu-tree {
+  max-height: none;
+  margin-top: 0;
+  padding-left: 6px;
+}
+
+/* 見出しの「…」メニュー（ボタンの下、右端をそろえて重ねる） */
+.more-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.more-menu-button {
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.more-menu-list {
+  position: absolute;
+  z-index: 22;
+  top: calc(100% + 2px);
+  right: 0;
+  width: max-content;
+  min-width: 12em;
+  max-width: min(22em, calc(100vw - 32px));
+  padding: 4px 0;
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, #454545));
+  border-radius: var(--radius);
+  background: var(--vscode-menu-background, #252526);
+  color: var(--vscode-menu-foreground, #cccccc);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+.more-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 12px;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.more-menu-item:hover:not(.disabled),
+.more-menu-item:focus {
+  outline: none;
+  background: var(--vscode-menu-selectionBackground, #04395e);
+  color: var(--vscode-menu-selectionForeground, #ffffff);
+}
+
+.more-menu-item.danger .more-menu-label {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.more-menu-item.disabled {
+  cursor: default;
+}
+
+.more-menu-item.disabled .more-menu-label {
+  opacity: 0.5;
+}
+
+.more-menu-reason {
+  font-size: 0.85em;
+  white-space: normal;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.more-menu-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--vscode-menu-separatorBackground, #454545);
+}
+
+/* 番号の選択（移動と入れ替え） */
+.index-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 26em;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
+  border-radius: var(--radius);
+  background: var(--vscode-editorWidget-background, #252526);
+  color: var(--vscode-foreground, #cccccc);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+.index-picker-title {
+  font-weight: 600;
+}
+
+.index-picker-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
+  gap: 2px 6px;
+  max-height: 16em;
+  overflow-y: auto;
+}
+
+.index-picker-slot {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: none;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+  cursor: pointer;
+}
+
+.index-picker-slot:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.index-picker-slot:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+
+.index-picker-slot[aria-checked='true'] {
+  border-color: var(--vscode-focusBorder, #007fd4);
+  background: var(--vscode-list-activeSelectionBackground, #04395e);
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+}
+
+.index-picker-slot.current {
+  cursor: default;
+  font-weight: 600;
+}
+
+.index-picker-number {
+  min-width: 1.6em;
+  font-family: var(--vscode-editor-font-family, monospace);
+  text-align: right;
+}
+
+.index-picker-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+
+.index-picker-slot.free .index-picker-state,
+.index-picker-slot.current .index-picker-state {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.index-picker-slot[aria-checked='true'] .index-picker-state {
+  color: inherit;
+}
+
+.index-picker-plan {
+  overflow-wrap: anywhere;
+}
+
+.index-picker-note {
+  padding: 4px 6px;
+  border-left: 2px solid var(--warning);
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  overflow-wrap: anywhere;
+}
+
+.index-picker-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}

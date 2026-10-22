@@ -1001,7 +1001,7 @@ type ItemEdit =
 
 [tasks-v0.4.md](tasks-v0.4.md) の「決めたこと」を約束にしたもの。実機の操作は、`cornix serve` とは別のプロセスの device のサーバーで行う（ADR 018）。
 **状態: 設計（実装はこれから）。** ただし 14.9（レイヤーの追加と削除。issue #84）は入れた。14.9 は足しただけ（今のリクエストの形は変えない）なので、約束の版（`protocolVersion`）は `"0.3"` のまま。
-`"0.4"` に上げるのは段 3（device のサーバーを入れるとき）。device のサーバー（14.1〜14.8）のほかは、編集のサーバー（`cornix serve`）の形は変えない。
+`"0.4"` に上げるのは段 3（device のサーバーを入れるとき）。device のサーバー（14.1〜14.8・14.10）のほかは、編集のサーバー（`cornix serve`）の形は変えない。
 
 ### 14.1 device のサーバー
 
@@ -1023,7 +1023,8 @@ cornix serve --device [--allow-writes]
 interface DeviceChange {
   kind: "key" | "encoder" | "macro" | "tapDance" | "combo" | "setting" | "other";
   layer?: number;            // kind が key / encoder のとき
-  position?: string;         // kind が key のとき。position_map の位置（図と欄で使う）
+  key?: { hand: "left" | "right"; row: number; col: number };   // kind が key のとき。論理位置（LayerKey と同じ。図と欄で使う）
+  position?: string;         // kind が key のとき。position_map の記号（"tab"。一覧の「レイヤー名 / 位置の名前」）
   encoder?: { side: "left" | "right"; direction: "cw" | "ccw" | "push" };
   index?: number;            // macro / tapDance / combo の番号
   name?: string;             // 名前がある項目（マクロなど）・設定の名前
@@ -1041,7 +1042,8 @@ interface DevicePlan {
 }
 ```
 
-- マトリクスの座標 → `position` は `Domain::PositionMap` で直す。位置に名前がない（`position_map.yaml` にない）キーは `kind: "other"` にして `text` だけを使う
+- マトリクスの座標 → `key`（論理位置）と `position`（記号）は `Domain::PositionMap` で直す。位置に名前がない（`position_map.yaml` にない）キーは `kind: "other"` にして `text` だけを使う
+- `changes` の並びは `Planning::Plan#changes` の順（キー → エンコーダ → マクロ → タップダンス → コンボ → 設定）
 
 ### 14.3 `device/compare`（読むだけ）
 
@@ -1074,7 +1076,7 @@ interface DevicePlan {
 ```jsonc
 // device/backups の params / result
 { "dir": "profiles/default" }
-{ "backups": [ { "name": "20261021-101500", "path": "tmp/…/20261021-101500.vil", "createdAt": "2026-10-21T10:15:00+09:00" } ] }   // 新しい順
+{ "backups": [ { "name": "20261021-101500-pre-apply", "path": "tmp/…/snapshots/20261021-101500-pre-apply/layout.vil", "createdAt": "2026-10-21T10:15:00+09:00", "kind": "pre-apply" } ] }   // 新しい順
 
 // device/compareBackup（読むだけ）の params / result
 { "dir": "profiles/default", "backup": "20261021-101500" }
@@ -1085,7 +1087,9 @@ interface DevicePlan {
 { "applied": 12, "backup": "tmp/…/20261021-101820.vil", "remaining": [] }
 ```
 
-- `Application::ListBackups` / `DeviceRestore`（`dry_run: true` が compareBackup）を使う。知らない `backup` は `-32602`（`data: { "field": "backup" }`）
+- `Application::ListSnapshots` / `DeviceRestore`（`dry_run: true` が compareBackup）を使う。知らない `backup` は `-32602`（`data: { "field": "backup" }`）
+- 一覧に出すのはスナップショット（`Storage::SnapshotStore`）のうち種類 `pre-apply`・`pre-restore`・`backup`・`legacy`（前の版の `device_backups/`）。
+  `read` と `build` は数が多く、戻す先には向かないので出さない。`kind` は拡張が「反映の前」「戻す前」などと添えるのに使う
 - 戻す前にも今の状態をバックアップする（続けてもう一度戻すと戻す前に戻る）
 
 ### 14.6 `device/progress`（サーバー → 拡張、通知）
@@ -1146,3 +1150,28 @@ type ItemEdit =
 - 結果の形・確認のダイアログのあとすぐ当てて保存することは 12.5 と同じ
 - 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `create_layer*.json`・`create_index_not_layer.json`・`delete_layer*.json`
 - 同じ issue の下の欄の「キー別」の並べ方（位置ごとに全レイヤーの欄を並べる）は拡張だけで作る。欄の変更は今と同じ `Change`（そのレイヤーのファイルの `address`）で、約束は変えない
+
+### 14.10 適合テストのデータ（device）
+
+[8.2](#82-適合テスト) と同じ形で `spec/fixtures/protocol/device/<メソッド>/<名前>.json` に置く（編集のサーバーの適合テストとは別の spec で流す。
+`setup` の `initialize` は `cornix serve --device` に送る）。`setup` に足すもの:
+
+```jsonc
+{
+  "setup": {
+    "profile": "test_config",          // 8.2 と同じ（profiles/default に置く）
+    "allowWrites": true,               // --allow-writes を付けたことにする（既定 false）
+    "device": {                        // 偽の実機（FakeRmkDevice を Cornix の大きさにしたもの）の初めの状態
+      "from": "profile",               // "profile" はそのプロファイルの compile の出力と同じ状態。fixtures からの .vil のパスも書ける
+      "keys": [ { "layer": 0, "row": 0, "col": 1, "value": "KC_A" } ],   // その上で変える値（マトリクスの座標・Vial の表記）
+      "unavailable": "notConnected"    // 書けば実機が使えないことにする
+    },
+    "snapshots": { "20261021-101500-pre-apply": "test_config" }   // 置いておくバックアップ（名前 → その状態の元。from と同じ書き方）
+  }
+}
+```
+
+- `notifications` を省くと通知は比べない（`device/progress` は件数が多いので、比べたいデータだけ書く）
+- token・日時・バックアップのパスの日時の部分のように毎回変わる値は、期待する応答に書かない（8.2 の比べ方は書いた項目だけを比べる）
+- 拡張の偽の device のサーバー（`editors/vscode/test/fake-device-server/`）は compile しないので、このデータは流さない。
+  偽のほうはプロセスの中に実機とプロファイルの値の表を持ち、環境変数 `CORNIX_FAKE_DEVICE` と通知 `$/fake/configure` で状態を変える（ファイルの先頭のコメント）

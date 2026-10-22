@@ -10,6 +10,8 @@ module Cornix
         # すべてのレイヤーのファイル（未使用のものも）の mapping の下のその名前のキーを書き換える（書いていないレイヤーはそのまま）。
         # compile の結果は変わらないはずだが、名前の変更と同じく前後を照合する。新しい名前が今と同じなら何もしない
         class RenamePosition < Operation
+          def requires_complete? = true
+
           private
 
           def run(edit)

@@ -456,9 +456,10 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
       .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit') }
   end
 
-  it '読めない値（解析できないキーコード）があれば、画面には出せても項目は操作しない（InvalidChange）' do
+  it '読めない値（解析できないキーコード）があっても追加・削除はできるが、compile の結果を比べる名前の変更はしない（InvalidChange）' do
     write('layers/0_layer_0.yaml', read('layers/0_layer_0.yaml').sub('tab: Tab', 'tab: NoSuchKey'))
-    expect { plan(op: 'create', kind: 'macro', name: 'X') }
-      .to raise_error(plan_edits::InvalidChange) { |e| expect([e.field, e.message]).to eq(['edit', 'プロファイルに読めない値があるので、項目を操作できません（先にその値を直して保存してください）']) }
+    expect(plan(op: 'create', kind: 'macro', name: 'X')[:files].size).to eq(1)
+    expect { plan(op: 'rename', kind: 'macro', name: 'Macro 0', to: 'Y') }
+      .to raise_error(plan_edits::InvalidChange) { |e| expect([e.field, e.message]).to eq(['edit', 'プロファイルに読めない値があるので、この操作はできません（先にその値を直してください。未保存の変更で直してもかまいません）']) }
   end
 end

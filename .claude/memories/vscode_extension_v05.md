@@ -84,3 +84,8 @@
 - create（layer）は `YamlFile.dump` で空のグループを `row1: {}`（フロー表記）と書く。`YamlDocument#insert` はフロー表記の中への挿入を `EditNotLocal(:flow_insert)` にしていたので、足したレイヤーのキーを決めると保存できなかった（v0.4 から）
 - 中身のない 1 行の `{}` だけは値なしの見出しと同じ扱い（`insert_under_empty`。`{}` を消して下に字下げして足す）にした。中身のあるフロー表記は今までどおり止める。適合テストは `profile_plan_edits/insert_into_empty_flow.json`
 - 偽のサーバーと単体テストでは create（layer）のあとにキーを書く流れがなかったので気づけなかった。新しい形のファイルを書く操作を足したら、そのファイルに planEdits を通すテストも足す
+
+## 読めない値があるときの項目の操作（ADR 024。Tetsuro の確認で見つかった）
+
+- 未使用にした項目を名前で指す欄（`Macro('X')` で X が未使用）は「未使用です」の読めない値になり、`ProfileReading#complete?` が偽になる。以前は `Operation#call` が complete? でなければ全部止めたので、取り出し直すこともできなかった
+- `Operation#requires_complete?` を足し、前後の compile を比べる Rename・RenamePosition・ExpandPreset だけ真。ほかは読めない値を NoKey にした profile で決める。setIndex の照合（`verify_targets!`）も `after.ok?` で比べる（読めない欄は前後とも NoKey）

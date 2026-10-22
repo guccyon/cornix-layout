@@ -2,7 +2,9 @@
 // - 並びの中を指さない set と remove（レイヤーのキー・QMK 設定・description・注記など）は畳む: 同じ場所（Address と field）の前の変更を外して末尾に足し、
 //   保存済みの値と同じになったら持たない（v0.1 の「同じ Address は最後の値だけ」）
 // - 並びを指す Change（insert / move と、並びの要素を指す set / remove）は畳まずに足した順のまま持つ（並びの中の位置は前の Change を当てたあとで数えるため）
-// 元に戻す・やり直しは profileDocument.ts が並びの前後（配列そのもの）で作る。vscode に依存しない（Webview の model.ts も addressKey を使う）。
+// - v0.5: 番号（`["index"]`）とショートカットの行（`["shortcuts", 名前]`）の set / remove も並びの中を指さないので同じく畳む（protocol.md の 15.2）。
+//   番号には注記がないので、前の remove も外して畳む（未使用にしてから取り出し直すと、保存済みと同じ番号なら何も持たない）
+// 元に戻す・やり直しは profileDocument.ts（と editHistory.ts）が並びの前後（配列そのもの）で作る。vscode に依存しない（Webview の model.ts も addressKey を使う）。
 import type { Address, AnyChange, Change, FileVersion, ProfileSnapshot } from '../protocol';
 
 export type ChangeValue = Change['value'];
@@ -29,6 +31,11 @@ export function fieldOf(change: AnyChange): ChangeField {
 export function isSequential(change: AnyChange): boolean {
   if (change.op === 'insert' || change.op === 'move') return true;
   return change.address.path.some((key) => typeof key === 'number');
+}
+
+/** 番号（index:）を指す Change か（protocol.md の 15.2）。注記を持たないので、前の remove も畳む */
+export function isIndexAddress(address: Address): boolean {
+  return address.path.length === 1 && address.path[0] === 'index';
 }
 
 /** Webview から来たものが AnyChange の形か（形の違うものは足さない。中身の正しさはサーバーが確かめる） */
@@ -138,10 +145,11 @@ export class PendingChanges {
     const row = addressKey(change.address);
     const removing = change.op === 'remove';
     const removesRow = removing && field === 'key';
+    const index = isIndexAddress(change.address);
     const dropped = (c: AnyChange) => {
       if (isSequential(c)) return false;
-      // 前に消した行は、そのあとに書く set では残す（消した注記を戻さないため）
-      if (c.op === 'remove' && !removing) return false;
+      // 前に消した行は、そのあとに書く set では残す（消した注記を戻さないため）。番号は注記がないので畳む
+      if (c.op === 'remove' && !removing && !index) return false;
       return valueKey(c.address, fieldOf(c)) === key || (removesRow && addressKey(c.address) === row);
     };
     // 置き換える前の変更があれば、その位置に入れる（割り当ての set → 注記の set の順を崩さない。注記だけの set はサーバーが -32602 にする）
@@ -174,7 +182,8 @@ export class PendingChanges {
    */
   assign(address: Address, value: ChangeValue | null, saved: ChangeValue | null | undefined, field: ChangeField = 'key'): void {
     const key = valueKey(address, field);
-    this.items = this.items.filter((c) => isSequential(c) || c.op === 'remove' || valueKey(c.address, fieldOf(c)) !== key);
+    const index = isIndexAddress(address);
+    this.items = this.items.filter((c) => isSequential(c) || (c.op === 'remove' && !index) || valueKey(c.address, fieldOf(c)) !== key);
     // 前に行を消していれば、保存済みと同じ値でも消したあとに書く変更として残す
     if (value === null || (value === saved && valueIn(this.items, address, field) !== null)) return;
     const change: Change = field === 'note' ? { address, value, field } : { address, value };
@@ -213,6 +222,8 @@ export class PendingChanges {
 /**
  * 並びの外の変更の、snapshot の中のその場所の今の値（キーは表記の文字列、QMK 設定は数値か真偽値、説明などは文字列）。
  * 書いていなければ null、snapshot に Address がなければ undefined。field: "note" は注記（なければ null）。
+ * v0.5: 未使用の項目（snapshot.unused）の中身も引く（取り出したあとに中身を変えられるため）。`["index"]` は項目の番号（未使用なら null）、
+ * `["shortcuts", 名前]` でまだない名前は null（行を足す set の前の値。ショートカットのファイルが snapshot.files にあるとき。版が null でもよい）。
  * 並びの要素（道筋に番号がある）は前の Change で位置がずれるので、当て直しでは使わない
  */
 export function snapshotValueAt(snapshot: ProfileSnapshot, address: Address, field: ChangeField = 'key'): ChangeValue | null | undefined {
@@ -221,8 +232,13 @@ export function snapshotValueAt(snapshot: ProfileSnapshot, address: Address, fie
   const keyValue = (value: { text: string; note?: string } | null) => (field === 'note' ? (value?.note ?? null) : (value?.text ?? null));
   const plain = <T extends ChangeValue>(value: T | null) => (field === 'note' ? undefined : value);
 
-  for (const layer of snapshot.layers) {
+  const indexOf = (item: { file: string; index: number | null }) => (field === 'note' ? undefined : item.index);
+  const isIndex = isIndexAddress(address);
+  const unused = snapshot.unused;
+
+  for (const layer of [...snapshot.layers, ...(unused?.layers ?? [])]) {
     if (layer.file !== address.file) continue;
+    if (isIndex) return indexOf(layer);
     for (const slot of layer.keys) if (hit(slot)) return keyValue(slot.value);
     for (const encoder of [layer.encoders.left, layer.encoders.right]) {
       for (const action of [encoder.push, encoder.ccw, encoder.cw]) if (hit(action)) return keyValue(action.value);
@@ -230,8 +246,9 @@ export function snapshotValueAt(snapshot: ProfileSnapshot, address: Address, fie
     if (layer.descriptionAddress && hit({ address: layer.descriptionAddress })) return plain(layer.description);
   }
   for (const setting of snapshot.settings) if (hit(setting)) return plain(setting.value);
-  for (const macro of snapshot.macros ?? []) {
+  for (const macro of [...(snapshot.macros ?? []), ...(unused?.macros ?? [])]) {
     if (macro.file !== address.file) continue;
+    if (isIndex) return indexOf(macro);
     if (hit({ address: macro.descriptionAddress })) return plain(macro.description);
     if (macro.presetAddress && hit({ address: macro.presetAddress })) return plain(macro.preset);
     for (const step of macro.steps) {
@@ -240,18 +257,31 @@ export function snapshotValueAt(snapshot: ProfileSnapshot, address: Address, fie
       if (step.action !== 'delay' && step.action !== 'text') for (const slot of step.keys) if (hit(slot)) return keyValue(slot.value);
     }
   }
-  for (const tapDance of snapshot.tapDances ?? []) {
+  for (const tapDance of [...(snapshot.tapDances ?? []), ...(unused?.tapDances ?? [])]) {
     if (tapDance.file !== address.file) continue;
+    if (isIndex) return indexOf(tapDance);
     if (hit({ address: tapDance.descriptionAddress })) return plain(tapDance.description);
     if (hit(tapDance.tappingTerm)) return plain(tapDance.tappingTerm.value);
     for (const slot of Object.values(tapDance.actions)) if (hit(slot)) return keyValue(slot.value);
   }
-  for (const combo of snapshot.combos ?? []) {
+  for (const combo of [...(snapshot.combos ?? []), ...(unused?.combos ?? [])]) {
     if (combo.file !== address.file) continue;
+    if (isIndex) return indexOf(combo);
     if (hit({ address: combo.descriptionAddress })) return plain(combo.description);
     if (hit(combo.output)) return keyValue(combo.output.value);
     for (const slot of combo.triggers) if (hit(slot)) return keyValue(slot.value);
   }
   for (const shortcut of snapshot.shortcuts ?? []) if (hit(shortcut)) return keyValue(shortcut.value);
+  if (isNewShortcut(snapshot, address)) return null;
   return undefined;
+}
+
+/** ショートカットのファイル（設定ディレクトリからの相対パス） */
+export const SHORTCUTS_FILE = 'shortcuts.yaml';
+
+/** まだないショートカットの行（`["shortcuts", 名前]`）か。行を足す set の宛先（protocol.md の 15.2） */
+function isNewShortcut(snapshot: ProfileSnapshot, address: Address): boolean {
+  const [first, name] = address.path;
+  const file = snapshot.shortcuts?.[0]?.address.file ?? SHORTCUTS_FILE;
+  return address.path.length === 2 && first === 'shortcuts' && typeof name === 'string' && address.file === file && address.file in snapshot.files;
 }

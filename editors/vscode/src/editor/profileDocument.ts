@@ -4,6 +4,8 @@
 // 外での変更は 7.3・12.3（未保存がなければ黙って描き直す。あればどちらを残すか聞き、画面の変更を残すなら Change を当て直す。
 // 並びを指す Change のあるファイルが外で変わったら、そのファイルの Change は当て直せないもの）、
 // 項目の追加・削除・名前の変更は 12.5（確認のダイアログのあと、ファイルの作成・削除・改名を含む WorkspaceEdit をすぐ当てて保存する）。
+// v0.5 の番号の操作（取り出す・未使用にする・番号の変更）とショートカットの追加は 15.3（ADR 022）: すぐ書かずに、planItemEdit が返した Change の並びを
+// 1 つの編集として未保存の変更の末尾に足す（元に戻す・やり直しで一緒に動き、Ctrl+S で保存する）。
 // 方針: 利用者の変更を黙って捨てない（問いを閉じたら捨てずに残す側に倒す）。
 import * as vscode from 'vscode';
 import {
@@ -22,18 +24,10 @@ import {
   type ProfileSnapshot,
 } from '../protocol';
 import type { CornixServer } from '../server/cornixServer';
-import { describeItemEdit, itemEditErrorMessage, itemEditTitle } from './itemEdits';
-import {
-  PendingChanges,
-  fieldOf,
-  isAnyChange,
-  isSequential,
-  snapshotValueAt,
-  valueKey,
-  type ChangeField,
-  type ChangeValue,
-  type SavedValue,
-} from './pendingChanges';
+import { isPendingItemEdit, snapshotItems } from '../itemIndex';
+import { assignValue, recordEdit, type EditContext } from './editHistory';
+import { describeItemEdit, describeUnuse, itemEditErrorMessage, itemEditTitle, pendingItemEditLabel } from './itemEdits';
+import { PendingChanges, fieldOf, isAnyChange, isSequential, snapshotValueAt, valueKey, type ChangeField, type ChangeValue, type SavedValue } from './pendingChanges';
 import { openProfileFile, profileDirPath, profileFileUri } from './profileFiles';
 import { PROFILE_EDITOR_VIEW_TYPE } from './profileUri';
 import { ProfileWatcher } from './profileWatcher';
@@ -151,6 +145,15 @@ export class ProfileDocument implements vscode.CustomDocument {
   private readonly lostChanges = new WeakSet<AnyChange>();
   /** 並びの外の場所の保存済みの値（今の snapshot から） */
   private readonly savedValue: SavedValue = (address, field) => snapshotValueAt(this.snapshotValue, address, field);
+  /** 編集（元に戻す・やり直しの単位）が使う今の状態 */
+  private readonly editContext: EditContext = {
+    changes: this.changes,
+    savedValue: this.savedValue,
+    epoch: () => this.epoch,
+    currentValue: (address, field) => this.currentValue(address, field),
+  };
+  /** v0.5: 未保存の変更に積む項目の操作（15.3）を 1 つずつ通す（続けて取り出したときに、前の結果を当てた状態で決めるため） */
+  private pendingItemEdit: Promise<boolean> | undefined;
 
   /** 設定ディレクトリの見張り。保存の間（6.2 の 5）は watcher.hold() で知らせを溜める */
   readonly watcher: ProfileWatcher;
@@ -213,44 +216,28 @@ export class ProfileDocument implements vscode.CustomDocument {
   }
 
   /**
-   * 画面での変更を 1 つ足す（Webview の change と edit）。元に戻す・やり直しもここで作る。
-   * 並びは PendingChanges が畳む（並びの外の set / remove は同じ場所の前の変更を置き換え、並びを指すものは足した順のまま）。
-   * 編集ごとに足す前と後の並び（配列そのもの）を持ち、そのあと並びが変わっていなければ undo・redo はその並びに戻す。
-   * 保存や外での変更で並びが変わったあとの undo・redo は、並びの外の変更なら「前の値（そのときの未保存の値か snapshot の値）」と
-   * 「新しい値」を今の snapshot に対して当てる（保存のあとに戻すと、ディスクの値に対する変更として残る）。
-   * ただし前の値が snapshot の値だった（未保存の変更がなかった）編集を、外の変更を取り込んだあとに戻すときは、
-   * 外の変更の前の値ではなく今の snapshot の値に戻す（変更を外す）。利用者が見ていない値で外の変更を黙って戻さないため。
-   * 並びを指す変更は、まだ並びにあればそれを外し、保存したあとなら逆の Change（insert は remove、move は戻す move）を足す。
-   * 逆の Change を作れないもの（並びの要素の set と remove。前の値が分からない）は戻さない
+   * 画面での変更を 1 つ足す（Webview の change と edit）。元に戻す・やり直しもここで作る（editHistory.ts の recordEdit）。
+   * 並びは PendingChanges が畳む（並びの外の set / remove は同じ場所の前の変更を置き換え、並びを指すものは足した順のまま）
    */
   applyChange(change: AnyChange, label = labelOf(change)): void {
     if (!isAnyChange(change)) return;
-    const sequential = isSequential(change);
-    const field = fieldOf(change);
-    const hadChange = !sequential && this.changes.pendingValue(change.address, field) !== undefined;
-    const beforeValue = sequential ? null : this.currentValue(change.address, field);
-    const epoch = this.epoch;
-    const before = this.changes.current();
-    this.changes.add(change, this.savedValue);
-    const after = this.changes.current();
+    this.applyChanges([change], label);
+  }
+
+  /** Change の並びを 1 つの編集（VS Code の元に戻す・やり直しの単位）として足す（v0.5 の番号の操作・ショートカットの追加はまとめて動く） */
+  private applyChanges(changes: readonly AnyChange[], label: string): void {
+    const edit = recordEdit(this.editContext, changes);
+    if (!edit) return;
     this.changed();
-    let inverse: AnyChange | undefined;
     this.onDidEditEmitter.fire({
       document: this,
       label,
       undo: () => {
-        if (this.changes.current() === after) this.changes.restore(before);
-        else if (!sequential) this.assignValue(change.address, field, !hadChange && this.epoch !== epoch ? undefined : beforeValue);
-        else if (this.changes.current().includes(change)) this.changes.remove(change);
-        else if ((inverse = inverseOf(change))) this.changes.add(inverse, this.savedValue);
+        edit.undo();
         this.changed();
       },
       redo: () => {
-        if (this.changes.current() === before) this.changes.restore(after);
-        else if (!sequential) this.changes.add(change, this.savedValue);
-        else if (inverse && this.changes.current().includes(inverse)) this.changes.remove(inverse);
-        else if (!this.changes.current().includes(change)) this.changes.add(change, this.savedValue);
-        inverse = undefined;
+        edit.redo();
         this.changed();
       },
     });
@@ -268,10 +255,7 @@ export class ProfileDocument implements vscode.CustomDocument {
 
   /** 並びの外の場所を value にする（null は消す、undefined は未保存の変更を外す）。今の snapshot に対する変更になる */
   private assignValue(address: Address, field: ChangeField, value: ChangeValue | null | undefined): void {
-    if (value === undefined) this.changes.discard(address, field);
-    else if (value === null) this.changes.add({ op: 'remove', address, ...(field === 'note' ? { field } : {}) }, this.savedValue);
-    // v0.1 の形（op を省けば set）のまま作る
-    else this.changes.add({ address, value, ...(field === 'note' ? { field } : {}) }, this.savedValue);
+    assignValue(this.changes, this.savedValue, address, field, value);
   }
 
   /** 未保存の変更が変わった: 描き直して検証し直す */
@@ -565,9 +549,11 @@ export class ProfileDocument implements vscode.CustomDocument {
 
   /**
    * 項目の操作を確認のダイアログのあとすぐファイルに書く（未保存の変更には積まない。tasks-v0.2.md の決めたことの 2）。
-   * 未保存の変更があれば先に保存を促す（保存するか、やめるか）。書けたら true
+   * 未保存の変更があれば先に保存を促す（保存するか、やめるか）。書けたら true。
+   * v0.5 の番号の操作とショートカットの追加（isPendingItemEdit）は書かずに未保存の変更に積む（applyPendingItemEdit）
    */
   async applyItemEdit(edit: ItemEdit): Promise<boolean> {
+    if (isPendingItemEdit(edit)) return this.applyPendingItemEdit(edit);
     const fail = (message: string, file?: string) => {
       this.env.prompts().itemEditFailed(message, file ? () => void openProfileFile(this.dir, file) : undefined);
       return false;
@@ -599,6 +585,73 @@ export class ProfileDocument implements vscode.CustomDocument {
         this.flushDeferred();
       }
     }
+  }
+
+  /**
+   * v0.5（protocol.md の 15.3・ADR 022）: 番号の操作（use / unuse / setIndex）とショートカットの追加（create の shortcut）を、
+   * 今の未保存の変更を付けた profile/planItemEdit で決め、返った Change の並びを 1 つの編集として未保存の変更の末尾に足す。
+   * 未保存の変更があっても止めない。確認は unuse で壊れる参照があるときだけ。足したら true
+   */
+  private async applyPendingItemEdit(edit: ItemEdit): Promise<boolean> {
+    const previous = this.pendingItemEdit;
+    const run = (async () => {
+      await previous?.catch(() => undefined);
+      return this.runPendingItemEdit(edit);
+    })();
+    this.pendingItemEdit = run;
+    try {
+      return await run;
+    } finally {
+      if (this.pendingItemEdit === run) this.pendingItemEdit = undefined;
+    }
+  }
+
+  private async runPendingItemEdit(edit: ItemEdit): Promise<boolean> {
+    const name = this.itemName(edit);
+    const fail = (message: string, file?: string) => {
+      this.env.prompts().itemEditFailed(message, file ? () => void openProfileFile(this.dir, file) : undefined);
+      return false;
+    };
+    // 送ってから返るまでに snapshot か未保存の変更が変わったら（保存・画面の変更・undo）、今の状態で決め直す（何度も変わればそのまま足す）
+    for (let attempt = 0; ; attempt++) {
+      await this.saving?.catch(() => undefined);
+      if (this.closed) return false;
+      if (this.snapshotValue.status !== 'ok') return fail('プロファイルが読めない状態なので、項目を変えられません。設定ファイルをテキストで直してください。');
+      if (this.external || this.resolving) return fail('設定ファイルが外で変わっています。どちらの変更を残すか選んでから、もう一度試してください。');
+      const snapshot = this.snapshotValue;
+      const sent = this.changes.current();
+      let plan: PlanItemEditResult;
+      try {
+        plan = await this.server.planItemEdit({ profileId: this.profileId, baseVersions: { ...snapshot.files }, edit, changes: [...sent] });
+      } catch (error) {
+        const { code, data } = error as { code?: unknown; data?: unknown };
+        if (code === ErrorCodes.VersionConflict) this.reportExternal(Object.keys((data as { files?: Record<string, FileVersion> } | undefined)?.files ?? {}));
+        const address = (data as { address?: Address } | undefined)?.address;
+        return fail(itemEditErrorMessage(edit, error, name), code === ErrorCodes.EditNotLocal ? address?.file : undefined);
+      }
+      if (this.closed) return false;
+      if (this.external || this.resolving) return fail('操作の間に設定ファイルが外で変わったので、やめました。どちらの変更を残すか選んでから、もう一度試してください。');
+      const stale = this.snapshotValue !== snapshot || this.changes.current() !== sent;
+      if (stale && attempt < 2) continue;
+      if (this.snapshotValue !== snapshot) return fail('操作の間に設定ファイルが変わったので、やめました。もう一度試してください。');
+      const changes = (plan.changes ?? []).filter(isAnyChange);
+      if (changes.length === 0) return true;
+      if (edit.op === 'unuse' && plan.references.length > 0) {
+        const { message, detail } = describeUnuse(edit, plan, (address) => describeAddress(snapshot, address), name);
+        if (!(await this.env.prompts().confirmItemEdit(message, detail))) return false;
+        if (this.closed) return false;
+        // 確認の間に外で変わった・保存した: 番号を消す Change は今の状態でも同じなので、外での変更の扱いの途中でなければそのまま足す
+        if (this.external || this.resolving || this.snapshotValue.status !== 'ok') return fail('確認の間に設定ファイルが外で変わったので、やめました。もう一度試してください。');
+      }
+      this.applyChanges(changes, pendingItemEditLabel(edit, name));
+      return true;
+    }
+  }
+
+  /** 番号の操作の項目の名前（ファイルで指すので snapshot から引く。使っているものも未使用のものも）。ほかの操作は undefined */
+  private itemName(edit: ItemEdit): string | undefined {
+    if (edit.op !== 'use' && edit.op !== 'unuse' && edit.op !== 'setIndex') return undefined;
+    return snapshotItems(this.snapshotValue, edit.kind).find((item) => item.file === edit.file)?.name;
   }
 
   /** 編集画面を前に出して、VS Code の保存（dirty の印も消える）を通す（実機の操作の前の保存の促しからも使う） */

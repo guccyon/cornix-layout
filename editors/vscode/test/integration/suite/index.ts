@@ -803,6 +803,60 @@ test('項目の操作の -32602 と -32061（verify）は利用者に見せ、�
 });
 
 // ---------------------------------------------------------------------------
+// v0.5（protocol.md の 15.3・ADR 022）: 番号の操作とショートカットの追加は未保存の変更に積む
+// ---------------------------------------------------------------------------
+
+test('v0.5: ショートカットの追加は確認なしで 1 つの編集として積み、元に戻す → やり直す → 保存で行を足す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  await document.settled();
+  prompts.calls.length = 0;
+  assert.equal(document.changes.size, 0);
+  const address = { file: 'shortcuts.yaml', path: ['shortcuts', '次のタブへ'] };
+  const edits: vscode.CustomDocumentEditEvent<ProfileDocument>[] = [];
+  const subscription = api.profileEditor.onDidChangeCustomDocument((edit) => edits.push(edit));
+  assert.equal(await document.applyItemEdit({ op: 'create', kind: 'shortcut', name: '次のタブへ', value: 'Command + Shift + ]' }), true);
+  subscription.dispose();
+  assert.deepEqual(document.changes.list(), [{ address, value: 'Command + Shift + ]' }]);
+  assert.deepEqual(prompts.calls, []);
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0]?.label, 'ショートカット 次のタブへ を追加する');
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+  await edits[0]?.undo();
+  assert.equal(document.changes.size, 0);
+  await edits[0]?.redo();
+  assert.equal(document.changes.size, 1);
+
+  await saveProfile(document);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  assert.ok(readWorkspaceFile('profiles/default/shortcuts.yaml').includes('  次のタブへ: "Command + Shift + ]"\n'));
+  assert.equal(document.changes.size, 0);
+  assert.ok(document.snapshot.shortcuts?.some((shortcut) => shortcut.name === '次のタブへ'));
+});
+
+test('v0.5: 未保存の変更があっても未使用にでき、壊れる参照があるときだけ確認する', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Tab' });
+  // 0_base.yml の LT1(Space) がレイヤー 1 を指す
+  assert.equal(await document.applyItemEdit({ op: 'unuse', kind: 'layer', file: 'layers/1_symbols.yml' }), true);
+  assert.deepEqual(prompts.of('confirmSaveFirst'), []);
+  const [message] = prompts.of('confirmItemEdit').map((c) => String(c.args[0]));
+  assert.ok(message?.includes('未使用にします。') && message.includes('未保存の変更に積みます'), message);
+  assert.deepEqual(document.changes.list(), [
+    { address: baseKey('row0', 'T'), value: 'Tab' },
+    { op: 'remove', address: { file: 'layers/1_symbols.yml', path: ['index'] } },
+  ]);
+  // 確認でやめたら積まない
+  await revertProfile(document);
+  prompts.itemEdit = false;
+  assert.equal(await document.applyItemEdit({ op: 'unuse', kind: 'layer', file: 'layers/1_symbols.yml' }), false);
+  assert.equal(document.changes.size, 0);
+  prompts.itemEdit = true;
+});
+
+// ---------------------------------------------------------------------------
 // v0.4: 実機への反映（偽の device のサーバー。test/fake-device-server/。本物のキーボードもブリッジも使わない）。
 // プレビューと確定は編集画面のモーダルだが、ここではホストの状態（api.device.states）と操作（api.device.run）で確かめる
 // ---------------------------------------------------------------------------

@@ -189,7 +189,8 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
             document.applyChange(message.change);
             return;
           case 'itemEdit':
-            // 確認のダイアログのあとすぐファイルに書く（結果は snapshot で描き直す。失敗は通知で知らせる）
+            // 確認のダイアログのあとすぐファイルに書く（結果は snapshot で描き直す。失敗は通知で知らせる）。
+            // v0.5 の番号の操作とショートカットの追加は書かずに未保存の変更に積む（結果は snapshot のメッセージの pending）
             if (isItemEdit(message.edit)) void document.applyItemEdit(message.edit);
             return;
           case 'request':

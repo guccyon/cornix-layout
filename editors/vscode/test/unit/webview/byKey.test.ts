@@ -157,14 +157,29 @@ describe('並べ方の切り替え', () => {
 });
 
 describe('レイヤーの追加と削除', () => {
-  it('並びの末尾の「＋」で空いている番号と名前を選んで足し、足したレイヤーが現れたら選ぶ', () => {
+  /** タブの末尾の「＋」を開いて「新しいレイヤー」を選ぶ */
+  function openCreate(): void {
+    root.querySelector<HTMLButtonElement>('.layer-tabs [data-layer-add]')!.click();
+    root.querySelector<HTMLButtonElement>('.layer-tabs .add-menu-create')!.click();
+  }
+
+  /** レイヤーの見出しの「…」から選ぶ */
+  function moreAction(id: string): void {
+    root.querySelector<HTMLButtonElement>('.layer-info .more-menu-button')!.click();
+    root.querySelector<HTMLButtonElement>(`.layer-info .more-menu-item[data-action='${id}']`)!.click();
+  }
+
+  it('並びの末尾の「＋」の「新しいレイヤー」で空いている番号と名前を選んで足し、足したレイヤーが現れたら選ぶ', () => {
     const snapshot = fixtureSnapshot();
     app.receive({ type: 'snapshot', snapshot, changes: [] });
     const add = root.querySelector<HTMLButtonElement>('.layer-tabs [data-layer-add]')!;
     expect(add.textContent).toBe('＋');
     add.click();
+    expect(root.querySelector('.layer-tabs .add-menu-create')?.textContent).toBe('新しいレイヤー番号 2 に作る');
+    root.querySelector<HTMLButtonElement>('.layer-tabs .add-menu-create')!.click();
     const select = root.querySelector<HTMLSelectElement>('.layer-form select')!;
     expect([...select.options].map((o) => o.value)).toEqual(['2', '3', '4', '5', '6', '7', '8', '9']);
+    expect(select.value).toBe('2');
     const name = root.querySelector<HTMLInputElement>('.layer-form .item-name-input')!;
     // 名前の決まり（空はだめ。ほかのレイヤーと同じ名前はよい。ファイル名は番号で分かれる）
     root.querySelector<HTMLButtonElement>('.layer-form .primary')!.click();
@@ -173,7 +188,7 @@ describe('レイヤーの追加と削除', () => {
     root.querySelector<HTMLButtonElement>('.layer-form .primary')!.click();
     expect(host.itemEdits).toEqual([{ op: 'create', kind: 'layer', name: 'Base', index: 2 }]);
     host.itemEdits.length = 0;
-    add.click();
+    openCreate();
     root.querySelector<HTMLSelectElement>('.layer-form select')!.value = '5';
     const nameAgain = root.querySelector<HTMLInputElement>('.layer-form .item-name-input')!;
     nameAgain.value = 'Mouse';
@@ -186,17 +201,29 @@ describe('レイヤーの追加と削除', () => {
     expect(root.querySelector('.layer-tab.selected')?.textContent).toBe('5 Mouse');
   });
 
-  it('空いている番号がなければ「＋」は押せない', () => {
+  it('一覧の検索欄の文字を新しいレイヤーの名前に入れておく', () => {
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    root.querySelector<HTMLButtonElement>('.layer-tabs [data-layer-add]')!.click();
+    const search = root.querySelector<HTMLInputElement>('.layer-tabs .add-menu-search')!;
+    search.value = 'Mouse';
+    search.dispatchEvent(new Event('input'));
+    root.querySelector<HTMLButtonElement>('.layer-tabs .add-menu-create')!.click();
+    expect(root.querySelector<HTMLInputElement>('.layer-form .item-name-input')!.value).toBe('Mouse');
+  });
+
+  it('空いている番号がなければ「新しいレイヤー」は選べない', () => {
     const snapshot = fixtureSnapshot();
     const layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((index) => copyLayer(snapshot.layers[0]!, index, `L${index}`, `layers/${index}_l.yml`));
     app.receive({ type: 'snapshot', snapshot: { ...snapshot, layers }, changes: [] });
-    expect(root.querySelector<HTMLButtonElement>('.layer-tabs [data-layer-add]')!.disabled).toBe(true);
+    root.querySelector<HTMLButtonElement>('.layer-tabs [data-layer-add]')!.click();
+    expect(root.querySelector<HTMLButtonElement>('.layer-tabs .add-menu-create')!.disabled).toBe(true);
+    expect(root.querySelector('.layer-tabs .add-menu-group .add-menu-reason')?.textContent).toBe('空いている番号（0〜9）がありません');
   });
 
-  it('見出しの「レイヤーを削除」は選んでいるレイヤーをファイルで消す操作をホストに渡す（確認とファイルの削除はホスト）', () => {
+  it('見出しの「…」の「削除…」は選んでいるレイヤーをファイルで消す操作をホストに渡す（確認とファイルの削除はホスト）', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     app.selectLayer(1);
-    root.querySelector<HTMLButtonElement>('.layer-info .layer-delete')!.click();
+    moreAction('delete');
     expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Symbols', file: symbols }]);
   });
 
@@ -205,18 +232,18 @@ describe('レイヤーの追加と削除', () => {
     const empties = [5, 9].map((index) => copyLayer(snapshot.layers[1]!, index, 'Empty', `layers/${index}_empty.yml`));
     app.receive({ type: 'snapshot', snapshot: { ...snapshot, layers: [...snapshot.layers, ...empties] }, changes: [] });
     app.selectLayer(9);
-    root.querySelector<HTMLButtonElement>('.layer-info .layer-delete')!.click();
+    moreAction('delete');
     expect(host.itemEdits).toEqual([{ op: 'delete', kind: 'layer', name: 'Empty', file: 'layers/9_empty.yml' }]);
   });
 
-  it('キー別では選んでいるレイヤーの見出し（説明・「レイヤーを削除」）を出さない（編集フォームではどのレイヤーかに意味がない）', () => {
+  it('キー別では選んでいるレイヤーの見出し（説明・「…」）を出さない（編集フォームではどのレイヤーかに意味がない）', () => {
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
-    expect(root.querySelector('.layer-info .layer-delete')).not.toBeNull();
+    expect(root.querySelector('.layer-info .more-menu-button')).not.toBeNull();
     expect(root.querySelector('.editor-mode')?.textContent).toBe('編集フォームレイヤー別キー別');
     app.setMode('key');
     expect(root.querySelector('.layer-info')!.childElementCount).toBe(0);
     app.setMode('layer');
-    expect(root.querySelector('.layer-info .layer-delete')).not.toBeNull();
+    expect(root.querySelector('.layer-info .more-menu-button')).not.toBeNull();
   });
 });
 

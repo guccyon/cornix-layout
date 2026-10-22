@@ -49,6 +49,19 @@ function commitValue(root: HTMLElement, focus: string, text: string): void {
   field.dispatchEvent(new Event('change'));
 }
 
+/** 節の「追加」の一覧を開いて「＋ 新しい〇〇」を押す */
+async function openCreate(root: HTMLElement): Promise<void> {
+  button(root, 'add-menu').click();
+  await settle(0);
+  root.querySelector<HTMLButtonElement>("[data-add='create']")!.click();
+}
+
+/** 見出しの「…」から操作を選ぶ */
+function more(root: HTMLElement, action: string): void {
+  button(root, 'more-menu').click();
+  root.querySelector<HTMLButtonElement>(`.more-menu-item[data-action='${action}']`)!.click();
+}
+
 function stepActions(root: HTMLElement): string[] {
   return [...root.querySelectorAll('.macro-step .step-action')].map((e) => e.textContent ?? '');
 }
@@ -87,7 +100,7 @@ describe('節の出し方', () => {
     macros.update(snapshot({ macros: [] }), []);
     expect(macros.element.hidden).toBe(false);
     expect(macros.element.querySelector('.item-detail')?.textContent).toContain('まだありません');
-    expect(button(macros.element, 'add')).toBeDefined();
+    expect(button(macros.element, 'add-menu')).toBeDefined();
   });
 
   it('App の下のペインで、QMK 設定より前に置ける', () => {
@@ -322,10 +335,10 @@ describe('マクロの節', () => {
 });
 
 describe('項目の追加・削除・名前の変更', () => {
-  it('追加は名前を入れて ItemEdit の create を渡す（決まりに合わない名前は渡さない）', () => {
+  it('追加は名前を入れて ItemEdit の create を渡す（決まりに合わない名前は渡さない）', async () => {
     const macros = mount(new MacroEditor({ host }));
     macros.update(snapshot(), []);
-    button(macros.element, 'add').click();
+    await openCreate(macros.element);
     expect(macros.formOpen).toBe(true);
     const name = input(macros.element, 'form-name');
     expect(document.activeElement).toBe(name);
@@ -342,19 +355,19 @@ describe('項目の追加・削除・名前の変更', () => {
     expect(macros.selected).toBe('Paren Pair');
   });
 
-  it('Escape・「やめる」で閉じる', () => {
+  it('Escape・「やめる」で閉じる', async () => {
     const macros = mount(new MacroEditor({ host }));
     macros.update(snapshot(), []);
-    button(macros.element, 'add').click();
+    await openCreate(macros.element);
     input(macros.element, 'form-name').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
     expect(macros.formOpen).toBe(false);
-    expect(document.activeElement).toBe(button(macros.element, 'add'));
+    expect(document.activeElement).toBe(button(macros.element, 'add-menu'));
   });
 
-  it('名前の変更と削除は ItemEdit を渡すだけ（確認はホスト）', () => {
+  it('名前の変更と削除は「…」から ItemEdit を渡すだけ（確認はホスト）', () => {
     const tapDances = mount(new TapDanceEditor({ host }));
     tapDances.update(snapshot(), []);
-    button(tapDances.element, 'rename').click();
+    more(tapDances.element, 'rename');
     const name = input(tapDances.element, 'form-name');
     expect(name.value).toBe('Tab Escape');
     name.value = 'Tab Esc';
@@ -362,17 +375,17 @@ describe('項目の追加・削除・名前の変更', () => {
     // ホストの確認でやめたら（新しい名前が現れない）選んでいる項目はそのまま
     tapDances.update(snapshot({ tapDances: [TAP_DANCE, { ...TAP_DANCE, index: 5, name: 'Another', file: 'tap_dance/05_another.yml' }] }), []);
     expect(tapDances.selected).toBe('Tab Escape');
-    button(tapDances.element, 'delete').click();
+    more(tapDances.element, 'delete');
     expect(host.itemEdits).toEqual([
       { op: 'rename', kind: 'tapDance', name: 'Tab Escape', to: 'Tab Esc' },
       { op: 'delete', kind: 'tapDance', name: 'Tab Escape' },
     ]);
   });
 
-  it('ショートカットの追加は値も入れる', () => {
+  it('ショートカットの追加は値も入れる', async () => {
     const shortcuts = mount(new ShortcutEditor({ host }));
     shortcuts.update(snapshot(), []);
-    button(shortcuts.element, 'add').click();
+    await openCreate(shortcuts.element);
     const name = input(shortcuts.element, 'form-name');
     name.value = '保存';
     name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));

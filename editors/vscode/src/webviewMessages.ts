@@ -96,7 +96,12 @@ export type WebviewMessage =
   | { type: 'change'; change: Change }
   /** v0.2: 並びの操作・行の削除・注記（protocol.md の 12.3）。ホストは未保存の変更の末尾に足す */
   | { type: 'edit'; change: AnyChange }
-  /** v0.2: 項目の追加・削除・名前の変更（protocol.md の 12.5）。ホストが確認のダイアログを出してすぐ書く */
+  /**
+   * v0.2: 項目の追加・削除・名前の変更（protocol.md の 12.5）。ホストが確認のダイアログを出してすぐ書く。
+   * v0.5: 番号の操作（use / unuse / setIndex）とショートカットの追加（create の shortcut。isPendingItemEdit）は書かずに、
+   * ホストが profile/planItemEdit の changes を 1 つの編集として未保存の変更の末尾に足す（確認は unuse で壊れる参照があるときだけ）。
+   * 結果は snapshot のメッセージの pending で届く（番号は src/itemIndex.ts の arrangeItems で出す）。失敗はホストが通知で知らせ、pending は変わらない
+   */
   | { type: 'itemEdit'; edit: ItemEdit }
   /** サーバーへのリクエストの中継 */
   | WebviewRequest

@@ -3037,6 +3037,96 @@ button.device-diff-row:hover,
   gap: 6px;
 }
 
+/* ---- v0.5: 画面のレイヤー（issue #113。app.ts の「＋」・見出しの「…」・番号の選択） ---- */
+
+/* タブのボタンの並び（「＋」は描き直しても残すので別の要素。並びは .layer-tabs の flex のまま） */
+.layer-tab-list {
+  display: contents;
+}
+
+/* 番号を未保存の変更で変えた（取り出した）レイヤーのタブ */
+.layer-tab.layer-tab-changed {
+  border-color: var(--changed);
+}
+
+.layer-tab-pending {
+  margin-left: 4px;
+  font-size: 0.7em;
+  color: var(--changed);
+}
+
+.layer-tab.selected .layer-tab-pending {
+  color: inherit;
+}
+
+.layer-add-menu .layer-tab.layer-add {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border, #555));
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+}
+
+.layer-add-menu .layer-tab.layer-add:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+
+/* 見出し: 「レイヤー 1 Nav」・ファイル・（未保存の番号）・右端に「…」 */
+.layer-info h2.layer-heading {
+  align-items: center;
+}
+
+.layer-heading-pending {
+  font-size: 0.8em;
+  font-weight: normal;
+  color: var(--changed);
+}
+
+.layer-heading .layer-more {
+  margin-left: auto;
+  font-weight: normal;
+  font-size: 0.8em;
+}
+
+/* 見出しの下に開く欄（番号の選択・名前の変更） */
+.layer-panel-slot:empty {
+  display: none;
+}
+
+.layer-panel-slot {
+  margin: 4px 0 8px;
+}
+
+.layer-panel-slot .index-picker {
+  width: 32em;
+}
+
+.layer-rename-form {
+  margin-top: 0;
+}
+
+/* 「…」の項目の右に添える補足（W0 の moreMenu.ts の note。「番号を変える…  いま 1」） */
+.more-menu-line {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  width: 100%;
+}
+
+.more-menu-note {
+  margin-left: auto;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.more-menu-item:hover:not(.disabled) .more-menu-note,
+.more-menu-item:focus .more-menu-note {
+  color: inherit;
+}
+
 /* v0.5（I #114）: マクロ・タップダンス・コンボ・ショートカットの節の「追加」と見出しの「…」・番号の選択の置き場所 */
 .item-toolbar .item-add-menu {
   flex: none;

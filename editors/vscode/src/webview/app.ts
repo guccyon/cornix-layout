@@ -18,7 +18,17 @@
 //
 // v0.4（tasks-v0.4.md の D3）: 実機への反映（ホストの { type: 'device' }）。下のペインの一番下の節「デバイス転送」（deviceView.ts の TransferSection。
 // 押すと host.deviceAction('preview')）と、反映の途中のモーダル（TransferDialog。プレビューと確定）。モーダルを出している間は編集画面に inert を付ける。
-import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange } from '../protocol';
+//
+// v0.5（issue #113）: レイヤーの番号は、snapshot（保存済み）に未保存の `["index"]` の変更を当てて決める（model.ts の arrangeLayers）。
+// タブ・図・キー別の並び、タブの「番号 名前」、MO(n) の帯の名前はすべてその番号（this.layers）で引く（references.layers は保存済みなので使わない）。
+// 未使用のレイヤーはどこにも並べず、タブの末尾の「＋」（addMenu.ts の AddMenu）の「未使用（N）」から取り出す（host.itemEdit の use。
+// ホストが未保存の変更に積む）。取り出したレイヤーは、そのファイルが並びに現れたら選ぶ。番号を変えたレイヤーは、選んでいればそのファイルを追う。
+// レイヤーの見出しの「…」（moreMenu.ts）に 番号を変える…（indexPicker.ts）/ 未使用にする / 名前を変える / 削除… をまとめる。
+import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange, Unused } from '../protocol';
+import { INDEX_LIMITS } from '../itemIndex';
+import { AddMenu } from './addMenu';
+import { IndexPicker } from './indexPicker';
+import { MoreMenu, type MoreMenuItem } from './moreMenu';
 import type { DeviceViewState, HostMessage, WebviewMessage } from '../webviewMessages';
 import { IDLE_DEVICE_STATE, TransferDialog, TransferSection, diagnosticPlace } from './deviceView';
 import { h, nodes } from './dom';
@@ -30,14 +40,18 @@ import type { KeyInput } from './keyInput';
 import { KeyboardView } from './keyboardView';
 import { LayerEditor, type PositionSlots } from './layerEditor';
 import {
+  LAYER_INDEXES_FULL,
   addPending,
   addressKey,
+  arrangeLayers,
+  arrangementKey,
   baseLayerValue,
   currentNote,
   currentText,
   diagnosticsByAddress,
   keyAt,
   keyFaceNote,
+  layerIndexNote,
   layerProblems,
   layerSlots,
   layerTitle,
@@ -60,7 +74,7 @@ export type ViewState = { layer?: number; selected?: string; mode?: EditorMode; 
 export type EditorMode = 'layer' | 'key';
 
 /** レイヤーの番号の範囲（Domain::LayerRef::RANGE と同じ 0〜9） */
-const LAYER_INDEXES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const LAYER_INDEXES = [...Array(INDEX_LIMITS.layer).keys()];
 
 export type AppOptions = {
   host: HostClient;
@@ -97,6 +111,20 @@ export class App {
   private foldQuiet = false;
   /** 足したレイヤー（次の snapshot に現れたら選ぶ） */
   private wantedLayer: number | undefined;
+  /** v0.5: 取り出したレイヤーのファイル（未保存の変更が届いて並びに現れたら選ぶ） */
+  private wantedFile: string | undefined;
+  /** v0.5: 未保存の番号を当てたレイヤーの並び（番号の順）と、未使用のもの・番号を変えたもの・取り出すときの番号 */
+  private layers: LayerSnapshot[] = [];
+  private unusedLayers: Unused<LayerSnapshot>[] = [];
+  private changedLayers = new Set<string>();
+  private nextLayerIndex: number | null = null;
+  private arrangement = '';
+  /** v0.5: タブの末尾の「＋」と、レイヤーの見出しの「…」 */
+  private readonly addMenu: AddMenu;
+  private readonly moreMenu: MoreMenu;
+  /** v0.5: 見出しの下に開く欄（番号の選択・名前の変更）。renderLayerInfo では作り直さない */
+  private readonly layerPanel = h('div', { class: 'layer-panel-slot' });
+  private layerPanelFile: string | undefined;
   /** 図に描いた今の値（欄の id → 値。コンボの強調で比べる） */
   private readonly values = new Map<string, KeyValue | null | undefined>();
   /** 図からキーを選んでいる間の受け取り手 */
@@ -110,6 +138,8 @@ export class App {
   private readonly keyboard: KeyboardView;
   private readonly editor: LayerEditor;
   private readonly tabs = h('div', { class: 'layer-tabs', role: 'group', 'aria-label': 'レイヤー' });
+  /** タブのボタン（「＋」は描き直しても残すので別に持つ） */
+  private readonly tabList = h('div', { class: 'layer-tab-list' });
   private readonly header = h('header', { class: 'profile-header' });
   private readonly problems = h('div', { class: 'problems' });
   private readonly banner = h('div', { class: 'banner', role: 'alert', hidden: true });
@@ -154,9 +184,26 @@ export class App {
       onRemove: (id) => this.remove(id),
       onNote: (id, note) => this.commitNote(id, note),
       onRenamePosition: (id, to) => this.renamePosition(id, to),
-      layers: () => (this.snapshot?.layers ?? []).map((layer) => ({ index: layer.index, name: layer.name })),
+      layers: () => this.layers.map((layer) => ({ index: layer.index, name: layer.name })),
       decorate: (input: KeyInput, id) =>
         attachTooltip(input.input, () => this.describe(id), { focus: 'always', canShow: () => !input.isOpen && !input.isEditing }),
+    });
+    this.addMenu = new AddMenu({
+      buttonLabel: '＋',
+      noun: 'レイヤー',
+      className: 'layer-add-menu',
+      create: { label: '新しいレイヤー' },
+      onCreate: (query) => this.openLayerForm(query),
+      onPickUnused: (item) => this.useLayer(item.id),
+    });
+    this.addMenu.button.classList.add('layer-tab', 'layer-add');
+    this.addMenu.button.dataset.layerAdd = '';
+    this.tabs.append(this.tabList, this.addMenu.element);
+    this.moreMenu = new MoreMenu({
+      label: 'レイヤーのほかの操作',
+      className: 'layer-more',
+      items: () => this.layerActions(),
+      onSelect: (id) => this.layerAction(id),
     });
     this.topPane = h('div', { class: 'top-pane' }, this.header, this.banner, this.tabs, this.layerForm, this.keyboard.element);
     this.bottomPane = h(
@@ -164,6 +211,7 @@ export class App {
       { class: 'bottom-pane' },
       this.modeBar,
       this.layerInfo,
+      this.layerPanel,
       this.problems,
       this.editor.element,
       ...(options.sections ?? []),
@@ -256,25 +304,32 @@ export class App {
    * changes は v0.1 の値の書き換え、pending は v0.2 の未保存の変更の全部（当てる順）。pending があればそちらを使う
    */
   setSnapshot(snapshot: ProfileSnapshot, changes: Change[], pending?: AnyChange[]): void {
+    // 番号を変えたレイヤーを選んでいれば、そのファイルを追う
+    const previousFile = this.layers.find((layer) => layer.index === this.layerIndex)?.file;
     this.setPending(pending ?? changes);
     const key = JSON.stringify(snapshot);
-    if (key === this.snapshotKey && this.snapshot) {
-      // 中身が同じ（変更・元に戻すのたび）なら、値だけを描き直す
+    const sameSnapshot = key === this.snapshotKey && !!this.snapshot;
+    const arrangement = this.arrangeLayers(snapshot);
+    if (sameSnapshot && arrangement === this.arrangement) {
+      // 中身も並びも同じ（変更・元に戻すのたび）なら、値だけを描き直す
       this.renderHeader();
       this.updateSlots();
       this.rendered();
       return;
     }
-    this.snapshotKey = key;
-    this.snapshot = snapshot;
-    // 節「デバイス転送」に検証のエラーと警告を出す（エラーがあればボタンを押せない）。プレビューの図と検証の結果は保存済みの snapshot から描く
-    this.transferSection.setSnapshot(snapshot);
-    if (this.device.transfer) this.transferDialog.update(this.device, snapshot);
-    this.inspector.clear();
-    const { byAddress, general } = diagnosticsByAddress(snapshot);
-    this.diagnostics = byAddress;
-    this.generalDiagnostics = general;
-    this.banner.hidden = true;
+    this.arrangement = arrangement;
+    if (!sameSnapshot) {
+      this.snapshotKey = key;
+      this.snapshot = snapshot;
+      // 節「デバイス転送」に検証のエラーと警告を出す（エラーがあればボタンを押せない）。プレビューの図と検証の結果は保存済みの snapshot から描く
+      this.transferSection.setSnapshot(snapshot);
+      if (this.device.transfer) this.transferDialog.update(this.device, snapshot);
+      this.inspector.clear();
+      const { byAddress, general } = diagnosticsByAddress(snapshot);
+      this.diagnostics = byAddress;
+      this.generalDiagnostics = general;
+      this.banner.hidden = true;
+    }
     if (snapshot.status === 'invalid') {
       this.structure = '';
       hideTooltip();
@@ -282,13 +337,24 @@ export class App {
       this.rendered();
       return;
     }
-    if (this.wantedLayer !== undefined && snapshot.layers.some((layer) => layer.index === this.wantedLayer)) {
+    const layers = this.layers;
+    const wanted = this.wantedFile === undefined ? undefined : layers.find((layer) => layer.file === this.wantedFile);
+    const followed = previousFile === undefined ? undefined : layers.find((layer) => layer.file === previousFile);
+    if (wanted) {
+      this.layerIndex = wanted.index;
+      this.wantedFile = undefined;
+      this.saveState();
+    } else if (this.wantedLayer !== undefined && layers.some((layer) => layer.index === this.wantedLayer)) {
       this.layerIndex = this.wantedLayer;
       this.wantedLayer = undefined;
       this.saveState();
+    } else if (followed && followed.index !== this.layerIndex) {
+      this.layerIndex = followed.index;
+      this.saveState();
     }
-    if (!snapshot.layers.some((layer) => layer.index === this.layerIndex)) this.layerIndex = snapshot.layers[0]?.index;
-    const structure = structureKey(snapshot);
+    if (!layers.some((layer) => layer.index === this.layerIndex)) this.layerIndex = layers[0]?.index;
+    if (this.layerPanelFile !== undefined && !layers.some((layer) => layer.file === this.layerPanelFile && layer.index === this.layerIndex)) this.closeLayerPanel(false);
+    const structure = structureKey(this.view(snapshot));
     if (structure === this.structure && this.topPane.isConnected) {
       // 形が同じ: 作り直さずに値・印・見出しだけを描き直す
       this.renderHeader();
@@ -352,8 +418,10 @@ export class App {
   }
 
   selectLayer(index: number): void {
-    if (!this.snapshot?.layers.some((layer) => layer.index === index)) return;
+    if (!this.layers.some((layer) => layer.index === index)) return;
     this.layerIndex = index;
+    this.wantedFile = undefined;
+    this.closeLayerPanel(false);
     this.saveState();
     hideTooltip();
     if (this.mode === 'key' && this.editor.byKey) {
@@ -404,6 +472,28 @@ export class App {
     this.edits = slotEdits(list);
   }
 
+  /** 未保存の番号を当ててレイヤーを並べ直す（並びの形を返す） */
+  private arrangeLayers(snapshot: ProfileSnapshot): string {
+    if (snapshot.status === 'invalid') {
+      this.layers = [];
+      this.unusedLayers = [];
+      this.changedLayers = new Set();
+      this.nextLayerIndex = null;
+      return '';
+    }
+    const arranged = arrangeLayers(snapshot, this.pending);
+    this.layers = arranged.used;
+    this.unusedLayers = arranged.unused;
+    this.changedLayers = arranged.changed;
+    this.nextLayerIndex = arranged.next;
+    return arrangementKey(this.layers);
+  }
+
+  /** snapshot のレイヤーを未保存の番号の並びに差し替えたもの（図の作り直しの判断とベースレイヤーの値に使う） */
+  private view(snapshot: ProfileSnapshot): ProfileSnapshot {
+    return { ...snapshot, layers: this.layers };
+  }
+
   private saveState(): void {
     this.options.state?.set({
       ...(this.layerIndex === undefined ? {} : { layer: this.layerIndex }),
@@ -414,7 +504,7 @@ export class App {
   }
 
   private currentSlots(): Slot[] {
-    const layer = this.snapshot?.layers.find((l) => l.index === this.layerIndex);
+    const layer = this.layers.find((l) => l.index === this.layerIndex);
     return layer && this.snapshot ? layerSlots(layer, this.snapshot.positionMap) : [];
   }
 
@@ -425,7 +515,7 @@ export class App {
   private allPositions(): PositionSlots[] {
     const snapshot = this.snapshot;
     if (!snapshot) return [];
-    const layers = [...snapshot.layers].sort((a, b) => a.index - b.index);
+    const layers = this.layers;
     const perLayer = layers.map((layer) => ({ layer, slots: layerSlots(layer, snapshot.positionMap) }));
     const first = perLayer[0]?.slots ?? [];
     return first.map((_, i) => {
@@ -451,7 +541,7 @@ export class App {
   }
 
   private layerNames(): Map<number, string> {
-    return new Map((this.snapshot?.layers ?? []).map((layer) => [layer.index, layer.name]));
+    return new Map(this.layers.map((layer) => [layer.index, layer.name]));
   }
 
   private captureDraft(): Draft {
@@ -491,71 +581,91 @@ export class App {
     );
   }
 
-  /** レイヤーの切り替え（ただのボタンの並び。選んでいるものは aria-pressed） */
+  /** レイヤーの切り替え（ただのボタンの並び。選んでいるものは aria-pressed）。並びと番号は未保存の番号を当てたもの */
   private renderTabs(): void {
     const snapshot = this.snapshot;
     if (!snapshot) return;
-    const focused = document.activeElement instanceof HTMLElement && this.tabs.contains(document.activeElement) ? document.activeElement.dataset.layer : undefined;
-    this.tabs.replaceChildren(
-      ...snapshot.layers.map((l) => {
+    const focused = document.activeElement instanceof HTMLElement && this.tabList.contains(document.activeElement) ? document.activeElement.dataset.file : undefined;
+    this.tabList.replaceChildren(
+      ...this.layers.map((l) => {
         const selected = l.index === this.layerIndex;
         // v0.4: 保存済みの中身に検証の問題があるレイヤーには点を付け、件数と文をツールチップに出す
         const problems = layerProblems(snapshot, l.file);
         const severity = severityOf(problems);
-        const title = [l.file, problems.length > 0 && problemSummary(problems)].filter(Boolean).join('\n');
+        // v0.5: 番号を未保存の変更で変えた（取り出した）レイヤーには未保存の印
+        const changed = this.changedLayers.has(l.file);
+        const title = [l.file, changed && this.changedNote(l.file), problems.length > 0 && problemSummary(problems)].filter(Boolean).join('\n');
         const tab = h(
           'button',
           {
             type: 'button',
-            class: `layer-tab${selected ? ' selected' : ''}${severity ? ` has-${severity}` : ''}`,
+            class: `layer-tab${selected ? ' selected' : ''}${severity ? ` has-${severity}` : ''}${changed ? ' layer-tab-changed' : ''}`,
             'aria-pressed': String(selected),
             'data-layer': l.index,
+            'data-file': l.file,
             title,
           },
           layerTitle(l),
           ...nodes(
+            changed && h('span', { class: 'layer-tab-pending', 'aria-label': '未保存' }, '●'),
             severity && h('span', { class: `layer-tab-dot ${severity}`, 'aria-label': severity === 'error' ? 'エラーあり' : '警告あり' }),
           ),
         );
         tab.addEventListener('click', () => this.selectLayer(l.index));
         return tab;
       }),
-      this.addLayerButton(snapshot),
     );
-    if (focused !== undefined) this.tabs.querySelector<HTMLElement>(`[data-layer="${focused}"]`)?.focus();
+    this.updateAddMenu(snapshot);
+    if (focused !== undefined) this.tabList.querySelector<HTMLElement>(`[data-file="${CSS.escape(focused)}"]`)?.focus();
   }
 
-  /** レイヤーの並びの末尾の「＋」（空いている番号がなければ押せない） */
-  private addLayerButton(snapshot: ProfileSnapshot): HTMLElement {
-    const free = this.freeLayerIndexes(snapshot);
-    const button = h(
-      'button',
-      {
-        type: 'button',
-        class: 'layer-tab layer-add',
-        'data-layer-add': '',
-        title: free.length > 0 ? 'レイヤーを追加する（layers/ にファイルを作る）' : '空いている番号（0〜9）がありません',
-        'aria-label': 'レイヤーを追加',
-        ...(free.length > 0 ? {} : { disabled: true }),
-      },
-      '＋',
-    );
-    button.addEventListener('click', () => this.openLayerForm());
-    return button;
+  /** タブの title に出す、未保存の番号の変更の文 */
+  private changedNote(file: string): string {
+    const saved = this.snapshot?.layers.find((layer) => layer.file === file);
+    return saved ? `番号を ${saved.index} から変えています（未保存）` : '未使用から取り出しました（未保存）';
   }
 
-  private freeLayerIndexes(snapshot: ProfileSnapshot): number[] {
-    return LAYER_INDEXES.filter((index) => !snapshot.layers.some((layer) => layer.index === index));
+  /** v0.5: タブの末尾の「＋」の一覧（新しく作る・未使用（N））を今の並びに合わせる */
+  private updateAddMenu(snapshot: ProfileSnapshot): void {
+    const free = this.freeLayerIndexes();
+    const next = this.nextLayerIndex;
+    this.addMenu.update({
+      create:
+        free.length > 0
+          ? { label: '新しいレイヤー', note: `番号 ${next ?? free[0]} に作る` }
+          : { label: '新しいレイヤー', disabled: true, reason: '空いている番号（0〜9）がありません' },
+      unused: this.unusedLayers.map((layer) => ({
+        id: layer.file,
+        name: layer.name,
+        file: layer.file,
+        warnings: layerProblems(snapshot, layer.file).length,
+      })),
+      unusedBlocked: next === null ? LAYER_INDEXES_FULL : null,
+    });
+    this.addMenu.button.title = free.length > 0 ? 'レイヤーを追加する（新しく作る・未使用から取り出す）' : LAYER_INDEXES_FULL;
   }
 
-  /** v0.4: レイヤーを足す欄（空いている番号と名前）。足すとホストが確認してすぐファイルに書く */
-  openLayerForm(): void {
+  private freeLayerIndexes(): number[] {
+    return LAYER_INDEXES.filter((index) => !this.layers.some((layer) => layer.index === index));
+  }
+
+  /** v0.5: 未使用のレイヤーを取り出す（ホストが末尾の番号の set を未保存の変更に積む）。並びに現れたら選ぶ */
+  private useLayer(file: string): void {
+    if (!this.unusedLayers.some((layer) => layer.file === file) || this.nextLayerIndex === null) return;
+    this.wantedFile = file;
+    this.options.host.itemEdit({ op: 'use', kind: 'layer', file });
+  }
+
+  /** v0.4: レイヤーを足す欄（空いている番号と名前）。足すとホストが確認してすぐファイルに書く。name は「＋」の一覧の検索の文字 */
+  openLayerForm(initialName = ''): void {
     const snapshot = this.snapshot;
     if (!snapshot) return;
-    const free = this.freeLayerIndexes(snapshot);
+    const free = this.freeLayerIndexes();
     if (free.length === 0) return;
     const select = h('select', { class: 'layer-index-select', 'aria-label': '新しいレイヤーの番号' });
     for (const index of free) select.append(h('option', { value: String(index) }, String(index)));
+    // 既定は取り出すときと同じ末尾の番号（「番号 N に作る」）
+    if (this.nextLayerIndex !== null) select.value = String(this.nextLayerIndex);
     const name = h('input', {
       type: 'text',
       class: 'item-name-input',
@@ -564,12 +674,13 @@ export class App {
       spellcheck: 'false',
       autocomplete: 'off',
     });
+    name.value = initialName;
     const message = h('div', { class: 'layer-form-message' });
     const submit = h('button', { type: 'button', class: 'item-button primary' }, '追加する');
     const cancel = h('button', { type: 'button', class: 'item-button' }, 'やめる');
     const close = () => {
       this.layerForm.replaceChildren();
-      this.tabs.querySelector<HTMLElement>('[data-layer-add]')?.focus();
+      this.addMenu.button.focus();
     };
     const send = () => {
       // レイヤーの名前は重なってよい（ファイル名は番号で分かれる）
@@ -611,6 +722,127 @@ export class App {
     name.focus();
   }
 
+  /** 「＋」の一覧（テスト用） */
+  get layerAddMenu(): AddMenu {
+    return this.addMenu;
+  }
+
+  /** レイヤーの見出しの「…」（テスト用） */
+  get layerMoreMenu(): MoreMenu {
+    return this.moreMenu;
+  }
+
+  private currentLayerSnapshot(): LayerSnapshot | undefined {
+    return this.layers.find((layer) => layer.index === this.layerIndex);
+  }
+
+  /** v0.5: レイヤーの見出しの「…」の項目 */
+  private layerActions(): MoreMenuItem[] {
+    const layer = this.currentLayerSnapshot();
+    if (!layer) return [];
+    return [
+      { id: 'setIndex', label: '番号を変える…', note: `いま ${layer.index}` },
+      { id: 'unuse', label: '未使用にする' },
+      { id: 'rename', label: '名前を変える' },
+      { separator: true },
+      { id: 'delete', label: '削除…', danger: true },
+    ];
+  }
+
+  private layerAction(id: string): void {
+    const layer = this.currentLayerSnapshot();
+    if (!layer) return;
+    // 名前は重なってよいのでファイルで指す
+    if (id === 'setIndex') this.openIndexPicker(layer);
+    else if (id === 'unuse') this.options.host.itemEdit({ op: 'unuse', kind: 'layer', file: layer.file });
+    else if (id === 'rename') this.openRenameForm(layer);
+    else if (id === 'delete') this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, file: layer.file });
+  }
+
+  /** v0.5: 番号を変える…（空きなら移動、使っている番号なら入れ替え。参照 MO(n) などは書き換えない） */
+  private openIndexPicker(layer: LayerSnapshot): void {
+    const used = new Map(this.layers.filter((l) => l.file !== layer.file).map((l) => [l.index, l.name]));
+    const picker = new IndexPicker({
+      noun: 'レイヤー',
+      name: layer.name,
+      current: layer.index,
+      limit: INDEX_LIMITS.layer,
+      used,
+      note: (target, mode, other) => layerIndexNote(layer.index, target, mode, layer.name, other),
+      returnFocus: this.moreMenu.button,
+      onClose: () => {
+        if (this.layerPanelFile === layer.file) this.layerPanelFile = undefined;
+      },
+      onConfirm: (target) => {
+        this.options.host.itemEdit({ op: 'setIndex', kind: 'layer', file: layer.file, index: target });
+      },
+    });
+    this.showLayerPanel(layer.file, picker.element);
+    picker.focus();
+  }
+
+  /** v0.5: 名前を変える（ホストが確認してすぐ書く。名前は重なってよい） */
+  private openRenameForm(layer: LayerSnapshot): void {
+    const name = h('input', {
+      type: 'text',
+      class: 'item-name-input',
+      'aria-label': `レイヤー「${layer.name}」の新しい名前`,
+      spellcheck: 'false',
+      autocomplete: 'off',
+    });
+    name.value = layer.name;
+    const message = h('div', { class: 'layer-form-message' });
+    const submit = h('button', { type: 'button', class: 'item-button primary' }, '名前を変える');
+    const cancel = h('button', { type: 'button', class: 'item-button' }, 'やめる');
+    const send = () => {
+      const problem = nameProblem(name.value, []);
+      if (problem) {
+        message.replaceChildren(h('div', { class: 'message-line error' }, problem));
+        return;
+      }
+      if (name.value !== layer.name) this.options.host.itemEdit({ op: 'rename', kind: 'layer', name: layer.name, to: name.value, file: layer.file });
+      this.closeLayerPanel(true);
+    };
+    submit.addEventListener('click', send);
+    cancel.addEventListener('click', () => this.closeLayerPanel(true));
+    name.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        send();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeLayerPanel(true);
+      }
+    });
+    this.showLayerPanel(
+      layer.file,
+      h(
+        'div',
+        { class: 'item-name-form layer-rename-form', role: 'group', 'aria-label': 'レイヤーの名前を変える' },
+        h('span', { class: 'item-form-title' }, '名前を変える'),
+        name,
+        submit,
+        cancel,
+        message,
+      ),
+    );
+    name.focus();
+    name.select();
+  }
+
+  private showLayerPanel(file: string, element: HTMLElement): void {
+    this.layerPanelFile = file;
+    this.layerPanel.replaceChildren(element);
+  }
+
+  /** 見出しの下の欄を閉じる（focusBack なら「…」にフォーカスを戻す） */
+  private closeLayerPanel(focusBack: boolean): void {
+    this.layerPanelFile = undefined;
+    if (this.layerPanel.childElementCount === 0) return;
+    this.layerPanel.replaceChildren();
+    if (focusBack) this.moreMenu.button.focus();
+  }
+
   /** 下の欄の並べ方の切り替え（とキー別の「畳む」） */
   private renderModeBar(): void {
     const button = (mode: EditorMode, label: string, title: string) => {
@@ -636,26 +868,31 @@ export class App {
   }
 
   private renderLayerInfo(): void {
-    const layer = this.snapshot?.layers.find((l) => l.index === this.layerIndex);
+    const layer = this.currentLayerSnapshot();
+    this.moreMenu.close(false);
     if (!layer) {
+      this.closeLayerPanel(false);
       this.layerInfo.replaceChildren(h('p', {}, 'レイヤーがありません（レイヤーの並びの「＋」で足せます）'));
       return;
     }
-    // キー別では全レイヤーの欄が並ぶので、選んでいるレイヤーの見出し（説明と削除）は意味がない。レイヤー別のときだけ出す
+    // キー別では全レイヤーの欄が並ぶので、選んでいるレイヤーの見出し（説明と「…」）は意味がない。レイヤー別のときだけ出す
     if (this.mode === 'key') {
+      this.closeLayerPanel(false);
       this.layerInfo.replaceChildren();
       return;
     }
-    const remove = h(
-      'button',
-      { type: 'button', class: 'link-button layer-delete', title: `レイヤーのファイル ${layer.file} を消す（確認のダイアログで参照の数を出す）` },
-      'レイヤーを削除',
-    );
-    // 名前は重なってよいのでファイルで指す
-    remove.addEventListener('click', () => this.options.host.itemEdit({ op: 'delete', kind: 'layer', name: layer.name, file: layer.file }));
+    if (this.layerPanelFile !== undefined && this.layerPanelFile !== layer.file) this.closeLayerPanel(false);
+    const changed = this.changedLayers.has(layer.file);
     this.layerInfo.replaceChildren(
       ...nodes(
-        h('h2', {}, `レイヤー ${layerTitle(layer)}`, h('span', { class: 'layer-file' }, layer.file), remove),
+        h(
+          'h2',
+          { class: `layer-heading${changed ? ' layer-heading-changed' : ''}` },
+          h('span', { class: 'layer-heading-title' }, `レイヤー ${layerTitle(layer)}`),
+          h('span', { class: 'layer-file' }, layer.file),
+          changed ? h('span', { class: 'layer-heading-pending' }, this.changedNote(layer.file)) : null,
+          this.moreMenu.element,
+        ),
         layer.description && h('p', { class: 'layer-description' }, layer.description),
       ),
     );
@@ -721,7 +958,7 @@ export class App {
   private problemTarget(diagnostic: Diagnostic): 'key' | 'layer' | 'item' | undefined {
     if (!this.snapshot || this.snapshot.status === 'invalid') return undefined;
     const file = diagnostic.address?.file ?? diagnostic.file;
-    const layer = this.snapshot.layers.find((l) => l.file === file);
+    const layer = this.layers.find((l) => l.file === file);
     if (layer) return diagnostic.address && this.layerSlotIds(layer).has(addressKey(diagnostic.address)) ? 'key' : 'layer';
     return file && this.options.revealProblem && !file.endsWith('/') ? 'item' : undefined;
   }
@@ -733,7 +970,7 @@ export class App {
   /** 検証の結果の行から、編集フォームのその欄へ移る（レイヤーを切り替えて欄にフォーカス）。移れなければファイルを開く */
   revealProblem(diagnostic: Diagnostic): void {
     const file = diagnostic.address?.file ?? diagnostic.file;
-    const layer = this.snapshot?.layers.find((l) => l.file === file);
+    const layer = this.layers.find((l) => l.file === file);
     if (layer) {
       if (layer.index !== this.layerIndex) this.selectLayer(layer.index);
       const id = diagnostic.address ? addressKey(diagnostic.address) : undefined;
@@ -754,6 +991,7 @@ export class App {
     this.setEditorSlots([]);
     this.editor.setSlots([]);
     this.layerForm.replaceChildren();
+    this.closeLayerPanel(false);
     this.endPick();
     this.root.replaceChildren(
       h(
@@ -799,7 +1037,7 @@ export class App {
         );
       }
     }
-    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.slotLayer.get(slot.id), slot) : null;
+    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.view(this.snapshot), this.slotLayer.get(slot.id), slot) : null;
     if (this.slots.includes(slot)) {
       this.values.set(slot.id, value);
       this.keyboard.update(slot.id, { text, value, diagnostics, changed, base });
@@ -847,7 +1085,7 @@ export class App {
         this.resolveValue(entry.text, entry.saved, 'comboTrigger', () => this.keyboard.refreshCombo()),
       ),
     );
-    const base = this.layerIndex === 0 ? undefined : snapshot.layers.find((layer) => layer.index === 0);
+    const base = this.layerIndex === 0 ? undefined : this.layers.find((layer) => layer.index === 0);
     const keys = this.slots
       .filter((slot) => slot.key)
       .map((slot) => {
@@ -945,7 +1183,7 @@ export class App {
     const context = slot.encoder ? slotLabel(slot) : undefined;
     const value = result ? result.value : slot.saved;
     const face = keyFaceNote(value);
-    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.snapshot, this.slotLayer.get(slot.id), slot) : null;
+    const base = value?.kind === 'transparent' && this.snapshot ? baseLayerValue(this.view(this.snapshot), this.slotLayer.get(slot.id), slot) : null;
     return describeContent(text, result, {
       context,
       note: currentNote(slot, this.edits),

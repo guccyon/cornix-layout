@@ -9,6 +9,8 @@ export type MoreMenuAction = {
   /** 呼ぶ側が見分けるためのもの（そのまま onSelect に返す） */
   id: string;
   label: string;
+  /** 右に添える補足（例「いま 1」）。読み上げは aria-describedby で */
+  note?: string;
   /** 危ない操作（削除など。赤で出す） */
   danger?: boolean;
   /** 押せない（reason を下に出す） */
@@ -124,6 +126,8 @@ export class MoreMenu {
       if ('separator' in item) return h('div', { class: 'more-menu-separator', role: 'separator' });
       const disabled = item.disabled === true;
       const reason = disabled && item.reason ? h('span', { class: 'more-menu-reason', id: `${this.menuId}-reason-${reasonId++}` }, item.reason) : null;
+      const note = item.note ? h('span', { class: 'more-menu-note', id: `${this.menuId}-note-${reasonId++}` }, item.note) : null;
+      const label = h('span', { class: 'more-menu-label' }, item.label);
       // 押せない項目もフォーカスできるように残す（aria-disabled。理由を読み上げる）
       const button = h(
         'button',
@@ -133,10 +137,10 @@ export class MoreMenu {
           role: 'menuitem',
           tabindex: '-1',
           'aria-disabled': disabled ? 'true' : undefined,
-          'aria-describedby': reason?.id,
+          'aria-describedby': [note?.id, reason?.id].filter(Boolean).join(' ') || undefined,
           'data-action': item.id,
         },
-        h('span', { class: 'more-menu-label' }, item.label),
+        note ? h('span', { class: 'more-menu-line' }, label, note) : label,
         reason,
       );
       button.addEventListener('click', () => {

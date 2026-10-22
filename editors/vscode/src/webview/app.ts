@@ -20,7 +20,7 @@
 // 押すと host.deviceAction('preview')）と、反映の途中のモーダル（TransferDialog。プレビューと確定）。モーダルを出している間は編集画面に inert を付ける。
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange } from '../protocol';
 import type { DeviceViewState, HostMessage, WebviewMessage } from '../webviewMessages';
-import { IDLE_DEVICE_STATE, TransferDialog, TransferSection } from './deviceView';
+import { IDLE_DEVICE_STATE, TransferDialog, TransferSection, snapshotErrors } from './deviceView';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
 import { comboTargets, effectiveKey, triggerKeys } from './comboHighlight';
@@ -265,7 +265,8 @@ export class App {
     }
     this.snapshotKey = key;
     this.snapshot = snapshot;
-    // プレビューの図と検証のエラーは保存済みの snapshot から描く
+    // 検証のエラーがあれば節のボタンを押せなくする。プレビューの図と検証のエラーは保存済みの snapshot から描く
+    this.transferSection.setErrors(snapshotErrors(snapshot));
     if (this.device.transfer) this.transferDialog.update(this.device, snapshot);
     this.inspector.clear();
     const { byAddress, general } = diagnosticsByAddress(snapshot);

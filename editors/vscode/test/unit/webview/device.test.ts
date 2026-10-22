@@ -79,6 +79,25 @@ describe('節「デバイス転送」', () => {
     expect(host.deviceActions).toEqual(['preview']);
   });
 
+  it('保存済みのプロファイルに検証のエラーがあれば「反映のプレビュー…」を押せず、横に理由を出す。直せば押せる', () => {
+    expect(section().querySelector<HTMLElement>('.device-transfer-blocked')!.hidden).toBe(true);
+    const diagnostics = [
+      { severity: 'error' as const, source: 'semantic' as const, message: '知らないキーコードです: KC_FOO', file: 'layers/0_base.yml' },
+      { severity: 'warning' as const, source: 'semantic' as const, message: 'w' },
+    ];
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot({ diagnostics }), changes: [] });
+    expect(previewButton().disabled).toBe(true);
+    const blocked = section().querySelector<HTMLElement>('.device-transfer-blocked')!;
+    expect(blocked.hidden).toBe(false);
+    expect(blocked.textContent).toBe('検証のエラーが 1 件あるので反映できません。先にエラーを直して保存してください。');
+    // 状態が変わってもエラーのあいだは押せない
+    app.receive({ type: 'device', state: idle({ allowWrites: false }) });
+    expect(previewButton().disabled).toBe(true);
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    expect(previewButton().disabled).toBe(false);
+    expect(blocked.hidden).toBe(true);
+  });
+
   it('図の上に実機のボタンはない', () => {
     expect(root.querySelector('.keyboard-toggles .device-bar')).toBeNull();
     expect(root.querySelector('[data-device-action]')).toBeNull();

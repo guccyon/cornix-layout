@@ -182,7 +182,19 @@ describe('DeviceFlow（偽の device のサーバーと）', () => {
     expect(await t.flow.confirm(DIR)).toBe('written');
   });
 
-  it('検証のエラーがあるあいだは確定させない', async () => {
+  it('検証のエラーがあれば、実機を読む前に止めて知らせる（直せば読む）', async () => {
+    const t = await setup();
+    t.setErrors(3);
+    expect(await t.flow.preview(DIR)).toBe('blocked');
+    expect(t.prompts.last).toMatchObject({ level: 'warning', message: expect.stringContaining('検証のエラーが 3 件'), actions: [{ label: '問題を表示' }] });
+    expect(t.requests).toEqual([]);
+    expect(t.states.transferOf(DIR)).toBeNull();
+    expect(t.states.busy).toBe(false);
+    t.setErrors(0);
+    expect(await t.flow.preview(DIR)).toBe('different');
+  });
+
+  it('プレビューのあとで検証のエラーが出たら確定させない', async () => {
     const t = await setup();
     await t.flow.preview(DIR);
     t.setErrors(2);

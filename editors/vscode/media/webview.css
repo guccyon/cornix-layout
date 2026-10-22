@@ -2488,7 +2488,15 @@ button {
 }
 
 .device-transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin: 8px 0;
+}
+
+.device-transfer-blocked {
+  color: var(--vscode-errorForeground, #f48771);
 }
 
 .device-preview-button,

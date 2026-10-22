@@ -52,11 +52,11 @@ export function writesDisabledNotice(): Notice {
   };
 }
 
-/** 検証のエラーがあるあいだは確定させない */
+/** 検証のエラーがあるあいだは反映させない（実機を読む前と、確定のとき） */
 export function validationErrorNotice(errors: number): Notice {
   return {
     level: 'warning',
-    message: `プロファイルに検証のエラーが ${errors} 件あるので、実機に書き込みませんでした。直して保存してから、もう一度プレビューしてください。`,
+    message: `プロファイルに検証のエラーが ${errors} 件あるので、実機に反映できません。先にエラーを直して保存してから、もう一度反映してください。`,
     actions: [SHOW_PROBLEMS],
   };
 }

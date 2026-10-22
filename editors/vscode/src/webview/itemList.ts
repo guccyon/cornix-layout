@@ -127,6 +127,22 @@ export abstract class ItemSection<T extends { name: string }, V> {
     this.render();
   }
 
+  /**
+   * v0.4: 検証の結果の行（節「デバイス転送」など）から移る。そのファイルの項目を選び、節を開いて一覧の行へ移る。
+   * この節の項目でなければ何もしない。移ったら true
+   */
+  revealFile(file: string): boolean {
+    const items = this.snapshot && this.snapshot.status === 'ok' ? this.items(this.snapshot) : undefined;
+    const item = items?.find((i) => (i as { file?: string }).file === file);
+    if (!item) return false;
+    this.details.open = true;
+    this.select(item.name);
+    const row = [...this.listElement.querySelectorAll<HTMLElement>('.item-row')].find((r) => r.dataset.item === item.name);
+    (row ?? this.element).scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    row?.focus();
+    return true;
+  }
+
   protected render(): void {
     const snapshot = this.snapshot;
     const items = snapshot && snapshot.status === 'ok' ? this.items(snapshot) : undefined;

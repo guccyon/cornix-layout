@@ -45,6 +45,13 @@ const app = new App(document.getElementById('app') as HTMLElement, {
   sections: [...items.map((item) => item.element), settings.element, metadata.element],
   onRendered: (message) => vscode.postMessage(message),
   state: { get: () => vscode.getState(), set: (state) => vscode.setState(state) },
+  // v0.4: 検証の結果の行から下の節（マクロなど・QMK 設定）へ
+  revealProblem: (diagnostic) => {
+    const file = diagnostic.address?.file ?? diagnostic.file;
+    if (!file) return false;
+    if (diagnostic.address && settings.revealAddress(diagnostic.address)) return true;
+    return items.some((item) => item.revealFile(file));
+  },
 });
 
 window.addEventListener('message', (event: MessageEvent<HostMessage>) => {

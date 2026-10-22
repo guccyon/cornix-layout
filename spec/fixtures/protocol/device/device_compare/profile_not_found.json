@@ -1,0 +1,19 @@
+{
+  "description": "知らない dir は -32050",
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/nope"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32050,
+      "data": {
+        "dir": "profiles/nope"
+      }
+    }
+  }
+}

@@ -21,10 +21,15 @@ module Cornix
     #
     # 番号は各ファイルの index: だけで決める（ファイル名の先頭の番号は読まない）。
     # index: のないか値が空（null）のファイルは未使用（Schema::Header.unused?。issue #85）: Profile に入れず、
-    # 構造だけを同じ読み方で検証して UnusedFile にする（その問題は compile を止めない）。名前の参照は使っているものだけを引く
+    # 構造だけを同じ読み方で検証して UnusedFile にする（その問題は compile を止めない）。名前の参照は使っているものだけを引く。
+    #
+    # load_partial（エディタ用）: 問題が解析できないキーコードだけなら、その割り当てを NoKey にして Profile を作り、
+    # 問題と一緒に返す（Partial）。ほかの問題があれば load と同じく InvalidConfig。未使用のファイルは代わりの値にせず、問題は unused に入れる
     class ConfigLoader
       # 読んだ結果。unused は未使用のファイル（UnusedFile。種類の順、ファイル名の順）
       Loaded = Data.define(:profile, :unused)
+      # profile は作れた Domain::Profile、problems は代わりの値（NoKey）にした問題（なければ空）、unused は Loaded と同じ
+      Partial = Data.define(:profile, :problems, :unused)
 
       # 未使用のファイルの構造を検証するときに仮に入れる番号（どの種類でも範囲内）
       PLACEHOLDER_INDEX = 0
@@ -36,11 +41,38 @@ module Cornix
         @settings_catalog = settings_catalog
         @shortcut_catalog = shortcut_catalog
         @problems = Problems.new
+        @recover = nil
+        @recovered = []
+        @unused = []
       end
 
       def load = load_all.profile
 
       def load_all
+        profile = read_profile
+        @problems.raise_if_any!(unused: @unused)
+        Loaded.new(profile: profile.call, unused: @unused)
+      end
+
+      def load_partial
+        @recover = lambda do |problem|
+          @recovered << problem
+          Domain::Keycode::NO_KEY
+        end
+        profile = read_profile
+        @problems.raise_if_any!(unused: @unused) unless @problems.size == @recovered.size
+        Partial.new(profile: profile.call, problems: @recovered.dup.freeze, unused: @unused)
+      rescue InvalidConfig => e
+        raise if @recovered.empty? || e.problems.size > 1 || e.problems.first&.file
+
+        # 代わりの値で組み立てられなかった（Profile の規則）。読めない値の問題と一緒に報告する
+        raise InvalidConfig.new(@recovered + e.problems, unused: @unused)
+      end
+
+      private
+
+      # すべてのファイルを読み、Profile を作る手続きを返す（問題は @problems に、未使用のファイルは @unused に集める）
+      def read_profile
         raise ConfigError.new('設定ディレクトリがありません', path: @dir) unless @source.directory?
 
         metadata = load_single(ConfigFiles::METADATA) { |data, ctx| Schema::MetadataFile.read(data, ctx) }
@@ -48,24 +80,27 @@ module Cornix
         files = ConfigFiles::KINDS.keys.to_h { |kind| [kind, read_files(kind).partition { |_, d| !Schema::Header.unused?(d) }] }
         used = files.transform_values(&:first)
         unused = files.transform_values(&:last)
-        shortcuts = load_shortcuts(Schema::KeycodeField.new(@notation, build_references(used, unused)))
-        keycodes = Schema::KeycodeField.new(@notation, build_references(used, unused, shortcuts))
-        readers = readers(keycodes, position_map)
+        shortcuts = load_shortcuts(keycode_field(build_references(used, unused)))
+        references = build_references(used, unused, shortcuts)
+        readers = readers(keycode_field(references), keycode_field, position_map)
         macros = load_items(used[:macros], &readers[:macros])
         tap_dances = load_items(used[:tap_dances], &readers[:tap_dances])
         settings = load_settings
         layers = position_map ? load_items(used[:layers], &readers[:layers]) : []
         combos = load_items(used[:combos], &readers[:combos])
-        unused_files = unused.flat_map { |kind, list| check_unused(kind, list, readers[kind]) }
-        @problems.raise_if_any!(unused: unused_files)
+        # 未使用のファイルは代わりの値にしない（問題はその UnusedFile に入れる）
+        strict = readers(Schema::KeycodeField.new(@notation, references), Schema::KeycodeField.new(@notation), position_map)
+        @unused = unused.flat_map { |kind, list| check_unused(kind, list, strict[kind]) }.freeze
 
-        profile = build_profile(metadata: metadata, settings: settings, position_map: position_map, layers: layers,
-                                macros: macros, tap_dances: tap_dances, combos: combos, shortcuts: shortcuts,
-                                unused: unused_files)
-        Loaded.new(profile: profile, unused: unused_files.freeze)
+        lambda do
+          build_profile(metadata: metadata, settings: settings, position_map: position_map, layers: layers,
+                        macros: macros, tap_dances: tap_dances, combos: combos, shortcuts: shortcuts, unused: @unused)
+        end
       end
 
-      private
+      def keycode_field(references = Mapping::References::NONE)
+        Schema::KeycodeField.new(@notation, references, recover: @recover)
+      end
 
       def build_profile(unused:, **parts)
         Domain::Profile.new(**parts)
@@ -144,9 +179,9 @@ module Cornix
       # 種類 => 1 ファイルを読む手続き（data, ctx → 値オブジェクト。問題があれば nil）。
       # マクロのキーは名前参照を使わない（旧 Macro と同じ）。preset: は同梱のショートカットの手順にする。
       # position_map が読めなければレイヤーは読まない（nil）
-      def readers(keycodes, position_map)
+      # macro_keys はマクロの手順のキー（名前参照を使わない）
+      def readers(keycodes, macro_keys, position_map)
         presets = Schema::MacroFile::Presets.new(catalog: @shortcut_catalog, notation: @notation)
-        macro_keys = Schema::KeycodeField.new(@notation)
         {
           macros: ->(data, ctx) { Schema::MacroFile.read(data, ctx, macro_keys, presets) },
           tap_dances: ->(data, ctx) { Schema::TapDanceFile.read(data, ctx, keycodes) },

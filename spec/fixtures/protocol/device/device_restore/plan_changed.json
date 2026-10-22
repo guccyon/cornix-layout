@@ -1,0 +1,38 @@
+{
+  "description": "token が違えば -32071",
+  "setup": {
+    "profile": "test_config",
+    "allowWrites": true,
+    "device": {
+      "from": "profile"
+    },
+    "snapshots": {
+      "20261021-101500-pre-apply": {
+        "from": "profile",
+        "keys": [
+          {
+            "layer": 0,
+            "row": 0,
+            "col": 1,
+            "value": "KC_A"
+          }
+        ]
+      }
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/restore",
+    "params": {
+      "dir": "profiles/default",
+      "backup": "20261021-101500-pre-apply",
+      "token": "828ecd9225e5c798"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32071
+    }
+  }
+}

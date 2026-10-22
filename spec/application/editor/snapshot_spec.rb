@@ -128,15 +128,24 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
     expect(refs[:shortcuts]).to eq([{ name: '前のタブへ', text: 'Command + Shift + [' }])
   end
 
+  it '読めない値（解析できないキーコード）だけなら status: ok。その欄は書いてある表記のままで、構造の error と意味検証の結果を並べる' do
+    text = File.read(File.join(@root, 'profile', 'layers/0_layer_0.yaml'))
+    write('layers/0_layer_0.yaml', text.sub('tab: Tab', 'tab: KC_FOOO').sub('Q: Q', 'Q: Macro(20)'))
+    expect(snapshot).to include(status: 'ok')
+    expect(key(snapshot, 0, 'left', 0, 0)[:value]).to include(text: 'KC_FOOO', canonical: 'KC_FOOO', display: { label: 'KC_FOOO' })
+    expect(snapshot[:diagnostics].map { |d| [d[:source], d[:severity], d.dig(:address, :path)&.last] })
+      .to eq([%w[structure error tab], %w[semantic error Q]])
+  end
+
   it '構造検証で読めなければ status: invalid、diagnostics だけ（注記付きの形の .key は Address に付けない）' do
     text = File.read(File.join(@root, 'profile', 'layers/0_layer_0.yaml'))
-    write('layers/0_layer_0.yaml', text.sub('tab: Tab', 'tab: { key: Unknown, note: x }'))
+    write('layers/0_layer_0.yaml', text.sub('tab: Tab', 'tab: { key: [Unknown], note: x }'))
     expect(snapshot).to include(status: 'invalid', layers: [], settings: [], metadata: {}, positionMap: [])
     expect(snapshot[:files]).to include('layers/0_layer_0.yaml' => version('layers/0_layer_0.yaml'))
     diagnostic = snapshot[:diagnostics].then { |list| expect(list.size).to eq(1); list.first }
     expect(diagnostic).to include(severity: 'error', source: 'structure',
                                   address: { file: 'layers/0_layer_0.yaml', path: %w[mapping left_hand row0 tab] })
-    expect(diagnostic[:range]).to eq(start: { line: 7, character: 18 }, end: { line: 7, character: 25 })
+    expect(diagnostic[:range]).to eq(start: { line: 7, character: 18 }, end: { line: 7, character: 27 })
   end
 
   it 'YAML として読めないファイルは file だけ' do

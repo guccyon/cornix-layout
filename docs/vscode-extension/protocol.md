@@ -6,7 +6,7 @@ VS Code 拡張（以下「拡張」）と、プロファイルを読んで解釈
 差し替えられるように、約束には Ruby のクラス名や内部の形を出さない。
 
 **状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。v0.2 で足すもの（2026-10-20 決定）は「[12. v0.2 で足すもの](#12-v02-で足すもの)」、
-v0.3 で足すもの（2026-10-20 決定）は「[13. v0.3 で足すもの](#13-v03-で足すもの)」、v0.4 で足す実機の操作（2026-10-21 設計。実装はこれから）は「[14. v0.4 で足すもの](#14-v04-で足すもの)」。
+v0.3 で足すもの（2026-10-20 決定）は「[13. v0.3 で足すもの](#13-v03-で足すもの)」、v0.4 で足す実機の操作（2026-10-21 設計、2026-10-22 実装）は「[14. v0.4 で足すもの](#14-v04-で足すもの)」。
 今の約束の版（`protocolVersion`）は `"0.3"`。
 
 起動・終了とプロファイルの一覧（`initialize`、`profile/list` など）のほかに、中身のメソッドとして次の 5 つを決める。
@@ -244,7 +244,7 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
   "profileId": "p1",         // 以降のリクエストで使う。profile/close まで有効
   "name": "default",
   "dir": "profiles/default",
-  "status": "ok",            // "ok" | "invalid"（構造検証で読めなかった）
+  "status": "ok",            // "ok" | "invalid"（構造検証で読めなかった。読めない値（解析できないキーコード）だけなら "ok"）
   "files": {                 // 読んだファイルとその中身の版。外での変更と保存のときの照合に使う
     "metadata.yaml": "sha256:9f2c…",
     "layers/0_base.yml": "sha256:41ab…",
@@ -309,6 +309,10 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 - `settings` は `data/qmk_settings.yaml` のすべての設定を返す（ファイルにない設定は `value: null`）
 - `status: "invalid"` のときは `files` と `diagnostics` だけを信じてよい（`layers` などは空）。
   拡張はエラーの一覧と、ファイルを開くボタンを出す（[11. 決めたこと](#11-決めたこと) の 6）
+- v0.4（ADR 021）: 構造検証の問題が読めない値（解析できないキーコード）だけなら、その値を `NoKey` として読み続けて `status: "ok"` で返す。
+  その欄の `value` は書いてある表記のまま（`text` と `canonical` と `display.label` が書いてある表記。`code` などは `NoKey` のもの）で、
+  `diagnostics` には構造の error（その `address`）を先に並べ、意味検証の結果を続ける。`profile/validate`・`profile/planEdits` の `diagnostics` も同じ。
+  この状態では `profile/planItemEdit` は `-32602`（field `"edit"`、先にその値を直す）
 - マクロ・タップダンス・コンボ・ショートカットの中身の画面は v0.2。v0.1 では `references` の名前の一覧だけを返す
 - 未使用のファイル（`index:` のないか値が空のもの。#85）の項目は `layers` や `references` などに返さない（`files` には版が入る）。
   レイヤーなどの `file` / Address は未使用のファイルを除いて対応させるので、未使用のファイルがあっても別のファイルを指さない。
@@ -555,7 +559,7 @@ type CandidateCategory =
 
 1. 拡張は、書き換える対象のファイルがテキストエディタで未保存（dirty）のまま開いていれば保存を止め、「テキストの変更を先に保存するか戻してください」と知らせる
 2. `profile/planEdits` を呼ぶ。`diagnostics` に構造の error があれば保存しない（保存するとプロファイル全体が `invalid` になり、画面で直せなくなるため）。
-   意味検証の error と warning は保存を止めない
+   意味検証の error と warning は保存を止めない。v0.4: 保存済みの snapshot にすでにある構造の error（同じ場所・同じ文。ディスクにすでにある読めない値）は数えない
 3. 拡張は当てる前に、対象のファイルのディスクのバイト列の版（[2.](#fileversion) の FileVersion）が `files` の `baseVersion` と同じか確かめる
    （`create: true` ならファイルがないこと）。違えば（2 のあとに外で変わった）当てずに、[7.3](#73-拡張の扱い) の扱いをしてから 2 からやり直す
    （サーバーは planEdits の時点のディスクと比べるだけなので、古い位置の書き換えが新しい中身に当たって外の変更を壊さないように）。
@@ -1003,8 +1007,9 @@ type ItemEdit =
 ## 14. v0.4 で足すもの
 
 [tasks-v0.4.md](tasks-v0.4.md) の「決めたこと」を約束にしたもの。実機の操作は、`cornix serve` とは別のプロセスの device のサーバーで行う（ADR 018）。
-**状態: 設計（実装はこれから）。** ただし 14.9（レイヤーの追加と削除。issue #84）は入れた。14.9 は足しただけ（今のリクエストの形は変えない）なので、約束の版（`protocolVersion`）は `"0.3"` のまま。
-`"0.4"` に上げるのは段 3（device のサーバーを入れるとき）。device のサーバー（14.1〜14.8）のほかは、編集のサーバー（`cornix serve`）の形は変えない。
+**状態: 入れた。** device のサーバー（Ruby。14.1〜14.7・14.10）は D1（#97）、拡張の型と偽の device のサーバーは P（#94）、拡張のホストと画面（14.8）は D2（#96）・D3（#95）で入れた。
+14.9（レイヤーの追加と削除。issue #84）も入れた。14.9 は足しただけ（今のリクエストの形は変えない）なので、14.9 を入れたときは約束の版（`protocolVersion`）を `"0.3"` のままにした。
+約束の版は段 3 の J1 で `"0.4"` に上げる（編集のサーバーと device のサーバーで同じ版）。device のサーバー（14.1〜14.8・14.10）のほかは、編集のサーバー（`cornix serve`）の形は変えない。
 
 ### 14.1 device のサーバー
 
@@ -1013,7 +1018,8 @@ cornix serve --device [--allow-writes]
 ```
 
 - 枠（Content-Length）・JSON-RPC・ライフサイクル（`initialize` / `shutdown` / `exit`）は [1.](#1-通信) と [4.](#4-ライフサイクルのメソッド) と同じ。登録するメソッドは `device/*` だけ（ほかは `-32601`）
-- `initialize` の `capabilities` に `"device": true` と `"deviceWrites": <--allow-writes を付けたか>` を返す
+- `initialize` の `capabilities` に `"device": true` と `"deviceWrites": <--allow-writes を付けたか>` を返す（`semanticValidation`・`keycodeCode` は `false`。device のサーバーは検証もキーコードの値も返さない）
+- `--allow-writes` は `--device` と一緒にだけ使える（`cornix serve --allow-writes` は使い方の誤り）
 - 拡張は設定 `cornix.device.allowWrites` が `true` のときだけ `--allow-writes` を付ける。付けずに起動したサーバーは `device/apply` と `device/restore` を `-32074` で断る（ADR 019）
 - 拡張は必要になったときに起動し、使い終わっても残す。`allowWrites` が変わったら起動し直す。キーボードへの接続はメソッドごとに開いて閉じる（今の `Environment#open_device` と同じ）
 - リクエストは 1 つずつ処理する。実機を読むのに BLE で約 10 秒かかる（[device.md](../device.md)）が、編集のサーバーとは別のプロセスなので候補や検証は止まらない
@@ -1026,7 +1032,8 @@ cornix serve --device [--allow-writes]
 interface DeviceChange {
   kind: "key" | "encoder" | "macro" | "tapDance" | "combo" | "setting" | "other";
   layer?: number;            // kind が key / encoder のとき
-  position?: string;         // kind が key のとき。position_map の位置（図と欄で使う）
+  key?: { hand: "left" | "right"; row: number; col: number };   // kind が key のとき。論理位置（LayerKey と同じ。図と欄で使う）
+  position?: string;         // kind が key のとき。position_map の記号（"tab"。一覧の「レイヤー名 / 位置の名前」）
   encoder?: { side: "left" | "right"; direction: "cw" | "ccw" | "push" };
   index?: number;            // macro / tapDance / combo の番号
   name?: string;             // 名前がある項目（マクロなど）・設定の名前
@@ -1044,7 +1051,13 @@ interface DevicePlan {
 }
 ```
 
-- マトリクスの座標 → `position` は `Domain::PositionMap` で直す。位置に名前がない（`position_map.yaml` にない）キーは `kind: "other"` にして `text` だけを使う
+- マトリクスの座標 → `key`（論理位置）と `position`（記号）は `Domain::PositionMap` で直す（位置の表はそのプロファイルの `position_map.yaml`）。
+  エンコーダのプッシュの位置（左 (2,6)・右 (5,6)）のキーは `kind: "encoder"`（`direction: "push"`）。
+  位置に名前がない（`position_map.yaml` にない）キーは `kind: "other"` にして `text` だけを使う（`layer` は付ける）。エンコーダは番号 0 が左、1 が右
+- マクロは書き込みでは領域全体を 1 件で書くが、`changes` では中身が変わる番号ごとに 1 件にする（`index`・`name`。`device`・`profile` はその番号の動作の要約）
+- `name` はプロファイルにある名前（マクロ・タップダンス・コンボ。戻す先がバックアップのときもいまのプロファイルの名前）と、設定の名前（`tapping_term` など）。なければ省く
+- `keyboard.name` はキーボード定義の名前、`keyboard.uid` は .vil の `uid`（64 ビットの整数）を 10 進の文字列にしたもの
+- `changes` の並びは `Planning::Plan#changes` の順（キー → エンコーダ → タップダンス → コンボ → マクロ → 設定）
 
 ### 14.3 `device/compare`（読むだけ）
 
@@ -1056,7 +1069,9 @@ interface DevicePlan {
 ```
 
 - 保存済みのファイルを compile し、その出力と実機の差分を返す（`Application::Compile` → `Application::DeviceDiff`）。未保存の変更は見ない（拡張は先に保存を促す）
-- プロファイルが検証のエラーで compile できないときは、何も読まずに `-32075` CompileFailed（message に compile のエラーの文、`data: { "diagnostics": Diagnostic[] }`）
+- プロファイルが検証のエラーで compile できないときは、何も読まずに `-32075` CompileFailed（message に compile のエラーの文、`data: { "diagnostics": Diagnostic[] }`。
+  diagnostics は `profile/validate` と同じ形で、エラーのほかに警告も入る）
+- `source`・`backup`・`path` はワークスペースのフォルダからの相対パス（外なら絶対パス）
 
 ### 14.4 `device/apply`
 
@@ -1070,14 +1085,16 @@ interface DevicePlan {
 - サーバーは compile し直して計画し直し、`token` が違えば何も書かずに `-32071`（直前の比べたあとで、ファイルか実機が変わった）
 - 差分がなければ何も書かず、バックアップも取らない（`applied: 0`・`backup: null`）
 - 書く前に今の状態をバックアップし、1 件ずつ書き、読み直して検証する（`Application::DeviceApply` の `expected_token`）。`remaining` は読み直しで残った違い（ふつうは `[]`）
-- 書いている途中で切れたら `-32072`（`data: { "applied": 5, "backup": "…" }`）。もう一度比べて反映すれば続きからそろう
+- 書いている途中で切れたら `-32072`（`data: { "applied": 5, "backup": "…" }`）。もう一度比べて反映すれば続きからそろう。
+  全件書いたあとの読み直しに失敗したときも `-32072`（`applied` は全件）
+- エラーの順: params の形（`-32602`）→ 知らない `dir`（`-32050`）→ `--allow-writes` なし（`-32074`。実機は読まない）→ compile（`-32075`）→ 実機（`-32070` など）
 
 ### 14.5 `device/backups` と `device/compareBackup`・`device/restore`
 
 ```jsonc
 // device/backups の params / result
 { "dir": "profiles/default" }
-{ "backups": [ { "name": "20261021-101500", "path": "tmp/…/20261021-101500.vil", "createdAt": "2026-10-21T10:15:00+09:00" } ] }   // 新しい順
+{ "backups": [ { "name": "20261021-101500-pre-apply", "path": "tmp/…/snapshots/20261021-101500-pre-apply/layout.vil", "createdAt": "2026-10-21T10:15:00+09:00", "kind": "pre-apply" } ] }   // 新しい順
 
 // device/compareBackup（読むだけ）の params / result
 { "dir": "profiles/default", "backup": "20261021-101500" }
@@ -1088,7 +1105,11 @@ interface DevicePlan {
 { "applied": 12, "backup": "tmp/…/20261021-101820.vil", "remaining": [] }
 ```
 
-- `Application::ListBackups` / `DeviceRestore`（`dry_run: true` が compareBackup）を使う。知らない `backup` は `-32602`（`data: { "field": "backup" }`）
+- `Application::ListSnapshots` / `DeviceRestore`（`dry_run: true` が compareBackup）を使う。`backup` は `device/backups` の一覧にある名前だけ（パスや `read`・`build` の名前は受け付けない）。
+  知らない `backup` は `-32602`（`data: { "field": "backup" }`）。`device/restore` では `--allow-writes` の確かめより先
+- `device/backups` は実機を読まない（実機が使えなくても一覧を返す）。`createdAt` はサーバーの時差付き
+- 一覧に出すのはスナップショット（`Storage::SnapshotStore`）のうち種類 `pre-apply`・`pre-restore`・`backup`・`legacy`（前の版の `device_backups/`）。
+  `read` と `build` は数が多く、戻す先には向かないので出さない。`kind` は拡張が「反映の前」「戻す前」などと添えるのに使う
 - 戻す前にも今の状態をバックアップする（続けてもう一度戻すと戻す前に戻る）
 
 ### 14.6 `device/progress`（サーバー → 拡張、通知）
@@ -1097,17 +1118,21 @@ interface DevicePlan {
 { "phase": "read" | "write" | "verify", "done": 120, "total": 560 }
 ```
 
-- 読む・書く・読み直すの進み具合。拡張は `withProgress` に出す
-- `$/cancelRequest` は `phase: "read"` の間だけ受け付け、そのリクエストを `-32800`（RequestCancelled）で終える。書き始めたら取り消せない（受け取っても続ける）
+- 読む・書く・読み直すの進み具合。拡張は `withProgress` に出す。`done` は 1 から増え、段階の最後の通知は `done == total`
+  （読む・読み直すの単位はキーマップとマクロの 1 回の読み出し、エンコーダ・タップダンス・コンボ・設定の 1 件。Cornix では 170 ほど。
+  マクロを途中で読み終えたら残りの分を飛ばすので、`done` が飛ぶことがある。書くの単位は変更 1 件）
+- `$/cancelRequest` は `phase: "read"` の間だけ受け付け、そのリクエストを `-32800`（RequestCancelled）で終える。書き始めたら取り消せない（受け取っても続ける）。
+  サーバーは読む単位ごとに（`device/progress` を送るたびに）、届いているメッセージを先に読んで取り消しを拾う。compile の間に届いた取り消しは、最初の単位で拾う。
+  ほかのリクエストへの取り消しは何もしない。先に読んだほかのメッセージは、処理のあとで届いた順に扱う
 
 ### 14.7 エラーに足すもの
 
 | code | 名前 | いつ | data |
 |---|---|---|---|
-| -32070 | DeviceUnavailable | 実機が使えない | `{ "reason": "platform" \| "bridge" \| "notConnected" \| "timeout" }`（macOS 以外・ブリッジが未ビルド・見つからない・応答がない） |
+| -32070 | DeviceUnavailable | 実機が使えない | `{ "reason": "platform" \| "bridge" \| "notConnected" \| "timeout" }`（macOS 以外・ブリッジをビルド・起動できない・見つからない／開けない・応答がない／ブリッジが終わった。`Cornix::DeviceUnavailable#reason`） |
 | -32071 | PlanChanged | `token` が計画し直したものと違う | — |
 | -32072 | WriteIncomplete | 書いている途中で切れた・失敗した | `{ "applied": 5, "backup": "…" }` |
-| -32073 | PlanRejected | 書き込み禁止のキーコード（`QK_BOOT` など。`Device::ChangePolicy`）を含む計画。`device/compare` でも返す | `{ "keycodes": ["QK_BOOT"] }` |
+| -32073 | PlanRejected | 書き込み禁止のキーコード（`QK_BOOT` など。`Device::ChangePolicy`）を含む計画。`device/compare` でも返す。ほかに計画を作れないとき（レイヤー数・マクロがキーボードの上限を超える）も返し、そのとき `keycodes` は空 | `{ "keycodes": ["QK_BOOT"] }` |
 | -32074 | WritesNotAllowed | `--allow-writes` なしで書き込みのメソッドを呼んだ | — |
 | -32075 | CompileFailed | プロファイルが compile できない | `{ "diagnostics": Diagnostic[] }` |
 | -32800 | RequestCancelled | 読む間に取り消された（LSP と同じ code） | — |
@@ -1115,9 +1140,10 @@ interface DevicePlan {
 
 ### 14.8 拡張だけで作るもの
 
-約束は変えない。[tasks-v0.4.md](tasks-v0.4.md) の「画面」: ボタンと「実機: 同じ／違う N 件／未確認」の印（状態バーにも）、違うキーの橙の枠とレイヤーのタブの点、
-「実機との差分」の節、確認のダイアログ（件数・警告・`keyboard.name`）、バックアップの選択（QuickPick）、設定 `cornix.device.allowWrites`。
-保存したら印を「未確認」に戻す（`profile/saved` のあと）。
+約束は変えない。[tasks-v0.4.md](tasks-v0.4.md) の「Tetsuro の確認で変えたこと」（ADR 020）: 編集フォームの一番下の節「デバイス転送」と、反映のプレビューのモーダル
+（違うキーの橙の枠・レイヤーのタブの件数・違いの一覧・警告・`keyboard.name`、「確定」と「やめる」）、設定 `cornix.device.allowWrites`。
+拡張が使うのは `device/compare`（プレビュー）と `device/apply`（確定。プレビューの token）と `device/progress` だけ。`device/backups`・`device/compareBackup`・`device/restore`（14.5）は約束に残すが、拡張からは使わない。
+プレビューのあとで設定ファイルの版が変わったら（`profile/saved` のあと・外での変更）、そのプレビューでは確定させない（もう一度 `device/compare`）。最後はサーバーが token で確かめる（-32071）。
 
 ### 14.9 `profile/planItemEdit` に足すもの（レイヤーの追加と削除。issue #84）
 
@@ -1149,3 +1175,37 @@ type ItemEdit =
 - 結果の形・確認のダイアログのあとすぐ当てて保存することは 12.5 と同じ
 - 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `create_layer*.json`・`create_index_not_layer.json`・`delete_layer*.json`
 - 同じ issue の下の欄の「キー別」の並べ方（位置ごとに全レイヤーの欄を並べる）は拡張だけで作る。欄の変更は今と同じ `Change`（そのレイヤーのファイルの `address`）で、約束は変えない
+
+### 14.10 適合テストのデータ（device）
+
+[8.2](#82-適合テスト) と同じ形で `spec/fixtures/protocol/device/<メソッド>/<名前>.json` に置く（編集のサーバーの適合テストとは別の spec で流す。
+`setup` の `initialize` は `cornix serve --device` に送る）。`setup` に足すもの:
+
+```jsonc
+{
+  "setup": {
+    "profile": "test_config",          // 8.2 と同じ（profiles/default に置く）
+    "allowWrites": true,               // --allow-writes を付けたことにする（既定 false）
+    "device": {                        // 偽の実機（spec/device/fake_cornix_device.rb の FakeCornixDevice）の初めの状態
+      "from": "profile",               // "profile" はそのプロファイル（setup.files を書く前）の compile の出力と同じ状態。
+                                       // fixtures のディレクトリ名（"authors_config"）や spec/fixtures からの .vil のパスも書ける
+      "keys": [ { "layer": 0, "row": 0, "col": 1, "value": "KC_A" } ],   // その上で変える値（マトリクスの座標・Vial の表記）
+      "set": [ { "path": ["settings", "7"], "value": 300 } ],             // その上で変える .vil の値（JSON の道筋。エンコーダ・マクロなど）
+      "unavailable": "notConnected",   // 書けば実機が使えないことにする
+      "failWriteAfter": 1,             // 書き込みのコマンドをこの回数送ったあと応答がなくなる（-32072 を確かめる）
+      "ignoreWrites": true             // 書き込みに応答するが値が変わらない（読み直しで残る remaining を確かめる）
+    },
+    "snapshots": { "20261021-101500-pre-apply": "profile" }   // 置いておくバックアップ（名前 → その状態の元。文字列は from、
+                                       // オブジェクトなら device と同じ from・keys・set）。名前が日時だけなら前の版の device_backups/<名前>.vil
+  },
+  "after": [ { "method": "$/cancelRequest", "params": { "id": 1 } } ]   // request の後に送るメッセージ（応答は確かめない）
+}
+```
+
+- `setup` の `initialize`（`protocolVersion` は今の版）・`before`・`files` は 8.2 と同じ。`setup.profile` は開かない（device のサーバーは `profile/open` を持たない）。
+  ライフサイクルのデータは `device/lifecycle/` に置く
+- `token` は書き込む内容（場所と目標の値）だけで決まるので、`device/apply`・`device/restore` のデータには同じ状態の `device/compare` の `token` をそのまま書く
+- `notifications` を省くと通知は比べない（`device/progress` は件数が多いので、比べたいデータだけ書く。`[]` と書けば実機を読まなかったことを確かめられる）
+- token・日時・バックアップのパスの日時の部分のように毎回変わる値は、期待する応答に書かない（8.2 の比べ方は書いた項目だけを比べる）
+- 拡張の偽の device のサーバー（`editors/vscode/test/fake-device-server/`）は compile しないので、このデータは流さない。
+  偽のほうはプロセスの中に実機とプロファイルの値の表を持ち、環境変数 `CORNIX_FAKE_DEVICE` と通知 `$/fake/configure` で状態を変える（ファイルの先頭のコメント）

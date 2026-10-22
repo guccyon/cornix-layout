@@ -2,7 +2,7 @@
   "name": "cornix-vscode",
   "displayName": "Cornix Layout",
   "description": "cornix-layout のプロファイル（設定ディレクトリ）を 1 画面で見て、候補から選びながら編集する",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "guccyon",
   "private": true,
   "license": "MIT",
@@ -49,6 +49,11 @@
           ],
           "default": "off",
           "description": "サーバーとのやりとりを出力パネル「Cornix」に記録する（開発用）。"
+        },
+        "cornix.device.allowWrites": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "実機（接続中の Cornix）への書き込み（編集画面の「デバイス転送」・「Cornix: 実機に反映…」のプレビューの「確定」）を許す。既定は無効で、無効のあいだはプレビュー（実機を読んで比べる）だけができる。有効のときだけ実機のサーバーを `--allow-writes` 付きで起動する（変えると起動し直す）。書き込みはいつも、違いと書き込み先のキーボードを見せるプレビューで「確定」を押したときだけ。"
         }
       }
     },
@@ -72,6 +77,11 @@
       {
         "command": "cornix.showOutput",
         "title": "出力を表示",
+        "category": "Cornix"
+      },
+      {
+        "command": "cornix.device.apply",
+        "title": "実機に反映…",
         "category": "Cornix"
       }
     ],

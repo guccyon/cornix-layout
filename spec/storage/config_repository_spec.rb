@@ -351,6 +351,16 @@ RSpec.describe Cornix::Storage::ConfigRepository do
       end
     end
 
+    it 'load_partial は未使用のファイルの読めないキーコードを代わりの値にせず、unused の問題にする' do
+      with_config_copy do |dir|
+        write_file(dir, 'macros/x.yaml', "name: Spare\nsequence: [{ action: tap, keys: [Nope] }]\n")
+        partial = repository(dir).load_partial
+        expect(partial.problems).to eq([])
+        expect(partial.unused.flat_map { |u| u.problems.map(&:to_s) }).to contain_exactly(start_with('macros/x.yaml: sequence[0].keys[0]: '))
+        expect(partial.profile).to eq(repository(StorageHelpers::TEST_CONFIG).load)
+      end
+    end
+
     it 'InvalidConfig にも読めた範囲の未使用のファイルを持たせる' do
       with_config_copy do |dir|
         write_file(dir, 'macros/x.yaml', "name: Spare\nsequence: [{ action: tap, keys: [KC_A] }]\n")

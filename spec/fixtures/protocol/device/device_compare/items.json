@@ -1,0 +1,125 @@
+{
+  "description": "エンコーダ・タップダンス・コンボ・マクロ（番号ごと）・設定の違い。並びは Planning::Plan#changes の順",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile",
+      "set": [
+        {
+          "path": [
+            "encoder_layout",
+            0,
+            0,
+            1
+          ],
+          "value": "KC_NO"
+        },
+        {
+          "path": [
+            "macro",
+            0
+          ],
+          "value": []
+        },
+        {
+          "path": [
+            "macro",
+            3
+          ],
+          "value": [
+            [
+              "tap",
+              "KC_A"
+            ]
+          ]
+        },
+        {
+          "path": [
+            "tap_dance",
+            1,
+            4
+          ],
+          "value": 180
+        },
+        {
+          "path": [
+            "combo",
+            0,
+            4
+          ],
+          "value": "KC_B"
+        },
+        {
+          "path": [
+            "settings",
+            "7"
+          ],
+          "value": 300
+        }
+      ]
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "plan": {
+        "empty": false,
+        "changes": [
+          {
+            "kind": "encoder",
+            "layer": 0,
+            "encoder": {
+              "side": "left",
+              "direction": "cw"
+            },
+            "device": "KC_NO",
+            "profile": "KC_VOLU",
+            "text": "レイヤー0 エンコーダ0 時計回り: KC_NO → KC_VOLU"
+          },
+          {
+            "kind": "tapDance",
+            "index": 1,
+            "name": "TapDance 1",
+            "device": "[SGUI(KC_4), SGUI(KC_5), KC_NO, KC_NO, 180ms]",
+            "profile": "[SGUI(KC_4), SGUI(KC_5), KC_NO, KC_NO, 250ms]"
+          },
+          {
+            "kind": "combo",
+            "index": 0,
+            "name": "Combo 0",
+            "device": "[KC_D + KC_F + KC_NO + KC_NO → KC_B]",
+            "profile": "[KC_D + KC_F + KC_NO + KC_NO → KC_LBRACKET]"
+          },
+          {
+            "kind": "macro",
+            "index": 0,
+            "name": "Macro 0",
+            "device": "[]",
+            "profile": "[[\"tap\",\"KC_LBRACKET\",\"KC_RBRACKET\",\"KC_LEFT\"]]",
+            "text": "マクロ M0: [] → [[\"tap\",\"KC_LBRACKET\",\"KC_RBRACKET\",\"KC_LEFT\"]]"
+          },
+          {
+            "kind": "macro",
+            "index": 3,
+            "name": "Macro 3",
+            "device": "[[\"tap\",\"KC_A\"]]"
+          },
+          {
+            "kind": "setting",
+            "name": "tapping_term",
+            "device": "300",
+            "profile": "250",
+            "text": "設定 7: 300 → 250"
+          }
+        ]
+      }
+    }
+  }
+}

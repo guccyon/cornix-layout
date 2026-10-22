@@ -82,7 +82,7 @@ module Cornix
         def verify!(env, before, after, address, op)
           expected = env.mapper.to_image(before.profile)
           actual = begin
-            after.ok? ? env.mapper.to_image(after.profile) : nil
+            after.complete? ? env.mapper.to_image(after.profile) : nil
           rescue Cornix::Error
             nil
           end

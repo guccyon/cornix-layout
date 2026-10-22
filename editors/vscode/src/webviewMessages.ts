@@ -1,4 +1,5 @@
 // 拡張（ホスト）と編集画面（Webview）の間のメッセージ。画面の作業（段 2 の G）はここに種類を足していく。
+import type { DevicePlan } from './deviceProtocol';
 import type {
   AnyChange,
   CandidatesParams,
@@ -39,6 +40,35 @@ export type WebviewRequest = {
   [M in WebviewRequestMethod]: { type: 'request'; id: number; method: M; params: WebviewRequestMap[M]['params'] };
 }[WebviewRequestMethod];
 
+/** v0.4: 進み具合（device/progress の phase・done・total） */
+export type DeviceTransferProgress = { done: number; total: number };
+
+/**
+ * v0.4: 実機への反映の途中の状態（tasks-v0.4.md の「画面」）。ホストが持ち、変わるたびに Webview に送る。Webview はこれがある間モーダルを出す。
+ * - reading: 実機を読んで比べている（やめるで取り消せる）
+ * - preview: 違いを見せて「確定」か「やめる」を待つ（plan.empty なら書くものはない）。stale は比べたあとで設定ファイルが変わった（確定できない）
+ * - writing: 確定して書いている（取り消せない）
+ */
+export type DeviceTransfer =
+  | { step: 'reading'; progress: DeviceTransferProgress | null }
+  | { step: 'preview'; plan: DevicePlan; profile: string; stale: boolean }
+  | { step: 'writing'; plan: DevicePlan; profile: string; progress: (DeviceTransferProgress & { phase: 'read' | 'write' | 'verify' }) | null };
+
+export type DeviceViewState = {
+  /** 反映の途中（ないときはモーダルを出さない） */
+  transfer: DeviceTransfer | null;
+  /** いずれかのプロファイルで反映の途中（このプロファイルの節の「反映のプレビュー」を押せなくする） */
+  busyElsewhere: boolean;
+  /** 設定 cornix.device.allowWrites（false でもプレビューはできる。確定は押せない） */
+  allowWrites: boolean;
+};
+
+/**
+ * v0.4: 画面から頼む実機の操作。preview は節のボタンとプレビューの「もう一度比べる」、confirm・cancel はモーダルのボタン、
+ * openSettings はモーダルの「設定を開く」（cornix.device.allowWrites を開く）
+ */
+export type DeviceAction = 'preview' | 'confirm' | 'cancel' | 'openSettings';
+
 /** ホスト → Webview */
 export type HostMessage =
   /** 描くもの。開いたとき・読み直したとき・変更のたびに送る */
@@ -54,7 +84,9 @@ export type HostMessage =
   | { type: 'error'; message: string }
   /** WebviewRequest の応答（id と method は要求と同じ）。失敗したら error にその文 */
   | { type: 'response'; id: number; method: string; result: unknown }
-  | { type: 'response'; id: number; method: string; error: string };
+  | { type: 'response'; id: number; method: string; error: string }
+  /** v0.4: 実機と比べた状態。開いたとき（ready のあと）と、変わるたびに送る */
+  | { type: 'device'; state: DeviceViewState };
 
 /** Webview → ホスト */
 export type WebviewMessage =
@@ -68,6 +100,8 @@ export type WebviewMessage =
   | { type: 'itemEdit'; edit: ItemEdit }
   /** サーバーへのリクエストの中継 */
   | WebviewRequest
+  /** v0.4: デバイス転送の節・反映のプレビューのボタンを押した */
+  | { type: 'deviceAction'; action: DeviceAction }
   /** 設定ディレクトリのファイルをテキストで開く（file は設定ディレクトリからの相対パス。range があればそこを選ぶ） */
   | { type: 'openFile'; file: string; range?: Range }
   /**

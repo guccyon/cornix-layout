@@ -6,7 +6,7 @@ import type { ProfileDocument } from '../../../src/editor/profileDocument';
 import { snapshotValueAt } from '../../../src/editor/pendingChanges';
 import type { CornixExtensionApi } from '../../../src/extension';
 import type { Address } from '../../../src/protocol';
-import { activateExtension, FakePrompts, profileTab, readWorkspaceFile, replaceOutside, revertProfile, saveProfile, test, waitFor, workspaceRoot, writeOutside } from './support';
+import { activateExtension, FakeDevicePrompts, FakePrompts, profileTab, readWorkspaceFile, replaceOutside, revertProfile, saveProfile, test, waitFor, workspaceRoot, writeOutside } from './support';
 
 export { run } from './support';
 
@@ -800,6 +800,98 @@ test('項目の操作の -32602 と -32061（verify）は利用者に見せ、�
   assert.ok(failed[1]?.includes('compile の結果が変わる'), failed[1]);
   assert.equal(readWorkspaceFile('profiles/default/position_map.yaml'), before);
   assert.equal(prompts.of('confirmItemEdit').length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// v0.4: 実機への反映（偽の device のサーバー。test/fake-device-server/。本物のキーボードもブリッジも使わない）。
+// プレビューと確定は編集画面のモーダルだが、ここではホストの状態（api.device.states）と操作（api.device.run）で確かめる
+// ---------------------------------------------------------------------------
+
+const DEVICE_DIR = 'profiles/default';
+let devicePrompts: FakeDevicePrompts;
+
+function deviceTransfer() {
+  return api.device.states.get(DEVICE_DIR).transfer;
+}
+
+test('v0.4: allowWrites が false でもプレビューはできる。確定は設定を開くボタン付きで案内し、サーバーは --allow-writes なしで動く', async () => {
+  devicePrompts = new FakeDevicePrompts();
+  api.device.prompts = devicePrompts;
+  assert.equal(vscode.workspace.getConfiguration('cornix').get('device.allowWrites'), false);
+  assert.equal(deviceTransfer(), null);
+
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'different');
+  const transfer = deviceTransfer();
+  assert.equal(transfer?.step, 'preview');
+  assert.equal(transfer?.step === 'preview' && transfer.plan.changes.length, 6);
+  assert.equal(api.device.states.get(DEVICE_DIR).allowWrites, false);
+  assert.equal(await api.device.server.writesAllowed(), false);
+
+  assert.equal(await api.device.run('confirm', DEVICE_DIR), 'blocked');
+  assert.deepEqual(devicePrompts.last?.actions.map((a) => a.label), ['設定を開く']);
+  // やめると閉じる。書いていないので、もう一度プレビューしても同じ違い
+  assert.equal(await api.device.run('cancel', DEVICE_DIR), 'declined');
+  assert.equal(deviceTransfer(), null);
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'different');
+  assert.equal(await api.device.run('cancel', DEVICE_DIR), 'declined');
+});
+
+test('v0.4: 未保存の変更があれば保存を促し（保存しないなら止める）、プレビューのあとで保存したらそのプレビューは古い', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Tab' });
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+
+  devicePrompts.saveFirst = false;
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'declined');
+  assert.deepEqual(devicePrompts.saves, [['default', 1]]);
+  assert.equal(document.changes.size, 1);
+  assert.equal(deviceTransfer(), null);
+
+  devicePrompts.saveFirst = true;
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'different');
+  assert.equal(document.changes.size, 0);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  assert.equal(deviceTransfer()?.step, 'preview');
+
+  // プレビューのあとで保存すると（profile/saved のあとの snapshot で設定ファイルの版が変わる）そのプレビューは古くなり、確定できない。
+  // （実際にはモーダルが編集画面を覆うので、テキストエディタなど外で変えたときに起きる）
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Escape' });
+  await saveProfile(document);
+  await waitFor('古い', async () => {
+    const transfer = deviceTransfer();
+    return transfer?.step === 'preview' && transfer.stale;
+  });
+  assert.equal(await api.device.run('confirm', DEVICE_DIR), 'blocked');
+  assert.equal(await api.device.run('cancel', DEVICE_DIR), 'declined');
+});
+
+test('v0.4: allowWrites を true にすると --allow-writes で起動し直し、プレビュー → 確定が通る', async () => {
+  const config = vscode.workspace.getConfiguration('cornix');
+  await config.update('device.allowWrites', true, vscode.ConfigurationTarget.Workspace);
+  try {
+    await waitFor('許可', async () => api.device.states.get(DEVICE_DIR).allowWrites);
+    // 対象を省くと、アクティブな編集画面のプロファイル
+    await vscode.commands.executeCommand('vscode.openWith', api.profileEditor.openDocuments[0]!.uri, 'cornix.profileEditor');
+    devicePrompts.notices.length = 0;
+    assert.equal(await vscode.commands.executeCommand('cornix.device.apply'), 'different');
+    const transfer = deviceTransfer();
+    assert.ok(transfer?.step === 'preview' && transfer.plan.keyboard.name === 'Cornix (fake)' && transfer.plan.changes.length === 6);
+    assert.equal(await api.device.run('confirm', DEVICE_DIR), 'written');
+    assert.equal(await api.device.server.writesAllowed(), true);
+    assert.match(devicePrompts.last?.message ?? '', /^6 件を書き込みました（バックアップ: tmp\/profiles\/default\/snapshots\/.*-pre-apply\/layout\.vil）。$/);
+    assert.equal(deviceTransfer(), null);
+
+    // 書いたあとは同じ（確定は出せない）
+    assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'same');
+    assert.equal(await api.device.run('confirm', DEVICE_DIR), 'blocked');
+    assert.equal(await api.device.run('cancel', DEVICE_DIR), 'declined');
+  } finally {
+    await config.update('device.allowWrites', undefined, vscode.ConfigurationTarget.Workspace);
+  }
+  await waitFor('許可を戻す', async () => !api.device.states.get(DEVICE_DIR).allowWrites);
+  // 起動し直したサーバーは --allow-writes なし
+  await waitFor('起動し直す', async () => !(await api.device.server.writesAllowed()));
 });
 
 test('snapshot の diagnostics をテキストの波線（DiagnosticCollection）に出し、閉じると消す', async () => {

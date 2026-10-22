@@ -1,0 +1,17 @@
+{
+  "description": "dir がなければ -32602（field: dir）",
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {}
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "dir"
+      }
+    }
+  }
+}

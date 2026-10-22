@@ -13,16 +13,17 @@ module Cornix
     # - 差分がなければ何も書かず、バックアップも取らない
     # - 書き込む前に現在の状態をスナップショット（snapshot_kind。既定は pre-apply、restore は pre-restore）に保存する
     #   （失敗時のメッセージにもそのパスが入る）。読んだ状態は書くかどうかによらず read のスナップショットにも残る
+    # - progress（省略可）は ->(phase, done, total)。読む（:read）・書く（:write）・読み直す（:verify）の間に呼ぶ
     class DeviceApply < UseCase
-      def call(vil_path: nil, expected_token: nil, confirm: nil, snapshot_kind: 'pre-apply')
+      def call(vil_path: nil, expected_token: nil, confirm: nil, snapshot_kind: 'pre-apply', progress: nil)
         source = vil_path || compiled_vil
         target = env.vil_file.read(source)
         env.open_device do |session|
-          current, plan = plan_for(session, target)
-          planned = plan_result(source, plan)
+          current, plan = plan_for(session, target, progress: progress)
+          planned = plan_result(source, plan, keyboard: keyboard(session, current))
           next ApplyOutcome.cancelled(planned) if confirm && !confirm.call(planned)
 
-          result = writer(session).apply(plan, expected_token: expected_token,
+          result = writer(session).apply(plan, expected_token: expected_token, progress: progress,
                                                backup: -> { env.snapshot_store.save(current, kind: snapshot_kind) })
           ApplyOutcome.new(source: source, plan: plan, changes: planned.changes, warnings: plan.warnings,
                            backup: result.backup, applied: result.applied.size, remaining: describe(result.remaining),

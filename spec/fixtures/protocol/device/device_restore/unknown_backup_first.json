@@ -1,0 +1,24 @@
+{
+  "description": "書き込みが許されていなくても、知らない backup は先に -32602",
+  "setup": {
+    "profile": "test_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "device/restore",
+    "params": {
+      "dir": "profiles/default",
+      "backup": "20991231-000000-pre-apply",
+      "token": "68fbf3809474f4a4"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "backup"
+      }
+    }
+  }
+}

@@ -12,12 +12,12 @@ module Cornix
     # （expected_token と confirm の扱いも DeviceApply と同じ）。
     # 書き込む前には現在の状態を pre-restore のスナップショットに残すので、それを指定して restore すると復元前に戻る
     class DeviceRestore < UseCase
-      def call(path_or_name = nil, dry_run: false, expected_token: nil, confirm: nil)
+      def call(path_or_name = nil, dry_run: false, expected_token: nil, confirm: nil, progress: nil)
         source = env.snapshot_store.resolve(path_or_name)
-        return DeviceDiff.new(env).call(vil_path: source) if dry_run
+        return DeviceDiff.new(env).call(vil_path: source, progress: progress) if dry_run
 
         DeviceApply.new(env).call(vil_path: source, expected_token: expected_token, confirm: confirm,
-                                 snapshot_kind: 'pre-restore')
+                                 snapshot_kind: 'pre-restore', progress: progress)
       end
     end
   end

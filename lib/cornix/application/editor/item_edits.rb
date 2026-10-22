@@ -36,12 +36,13 @@ module Cornix
       #    InvalidChange（field "baseVersions"）。新しく作るファイルは書かなくてよい（書くなら null）
       # 3. 名前の変更・位置の名前の変更・preset の展開は、前後の compile の結果（16bit 値）を比べ、違えば Unverified（-32061 の reason "verify"）
       #
-      # v0.5（protocol.md の 15.3）: use / unuse / setIndex と create（shortcut）はファイルの書き換えではなく、
+      # v0.5（protocol.md の 15.3）: use / unuse / setIndex / reorder と create（shortcut）はファイルの書き換えではなく、
       # 未保存の変更に積む Change の並び（changes）を返す（files は []。plan_pending）
       class ItemEdits
         OPERATIONS = { 'create' => Create, 'delete' => Delete, 'rename' => Rename, 'renamePosition' => RenamePosition,
-                       'expandPreset' => ExpandPreset, 'use' => Use, 'unuse' => Unuse, 'setIndex' => SetIndex }.freeze
-        PENDING_OPS = %w[use unuse setIndex].freeze
+                       'expandPreset' => ExpandPreset, 'use' => Use, 'unuse' => Unuse, 'setIndex' => SetIndex,
+                       'reorder' => Reorder }.freeze
+        PENDING_OPS = %w[use unuse setIndex reorder].freeze
 
         # 未保存の変更に積む操作か（v0.5。protocol.md の 15.3）
         def self.pending?(edit) = PENDING_OPS.include?(edit.op) || (edit.op == 'create' && edit.kind == 'shortcut')
@@ -76,10 +77,10 @@ module Cornix
           raise
         end
 
-        # v0.5（protocol.md の 15.3）: use / unuse / setIndex と create（shortcut）。今の未保存の変更（pending）を当てた状態で決め、
+        # v0.5（protocol.md の 15.3）: use / unuse / setIndex / reorder と create（shortcut）。今の未保存の変更（pending）を当てた状態で決め、
         # 未保存の変更に積む Change の並びを返す（files は []）。baseVersions を比べるのは返す Change の宛先のファイルだけ
         # （まだないファイル（shortcuts.yaml）は baseVersions になくてよい）。diagnostics は pending と返す Change を当てたあとの検証の結果。
-        # setIndex は、書き換えの前後で参照の指す先（マクロ・タップダンスのファイル）が変わらないことを確かめ、違えば Unverified
+        # setIndex・reorder は、書き換えの前後で参照の指す先（マクロ・タップダンス・レイヤーのファイル）が変わらないことを確かめ、違えば Unverified
         def plan_pending(env, reading, base_versions, edit, pending)
           current = draft(reading, env, pending)
           outcome = plan(reading, env, base_versions, edit, current)
@@ -91,7 +92,7 @@ module Cornix
           end
 
           after = draft(reading, env, pending + outcome.changes)
-          verify_targets!(current, after, outcome.verify, edit.op) if outcome.verify
+          verify_targets!(env, current, after, outcome.verify, edit.op) if outcome.verify
           { files: [], changes: outcome.changes.map(&:to_protocol), references: outcome.references,
             diagnostics: Diagnostics.new(after, env.capabilities).call }
         end
@@ -105,25 +106,41 @@ module Cornix
           PlanEdits::Draft.new(reading, env.settings_catalog).apply(versions, changes).reading
         end
 
-        # 番号の変更の前後で、どの欄も同じ項目（マクロ・タップダンスはそのファイル、ほかは 16bit の値そのもの）を指すか。
-        # 前に定義のない番号を指していた欄（もとから壊れている参照）は比べない。読めない値の欄は前後とも NoKey で比べる
-        def verify_targets!(before, after, address, op)
-          expected = targets(before)
-          actual = after.ok? ? targets(after) : {}
+        # 番号の変更の前後で、どの欄も同じ項目（マクロ・タップダンスはそのファイル、レイヤー操作はレイヤーのファイルと番号を除いた 16bit 値、
+        # ほかは 16bit の値そのもの）を指すか。前に定義のない番号を指していた欄（もとから壊れている参照）は比べない。
+        # 読めない値の欄は前後とも NoKey で比べる
+        def verify_targets!(env, before, after, address, op)
+          codec = env.notation.codec
+          expected = targets(before, codec)
+          actual = after.ok? ? targets(after, codec) : {}
           ok = expected.all? { |slot, target| target.nil? || actual[slot] == target }
           raise Unverified.new(address: address, op: op) unless ok
         end
 
-        # { Address => 指す先 }（指す先は [:macro, ファイル] / [:tapDance, ファイル] か Keycode。定義のない番号なら nil）
-        def targets(reading)
+        # { Address => 指す先 }（指す先は [MacroCall / TapDanceCall, ファイル]・[:layer, ファイル, 番号を 0 にした 16bit 値] か Keycode。
+        # 定義のない番号なら nil）
+        def targets(reading, codec)
           profile = reading.profile
           files = { Domain::Keycode::MacroCall => item_files(reading, profile.macros, 'macros'),
                     Domain::Keycode::TapDanceCall => item_files(reading, profile.tap_dances, 'tap_dances') }
+          layers = item_files(reading, profile.layers, 'layers')
           Slots.new(reading).all.to_h do |slot|
             keycode = slot.keycode
             table = files[keycode.class]
-            [slot.address, table ? table[keycode.index]&.then { |file| [keycode.class, file] } : keycode]
+            target = table ? table[keycode.index]&.then { |file| [keycode.class, file] } : layer_target(keycode, layers, codec)
+            [slot.address, target == false ? keycode : target]
           end
+        end
+
+        # レイヤー操作の指す先（[:layer, ファイル, 番号を 0 にした 16bit 値]。定義のない番号なら nil）。レイヤー操作でなければ false
+        def layer_target(keycode, layers, codec)
+          code = begin
+            codec.encode(keycode)
+          rescue Cornix::Error
+            return false
+          end
+          layer = codec.layer_of(code) or return false
+          layers[layer]&.then { |file| [:layer, file, codec.with_layer(code, 0)] }
         end
 
         # 番号 => ファイル（同じ番号が重なれば先のもの）

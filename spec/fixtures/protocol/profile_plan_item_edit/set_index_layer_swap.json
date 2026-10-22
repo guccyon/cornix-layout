@@ -1,5 +1,5 @@
 {
-  "description": "レイヤーの番号の入れ替え: 2 つの [\"index\"] の set だけで、MO(1) などの参照は書き換えない（references は []）",
+  "description": "レイヤーの番号の入れ替え（setIndex）: 2 つの [\"index\"] の set と、入れ替わる 2 つのレイヤーを指すレイヤー操作（MO(1) / LT1(Space) / MO(2) / LT2(KC_LANG1) など。レイヤーのキーとタップダンスの動作）を両方向に新しい番号へ書き換える set。書き換えた場所を references に（ADR 025）",
   "setup": {
     "profile": "authors_config"
   },
@@ -10,7 +10,10 @@
       "profileId": "p1",
       "baseVersions": {
         "layers/1_symbols.yml": "sha256:b764c12bb8a31ed4f248a20bb80dd6e62c11936635676161a02b1aeacc88a926",
-        "layers/2_numbers.yml": "sha256:2778d926303fe9c063986ba8b765c4cb112f3780c85973a4fe5a85858f6e2cb8"
+        "layers/2_numbers.yml": "sha256:2778d926303fe9c063986ba8b765c4cb112f3780c85973a4fe5a85858f6e2cb8",
+        "layers/0_base.yml": "sha256:edc4c5b71f08783710e5bbc6723cc738ef575467b158e2e187af23c81a07a76f",
+        "layers/4_ipad_base.yml": "sha256:91d8f20b9ffd04ccc1446f7109b8ccb432bea590a8cbff51d7d87f77258ae4fb",
+        "tap_dance/00_tap_dance.yml": "sha256:0604acf8210c9ec0813da4b13c7e754d2046ae6ca4a676ea7665f322248541eb"
       },
       "edit": {
         "op": "setIndex",
@@ -44,10 +47,194 @@
             ]
           },
           "value": 1
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "thumb_keys",
+              "middle"
+            ]
+          },
+          "value": "LT2(Space)"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "thumb_keys",
+              "right"
+            ]
+          },
+          "value": "MO(1)"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "middle"
+            ]
+          },
+          "value": "MO(2)"
+        },
+        {
+          "address": {
+            "file": "layers/0_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "right"
+            ]
+          },
+          "value": "LT1(KC_LANG1)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "thumb_keys",
+              "middle"
+            ]
+          },
+          "value": "LT2(Space)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "thumb_keys",
+              "right"
+            ]
+          },
+          "value": "LT1(Escape)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "left"
+            ]
+          },
+          "value": "LT1(Enter)"
+        },
+        {
+          "address": {
+            "file": "layers/4_ipad_base.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "thumb_keys",
+              "middle"
+            ]
+          },
+          "value": "MO(2)"
+        },
+        {
+          "address": {
+            "file": "tap_dance/00_tap_dance.yml",
+            "path": [
+              "actions",
+              "on_hold"
+            ]
+          },
+          "value": "MO(2)"
         }
       ],
       "references": [
-
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "thumb_keys",
+            "middle"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "thumb_keys",
+            "right"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "middle"
+          ]
+        },
+        {
+          "file": "layers/0_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "right"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "thumb_keys",
+            "middle"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "thumb_keys",
+            "right"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "left"
+          ]
+        },
+        {
+          "file": "layers/4_ipad_base.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "thumb_keys",
+            "middle"
+          ]
+        },
+        {
+          "file": "tap_dance/00_tap_dance.yml",
+          "path": [
+            "actions",
+            "on_hold"
+          ]
+        }
       ],
       "diagnostics": [
 

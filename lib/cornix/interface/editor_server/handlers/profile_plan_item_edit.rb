@@ -13,7 +13,7 @@ module Cornix
         #   VersionConflict → -32060（data: { files: }）、InvalidChange → -32602（data: { field: }）、
         #   NotLocal と Unverified → -32061（data: { address:, reason: }。名前の変更・preset の展開の照合は reason "verify"）
         # params の形の誤り（op・kind の値、項目の型、row / col が整数でないなど）は読むときに -32602 にするので、版の食い違いより先に返る。
-        # v0.5（15.3）: op の use / unuse / setIndex（kind はレイヤー・マクロ・タップダンス・コンボ、項目は file で指す）と、
+        # v0.5（15.3）: op の use / unuse / setIndex / reorder（kind はレイヤー・マクロ・タップダンス・コンボ、項目は file で指す。reorder は files）と、
         # params の changes（今の未保存の変更。Change の読み方は profile/validate と同じ DraftParams。省けば []）
         class ProfilePlanItemEdit < Handler
           include DraftParams
@@ -22,7 +22,7 @@ module Cornix
           PlanEdits = Application::Editor::PlanEdits
           ITEM_KINDS = %w[macro tapDance combo shortcut].freeze
           INDEXED_KINDS = %w[layer macro tapDance combo].freeze
-          INDEX_OPS = %w[use unuse setIndex].freeze
+          INDEX_OPS = %w[use unuse setIndex reorder].freeze
           KINDS = {
             'create' => ITEM_KINDS + ['layer'],
             'delete' => ITEM_KINDS + ['layer'],
@@ -91,12 +91,21 @@ module Cornix
             file
           end
 
-          # use / unuse / setIndex（項目はファイルで指す。index は setIndex だけ）
+          # use / unuse / setIndex（項目はファイルで指す。index は setIndex だけ）と reorder（files は文字列の配列）
           def index_edit(edit, op, kind)
+            return reorder_edit(edit, kind) if op == 'reorder'
+
             file = text(edit, 'file')
             index = op == 'setIndex' ? param(edit, 'index', Integer, field: 'edit.index') : nil
             invalid('edit.index', 'index は setIndex のときだけ書けます') if op != 'setIndex' && edit.key?('index')
             ItemEdits::Edit.new(op: op, kind: kind, file: file, index: index)
+          end
+
+          def reorder_edit(edit, kind)
+            files = param(edit, 'files', Array, field: 'edit.files')
+            invalid('edit.files', 'params の edit.files はファイルのパスの文字列の配列です') unless files.all?(String)
+            %w[file index].each { |name| invalid("edit.#{name}", "#{name} は reorder には書けません") if edit.key?(name) }
+            ItemEdits::Edit.new(op: 'reorder', kind: kind, files: files)
           end
 
           def position_edit(edit)

@@ -89,3 +89,15 @@
 
 - 未使用にした項目を名前で指す欄（`Macro('X')` で X が未使用）は「未使用です」の読めない値になり、`ProfileReading#complete?` が偽になる。以前は `Operation#call` が complete? でなければ全部止めたので、取り出し直すこともできなかった
 - `Operation#requires_complete?` を足し、前後の compile を比べる Rename・RenamePosition・ExpandPreset だけ真。ほかは読めない値を NoKey にした profile で決める。setIndex の照合（`verify_targets!`）も `after.ok?` で比べる（読めない欄は前後とも NoKey）
+
+## サーバーの reorder とレイヤーの参照の追従（R2。ADR 025）
+
+- setIndex と reorder は `Renumbering`（indexing.rb）にまとめた。`moves`（元の番号 => 新しい番号）を一度に作り、各欄を元の番号で引いて書き換えるので、入れ替わる番号どうしでも取り違えない（欄ごとに 1 回だけ見る）
+- レイヤーの番号は Domain の `Keycode.layer_index` ではなく、`KeycodeCodec#layer_of` / `#with_layer`（16bit 値の LT・LM・レイヤー操作の欄）で読む。
+  `LT1(NoKey)` のような基本キーでない LT は Raw に読まれて `layer_index` では落ちるが、番号を付け替えると指す先が変わるので数える必要がある。unuse / delete の数え方（`layer_index`）は変えていない
+- 照合（`ItemEdits#verify_targets!`）では、レイヤー操作の指す先を `[:layer, レイヤーのファイル, 番号を 0 にした 16bit 値]` にした。中身のレイヤー同士を比べると、中のレイヤー操作も書き換わるので一致しない（spec の `expect_moved_layers` も番号を除いて比べる）
+- `targets` で「定義のない番号を指す」（nil）と「レイヤー操作でない」を分けるのに false を返している（`nil || keycode` にすると壊れた参照まで比べてしまう）
+- reorder で使っている項目の番号が重なっていたら `"edit"` で止めた（どちらを指す参照か決まらない）。偽のサーバーはこれを確かめないので、適合テストのデータにはせず spec だけ
+- 適合テストのデータは、`baseVersions: "AUTO"` と書いたリクエストを流して、返った Change の宛先の版で埋める小さなスクリプト（scratchpad。ProtocolFixtures.prepare / run を使う）で作った。
+  `JSON.pretty_generate` で書けば既存のデータと同じ形になる（空の配列は今の json では `[]`）
+- 拡張の偽のサーバー（P2）は reorder のエラー（edit.files）を同じに返すので、`protocolFixtures.test.ts` は直さずに通った

@@ -1,0 +1,43 @@
+{
+  "description": "並びが今と同じ reorder は changes も references も []",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "reorder",
+        "kind": "tapDance",
+        "files": [
+          "tap_dance/00_tap_dance.yml",
+          "tap_dance/01_screen_capture_combo.yml",
+          "tap_dance/02_paste_variants.yml",
+          "tap_dance/03_layer3_toggle.yml",
+          "tap_dance/04_tab_escape.yml"
+        ]
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

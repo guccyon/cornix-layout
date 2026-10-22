@@ -14,11 +14,14 @@ module Cornix
         #   Edit.new(op: 'rename', kind: 'layer', name: 'Layer 1', to: 'Symbols', file: 'layers/1_layer.yaml')
         #   Edit.new(op: 'renamePosition', hand: 'left', row: 0, col: 0, to: 'esc')
         #   Edit.new(op: 'expandPreset', kind: 'macro', name: 'Capture')
+        #   Edit.new(op: 'setIndex', kind: 'macro', file: 'macros/02_copy.yml', index: 5)   # v0.5（protocol.md の 15.3）
+        #   Edit.new(op: 'reorder', kind: 'layer', files: ['layers/0_base.yml', 'layers/2_numbers.yml', 'layers/1_symbols.yml'])
         #
         # op は "create" | "delete" | "rename" | "renamePosition" | "expandPreset"、kind は "macro" | "tapDance" | "combo" | "shortcut" | "layer"、
         # hand は "left" | "right"（約束の文字列のまま。形の検査は Interface が行う）
-        Edit = Data.define(:op, :kind, :name, :to, :preset, :value, :hand, :row, :col, :index, :file) do
-          def initialize(op:, kind: nil, name: nil, to: nil, preset: nil, value: nil, hand: nil, row: nil, col: nil, index: nil, file: nil) = super
+        Edit = Data.define(:op, :kind, :name, :to, :preset, :value, :hand, :row, :col, :index, :file, :files) do
+          def initialize(op:, kind: nil, name: nil, to: nil, preset: nil, value: nil, hand: nil, row: nil, col: nil, index: nil, file: nil,
+                         files: nil) = super
         end
       end
     end

@@ -71,7 +71,7 @@ async function run(fixture: Fixture) {
     prepare(root, setup);
     const before: JsonObject[] = [];
     if (setup.initialize !== false) {
-      before.push(message({ id: 'setup:initialize', method: 'initialize', params: { protocolVersion: '0.4' } }), message({ method: 'initialized' }));
+      before.push(message({ id: 'setup:initialize', method: 'initialize', params: { protocolVersion: '0.5' } }), message({ method: 'initialized' }));
     }
     if (setup.profile) before.push(message({ id: 'setup:open', method: 'profile/open', params: { dir: 'profiles/default' } }));
     before.push(...(setup.before ?? []).map(message));

@@ -21,7 +21,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Serve do
   it 'cornix serve --root DIR は標準入出力で JSON-RPC を話し、shutdown → exit で 0 を返す' do
     Dir.mktmpdir do |root|
       FileUtils.mkdir_p(File.join(root, 'profiles', 'default'))
-      input = framed({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.4' } },
+      input = framed({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.5' } },
                      { jsonrpc: '2.0', id: 2, method: 'profile/list', params: {} },
                      { jsonrpc: '2.0', id: 3, method: 'shutdown' }, { jsonrpc: '2.0', method: 'exit' })
       out = StringIO.new(+'')
@@ -55,7 +55,7 @@ RSpec.describe Cornix::Interface::Cli::Commands::Serve do
   it 'cornix serve --device は device のサーバー（device/* だけ。--allow-writes で deviceWrites: true）' do
     Dir.mktmpdir do |root|
       [[[], false], [['--allow-writes'], true]].each do |flags, writes|
-        input = framed({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.4' } },
+        input = framed({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '0.5' } },
                        { jsonrpc: '2.0', id: 2, method: 'profile/list', params: {} },
                        { jsonrpc: '2.0', id: 3, method: 'device/backups', params: { dir: 'nope' } },
                        { jsonrpc: '2.0', id: 4, method: 'shutdown' }, { jsonrpc: '2.0', method: 'exit' })

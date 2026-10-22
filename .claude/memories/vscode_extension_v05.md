@@ -63,3 +63,18 @@
 - 「…」の操作は選んだ後で `MoreMenu` が閉じてボタンにフォーカスを戻してから呼ぶので、名前の欄や番号の選択はその後でフォーカスを取れる。
   番号の選択は見出しのすぐ下の `.item-index-slot` に置き、欄の作り直し（`disposeDetail`）で閉じる
 - `media/webview.css` の `.shortcut-copy`（v0.3 の「同梱からコピー」）は使わなくなったが、末尾以外は触らない取り決めなので残した（J で消せる）
+
+## 仕上げ（J #115）
+
+- 約束の版を `"0.5"`・拡張を 0.5.0 に上げた場所は v0.4 のメモの「約束の版」の一覧のとおりで足りた（`sed` でまとめて置き換え、`grep "'0\.4'\|\"0\.4\"\|0\.4\.0"` で残りなし）。
+  それに加えて `spec/support/device_protocol_fixtures.rb`・`spec/fixtures/protocol/device/lifecycle/*.json`・`pendingItemEdits.test.ts`・`fakeServerUnused.test.ts` にも版がある。
+  `connection.test.ts` の「新しい版だけのサーバー」は今の版より新しく（`['0.6', '1.0']`）。`Cornix::VERSION` は上げない（CHANGELOG の [Unreleased] に足すだけ）
+- 通しの確認は、`bin/cornix serve --root <作業用>` を Python の小さなクライアント（Content-Length の枠）で動かした。作業用のプロファイルは authors_config の写しに、
+  未使用のレイヤー・マクロ・タップダンスと、番号の参照（`Macro(2)` / `M5` / `TD(4)`）を足し、`layers/9_empty.yml` を消して空きを作った。
+  use ×3 → setIndex ×3（未保存の番号との入れ替えを含む）→ create shortcut → unuse → planEdits → 当てる（列は UTF-16）→ saved → open し直す、が通り、
+  compile の結果を元と「マクロ・タップダンスの中身」で比べても、動かした番号のほかは同じだった
+- 気づいたこと（直していない）: unuse で名前の参照（`Macro('名前')`）が壊れると、未保存の変更を当てた reading が「読めない値あり」（`ProfileReading#complete?` が false）になり、
+  そのあとの項目の操作（use / unuse / setIndex / create shortcut も、すぐ書く create / delete / rename も）が「プロファイルに読めない値があるので、項目を操作できません」で断られる。
+  名前の参照が見つからないことは解析の失敗なので、ADR 021 の扱い（v0.4 の delete でも同じ）。参照を直せば戻る。文言は「保存してください」だが未保存の変更で直してもよい
+- `media/webview.css` の `.shortcut-copy`（v0.3 の「同梱からコピー」）を消した。`.key-input-presets .preset-picker-panel` と並べて書いていた 1 か所も外す
+- .vsix は `npm run package`（`vsce package --no-dependencies`）。中身は 32 ファイル（`extract.mjs` は入らない）。`/mnt/project-files/` へは `mkdir -p …/` と `cp` で置けた

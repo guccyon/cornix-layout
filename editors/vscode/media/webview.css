@@ -3036,3 +3036,24 @@ button.device-diff-row:hover,
   justify-content: flex-end;
   gap: 6px;
 }
+
+/* v0.5（I #114）: マクロ・タップダンス・コンボ・ショートカットの節の「追加」と見出しの「…」・番号の選択の置き場所 */
+.item-toolbar .item-add-menu {
+  flex: none;
+}
+
+.item-header .item-actions {
+  align-self: center;
+}
+
+.item-header .item-more-menu .more-menu-button {
+  padding: 0 6px;
+}
+
+.item-index-slot {
+  margin: 6px 0;
+}
+
+.item-index-slot:empty {
+  display: none;
+}

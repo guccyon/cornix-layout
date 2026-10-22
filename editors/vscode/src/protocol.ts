@@ -3,7 +3,7 @@
 // protocol.md を変えたら、ここも同じ PR で変える。
 
 /** 約束の版（protocol.md の 4.）。1.0 になるまでは major.minor 全体が一致しなければ話せない */
-export const PROTOCOL_VERSION = '0.4';
+export const PROTOCOL_VERSION = '0.5';
 
 // ---------------------------------------------------------------------------
 // 2. 共通の型

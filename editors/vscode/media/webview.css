@@ -2445,27 +2445,10 @@ button {
   margin: 0;
 }
 
-.key-input-presets .preset-picker-panel,
-.shortcut-copy .preset-picker-panel {
+.key-input-presets .preset-picker-panel {
   margin-top: 0;
   background: var(--vscode-editorWidget-background);
   box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
-}
-
-/* ショートカットの節の「同梱からコピー」（「追加」の横。選択は下に重ねる） */
-.preset-picker.shortcut-copy {
-  position: relative;
-  margin: 0;
-}
-
-.shortcut-copy .preset-picker-panel {
-  position: absolute;
-  z-index: 21;
-  top: calc(100% + 2px);
-  left: 0;
-  width: 30em;
-  max-width: calc(100vw - 32px);
-  box-sizing: border-box;
 }
 
 /* ---- v0.4: 実機への反映（deviceView.ts。tasks-v0.4.md の「画面」） ---- */

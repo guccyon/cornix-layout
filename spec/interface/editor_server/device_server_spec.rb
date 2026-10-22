@@ -90,7 +90,7 @@ RSpec.describe 'device のサーバー' do
       ops = Cornix::Application::Editor::DeviceOperations.new(root: root, env_factory: env_factory)
       framing = Cornix::Interface::EditorServer::Framing
       reader, writer = IO.pipe
-      [{ jsonrpc: '2.0', id: 0, method: 'initialize', params: { protocolVersion: '0.4' } },
+      [{ jsonrpc: '2.0', id: 0, method: 'initialize', params: { protocolVersion: '0.5' } },
        { jsonrpc: '2.0', id: 1, method: 'device/compare', params: { dir: 'profiles/default' } },
        { jsonrpc: '2.0', method: '$/cancelRequest', params: { id: 1 } },
        { jsonrpc: '2.0', id: 2, method: 'shutdown' }, { jsonrpc: '2.0', method: 'exit' }].each { |m| framing.write(writer, m) }

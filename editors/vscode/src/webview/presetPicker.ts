@@ -1,6 +1,6 @@
 // 同梱のショートカットの木（keycode/shortcutTree。protocol.md の 5.4）から「アプリ → カテゴリ → ラベル」で選ぶ欄（アイコン付きの階層選択）。
 // - kind: 'macro'（既定）: マクロの preset: に書く名前を選ぶ（spec.md の「ファイルの種類ごと」の macros/ の preset:）。手順の定義がある項目（macro: true）だけを出す
-// - kind: 'shortcut'（v0.3）: キー入力欄の「同梱から選ぶ…」とショートカットの節の「同梱からコピー」（tasks-v0.3.md の決めたことの 2）。
+// - kind: 'shortcut'（v0.3）: キー入力欄の「同梱から選ぶ…」（tasks-v0.3.md の決めたことの 2）。v0.3 のショートカットの節の「同梱からコピー」は v0.5 で節の「追加」の一覧（addMenu.ts）にまとめた。
 //   キーの組の項目（macro: true でないもの）だけを出し、選んだ項目の insertText（Shortcut('…')）と text（キーの組）を渡す
 // 木はプロファイルによらないので、取るのは 1 回だけ（loadShortcutTree がホストごとにとっておく）。
 import type { ShortcutTreeResult } from '../protocol';

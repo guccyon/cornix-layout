@@ -53,7 +53,7 @@
         "cornix.device.allowWrites": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "実機（接続中の Cornix）への書き込み（「Cornix: 実機に反映」「Cornix: 実機をバックアップから戻す」）を許す。既定は無効で、無効のあいだは実機を読んで比べることだけができる。有効のときだけ実機のサーバーを `--allow-writes` 付きで起動する（変えると起動し直す）。書き込みのたびに、違いの件数と書き込み先のキーボードを見せる確認のダイアログが出る。"
+          "markdownDescription": "実機（接続中の Cornix）への書き込み（編集画面の「デバイス転送」・「Cornix: 実機に反映…」のプレビューの「確定」）を許す。既定は無効で、無効のあいだはプレビュー（実機を読んで比べる）だけができる。有効のときだけ実機のサーバーを `--allow-writes` 付きで起動する（変えると起動し直す）。書き込みはいつも、違いと書き込み先のキーボードを見せるプレビューで「確定」を押したときだけ。"
         }
       }
     },
@@ -80,18 +80,8 @@
         "category": "Cornix"
       },
       {
-        "command": "cornix.device.compare",
-        "title": "実機と比べる",
-        "category": "Cornix"
-      },
-      {
         "command": "cornix.device.apply",
-        "title": "実機に反映",
-        "category": "Cornix"
-      },
-      {
-        "command": "cornix.device.restore",
-        "title": "実機をバックアップから戻す",
+        "title": "実機に反映…",
         "category": "Cornix"
       }
     ],

@@ -1,18 +1,19 @@
-// 実機の操作（v0.4。tasks-v0.4.md の D2）の VS Code の部分: device のサーバー・コマンド・状態バー・確認のダイアログ・進み具合・設定。
+// 実機への反映（v0.4。tasks-v0.4.md の D2）の VS Code の部分: device のサーバー・コマンド・保存の促し・通知・設定。
+// プレビューと確定は編集画面のモーダル（webview/deviceView.ts）で、状態はホストが持って送る。
 // 流れそのものは deviceFlow.ts、文は deviceTexts.ts、状態は deviceStates.ts（どれも vscode に依存しない）。
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { ProfileDocument } from '../editor/profileDocument';
 import type { ProfileEditorProvider } from '../editor/profileEditorProvider';
 import { profileDirOf } from '../editor/profileUri';
-import { pickProfile } from '../profiles/openProfile';
+import { openProfile, pickProfile } from '../profiles/openProfile';
 import type { CornixServer } from '../server/cornixServer';
 import { DeviceServer } from '../server/deviceServer';
 import { ALLOW_WRITES_SETTING } from './deviceSettings';
 import type { DeviceAction } from '../webviewMessages';
-import { DeviceFlow, type DeviceClient, type DeviceHost, type DeviceOutcome, type DevicePrompts, type ProgressTask } from './deviceFlow';
+import { DeviceFlow, type DeviceClient, type DeviceHost, type DeviceOutcome, type DevicePrompts } from './deviceFlow';
 import { DeviceStates, filesKey } from './deviceStates';
-import { ACTION_NAMES, COMMANDS, statusText, statusTooltip, type Notice } from './deviceTexts';
+import { APPLY_COMMAND, OPEN_WRITE_SETTING, type Notice } from './deviceTexts';
 
 export const vscodeDevicePrompts: DevicePrompts = {
   async confirmSaveFirst(profile, pending) {
@@ -25,22 +26,12 @@ export const vscodeDevicePrompts: DevicePrompts = {
     return choice === save;
   },
 
-  async confirmWrite(text) {
-    const choice = await vscode.window.showWarningMessage(text.message, { modal: true, detail: text.detail }, text.button);
-    return choice === text.button;
-  },
-
-  async pickBackup(items) {
-    const chosen = await vscode.window.showQuickPick(items, {
-      title: 'Cornix: 実機をバックアップから戻す',
-      placeHolder: '戻す先のバックアップを選んでください（新しい順）',
-      ignoreFocusOut: true,
-    });
-    return chosen?.backup;
-  },
-
   notify(notice) {
     showNotice(notice);
+  },
+
+  openWriteSetting() {
+    void vscode.commands.executeCommand(OPEN_WRITE_SETTING.command, ...(OPEN_WRITE_SETTING.args ?? []));
   },
 };
 
@@ -70,7 +61,6 @@ export class DeviceController implements vscode.Disposable {
 
   private readonly onDidChangeStateEmitter = new vscode.EventEmitter<string | undefined>();
   readonly onDidChangeState = this.onDidChangeStateEmitter.event;
-  private readonly statusBar: vscode.StatusBarItem;
   private readonly disposables: vscode.Disposable[] = [];
   /** 操作の最中に設定が変わった（終わってから起動し直す） */
   private restartPending = false;
@@ -82,10 +72,7 @@ export class DeviceController implements vscode.Disposable {
     private readonly provider: ProfileEditorProvider,
   ) {
     this.server = new DeviceServer(output, clientVersion);
-    this.states = new DeviceStates(readAllowWrites(), (dir) => {
-      this.onDidChangeStateEmitter.fire(dir);
-      this.updateStatusBar();
-    });
+    this.states = new DeviceStates(readAllowWrites(), (dir) => this.onDidChangeStateEmitter.fire(dir));
 
     const client: DeviceClient = {
       request: (method, params, token) => this.server.request(method, params, token),
@@ -105,17 +92,14 @@ export class DeviceController implements vscode.Disposable {
         return document ? filesKey(document.snapshot.files) : undefined;
       },
       profileName: (dir) => this.documentOf(dir)?.snapshot.name ?? path.basename(dir),
-      withProgress: <T>(title: string, task: ProgressTask<T>) =>
-        Promise.resolve(
-          vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title, cancellable: true }, (progress, token) =>
-            task((message) => progress.report({ message }), token),
-          ),
-        ),
+      errorCount: (dir) => {
+        const snapshot = this.documentOf(dir)?.snapshot;
+        if (!snapshot) return 0;
+        const errors = snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === 'error').length;
+        return snapshot.status === 'invalid' ? Math.max(errors, 1) : errors;
+      },
     };
     this.flow = new DeviceFlow(client, host, this.states);
-
-    this.statusBar = vscode.window.createStatusBarItem('cornix.device', vscode.StatusBarAlignment.Left, 50);
-    this.statusBar.name = 'Cornix: 実機';
 
     provider.attachDevice({
       stateOf: (dir) => this.states.get(dir),
@@ -125,25 +109,20 @@ export class DeviceController implements vscode.Disposable {
 
     this.disposables.push(
       this.server,
-      this.statusBar,
       this.onDidChangeStateEmitter,
       this.server.onNotification('device/progress', (params) => this.flow.handleProgress(params)),
-      // 保存・外での変更で設定ファイルの版が変わったら「未確認」に戻す（profile/saved のあとの snapshot もここに来る）
+      // プレビューのあとで設定ファイルの版が変わったら、そのプレビューは古い（確定できない。外での変更の snapshot もここに来る）
       provider.onDidChangeDocument((document) => this.states.checkFiles(document.dir, filesKey(document.snapshot.files))),
+      // 閉じたら、読んでいる間なら取り消し、プレビューなら閉じる（書いている間はそのまま終える）
       provider.onDidCloseDocument((document) => {
-        if (!this.provider.openDocuments.some((other) => other !== document && other.dir === document.dir)) this.states.forget(document.dir);
+        if (!this.provider.openDocuments.some((other) => other !== document && other.dir === document.dir)) this.flow.cancel(document.dir);
       }),
-      vscode.window.tabGroups.onDidChangeTabs(() => this.updateStatusBar()),
-      vscode.window.tabGroups.onDidChangeTabGroups(() => this.updateStatusBar()),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration(ALLOW_WRITES_SETTING)) this.states.setAllowWrites(readAllowWrites());
         if (['cornix.path', 'cornix.trace.server', ALLOW_WRITES_SETTING].some((name) => event.affectsConfiguration(name))) this.restartServer();
       }),
-      ...(Object.keys(COMMANDS) as DeviceAction[]).map((action) =>
-        vscode.commands.registerCommand(COMMANDS[action], (arg?: unknown) => this.command(action, arg)),
-      ),
+      vscode.commands.registerCommand(APPLY_COMMAND, (arg?: unknown) => this.command(arg)),
     );
-    this.updateStatusBar();
   }
 
   /** 画面のボタン・コマンドから。対象のプロファイルは dir */
@@ -158,19 +137,28 @@ export class DeviceController implements vscode.Disposable {
     }
   }
 
-  /** コマンド。arg は dir（文字列）か、プロファイルの URI。なければアクティブな編集画面、それもなければ選ばせる */
-  private async command(action: DeviceAction, arg: unknown): Promise<DeviceOutcome | undefined> {
-    const dir = await this.targetDir(action, arg).catch(() => undefined);
+  /**
+   * コマンド「Cornix: 実機に反映…」。arg は dir（文字列）か、プロファイルの URI。なければアクティブな編集画面、それもなければ選ばせる。
+   * プレビューは編集画面のモーダルに出すので、開いていなければ開いてから始める
+   */
+  private async command(arg: unknown): Promise<DeviceOutcome | undefined> {
+    const dir = await this.targetDir(arg).catch(() => undefined);
     if (!dir) return undefined;
-    return this.run(action, dir);
+    if (!this.documentOf(dir)) {
+      await openProfile(this.editorServer, dir);
+      const document = this.documentOf(dir);
+      if (!document) return undefined;
+      await document.settled();
+    }
+    return this.run('preview', dir);
   }
 
-  private async targetDir(action: DeviceAction, arg: unknown): Promise<string | undefined> {
+  private async targetDir(arg: unknown): Promise<string | undefined> {
     if (typeof arg === 'string' && arg !== '') return arg;
     if (arg instanceof vscode.Uri) return profileDirOf(arg);
     const active = activeProfileDir();
     if (active) return active;
-    const picked = await pickProfile(this.editorServer, `Cornix: 実機と${ACTION_NAMES[action]}`, '対象のプロファイルを選んでください');
+    const picked = await pickProfile(this.editorServer, 'Cornix: 実機に反映', '反映するプロファイルを選んでください');
     return picked?.dir;
   }
 
@@ -198,21 +186,6 @@ export class DeviceController implements vscode.Disposable {
     }
     // 止めるだけにして、次の操作で新しい設定で起動する（cornix.path を誤ったときに、編集のサーバーと二重に知らせないため）
     if (this.server.isStartingOrRunning) void this.server.stop().catch(() => undefined);
-  }
-
-  private updateStatusBar(): void {
-    const dir = activeProfileDir();
-    if (!dir) {
-      this.statusBar.hide();
-      return;
-    }
-    const state = this.states.get(dir);
-    this.statusBar.text = `${state.busy ? '$(sync~spin)' : '$(plug)'} ${statusText(state)}`;
-    this.statusBar.tooltip = statusTooltip(state);
-    this.statusBar.command = { title: '実機と比べる', command: COMMANDS.compare, arguments: [dir] };
-    this.statusBar.backgroundColor =
-      state.status === 'different' && !state.busy ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
-    this.statusBar.show();
   }
 
   dispose(): void {

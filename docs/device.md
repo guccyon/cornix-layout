@@ -56,16 +56,17 @@ CLI の apply / restore は 1 回の接続の中で計画 → 確認（y/N、`--
 
 ## VS Code 拡張から
 
-VS Code 拡張 v0.4 の「比べる」「反映」「戻す」は、`cornix serve --device [--allow-writes]` を子プロセスとして起動し、
-編集のサーバー（`cornix serve`）と同じ枠の JSON-RPC の `device/compare`・`device/apply`・`device/backups`・`device/compareBackup`・`device/restore` で話す
-（約束は [vscode-extension/protocol.md](vscode-extension/protocol.md) の 14、決めたことは ADR 018・019）。
+VS Code 拡張 v0.4 の反映（編集フォームの節「デバイス転送」。プレビュー → 確定）は、`cornix serve --device [--allow-writes]` を子プロセスとして起動し、
+編集のサーバー（`cornix serve`）と同じ枠の JSON-RPC の `device/compare`（プレビュー）と `device/apply`（確定）で話す
+（約束は [vscode-extension/protocol.md](vscode-extension/protocol.md) の 14、決めたことは ADR 018・019・020）。
+サーバーは `device/backups`・`device/compareBackup`・`device/restore` も持つが、拡張からは使わない（戻すのは CLI の `cornix restore` / `cornix device restore`）。
 編集のサーバーとは別のプロセスなので、実機を読む約 10 秒の間も候補や検証は止まらない。
 
 - 中身は CLI・MCP と同じユースケース（`Compile` → `DeviceDiff` / `DeviceApply`（`expected_token`）/ `DeviceRestore` / `ListSnapshots`）を
   `Application::Editor::DeviceOperations` から呼ぶ。マトリクスの座標を位置（レイヤー・位置の名前）に直すのは `Application::Editor::DeviceChanges`（`Domain::PositionMap`）
 - 比べるのは保存済みのファイルを compile したもの（未保存の変更は見ない）。`device/apply` はサーバーが計画し直し、`device/compare` の token と違えば何も書かない（MCP の confirm_token と同じ）
 - 書き込みの止めは二重（ADR 019）:
-  1. 拡張: 設定 `cornix.device.allowWrites`（既定 `false`）が `true` のときだけ `--allow-writes` を付けて起動する。書くたびに件数と書き込み先のキーボード名を見せる確認のモーダルを出す（省けない）
+  1. 拡張: 設定 `cornix.device.allowWrites`（既定 `false`）が `true` のときだけ `--allow-writes` を付けて起動する。書くのは毎回、違い・件数・書き込み先のキーボード名を見せるプレビューで「確定」を押したときだけ（検証のエラーがあるときは押せない）
   2. サーバー: `--allow-writes` なしで起動したものは `device/apply`・`device/restore` を `-32074`（WritesNotAllowed）で断り、実機を読みもしない
 - バックアップ・1 件ずつの書き込み・読み直しの検証・boot 系キーコードの拒否は、下の「安全設計」のまま（CLI・MCP と同じ `Device::Writer` / `ChangePolicy`）
 - 進み具合は `Device::Reader` / `Writer` の progress のコールバックから `device/progress` の通知にする。取り消し（`$/cancelRequest`）は読む間だけ受け付け、

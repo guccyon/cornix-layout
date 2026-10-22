@@ -1,17 +1,13 @@
-// プロファイルごとの「実機と比べた状態」（webviewMessages.ts の DeviceViewState）。vscode に依存しない（単体テストのため）。
-// 自動では読まない（tasks-v0.4.md の決めたこと 6）。比べる・反映・戻すのあとだけ変え、設定ファイルが変わったら（保存・外での変更）「未確認」に戻す。
-import type { DeviceChange } from '../deviceProtocol';
-import type { DeviceAction, DeviceViewState } from '../webviewMessages';
+// プロファイルごとの「実機への反映の途中の状態」（webviewMessages.ts の DeviceViewState）。vscode に依存しない（単体テストのため）。
+// 反映は一度に 1 つ（実機は 1 台）。プレビューを出している間に設定ファイルが変わったら（保存・外での変更）、そのプレビューは古い（stale）にする。
+import type { DeviceTransfer, DeviceViewState } from '../webviewMessages';
 
 type Entry = {
-  status: DeviceViewState['status'];
-  changes: DeviceChange[];
-  busy: DeviceAction | null;
-  /**
-   * 比べたときの設定ファイルの版（filesKey）。これと違う版の snapshot が来たら「未確認」に戻す。
-   * 比べたときにプロファイルを開いていなかったら undefined（開いたときに、閉じている間に変わったかが分からないので「未確認」に戻す）
-   */
+  transfer: DeviceTransfer;
+  /** 読み始めたときの設定ファイルの版（filesKey）。開いていなければ undefined（そのときは古いかを見ない。最後はサーバーが token で確かめる） */
   files: string | undefined;
+  /** 読み始めたあとで設定ファイルが変わった */
+  changed: boolean;
 };
 
 /** snapshot.files（ファイル → 版）を比べられる 1 つの文字列にする（キーの順によらない） */
@@ -23,7 +19,7 @@ export class DeviceStates {
   private readonly entries = new Map<string, Entry>();
 
   /**
-   * @param onChange 状態が変わった dir（undefined はすべて。allowWrites が変わったとき）
+   * @param onChange 状態が変わった dir（undefined はすべて。反映を始めた・終えた・allowWrites が変わったとき）
    */
   constructor(
     private allowWrites: boolean,
@@ -31,11 +27,9 @@ export class DeviceStates {
   ) {}
 
   get(dir: string): DeviceViewState {
-    const entry = this.entries.get(dir);
     return {
-      status: entry?.status ?? 'unknown',
-      changes: entry?.status === 'different' ? [...entry.changes] : [],
-      busy: entry?.busy ?? null,
+      transfer: this.entries.get(dir)?.transfer ?? null,
+      busyElsewhere: [...this.entries.keys()].some((other) => other !== dir),
       allowWrites: this.allowWrites,
     };
   }
@@ -44,9 +38,13 @@ export class DeviceStates {
     return this.allowWrites;
   }
 
-  /** いずれかのプロファイルで操作の最中か */
+  /** いずれかのプロファイルで反映の途中か */
   get busy(): boolean {
-    return [...this.entries.values()].some((entry) => entry.busy !== null);
+    return this.entries.size > 0;
+  }
+
+  transferOf(dir: string): DeviceTransfer | null {
+    return this.entries.get(dir)?.transfer ?? null;
   }
 
   setAllowWrites(allowWrites: boolean): void {
@@ -55,47 +53,32 @@ export class DeviceStates {
     this.onChange(undefined);
   }
 
-  setBusy(dir: string, busy: DeviceAction | null): void {
-    const entry = this.entry(dir);
-    if (entry.busy === busy) return;
-    entry.busy = busy;
-    this.onChange(dir);
+  /** 反映を始めた（読み始めた）。files は読み始めたときの filesKey */
+  start(dir: string, files: string | undefined): void {
+    this.entries.set(dir, { transfer: { step: 'reading', progress: null }, files, changed: false });
+    this.onChange(undefined);
   }
 
-  /** 比べた・反映した（changes は違い。反映のあとは読み直しで残った違い）。files は比べたときの filesKey */
-  setCompared(dir: string, changes: readonly DeviceChange[], files: string | undefined): void {
-    const entry = this.entry(dir);
-    entry.status = changes.length === 0 ? 'same' : 'different';
-    entry.changes = [...changes];
-    entry.files = files;
-    this.onChange(dir);
-  }
-
-  setUnknown(dir: string): void {
+  /** 途中の状態を変える（進み具合・プレビュー・書き込み）。始めていなければ何もしない */
+  update(dir: string, transfer: DeviceTransfer): void {
     const entry = this.entries.get(dir);
-    if (!entry || entry.status === 'unknown') return;
-    entry.status = 'unknown';
-    entry.changes = [];
-    entry.files = undefined;
+    if (!entry) return;
+    entry.transfer = transfer.step === 'preview' && entry.changed && !transfer.plan.empty ? { ...transfer, stale: true } : transfer;
     this.onChange(dir);
   }
 
-  /** プロファイルの snapshot が来た（開いた・保存した・外で変わった）。比べたときと版が違えば「未確認」に戻す */
+  /** 反映を終えた（書いた・やめた・失敗した） */
+  finish(dir: string): void {
+    if (!this.entries.delete(dir)) return;
+    this.onChange(undefined);
+  }
+
+  /** プロファイルの snapshot が来た（保存した・外で変わった）。読み始めたときと版が違えば、プレビューを古いにする（読んでいる間なら、読み終えたときに） */
   checkFiles(dir: string, files: string): void {
     const entry = this.entries.get(dir);
-    if (!entry || entry.status === 'unknown') return;
-    if (entry.files !== files) this.setUnknown(dir);
-  }
-
-  /** プロファイルを閉じた（操作の最中でなければ忘れる） */
-  forget(dir: string): void {
-    const entry = this.entries.get(dir);
-    if (entry && entry.busy === null) this.entries.delete(dir);
-  }
-
-  private entry(dir: string): Entry {
-    let entry = this.entries.get(dir);
-    if (!entry) this.entries.set(dir, (entry = { status: 'unknown', changes: [], busy: null, files: undefined }));
-    return entry;
+    if (!entry || entry.files === undefined || entry.files === files || entry.changed) return;
+    entry.changed = true;
+    const transfer = entry.transfer;
+    if (transfer.step === 'preview') this.update(dir, transfer);
   }
 }

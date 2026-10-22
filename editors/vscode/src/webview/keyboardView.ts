@@ -9,8 +9,7 @@
 // v0.3 の「全レイヤー」のトグルは v0.4 でやめた（下の欄の「キー別」に置き換えた。issue #84）。
 // コンボ: 図の上にコンボの番号のボタン。押す（固定）か載せている（一時）間、そのトリガーのキーを強調する（どの欄かは options.comboTargets）。
 // 選ぶ状態（setPicking。App#pickKey）: 図の上に案内を出し、キーを押すと onPick（Esc で onPickCancel）。
-// v0.4（tasks-v0.4.md の D3）: 図の上の並びに実機のボタンと印（options.tools。deviceView.ts の DeviceBar）。
-// 実機と違うキー・エンコーダの操作は橙の枠（setDeviceDiffs。class device-diff）で囲み、読み上げに実機の値を添える。
+// 実機と違うキー・エンコーダの操作は橙の枠（setDeviceDiffs。class device-diff）で囲み、読み上げに実機の値を添える（v0.4。反映のプレビューのモーダルの図）。
 // タップダンスは、キーの面を割り当てのある動作の数の窓に分けて描く（1 つは面全体、2 つ・3 つは横幅いっぱいの窓を上から順に
 // 重ね、4 つは 2×2。順はタップ・ホールド・ダブルタップ・タップホールド）。エンコーダの帯では窓にせず、タップの札と「+残りの数」を並べる。
 import type { Diagnostic, Hand, KeyValue } from '../protocol';
@@ -59,8 +58,6 @@ export type KeyboardViewOptions = {
   onPick?: (slotId: string) => void;
   /** v0.3: 選ぶ状態で Esc を押した */
   onPickCancel?: () => void;
-  /** v0.4: 図の上の並び（位置の名前のボタンの前）に置く部品（実機のボタンと印） */
-  tools?: HTMLElement[];
 };
 
 const pct = (value: number, total: number) => `${((value / total) * 100).toFixed(3)}%`;
@@ -112,7 +109,7 @@ export class KeyboardView {
     this.toggle.addEventListener('mouseenter', () => this.setHovering(true));
     this.toggle.addEventListener('mouseleave', () => this.setHovering(false));
     this.comboBar = h('div', { class: 'combo-buttons', role: 'group', 'aria-label': 'コンボ', hidden: true });
-    const toolbar = h('div', { class: 'keyboard-toolbar' }, this.comboBar, h('div', { class: 'keyboard-toggles' }, ...(options.tools ?? []), this.toggle));
+    const toolbar = h('div', { class: 'keyboard-toolbar' }, this.comboBar, h('div', { class: 'keyboard-toggles' }, this.toggle));
     this.pickBanner = h('div', { class: 'pick-banner', role: 'status', hidden: true }, 'キーを押して選ぶ（Esc で戻る）');
     this.positionHint = h('div', { class: 'position-hint', 'aria-hidden': 'true' });
     // 最初から文を入れて行の高さを取っておく

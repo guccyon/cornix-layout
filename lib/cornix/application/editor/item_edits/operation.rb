@@ -17,6 +17,7 @@ module Cornix
         #   outcome.verify       #=> 前後の compile の結果を比べるときの名前の場所（{ file:, path: }）。比べないなら nil
         #   outcome.changes      #=> 未保存の変更に積む Change の並び（v0.5 の use / unuse / setIndex と create（shortcut）。protocol.md の 15.3）
         #
+        # 読めない値があるときは requires_complete? の操作だけ止める（ほかは読めない値を NoKey にした profile で決める）。
         # 宛先や名前の誤りは PlanEdits::InvalidChange（field は "edit.name" など）、局所的に書き換えられなければ
         # PlanEdits::NotLocal。どちらもファイルは書かない
         class Operation
@@ -39,8 +40,8 @@ module Cornix
             unless @reading.ok?
               raise InvalidChange.new('edit', 'プロファイルが構造検証で読めないので、項目を操作できません（先にテキストで直してください）')
             end
-            unless @reading.complete?
-              raise InvalidChange.new('edit', 'プロファイルに読めない値があるので、項目を操作できません（先にその値を直して保存してください）')
+            if requires_complete? && !@reading.complete?
+              raise InvalidChange.new('edit', 'プロファイルに読めない値があるので、この操作はできません（先にその値を直してください。未保存の変更で直してもかまいません）')
             end
 
             run(edit)
@@ -53,6 +54,11 @@ module Cornix
           def profile = @reading.profile
 
           def run(_edit) = raise(NotImplementedError)
+
+          # 読めない値（解析できないキーコード・未使用の項目を指す名前の参照など）があっても行える操作か。
+          # 前後の compile の結果を比べる操作（名前の変更・位置の名前の変更・preset の展開）だけが、すべて読めることを要る。
+          # 追加・削除・番号の操作・ショートカットの追加は止めない（未使用にしたマクロを名前で指す欄が残っても、取り出し直せるように）
+          def requires_complete? = false
 
           def outcome(references: [], verify: nil, changes: [])
             Outcome.new(changeset: changeset, references: references, verify: verify, changes: changes)

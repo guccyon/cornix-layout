@@ -21,6 +21,8 @@ module Cornix
         #
         # preset: で書いていないマクロ・知らない名前は InvalidChange（field "edit.name"）
         class ExpandPreset < Operation
+          def requires_complete? = true
+
           PRESET = 'preset'
           KEY_LINE = /\A[ \t]*(?:#{PRESET}|'#{PRESET}'|"#{PRESET}")[ \t]*:/
 

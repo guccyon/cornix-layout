@@ -106,10 +106,10 @@ module Cornix
         end
 
         # 番号の変更の前後で、どの欄も同じ項目（マクロ・タップダンスはそのファイル、ほかは 16bit の値そのもの）を指すか。
-        # 前に定義のない番号を指していた欄（もとから壊れている参照）は比べない
+        # 前に定義のない番号を指していた欄（もとから壊れている参照）は比べない。読めない値の欄は前後とも NoKey で比べる
         def verify_targets!(before, after, address, op)
           expected = targets(before)
-          actual = after.complete? ? targets(after) : {}
+          actual = after.ok? ? targets(after) : {}
           ok = expected.all? { |slot, target| target.nil? || actual[slot] == target }
           raise Unverified.new(address: address, op: op) unless ok
         end

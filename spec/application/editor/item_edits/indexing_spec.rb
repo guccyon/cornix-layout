@@ -105,6 +105,29 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
     end
   end
 
+  describe '未使用の項目を名前で指す欄（読めない値）が残っているとき' do
+    # タップダンス 0 がマクロ 11 を名前で指したまま、マクロ 11 を未使用にした（保存したあとの）状態
+    before do
+      write('tap_dance/00_tap_dance.yaml', read('tap_dance/00_tap_dance.yaml').sub('on_double_tap: KC_NO', "on_double_tap: Macro('Macro 11')"))
+      write('macros/11_macro.yaml', read('macros/11_macro.yaml').sub(/^index: 11\n/, ''))
+    end
+
+    it '画面には出せるが読めない値がある' do
+      expect([reading.ok?, reading.complete?]).to eq([true, false])
+    end
+
+    it '取り出す・未使用にする・番号の変更・ショートカットの追加は止めない。取り出せば参照も読める' do
+      result = plan(op: 'use', kind: 'macro', file: 'macros/11_macro.yaml')
+      expect(result[:changes]).to eq([{ address: { file: 'macros/11_macro.yaml', path: ['index'] }, value: 11 }])
+      expect(applied(to_changes(result[:changes])).reading.complete?).to be(true)
+      expect(plan(op: 'unuse', kind: 'tapDance', file: 'tap_dance/00_tap_dance.yaml')[:changes])
+        .to eq([{ op: 'remove', address: { file: 'tap_dance/00_tap_dance.yaml', path: ['index'] } }])
+      expect(plan(op: 'setIndex', kind: 'macro', file: 'macros/10_macro.yaml', index: 20)[:changes])
+        .to include({ address: { file: 'macros/10_macro.yaml', path: ['index'] }, value: 20 })
+      expect(plan(op: 'create', kind: 'shortcut', name: 'S', value: 'KC_A')[:changes].size).to eq(1)
+    end
+  end
+
   describe 'setIndex' do
     it 'マクロの入れ替えは番号の参照を表記の形のまま両方向に書き換え、compile すると各キーは同じ中身のマクロを指す' do
       write('layers/1_layer_1.yaml', read('layers/1_layer_1.yaml').sub(/^(\s+)tab: .*$/, "\\1tab: Macro( 1 )"))

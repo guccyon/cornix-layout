@@ -12,9 +12,9 @@
 // - 一覧に並べるのは使っている項目だけで、番号は未保存の変更を当てたもの（itemIndex.ts の arrangeItems の used）。未使用の項目は追加の一覧からだけ使い始める
 // - 項目の操作は一覧の各行の「…」（moreMenu.ts。行を指したとき・選んでいるときに出す）と行の右クリック（同じメニュー）: 名前を変える / 未使用にする（unuse）/
 //   ファイルを開く / 削除…（ショートカットには未使用がないので 未使用にする は出さない）。W2（ADR 025）で編集欄の見出しの「…」から移した
-// - 節の「…」（「追加」の隣）は節全体の操作で、「並び替え」（使っている項目が 2 つ以上のとき。ショートカットには番号がないので「…」を出さない）。
+// - 「追加」の隣の「並び替え」ボタン（使っている項目が 2 つ以上のときに押せる。ショートカットには番号がないので出さない）。
 //   並び替えモードでは各行に ⬆⬇ を出し、押すたびに画面の並びだけを 1 つ動かす。「確定」で itemEdit の reorder を 1 回送り（並びが今と同じなら送らない。
-//   ホストが未保存の変更に積む）、「やめる」で捨てる。モードの間は行の選択・「…」・「追加」はできない。行の番号は今の番号のまま
+//   ホストが未保存の変更に積む）、「やめる」で捨てる。モードの間は行の選択・「…」・「追加」はできない。番号は行の位置に付けたまま（確定するとその番号になる）
 //   （番号の選択 indexPicker.ts と「番号を変える…」はやめた）
 // - 項目は番号のある種類ではファイル、ショートカットでは名前で見分ける（未使用の項目と名前が重なることがあるため）
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, IndexedKind, ItemEdit, ItemKind, ProfileSnapshot } from '../protocol';
@@ -89,8 +89,8 @@ export abstract class ItemSection<T extends { name: string }, V> {
   protected readonly toolbar: HTMLElement;
   /** 節の「追加」（追加の一覧） */
   readonly addMenu: AddMenu;
-  /** 節の「…」（節全体の操作。番号のある種類だけ） */
-  readonly sectionMenu: MoreMenu | undefined;
+  /** 「並び替え」のボタン（番号のある種類だけ） */
+  readonly reorderButton: HTMLButtonElement | undefined;
   /** 一覧の各行の「…」（行の見分け → メニュー。一覧を描くたびに作り直す） */
   private rowMenus = new Map<string, MoreMenu>();
   /** 並び替えモードの並び（ファイル）。モードでなければ undefined */
@@ -151,17 +151,12 @@ export abstract class ItemSection<T extends { name: string }, V> {
       onCreate: (query) => this.openForm({ mode: 'create', name: query }),
       onPickUnused: (item) => this.useItem(item),
     });
-    this.sectionMenu = this.indexedKind
-      ? new MoreMenu({
-          label: `${meta.title}全体の操作`,
-          className: 'item-section-menu',
-          items: () => this.sectionItems(),
-          onSelect: (id) => {
-            if (id === 'reorder') this.startReorder();
-          },
-        })
-      : undefined;
-    if (this.sectionMenu) this.sectionMenu.button.dataset.focus = 'section-more';
+    // 節の全体の操作は並び替えだけなので、「…」ではなくボタンを直に置く（Tetsuro の確かめ）
+    if (this.indexedKind) {
+      const button = h('button', { type: 'button', class: 'item-button item-reorder-button', 'data-focus': 'section-reorder' }, '並び替え');
+      button.addEventListener('click', () => this.startReorder());
+      this.reorderButton = button;
+    }
     const confirm = h('button', { type: 'button', class: 'item-button primary', 'data-focus': 'reorder-confirm' }, REORDER_CONFIRM);
     confirm.addEventListener('click', () => this.confirmReorder());
     const cancel = h('button', { type: 'button', class: 'item-button', 'data-focus': 'reorder-cancel' }, REORDER_CANCEL);
@@ -173,7 +168,7 @@ export abstract class ItemSection<T extends { name: string }, V> {
       confirm,
       cancel,
     );
-    this.toolbar = h('div', { class: 'item-toolbar' }, ...nodes(this.addMenu.element, this.sectionMenu?.element, this.reorderBar));
+    this.toolbar = h('div', { class: 'item-toolbar' }, ...nodes(this.addMenu.element, this.reorderButton, this.reorderBar));
     this.details = h(
       'details',
       { class: 'section-details' },
@@ -270,7 +265,12 @@ export abstract class ItemSection<T extends { name: string }, V> {
     this.element.classList.toggle('reordering', reordering);
     this.reorderBar.hidden = !reordering;
     this.addMenu.element.hidden = reordering;
-    if (this.sectionMenu) this.sectionMenu.element.hidden = reordering || items.length === 0;
+    if (this.reorderButton) {
+      this.reorderButton.hidden = reordering || items.length === 0;
+      const few = this.arranged(snapshot).used.length < 2;
+      this.reorderButton.disabled = few;
+      this.reorderButton.title = few ? REORDER_TOO_FEW : `${this.title}の番号を並べ直す`;
+    }
     this.renderList(items);
     this.addMenu.update(this.addMenuData(snapshot, items));
     if (!item) {
@@ -370,13 +370,7 @@ export abstract class ItemSection<T extends { name: string }, V> {
     this.rowMenus.get(key)?.open('first', at);
   }
 
-  // ---- 並び替え（節の「…」）----
-
-  /** 節の「…」の項目 */
-  private sectionItems(): MoreMenuItem[] {
-    const count = this.snapshot ? this.arranged(this.snapshot).used.length : 0;
-    return [count >= 2 ? { id: 'reorder', label: '並び替え' } : { id: 'reorder', label: '並び替え', disabled: true, reason: REORDER_TOO_FEW }];
-  }
+  // ---- 並び替え ----
 
   /** 並び替えモードか（テスト用） */
   get reordering(): boolean {
@@ -402,7 +396,7 @@ export abstract class ItemSection<T extends { name: string }, V> {
     if (!this.reorderFiles) return;
     this.reorderFiles = undefined;
     this.render();
-    this.sectionMenu?.button.focus();
+    this.reorderButton?.focus();
   }
 
   /** 確定: 並びが変わっていれば reorder を 1 回送る（ホストが未保存の変更に積む）。モードは抜ける */
@@ -448,8 +442,11 @@ export abstract class ItemSection<T extends { name: string }, V> {
   private renderList(items: T[]): void {
     const snapshot = this.snapshot!;
     const order = this.reorderFiles;
-    // 並び替えモードでは画面の並び（番号は今の番号のまま）
+    // 並び替えモードでは画面の並び。番号は行の位置に付けたまま（今の番号を小さい順に並べたもの。確定するとその番号になる）
     const listed = order ? [...items].sort((a, b) => order.indexOf(this.itemFile(a)) - order.indexOf(this.itemFile(b))) : items;
+    const slots = order
+      ? listed.map((item) => this.entry(item, this.view(item)).index).filter((index): index is number => index !== undefined).sort((a, b) => a - b)
+      : undefined;
     this.closeRowMenus();
     this.rowMenus = new Map();
     const rows = listed.map((item, position) => {
@@ -472,7 +469,7 @@ export abstract class ItemSection<T extends { name: string }, V> {
           title: entry.file,
         },
         ...nodes(
-          entry.index !== undefined && h('span', { class: 'item-index' }, String(entry.index)),
+          entry.index !== undefined && h('span', { class: 'item-index' }, String(slots?.[position] ?? entry.index)),
           h('span', { class: 'item-name' }, item.name),
           entry.mark && h('span', { class: 'item-mark', title: entry.mark.title, 'aria-label': entry.mark.title }, entry.mark.text),
           entry.detail ? h('span', { class: 'item-row-detail' }, entry.detail) : null,

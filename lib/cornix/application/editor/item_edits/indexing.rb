@@ -172,6 +172,7 @@ module Cornix
 
         # 使っている項目を並べ直す（reorder。ADR 025）。edit.files は使っている項目すべてのファイルの新しい並び。
         # 今の番号を小さい順に並べ、新しい並びの順に当てる（抜け番はそのまま。0・2・5 の A・B・C を [C, A, B] にすると C=0・A=2・B=5）。
+        # edit.indexes があれば、files の順にその番号を当てる（範囲の中で重ならないこと。抜け番を作れる。レイヤーの並び替えモード）。
         # 番号の変わる項目ごとに ["index"] の set（新しい並びの順）、続けて参照の書き換え（Renumbering）。並びが今と同じなら changes は []。
         # edit.files が使っている項目の集まりと違えば（足りない・余分・重複・未使用のファイル）InvalidChange（"edit.files"）。
         # 使っている項目の番号が重なっていれば（意味検証の error）、どちらの参照か決まらないので InvalidChange（"edit"）
@@ -188,9 +189,10 @@ module Cornix
               raise InvalidChange.new('edit', "#{kind.label}の番号が重なっているので並び替えられません（先に番号を直してください）")
             end
 
+            targets = edit.indexes ? check_indexes!(kind, edit.indexes) : indexes.sort
             changes = []
             moves = {}
-            edit.files.zip(indexes.sort) do |file, to|
+            edit.files.zip(targets) do |file, to|
               from = items[files.index(file)].index
               next if from == to
 
@@ -201,6 +203,18 @@ module Cornix
 
             rewrites, references = rewrite_references(edit.kind, moves)
             outcome(changes: changes + rewrites, references: references, verify: changes.first.then { |c| { file: c.file, path: INDEX_PATH } })
+          end
+
+          # indexes（files の順に当てる番号）: 範囲の中で重ならないこと。抜け番は作れる（ADR 025。レイヤーの並び替えモード）
+          def check_indexes!(kind, indexes)
+            outside = indexes.reject { |index| (0...limit(kind)).cover?(index) }
+            unless outside.empty?
+              raise InvalidChange.new('edit.indexes', "#{kind.label}の番号は 0〜#{limit(kind) - 1} です: #{outside.join(', ')}")
+            end
+            duplicated = indexes.select { |index| indexes.count(index) > 1 }.uniq
+            raise InvalidChange.new('edit.indexes', "番号が重なっています: #{duplicated.join(', ')}") unless duplicated.empty?
+
+            indexes
           end
 
           def check_files!(kind, order, files)

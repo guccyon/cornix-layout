@@ -882,8 +882,13 @@ class FakeServer {
       const files = edit.files;
       const same = Array.isArray(files) && files.length === used.length && new Set(files).size === files.length && used.every((item) => files.includes(item.file));
       if (!same) invalid('files は使っている項目すべての並びです', 'edit.files');
-      // 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）
-      const slotsInOrder = used.map((item) => item.index).sort((a, b) => a - b);
+      // 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）。indexes があればその番号（抜け番を作れる）
+      const given = edit.indexes;
+      if (given !== undefined) {
+        const ok = Array.isArray(given) && given.length === files.length && given.every((i) => Number.isInteger(i) && i >= 0 && i < INDEX_LIMITS[kind]) && new Set(given).size === given.length;
+        if (!ok) invalid(`indexes は files と同じ数の、重ならない 0〜${INDEX_LIMITS[kind] - 1} の番号です`, 'edit.indexes');
+      }
+      const slotsInOrder = given ?? used.map((item) => item.index).sort((a, b) => a - b);
       moves = new Map();
       files.forEach((f, at) => {
         const item = used.find((i) => i.file === f)!;

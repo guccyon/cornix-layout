@@ -55,7 +55,9 @@ RSpec.describe Cornix::Interface::EditorServer::Handlers::ProfilePlanItemEdit do
       { 'op' => 'reorder', 'kind' => 'layer' } => 'edit.files',
       { 'op' => 'reorder', 'kind' => 'layer', 'files' => [1] } => 'edit.files',
       { 'op' => 'reorder', 'kind' => 'shortcut', 'files' => [] } => 'edit.kind',
-      { 'op' => 'reorder', 'kind' => 'combo', 'files' => [], 'index' => 1 } => 'edit.index'
+      { 'op' => 'reorder', 'kind' => 'combo', 'files' => [], 'index' => 1 } => 'edit.index',
+      { 'op' => 'reorder', 'kind' => 'layer', 'files' => ['a'], 'indexes' => [1, 2] } => 'edit.indexes',
+      { 'op' => 'reorder', 'kind' => 'layer', 'files' => ['a'], 'indexes' => ['1'] } => 'edit.indexes'
     }.each do |edit, field|
       expect(item_edit(edit)[:error]).to include(code: -32_602, data: { field: field })
     end

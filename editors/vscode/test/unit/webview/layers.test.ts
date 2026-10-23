@@ -274,81 +274,74 @@ describe('タブの右クリック（W2・ADR 025）', () => {
   });
 });
 
-describe('タブの並びの「…」と並び替えモード（W2・ADR 025）', () => {
+describe('タブの並びの「並び替え」と並び替えモード（W2・ADR 025。空きの枠も並べる）', () => {
   const three = (): ProfileSnapshot => {
     const snapshot = fixtureSnapshot();
     return { ...snapshot, layers: [...snapshot.layers, copyLayer(snapshot.layers[1]!, 4, 'Nav', nav)] };
   };
 
-  function tabsMore(): HTMLButtonElement {
-    return root.querySelector<HTMLButtonElement>(".layer-tabs [data-focus='layers-more']")!;
+  function reorderButton(): HTMLButtonElement {
+    return root.querySelector<HTMLButtonElement>(".layer-tabs [data-focus='layers-reorder']")!;
   }
 
   function startReorder(): void {
-    tabsMore().click();
-    root.querySelector<HTMLButtonElement>(".layer-tabs-menu .more-menu-item[data-action='reorder']")!.click();
+    reorderButton().click();
   }
 
-  function move(file: string, direction: 'left' | 'right'): HTMLButtonElement {
-    const button = root.querySelector<HTMLButtonElement>(`.layer-tab-wrap[data-file='${file}'] .reorder-${direction}`)!;
-    button.click();
-    return button;
+  function slots(): string[] {
+    return [...root.querySelectorAll('.layer-tabs .layer-slot-label')].map((e) => e.textContent ?? '');
   }
 
-  it('「＋」の隣に「…」を置き、「並び替え」を出す（使っているレイヤーが 1 つなら押せない）', () => {
+  function move(file: string, direction: 'left' | 'right'): void {
+    root.querySelector<HTMLButtonElement>(`.layer-slot[data-file='${file}'] .reorder-${direction}`)!.click();
+  }
+
+  it('「＋」の隣に「並び替え」のボタン（使っているレイヤーが 1 つなら押せない）', () => {
     receive(fixtureSnapshot());
     const add = root.querySelector('.layer-tabs .layer-add-menu')!;
-    expect(add.nextElementSibling?.classList.contains('layer-tabs-menu')).toBe(true);
-    tabsMore().click();
-    const item = root.querySelector<HTMLElement>(".layer-tabs-menu .more-menu-item[data-action='reorder']")!;
-    expect(item.getAttribute('aria-disabled')).toBeNull();
-    item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(add.nextElementSibling).toBe(reorderButton());
+    expect(reorderButton().disabled).toBe(false);
     receive(fixtureSnapshot(), [indexRemove(symbols)]);
-    tabsMore().click();
-    const disabled = root.querySelector<HTMLElement>(".layer-tabs-menu .more-menu-item[data-action='reorder']")!;
-    expect(disabled.getAttribute('aria-disabled')).toBe('true');
-    disabled.click();
+    expect(reorderButton().disabled).toBe(true);
+    reorderButton().click();
     expect(app.reorderingLayers).toBe(false);
   });
 
-  it('並び替えモード: タブに ◀▶（端は押せない）と確定・やめる。タブを押しても選び直さず、「＋」と「…」は隠す', () => {
+  it('並び替えモード: 0〜9 の枠を全部並べ（空きは点線）、名前の下に ◀▶（0 の ◀・9 の ▶ は押せない）。「＋」と「並び替え」は隠す', () => {
     receive(three());
     startReorder();
     expect(app.reorderingLayers).toBe(true);
+    expect(slots()).toEqual(['0 Base', '1 Symbols', '2 空き', '3 空き', '4 Nav', '5 空き', '6 空き', '7 空き', '8 空き', '9 空き']);
+    expect(root.querySelectorAll('.layer-slot.empty')).toHaveLength(7);
     expect([...root.querySelectorAll<HTMLButtonElement>('.reorder-left')].map((b) => b.disabled)).toEqual([true, false, false]);
-    expect([...root.querySelectorAll<HTMLButtonElement>('.reorder-right')].map((b) => b.disabled)).toEqual([false, false, true]);
+    expect([...root.querySelectorAll<HTMLButtonElement>('.reorder-right')].map((b) => b.disabled)).toEqual([false, false, false]);
     expect(root.querySelector<HTMLElement>('.layer-reorder-bar')!.hidden).toBe(false);
     expect(root.querySelector<HTMLElement>('.layer-tabs .layer-add-menu')!.hidden).toBe(true);
-    expect(root.querySelector<HTMLElement>('.layer-tabs .layer-tabs-menu')!.hidden).toBe(true);
-    root.querySelector<HTMLButtonElement>(`button.layer-tab[data-file='${nav}']`)!.click();
-    expect(app.currentLayer).toBe(0);
+    expect(reorderButton().hidden).toBe(true);
+    expect(root.querySelector('button.layer-tab[data-file]')).toBeNull();
   });
 
-  it('◀▶ で並びが動き（番号は今の番号のまま）、確定で reorder を 1 回送る', () => {
+  it('◀▶ は隣の枠へ（空きなら移し、使っていれば入れ替え）。確定で番号付きの reorder を 1 回送る', () => {
     receive(three());
     startReorder();
-    const right = move(base, 'right');
-    expect(tabs()).toEqual(['1 Symbols', '0 Base', '4 Nav']);
-    expect(document.activeElement?.className).toContain('reorder-right');
-    expect((document.activeElement as HTMLElement).dataset.file).toBe(base);
-    expect(right.isConnected).toBe(false);
-    move(nav, 'left');
-    move(nav, 'left');
-    expect(tabs()).toEqual(['4 Nav', '1 Symbols', '0 Base']);
-    // 先頭で ◀ が押せなくなったら ▶ にフォーカス
-    expect(document.activeElement?.className).toContain('reorder-right');
+    move(nav, 'right');
+    move(nav, 'right');
+    expect(slots()).toEqual(['0 Base', '1 Symbols', '2 空き', '3 空き', '4 空き', '5 空き', '6 Nav', '7 空き', '8 空き', '9 空き']);
+    expect((document.activeElement as HTMLElement).dataset.file).toBe(nav);
+    move(base, 'right');
+    expect(slots().slice(0, 2)).toEqual(['0 Symbols', '1 Base']);
     expect(host.itemEdits).toEqual([]);
     root.querySelector<HTMLButtonElement>("[data-focus='layer-reorder-confirm']")!.click();
-    expect(host.itemEdits).toEqual([{ op: 'reorder', kind: 'layer', files: [nav, symbols, base] }]);
+    expect(host.itemEdits).toEqual([{ op: 'reorder', kind: 'layer', files: [base, symbols, nav], indexes: [1, 0, 6] }]);
     expect(app.reorderingLayers).toBe(false);
-    expect(document.activeElement).toBe(tabsMore());
+    expect(document.activeElement).toBe(reorderButton());
   });
 
-  it('並びが今と同じなら送らない。やめる・Escape は並びを捨てる', () => {
+  it('番号が今と同じなら送らない。やめる・Escape は捨てる', () => {
     receive(three());
     startReorder();
-    move(base, 'right');
-    move(base, 'left');
+    move(nav, 'right');
+    move(nav, 'left');
     root.querySelector<HTMLButtonElement>("[data-focus='layer-reorder-confirm']")!.click();
     expect(host.itemEdits).toEqual([]);
     startReorder();
@@ -363,3 +356,4 @@ describe('タブの並びの「…」と並び替えモード（W2・ADR 025）'
     expect(host.itemEdits).toEqual([]);
   });
 });
+

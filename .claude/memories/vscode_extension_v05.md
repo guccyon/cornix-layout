@@ -117,3 +117,11 @@
 - `indexPicker.ts` とそのテスト、`model.ts` の `layerIndexNote`、`ItemSectionMeta.indexNote` を消した。`media/webview.css` の `.index-picker*`・`.item-index-slot`・`.item-header .item-actions` は
   末尾以外を触らない取り決めなので残した（J で消せる）
 - 画面の確かめは v0.4 のメモの「コンテナで画面を見る」のやり方で、fixture は `fakeHost.ts` と `itemFixtures.ts` を esbuild でまとめて JSON にし、小さな http サーバーから読ませた
+
+## 2 回目の確かめ（2026-10-23。レイヤーの空きの枠・「並び替え」ボタン）
+
+- 「確定したら戻った」は Mac の worktree の pull 忘れだった（古い `cornix serve` は reorder を知らない）。拡張だけ新しくしても Ruby が古いと項目の操作が断られるので、
+  .vsix を渡すときは「Mac の worktree を pull してから開き直す」を添える
+- 並び替えの間の番号は行の位置に付けたまま（名前だけ動く）。動かしても番号が付いて回ると、確定の結果が読めない
+- レイヤーは「位置」なので、並び替えモードは 0〜9 の枠（空きは点線）を並べ、◀▶ で隣の枠へ（空きなら移し、使っていれば入れ替え）。約束は `reorder` の `indexes`
+- 画面は Playwright で確かめられる（v04 のメモの「コンテナで画面を見る」。fakeHost.ts を esbuild でまとめて fixtureSnapshot を postMessage）

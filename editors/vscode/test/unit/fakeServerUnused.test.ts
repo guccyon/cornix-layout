@@ -153,6 +153,13 @@ describe('偽のサーバーの並び替え（15.3 の reorder）', () => {
       expect(same.changes).toEqual([]);
       const out = await call('profile/planItemEdit', { ...params, edit: { op: 'reorder', kind: 'macro', files: files.slice(1) } });
       expect(out.error).toMatchObject({ code: ErrorCodes.InvalidParams, data: { field: 'edit.files' } });
+      // indexes を書けば files の順にその番号（抜け番を作れる）
+      const layerFiles = snapshot.layers.map((layer) => layer.file);
+      const spread = (await call('profile/planItemEdit', { ...params, edit: { op: 'reorder', kind: 'layer', files: layerFiles, indexes: layerFiles.map((_, i) => (i === 0 ? 9 : i)) } }))
+        .result as PlanItemEditResult;
+      expect(spread.changes![0]).toEqual({ address: indexAddress(layerFiles[0]!), value: 9 });
+      const bad = await call('profile/planItemEdit', { ...params, edit: { op: 'reorder', kind: 'layer', files: layerFiles, indexes: layerFiles.map(() => 1) } });
+      expect(bad.error).toMatchObject({ code: ErrorCodes.InvalidParams, data: { field: 'edit.indexes' } });
     } finally {
       cleanup();
     }

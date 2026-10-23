@@ -3263,3 +3263,31 @@ button.device-diff-row:hover,
   left: 0;
   right: auto;
 }
+
+/* レイヤーの並び替えモード（0〜9 の枠。空きは点線、◀▶ は名前の下） */
+.layer-slot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 4.5em;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  border-radius: 4px;
+}
+
+.layer-slot.empty {
+  justify-content: center;
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.layer-slot-label.moved {
+  font-weight: 600;
+}
+
+.layer-slot-moves {
+  display: inline-flex;
+  gap: 4px;
+}
+

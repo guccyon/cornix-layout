@@ -288,6 +288,24 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
         .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit') }
     end
 
+    it 'indexes を書けば files の順にその番号を当て、抜け番を作れる（レイヤーの並び替えモード。参照も追従）' do
+      Dir.glob(path('layers/[5-9]_*.yaml')).each { |f| File.delete(f) }
+      files = %w[0_layer_0 1_layer_1 2_layer_2 3_layer_3 4_layer_4].map { |name| "layers/#{name}.yaml" }
+      result = plan(op: 'reorder', kind: 'layer', files: files, indexes: [0, 6, 2, 3, 4])
+      expect(result[:changes].first).to eq({ address: { file: 'layers/1_layer_1.yaml', path: ['index'] }, value: 6 })
+      expect(result[:changes].drop(1).map { |c| c[:value] }).to all(match(/6/))
+      expect(plan(op: 'reorder', kind: 'layer', files: files, indexes: [0, 1, 2, 3, 4])).to include(changes: [], references: [])
+    end
+
+    it 'indexes が範囲の外か重なっていれば field "edit.indexes"' do
+      files = %w[0_layer_0 1_layer_1 2_layer_2 3_layer_3 4_layer_4 5_layer_5 6_layer_6 7_layer_7 8_layer_8 9_layer_9]
+              .map { |name| "layers/#{name}.yaml" }
+      [[*0..8, 10], [*0..8, 8]].each do |indexes|
+        expect { plan(op: 'reorder', kind: 'layer', files: files, indexes: indexes) }
+          .to raise_error(plan_edits::InvalidChange) { |e| expect(e.field).to eq('edit.indexes') }
+      end
+    end
+
     it '書き換えられない参照（YAML の整数）が残れば Unverified（address は最初に番号の変わる項目の ["index"]）' do
       write('layers/5_layer_5.yaml', read('layers/5_layer_5.yaml').sub(/^(\s+)tab: .*$/, "\\1tab: #{0x5702}"))
       expect { plan(op: 'reorder', kind: 'tapDance', files: td_files.reverse) }

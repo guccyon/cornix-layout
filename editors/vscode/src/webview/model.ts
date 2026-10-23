@@ -14,8 +14,10 @@ import type {
   PositionMapEntry,
   ProfileSnapshot,
   RemoveChange,
+  Unused,
 } from '../protocol';
 import { addressKey } from '../editor/pendingChanges';
+import { arrangeItems, indexChanged, nextIndex, snapshotItems } from '../itemIndex';
 
 export type EncoderOp = 'push' | 'ccw' | 'cw';
 
@@ -348,3 +350,39 @@ export function structureKey(snapshot: ProfileSnapshot): string {
     })),
   });
 }
+
+/**
+ * v0.5（issue #113）: 未保存の変更を当てた番号で分け直したレイヤー（protocol.md の 15.4）。
+ * used は番号の順（タブ・図・キー別に並べる。未使用から取り出したものも同じ形で描く）、unused は未使用のまま（「＋」の一覧だけに出す）
+ */
+export type ArrangedLayers = {
+  used: LayerSnapshot[];
+  unused: Unused<LayerSnapshot>[];
+  /** 番号を未保存の変更で変えた（取り出したものを含む）レイヤーのファイル */
+  changed: Set<string>;
+  /** 取り出したときの番号（埋まっていれば null） */
+  next: number | null;
+};
+
+export function arrangeLayers(snapshot: ProfileSnapshot, pending: readonly AnyChange[]): ArrangedLayers {
+  const items = snapshotItems(snapshot, 'layer');
+  const { used, unused } = arrangeItems(items, pending);
+  const changed = new Set(items.filter((item) => indexChanged(item.file, item.index, pending)).map((item) => item.file));
+  return {
+    used: used as LayerSnapshot[],
+    unused,
+    changed,
+    next: nextIndex(
+      'layer',
+      used.map((layer) => layer.index),
+    ),
+  };
+}
+
+/** レイヤーの並び（番号とファイル）が変わったかを比べる形 */
+export function arrangementKey(layers: readonly { index: number; file: string }[]): string {
+  return JSON.stringify(layers.map((layer) => [layer.index, layer.file]));
+}
+
+/** 番号が埋まっていて未使用のレイヤーを取り出せないときの文 */
+export const LAYER_INDEXES_FULL = '番号が 10 個とも使われています。使っているレイヤーのどれかを「未使用にする」と、ここから選べます。';

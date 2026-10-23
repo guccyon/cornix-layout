@@ -417,3 +417,34 @@ export function nameProblem(name: string, existing: readonly string[], current?:
   if (name !== current && existing.includes(name)) return `「${name}」はもうあります`;
   return undefined;
 }
+
+// ---------------------------------------------------------------------------
+// v0.5: 一覧に並べる項目（protocol.md の 15。未保存の変更を当てた番号・未保存のショートカットの追加）
+// ---------------------------------------------------------------------------
+
+/** 自分のショートカットのファイル（protocol.md の 15.2。行の追加はこのファイルの ["shortcuts", 名前]） */
+export const SHORTCUTS_FILE = 'shortcuts.yaml';
+
+/** 未保存の変更のうち、ショートカットの行の追加（["shortcuts", 名前] の set）の名前（当てる順。重なりは 1 つ） */
+function pendingShortcutNames(pending: readonly AnyChange[]): string[] {
+  const names: string[] = [];
+  for (const change of pending) {
+    const path = change.address.path;
+    if (change.address.file !== SHORTCUTS_FILE || path.length !== 2 || path[0] !== 'shortcuts' || typeof path[1] !== 'string') continue;
+    if (change.op !== undefined && change.op !== 'set') continue;
+    if (change.field !== undefined && change.field !== 'key') continue;
+    if (!names.includes(path[1])) names.push(path[1]);
+  }
+  return names;
+}
+
+/**
+ * 一覧に並べるショートカット: snapshot のものと、未保存の変更で足したもの（snapshot にない名前の set）。
+ * 足したものは保存済みの値がない項目として描き（値は未保存の変更から）、その名前の Address に書けば値を直せる
+ */
+export function shortcutItems(shortcuts: readonly ShortcutSnapshot[], pending: readonly AnyChange[]): ShortcutSnapshot[] {
+  const added = pendingShortcutNames(pending)
+    .filter((name) => !shortcuts.some((s) => s.name === name))
+    .map((name): ShortcutSnapshot => ({ name, address: { file: SHORTCUTS_FILE, path: ['shortcuts', name] }, value: null }));
+  return [...shortcuts, ...added];
+}

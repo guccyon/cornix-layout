@@ -13,11 +13,12 @@ module Cornix
       #
       #   Snapshot.new(workbench).call('p1')
       #   #=> { profileId:, name:, dir:, status: "ok" | "invalid", files:, metadata:, positionMap:, layers:, settings:,
-      #   #     references:, macros:, tapDances:, combos:, shortcuts:, diagnostics: }
+      #   #     references:, macros:, tapDances:, combos:, shortcuts:, unused:, diagnostics: }
       #
       # v0.2 で足したもの（protocol.md の 12.2）: macros / tapDances / combos / shortcuts（Snapshot::Items）、
       # positionMap の各位置の address（position_map.yaml の名前を書いている場所 [hand, group, 並びの位置]）、
       # レイヤーの descriptionAddress（["description"]。書いていなければ挿入の場所）
+      # v0.5 で足したもの（protocol.md の 15.1）: unused（未使用のファイルの項目。使っている項目と同じ形で index だけ nil）
       #
       # 読んだファイルの版を workbench.versions(id) の「知っている版」にする（前の中身は置き換える）。
       # 構造検証で読めなければ status: "invalid" で、files と diagnostics のほかは空（metadata は {}）。
@@ -80,20 +81,38 @@ module Cornix
         def empty_contents
           { metadata: {}, positionMap: [], layers: [], settings: [],
             references: { layers: [], macros: [], tapDances: [], shortcuts: [] },
-            macros: [], tapDances: [], combos: [], shortcuts: [] }
+            macros: [], tapDances: [], combos: [], shortcuts: [],
+            unused: { layers: [], macros: [], tapDances: [], combos: [] } }
         end
 
         def contents(env, reading)
           profile = reading.profile
           values = KeyValues.new(env: env, profile: profile, icons: @icons)
           description = Inspect::Description.new(values: values, profile: profile, qmk: env.qmk)
+          items = Items.new(reading: reading, values: values, description: description)
           {
             metadata: profile.metadata.to_h,
             positionMap: position_map(profile.position_map, reading),
-            layers: self.class.by_index(profile.layers).map { |layer, i| layer(layer, i, profile.position_map, reading, values) },
+            layers: self.class.by_index(profile.layers).map do |layer, i|
+              layer(layer, reading.repository.address("layers[#{i}]").first, profile.position_map, reading, values)
+            end,
             settings: settings(env.settings_catalog, profile.settings, reading),
             references: references(profile, reading, values),
-            **Items.new(reading: reading, values: values, description: description).to_h
+            **items.to_h,
+            unused: unused(reading, profile.position_map, values, items)
+          }
+        end
+
+        # 未使用のファイル（index のないもの。protocol.md の 15.1）の項目を、使っている項目と同じ形で index だけ nil にしたもの。
+        # 並びはファイルのパスの順。構造の問題で読めないファイル（UnusedFile#item が nil）は入れない
+        def unused(reading, map, values, items)
+          list = ->(kind) { reading.unused.select { |u| u.kind == kind && u.item }.sort_by(&:file) }
+          unindexed = ->(h) { h.merge(index: nil) }
+          {
+            layers: list.call(:layers).map { |u| unindexed.call(layer(u.item, u.file, map, reading, values)) },
+            macros: list.call(:macros).map { |u| unindexed.call(items.macro(u.item, u.file)) },
+            tapDances: list.call(:tap_dances).map { |u| unindexed.call(items.tap_dance(u.item, u.file)) },
+            combos: list.call(:combos).map { |u| unindexed.call(items.combo(u.item, u.file)) }
           }
         end
 
@@ -114,8 +133,7 @@ module Cornix
                                          .find { |rel| reading.files.key?(rel) }
         end
 
-        def layer(layer, position, map, reading, values)
-          file, = reading.repository.address("layers[#{position}]")
+        def layer(layer, file, map, reading, values)
           doc = reading.document(file)
           keys = map.positions.map do |pos|
             group, symbol = map.symbol(pos)

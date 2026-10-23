@@ -39,45 +39,43 @@ module Cornix
             { macros: macros, tapDances: tap_dances, combos: combos, shortcuts: shortcuts }
           end
 
-          def macros
-            by_index(@profile.macros).map do |macro, i|
-              file = file_of('macros', i)
-              header(macro, file).merge(
-                icon: @values.macro_icon(macro),
-                preset: macro.preset,
-                presetAddress: macro.preset ? address(file, ['preset']) : nil,
-                summary: @description.step_lines(macro),
-                steps: macro.preset ? [] : macro_steps(macro, file)
-              )
-            end
+          def macros = by_file(@profile.macros, 'macros').map { |macro, file| macro(macro, file) }
+
+          def tap_dances = by_file(@profile.tap_dances, 'tap_dances').map { |tap_dance, file| tap_dance(tap_dance, file) }
+
+          def combos = by_file(@profile.combos, 'combos').map { |combo, file| combo(combo, file) }
+
+          # 項目 1 つ（file はそのファイル。未使用の項目も同じ形で作る。protocol.md の 15.1）
+          def macro(macro, file)
+            header(macro, file).merge(
+              icon: @values.macro_icon(macro),
+              preset: macro.preset,
+              presetAddress: macro.preset ? address(file, ['preset']) : nil,
+              summary: @description.step_lines(macro),
+              steps: macro.preset ? [] : macro_steps(macro, file)
+            )
           end
 
-          def tap_dances
-            by_index(@profile.tap_dances).map do |tap_dance, i|
-              file = file_of('tap_dances', i)
-              data = data(file)
-              header(tap_dance, file).merge(
-                actions: tap_dance_actions(tap_dance, file, data),
-                tappingTerm: { address: address(file, ['tapping_term']),
-                               value: data['tapping_term'].nil? ? nil : tap_dance.tapping_term }
-              )
-            end
+          def tap_dance(tap_dance, file)
+            data = data(file)
+            header(tap_dance, file).merge(
+              actions: tap_dance_actions(tap_dance, file, data),
+              tappingTerm: { address: address(file, ['tapping_term']),
+                             value: data['tapping_term'].nil? ? nil : tap_dance.tapping_term }
+            )
           end
 
           # reachable はトリガーのキーがすべてそろうレイヤーがあるか（protocol.md の 13.2。Domain::ComboReachability）
-          def combos
-            reachability = Domain::ComboReachability.new(@profile)
-            by_index(@profile.combos).map do |combo, i|
-              file = file_of('combos', i)
-              doc = @reading.document(file)
-              triggers = combo.trigger_keys.each_with_index.map { |kc, j| slot(file, doc, ['trigger_keys', j], kc) }
-              header(combo, file).merge(
-                triggersAddress: address(file, ['trigger_keys']),
-                triggers: triggers,
-                output: slot(file, doc, ['output_key'], combo.output_key, note: combo.output_note),
-                reachable: reachability.reachable?(combo)
-              )
-            end
+          def combo(combo, file)
+            @reachability ||= Domain::ComboReachability.new(@profile)
+            doc = @reading.document(file)
+            triggers = combo.trigger_keys.each_with_index.map { |kc, j| slot(file, doc, ['trigger_keys', j], kc) }
+            header(combo, file).merge(
+              triggersAddress: address(file, ['trigger_keys']),
+              triggers: triggers,
+              output: slot(file, doc, ['output_key'], combo.output_key, note: combo.output_note),
+              reachable: @reachability.reachable?(combo)
+            )
           end
 
           def shortcuts
@@ -141,9 +139,10 @@ module Cornix
             { address: address(file, path), value: @values.build(keycode, text: text, note: note, context: context) }
           end
 
-          def file_of(kind, position) = @reading.repository.address("#{kind}[#{position}]").first
-
-          def by_index(items) = Snapshot.by_index(items)
+          # [項目, そのファイル] を index の順に
+          def by_file(items, kind)
+            Snapshot.by_index(items).map { |item, i| [item, @reading.repository.address("#{kind}[#{i}]").first] }
+          end
 
           def data(file)
             data = @reading.data(file)

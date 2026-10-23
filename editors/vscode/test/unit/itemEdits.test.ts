@@ -116,6 +116,13 @@ describe('isItemEdit', () => {
     expect(isItemEdit({ op: 'expandPreset', kind: 'macro', name: 'Copy Selected' })).toBe(true);
     expect(isItemEdit({ op: 'expandPreset', kind: 'combo', name: 'Copy Selected' })).toBe(false);
     expect(isItemEdit({ op: 'expandPreset', kind: 'macro' })).toBe(false);
+    // v0.5: 並び替えは使っている項目のファイルの並び（空や文字列でないものは受け付けない）
+    expect(isItemEdit({ op: 'reorder', kind: 'tapDance', files: ['tap_dance/a.yml', 'tap_dance/b.yml'] })).toBe(true);
+    expect(isItemEdit({ op: 'reorder', kind: 'tapDance', files: [] })).toBe(false);
+    expect(isItemEdit({ op: 'reorder', kind: 'shortcut', files: ['a'] })).toBe(false);
+    expect(isItemEdit({ op: 'reorder', kind: 'layer', files: [0] })).toBe(false);
+    expect(isItemEdit({ op: 'reorder', kind: 'layer', files: ['a', 'b'], indexes: [0, 5] })).toBe(true);
+    expect(isItemEdit({ op: 'reorder', kind: 'layer', files: ['a', 'b'], indexes: [0] })).toBe(false);
     expect(isItemEdit(null)).toBe(false);
   });
 });

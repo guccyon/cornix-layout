@@ -73,4 +73,18 @@ RSpec.describe Cornix::Mapping::KeycodeCodec do
       expect(codec.encode(k::Raw.new(code: 0x1234))).to eq(0x1234)
     end
   end
+
+  describe '#layer_of / #with_layer' do
+    it '16bit 値の中のレイヤーの番号（LT / LM / レイヤー操作。基本キーでない LT の Raw も）を読み、付け替える' do
+      { 0x5221 => 1, 0x52FF => 31, 0x4204 => 2, 0x4100 => 1, 0x50E1 => 7, 0x5200 => 0 }.each do |code, layer|
+        expect(codec.layer_of(code)).to eq(layer)
+      end
+      [0x0004, 0x7700, 0x5700, 0x52A2, 0x2104].each { |code| expect(codec.layer_of(code)).to be_nil }
+      expect(codec.with_layer(0x5221, 3)).to eq(0x5223)
+      expect(codec.with_layer(0x4204, 9)).to eq(0x4904)
+      expect(codec.with_layer(0x50E1, 2)).to eq(0x5041)
+      expect(codec.with_layer(0x4204, 16)).to be_nil
+      expect(codec.with_layer(0x7700, 1)).to be_nil
+    end
+  end
 end

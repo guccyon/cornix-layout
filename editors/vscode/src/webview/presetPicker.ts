@@ -1,6 +1,6 @@
 // 同梱のショートカットの木（keycode/shortcutTree。protocol.md の 5.4）から「アプリ → カテゴリ → ラベル」で選ぶ欄（アイコン付きの階層選択）。
 // - kind: 'macro'（既定）: マクロの preset: に書く名前を選ぶ（spec.md の「ファイルの種類ごと」の macros/ の preset:）。手順の定義がある項目（macro: true）だけを出す
-// - kind: 'shortcut'（v0.3）: キー入力欄の「同梱から選ぶ…」とショートカットの節の「同梱からコピー」（tasks-v0.3.md の決めたことの 2）。
+// - kind: 'shortcut'（v0.3）: キー入力欄の「同梱から選ぶ…」（tasks-v0.3.md の決めたことの 2）。v0.3 のショートカットの節の「同梱からコピー」は v0.5 で節の「追加」の一覧（addMenu.ts）にまとめた。
 //   キーの組の項目（macro: true でないもの）だけを出し、選んだ項目の insertText（Shortcut('…')）と text（キーの組）を渡す
 // 木はプロファイルによらないので、取るのは 1 回だけ（loadShortcutTree がホストごとにとっておく）。
 import type { ShortcutTreeResult } from '../protocol';
@@ -37,7 +37,6 @@ const NOUN: Record<PresetKind, string> = { macro: '同梱のマクロ', shortcut
  * query はアプリ・カテゴリ・ラベルへの部分一致（大文字小文字を区別しない）
  */
 export function presetEntries(tree: ShortcutTreeResult, query = '', kind: PresetKind = 'macro'): PresetEntry[] {
-  const q = query.trim().toLowerCase();
   const entries: PresetEntry[] = [];
   for (const app of tree.apps) {
     for (const category of app.categories) {
@@ -45,12 +44,74 @@ export function presetEntries(tree: ShortcutTreeResult, query = '', kind: Preset
         if (item.macro !== (kind === 'macro')) continue;
         const entry: PresetEntry = { app: app.name, icon: app.icon, category: category.name, label: item.label, name: item.insertText };
         if (item.text !== undefined) entry.text = item.text;
-        if (q && ![entry.app, entry.category, entry.label].some((text) => text.toLowerCase().includes(q))) continue;
         entries.push(entry);
       }
     }
   }
-  return entries;
+  return filterPresetEntries(entries, query);
+}
+
+/** アプリ・カテゴリ・ラベルへの部分一致（大文字小文字を区別しない）で絞る。空の query ならそのまま */
+export function filterPresetEntries(entries: PresetEntry[], query: string): PresetEntry[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return entries;
+  return entries.filter((entry) => [entry.app, entry.category, entry.label].some((text) => text.toLowerCase().includes(q)));
+}
+
+export type PresetTreeOptions = {
+  /** 絞り込みの文字（空でなければすべて開いておく） */
+  query: string;
+  /** 今の値の名前（その行に印を付け、そのアプリとカテゴリを開いておく） */
+  current: string | null;
+  /** 行を押した（selected は今の値の行か） */
+  onPick: (entry: PresetEntry, selected: boolean) => void;
+};
+
+/** 絞った行をアプリ → カテゴリの details に組む（PresetPicker と追加の一覧（addMenu.ts）で共通） */
+export function presetTreeNodes(entries: PresetEntry[], options: PresetTreeOptions): HTMLElement[] {
+  const { query, current } = options;
+  // 絞り込んでいるときと、今の preset のあるところは開いておく
+  const opened = (match: (entry: PresetEntry) => boolean) => query.trim() !== '' || entries.some((entry) => match(entry) && entry.name === current);
+  const apps: HTMLElement[] = [];
+  for (const app of unique(entries.map((entry) => entry.app))) {
+    const inApp = entries.filter((entry) => entry.app === app);
+    const categories = unique(inApp.map((entry) => entry.category)).map((category) => {
+      const items = inApp.filter((entry) => entry.category === category);
+      return h(
+        'details',
+        { class: 'preset-category', open: opened((entry) => entry.app === app && entry.category === category) },
+        h('summary', {}, category, h('span', { class: 'preset-count' }, String(items.length))),
+        h('div', { class: 'preset-items' }, ...items.map((entry) => presetItemButton(entry, current, options.onPick))),
+      );
+    });
+    apps.push(
+      h(
+        'details',
+        { class: 'preset-app', open: opened((entry) => entry.app === app) },
+        h('summary', {}, h('span', { class: 'candidate-icon' }, iconElement(inApp[0]!.icon)), app, h('span', { class: 'preset-count' }, String(inApp.length))),
+        ...categories,
+      ),
+    );
+  }
+  return apps;
+}
+
+function presetItemButton(entry: PresetEntry, current: string | null, onPick: PresetTreeOptions['onPick']): HTMLElement {
+  const selected = entry.name === current;
+  const button = h(
+    'button',
+    {
+      type: 'button',
+      class: `preset-item${selected ? ' selected' : ''}`,
+      title: entry.text === undefined ? entry.name : `${entry.name}（${entry.text}）`,
+      'aria-current': selected ? 'true' : undefined,
+      'data-preset': entry.name,
+    },
+    entry.label,
+    entry.text === undefined ? null : h('span', { class: 'preset-item-text' }, entry.text),
+  );
+  button.addEventListener('click', () => onPick(entry, selected));
+  return button;
 }
 
 const trees = new WeakMap<HostClient, Promise<ShortcutTreeResult>>();
@@ -153,52 +214,16 @@ export class PresetPicker {
       this.body.replaceChildren(h('div', { class: 'item-empty' }, query.trim() ? '合うものがありません' : `${this.noun}はありません`));
       return;
     }
-    const current = this.options.current();
-    // 絞り込んでいるときと、今の preset のあるところは開いておく
-    const opened = (match: (entry: PresetEntry) => boolean) => query.trim() !== '' || entries.some((entry) => match(entry) && entry.name === current);
-    const apps: HTMLElement[] = [];
-    for (const app of unique(entries.map((entry) => entry.app))) {
-      const inApp = entries.filter((entry) => entry.app === app);
-      const categories = unique(inApp.map((entry) => entry.category)).map((category) => {
-        const items = inApp.filter((entry) => entry.category === category);
-        return h(
-          'details',
-          { class: 'preset-category', open: opened((entry) => entry.app === app && entry.category === category) },
-          h('summary', {}, category, h('span', { class: 'preset-count' }, String(items.length))),
-          h('div', { class: 'preset-items' }, ...items.map((entry) => this.itemButton(entry, current))),
-        );
-      });
-      apps.push(
-        h(
-          'details',
-          { class: 'preset-app', open: opened((entry) => entry.app === app) },
-          h('summary', {}, h('span', { class: 'candidate-icon' }, iconElement(inApp[0]!.icon)), app, h('span', { class: 'preset-count' }, String(inApp.length))),
-          ...categories,
-        ),
-      );
-    }
-    this.body.replaceChildren(...apps);
-  }
-
-  private itemButton(entry: PresetEntry, current: string | null): HTMLElement {
-    const selected = entry.name === current;
-    const button = h(
-      'button',
-      {
-        type: 'button',
-        class: `preset-item${selected ? ' selected' : ''}`,
-        title: entry.text === undefined ? entry.name : `${entry.name}（${entry.text}）`,
-        'aria-current': selected ? 'true' : undefined,
-        'data-preset': entry.name,
-      },
-      entry.label,
-      entry.text === undefined ? null : h('span', { class: 'preset-item-text' }, entry.text),
+    this.body.replaceChildren(
+      ...presetTreeNodes(entries, {
+        query,
+        current: this.options.current(),
+        onPick: (entry, selected) => {
+          this.close(true);
+          if (!selected) this.options.onPick(entry.name, entry);
+        },
+      }),
     );
-    button.addEventListener('click', () => {
-      this.close(true);
-      if (!selected) this.options.onPick(entry.name, entry);
-    });
-    return button;
   }
 }
 

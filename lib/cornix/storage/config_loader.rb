@@ -199,9 +199,9 @@ module Cornix
       def check_unused(kind, files, reader)
         files.map do |rel, data|
           problems = Problems.new
-          reader&.call(data.merge('index' => PLACEHOLDER_INDEX), Schema::Context.new(rel, problems))
+          item = reader&.call(data.merge('index' => PLACEHOLDER_INDEX), Schema::Context.new(rel, problems))
           UnusedFile.new(kind: kind, file: rel, name: Schema::Header.name_of(data, preset: kind == :macros),
-                         problems: problems.to_a)
+                         problems: problems.to_a, item: item)
         end
       end
 

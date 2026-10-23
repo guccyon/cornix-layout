@@ -50,6 +50,14 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
     expect(again[:layers][1][:name]).to eq('Renamed')
   end
 
+  it 'v0.5: shortcuts.yaml がなければ files に null で入れる' do
+    expect(snapshot[:files]).to include('shortcuts.yaml' => nil)
+    write('shortcuts.yml', "shortcuts:\n  a: KC_A\n")
+    files = described_class.new(workbench).call(opened.id)[:files]
+    expect(files).to include('shortcuts.yml')
+    expect(files).not_to have_key('shortcuts.yaml')
+  end
+
   it 'settings/qmk_settings.yaml がなければ files に null で入れ、設定の value は null' do
     File.delete(File.join(@root, 'profile', 'settings/qmk_settings.yaml'))
     expect(snapshot[:files]).to include('settings/qmk_settings.yaml' => nil)
@@ -197,6 +205,18 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
       expect(snapshot[:diagnostics]).to contain_exactly(
         include(severity: 'warning', source: 'structure', address: { file: 'macros/spare.yaml', path: ['sequence', 0, 'keys', 0] })
       )
+    end
+
+    it 'v0.5: 未使用の項目は unused に使っている項目と同じ形で index だけ nil（構造の問題のあるファイルは入れない）' do
+      unused = snapshot[:unused]
+      expect(unused[:macros]).to eq([])
+      expect(unused[:layers].size).to eq(1)
+      layer = unused[:layers].first
+      expect(layer).to include(index: nil, name: 'Layer 1', file: 'layers/0_spare.yaml')
+      used = snapshot[:layers][1]
+      expect(layer[:keys].map { |k| k[:value] }).to eq(used[:keys].map { |k| k[:value] })
+      expect(layer[:keys].first[:address]).to eq({ file: 'layers/0_spare.yaml', path: %w[mapping left_hand row0 tab] })
+      expect(unused.slice(:tapDances, :combos)).to eq(tapDances: [], combos: [])
     end
   end
 end

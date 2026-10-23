@@ -1,0 +1,32 @@
+{
+  "description": "unuse を未使用の項目に送ると -32602（field \"edit.file\"）",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/macros/spare.yml": "---\nname: Spare\ndescription: 予備\nsequence:\n- action: tap\n  keys: KC_A\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "unuse",
+        "kind": "macro",
+        "file": "macros/spare.yml"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.file"
+      }
+    }
+  }
+}

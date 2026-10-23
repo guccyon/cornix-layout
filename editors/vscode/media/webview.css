@@ -2445,27 +2445,10 @@ button {
   margin: 0;
 }
 
-.key-input-presets .preset-picker-panel,
-.shortcut-copy .preset-picker-panel {
+.key-input-presets .preset-picker-panel {
   margin-top: 0;
   background: var(--vscode-editorWidget-background);
   box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
-}
-
-/* ショートカットの節の「同梱からコピー」（「追加」の横。選択は下に重ねる） */
-.preset-picker.shortcut-copy {
-  position: relative;
-  margin: 0;
-}
-
-.shortcut-copy .preset-picker-panel {
-  position: absolute;
-  z-index: 21;
-  top: calc(100% + 2px);
-  left: 0;
-  width: 30em;
-  max-width: calc(100vw - 32px);
-  box-sizing: border-box;
 }
 
 /* ---- v0.4: 実機への反映（deviceView.ts。tasks-v0.4.md の「画面」） ---- */
@@ -2728,3 +2711,583 @@ button.device-diff-row:hover,
 .device-diff-row.other {
   color: var(--vscode-descriptionForeground);
 }
+
+/* ---- v0.5: 画面の共通部品（issue #110。addMenu.ts / moreMenu.ts / indexPicker.ts） ---- */
+
+/* 追加の一覧（「＋」「追加」から開く。ボタンの下に重ねる） */
+.add-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.add-menu-badge {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 6px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  font-size: 0.8em;
+  line-height: 1.4;
+  text-align: center;
+  background: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+}
+
+.add-menu-panel {
+  position: absolute;
+  z-index: 21;
+  top: calc(100% + 2px);
+  left: 0;
+  width: 26em;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
+  border-radius: var(--radius);
+  background: var(--vscode-editorWidget-background, #252526);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+.add-menu-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+}
+
+.add-menu-body {
+  max-height: 22em;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.add-menu-group + .add-menu-group {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--vscode-editorWidget-border, #8884);
+}
+
+.add-menu-heading {
+  padding: 2px 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.add-menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 2px;
+  background: none;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+  cursor: pointer;
+}
+
+.add-menu-row:hover:not(:disabled),
+.add-menu-row:focus-visible {
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.add-menu-row:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+
+.add-menu-row:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.add-menu-create .add-menu-label {
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.add-menu-note,
+.add-menu-file {
+  margin-left: auto;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  overflow-wrap: anywhere;
+}
+
+.add-menu-warnings {
+  font-size: 0.85em;
+  color: var(--warning);
+}
+
+.add-menu-row-reason {
+  flex-basis: 100%;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.add-menu-reason,
+.add-menu-empty {
+  padding: 2px 6px;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.add-menu-tree {
+  max-height: none;
+  margin-top: 0;
+  padding-left: 6px;
+}
+
+/* 見出しの「…」メニュー（ボタンの下、右端をそろえて重ねる） */
+.more-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.more-menu-button {
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.more-menu-list {
+  position: absolute;
+  z-index: 22;
+  top: calc(100% + 2px);
+  right: 0;
+  width: max-content;
+  min-width: 12em;
+  max-width: min(22em, calc(100vw - 32px));
+  padding: 4px 0;
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, #454545));
+  border-radius: var(--radius);
+  background: var(--vscode-menu-background, #252526);
+  color: var(--vscode-menu-foreground, #cccccc);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+.more-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 12px;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.more-menu-item:hover:not(.disabled),
+.more-menu-item:focus {
+  outline: none;
+  background: var(--vscode-menu-selectionBackground, #04395e);
+  color: var(--vscode-menu-selectionForeground, #ffffff);
+}
+
+.more-menu-item.danger .more-menu-label {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.more-menu-item.disabled {
+  cursor: default;
+}
+
+.more-menu-item.disabled .more-menu-label {
+  opacity: 0.5;
+}
+
+.more-menu-reason {
+  font-size: 0.85em;
+  white-space: normal;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.more-menu-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--vscode-menu-separatorBackground, #454545);
+}
+
+/* 番号の選択（移動と入れ替え） */
+.index-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 26em;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
+  border-radius: var(--radius);
+  background: var(--vscode-editorWidget-background, #252526);
+  color: var(--vscode-foreground, #cccccc);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, #0005);
+}
+
+.index-picker-title {
+  font-weight: 600;
+}
+
+.index-picker-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
+  gap: 2px 6px;
+  max-height: 16em;
+  overflow-y: auto;
+}
+
+.index-picker-slot {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: none;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+  cursor: pointer;
+}
+
+.index-picker-slot:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.index-picker-slot:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+
+.index-picker-slot[aria-checked='true'] {
+  border-color: var(--vscode-focusBorder, #007fd4);
+  background: var(--vscode-list-activeSelectionBackground, #04395e);
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+}
+
+.index-picker-slot.current {
+  cursor: default;
+  font-weight: 600;
+}
+
+.index-picker-number {
+  min-width: 1.6em;
+  font-family: var(--vscode-editor-font-family, monospace);
+  text-align: right;
+}
+
+.index-picker-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+
+.index-picker-slot.free .index-picker-state,
+.index-picker-slot.current .index-picker-state {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.index-picker-slot[aria-checked='true'] .index-picker-state {
+  color: inherit;
+}
+
+.index-picker-plan {
+  overflow-wrap: anywhere;
+}
+
+.index-picker-note {
+  padding: 4px 6px;
+  border-left: 2px solid var(--warning);
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  overflow-wrap: anywhere;
+}
+
+.index-picker-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* ---- v0.5: 画面のレイヤー（issue #113。app.ts の「＋」・見出しの「…」・番号の選択） ---- */
+
+/* タブのボタンの並び（「＋」は描き直しても残すので別の要素。並びは .layer-tabs の flex のまま） */
+.layer-tab-list {
+  display: contents;
+}
+
+/* 番号を未保存の変更で変えた（取り出した）レイヤーのタブ */
+.layer-tab.layer-tab-changed {
+  border-color: var(--changed);
+}
+
+.layer-tab-pending {
+  margin-left: 4px;
+  font-size: 0.7em;
+  color: var(--changed);
+}
+
+.layer-tab.selected .layer-tab-pending {
+  color: inherit;
+}
+
+.layer-add-menu .layer-tab.layer-add {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border, #555));
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+}
+
+.layer-add-menu .layer-tab.layer-add:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+
+/* 見出し: 「レイヤー 1 Nav」・ファイル・（未保存の番号）・右端に「…」 */
+.layer-info h2.layer-heading {
+  align-items: center;
+}
+
+.layer-heading-pending {
+  font-size: 0.8em;
+  font-weight: normal;
+  color: var(--changed);
+}
+
+.layer-heading .layer-more {
+  margin-left: auto;
+  font-weight: normal;
+  font-size: 0.8em;
+}
+
+/* 見出しの下に開く欄（番号の選択・名前の変更） */
+.layer-panel-slot:empty {
+  display: none;
+}
+
+.layer-panel-slot {
+  margin: 4px 0 8px;
+}
+
+.layer-panel-slot .index-picker {
+  width: 32em;
+}
+
+.layer-rename-form {
+  margin-top: 0;
+}
+
+/* 「…」の項目の右に添える補足（W0 の moreMenu.ts の note。「番号を変える…  いま 1」） */
+.more-menu-line {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  width: 100%;
+}
+
+.more-menu-note {
+  margin-left: auto;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.more-menu-item:hover:not(.disabled) .more-menu-note,
+.more-menu-item:focus .more-menu-note {
+  color: inherit;
+}
+
+/* v0.5（I #114）: マクロ・タップダンス・コンボ・ショートカットの節の「追加」と見出しの「…」・番号の選択の置き場所 */
+.item-toolbar .item-add-menu {
+  flex: none;
+}
+
+.item-header .item-actions {
+  align-self: center;
+}
+
+.item-header .item-more-menu .more-menu-button {
+  padding: 0 6px;
+}
+
+.item-index-slot {
+  margin: 6px 0;
+}
+
+.item-index-slot:empty {
+  display: none;
+}
+
+/* ---- v0.5（W2・ADR 025）: 一覧の行の「…」と右クリック、節とタブの並びの「…」の並び替えモード（itemList.ts・app.ts） ---- */
+
+/* hidden を付けた部品は、display を持つクラスがあっても隠す（並び替えモードの「追加」・「…」・確定とやめるの並び） */
+.item-toolbar > [hidden],
+.layer-tabs > [hidden],
+.reorder-bar[hidden],
+.more-menu-button[hidden] {
+  display: none !important;
+}
+
+/* 一覧の 1 行: 行のボタンと、右端の「…」（並び替えモードでは ⬆⬇）。背景は行の入れ物に付ける */
+.item-row-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.item-row-wrap > .item-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.item-row-wrap > .item-row:hover,
+.item-row-wrap > .item-row.selected {
+  background: none;
+}
+
+.item-row-wrap:hover {
+  background: var(--vscode-list-hoverBackground, #8882);
+}
+
+.item-row-wrap.selected {
+  background: var(--vscode-list-inactiveSelectionBackground, #8883);
+  color: var(--vscode-list-inactiveSelectionForeground, inherit);
+}
+
+.item-row-menu {
+  flex: none;
+  margin-right: 2px;
+}
+
+/* 行の「…」は指したとき・選んでいるとき・フォーカスがあるとき・開いているときだけ見せる（フォーカスできるように opacity で隠す） */
+.item-row-menu .more-menu-button {
+  padding: 0 6px;
+  opacity: 0;
+}
+
+.item-row-wrap:hover .item-row-menu .more-menu-button,
+.item-row-wrap.selected .item-row-menu .more-menu-button,
+.item-row-wrap:focus-within .item-row-menu .more-menu-button,
+.item-row-menu .more-menu-button[aria-expanded='true'] {
+  opacity: 1;
+}
+
+/* 並び替えモード */
+.item-section.reordering .item-row-wrap > .item-row {
+  cursor: default;
+}
+
+.item-row-wrap.reordering:hover {
+  background: none;
+}
+
+.item-row-wrap.reordering.selected {
+  background: var(--vscode-list-inactiveSelectionBackground, #8883);
+}
+
+.reorder-buttons {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.reorder-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.reorder-hint {
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* レイヤー: 右クリックのメニューは並びの場所を取らない（一覧は押した位置に固定して出す） */
+.layer-tabs > .layer-tab-menu {
+  display: contents;
+}
+
+/* タブの並びの「…」（「＋」と同じ見た目） */
+.layer-tabs-menu .layer-tab.layer-tabs-more {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border, #555));
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+}
+
+.layer-tabs-menu .layer-tab.layer-tabs-more:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+
+/* 並び替えモードのタブ: ◀ タブ ▶ */
+.layer-tab-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.layer-tabs.reordering .layer-tab {
+  cursor: default;
+}
+
+.layer-tabs.reordering .layer-tab:hover:not(.selected) {
+  background: transparent;
+}
+
+.layer-reorder-bar {
+  margin-left: 6px;
+}
+
+/* 節とタブの並びの「…」は左寄りに置くので、一覧はボタンの左端にそろえる（右端にそろえると画面の左にはみ出す） */
+.item-section-menu .more-menu-list,
+.layer-tabs-menu .more-menu-list {
+  left: 0;
+  right: auto;
+}
+
+/* レイヤーの並び替えモード（0〜9 の枠。空きは点線、◀▶ は名前の下） */
+.layer-slot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 4.5em;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  border-radius: 4px;
+}
+
+.layer-slot.empty {
+  justify-content: center;
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.layer-slot-label.moved {
+  font-weight: 600;
+}
+
+.layer-slot-moves {
+  display: inline-flex;
+  gap: 4px;
+}
+

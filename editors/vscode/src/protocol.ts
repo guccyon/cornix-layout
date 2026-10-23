@@ -3,7 +3,7 @@
 // protocol.md を変えたら、ここも同じ PR で変える。
 
 /** 約束の版（protocol.md の 4.）。1.0 になるまでは major.minor 全体が一致しなければ話せない */
-export const PROTOCOL_VERSION = '0.4';
+export const PROTOCOL_VERSION = '0.5';
 
 // ---------------------------------------------------------------------------
 // 2. 共通の型
@@ -308,8 +308,20 @@ export type ProfileSnapshot = {
   tapDances?: TapDanceSnapshot[];
   combos?: ComboSnapshot[];
   shortcuts?: ShortcutSnapshot[];
+  /** v0.5: 未使用の項目（index: のないファイル。protocol.md の 15.1）。v0.4 のサーバーは返さない */
+  unused?: UnusedItems;
   /** 保存済みのファイルの検証の結果 */
   diagnostics: Diagnostic[];
+};
+
+/** v0.5: 未使用の項目（protocol.md の 15.1）。形は使っている項目と同じで、index だけが null */
+export type Unused<T extends { index: number }> = Omit<T, 'index'> & { index: null };
+
+export type UnusedItems = {
+  layers: Unused<LayerSnapshot>[];
+  macros: Unused<MacroSnapshot>[];
+  tapDances: Unused<TapDanceSnapshot>[];
+  combos: Unused<ComboSnapshot>[];
 };
 
 export type ProfileCloseParams = { profileId: string };
@@ -455,13 +467,29 @@ export type ItemEdit =
   | { op: 'rename'; kind: 'layer'; name: string; to: string; file?: string }
   | { op: 'renamePosition'; hand: Hand; row: number; col: number; to: string }
   /** v0.3: preset: のマクロを同梱の定義の手順に置き換える（protocol.md の 13.1） */
-  | { op: 'expandPreset'; kind: 'macro'; name: string };
+  | { op: 'expandPreset'; kind: 'macro'; name: string }
+  /** v0.5: 未使用の項目を末尾の番号で使い始める（protocol.md の 15.3。結果は changes） */
+  | { op: 'use'; kind: IndexedKind; file: string }
+  /** v0.5: 使っている項目の index: を消して未使用にする（15.3。結果は changes） */
+  | { op: 'unuse'; kind: IndexedKind; file: string }
+  /** v0.5: 番号を変える。index がほかの項目の番号なら入れ替える（15.3。結果は changes） */
+  | { op: 'setIndex'; kind: IndexedKind; file: string; index: number }
+  /**
+   * v0.5: 使っている項目を並べ直す（15.3。結果は changes）。files は使っている項目すべて（未保存の変更を当てた状態）の新しい並び。
+   * 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）。indexes を書けば files の順にその番号を当てる（抜け番を作れる。レイヤーの並び替えモード）
+   */
+  | { op: 'reorder'; kind: IndexedKind; files: string[]; indexes?: number[] };
+
+/** v0.5: 番号（index:）を持つ種類 */
+export type IndexedKind = 'layer' | 'macro' | 'tapDance' | 'combo';
 
 export type PlanItemEditParams = {
   profileId: string;
   /** snapshot.files をそのまま */
   baseVersions: Record<string, FileVersion>;
   edit: ItemEdit;
+  /** v0.5: 今の未保存の変更（当てる順の並び）。use / unuse / setIndex / reorder と create（shortcut）は、これを当てた状態で決める（protocol.md の 15.3） */
+  changes?: AnyChange[];
 };
 
 /** FileEdits に、消す・改名を足したもの */
@@ -472,8 +500,11 @@ export type ItemFileEdits = FileEdits & {
 };
 
 export type PlanItemEditResult = {
+  /** v0.5: use / unuse / setIndex / reorder と create（shortcut）では []（代わりに changes） */
   files: ItemFileEdits[];
-  /** 書き換える（削除なら壊れる）参照の場所 */
+  /** v0.5: 未保存の変更に積む Change の並び（use / unuse / setIndex / reorder と create（shortcut）だけ。protocol.md の 15.3） */
+  changes?: AnyChange[];
+  /** 書き換える（削除・unuse なら壊れる）参照の場所 */
   references: Address[];
   diagnostics: Diagnostic[];
 };

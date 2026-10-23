@@ -1,0 +1,71 @@
+{
+  "description": "タップダンスを空いている番号へ動かす: TD(4) を TD(20) に書き換え、TapDance('Tab Escape') は書き換えない",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/layers/5_empty.yml": "---\nname: Refs\nindex: 5\ndescription: ''\nmapping:\n  left_hand:\n    row0:\n      tab: Macro(2)\n      Q: M5\n      W: Macro('Copy Selected')\n      E: 0x7702\n      R: { key: Macro( 5 ), note: 注記 }\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n      Y: TD(4)\n      U: TapDance('Tab Escape')\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "tap_dance/04_tab_escape.yml": "sha256:6dc2412168fc9a9760f9664872fcbdc1b43347c5e1348db23681aab88ff62fe8",
+        "layers/5_empty.yml": "sha256:1a86d54e98314eff941602724be50962aca301d06eca5eefff2cd4129bfff442"
+      },
+      "edit": {
+        "op": "setIndex",
+        "kind": "tapDance",
+        "file": "tap_dance/04_tab_escape.yml",
+        "index": 20
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+        {
+          "address": {
+            "file": "tap_dance/04_tab_escape.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 20
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "row0",
+              "Y"
+            ]
+          },
+          "value": "TD(20)"
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "row0",
+            "Y"
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

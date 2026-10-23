@@ -2,11 +2,14 @@
 // tap / down / up のキー（追加・削除）・delay のミリ秒・text の文字。preset: のマクロは手順を summary で読むだけにして、preset の名前を
 // 同梱のショートカットの木から選び直すか、打って直せる。
 // v0.3: preset: のマクロに「手順に展開」（tasks-v0.3.md の決めたことの 6）。itemEdit の expandPreset をホストに渡し、ホストが確認してすぐ書く。
+// v0.5: 一覧は使っているマクロだけ（未保存の変更を当てた番号の順）。「追加」の「同梱から」で選んだ同梱のマクロは、
+// その preset: のマクロを作る（itemEdit の create に preset。名前はラベル。同じ名前があれば名前の欄を開く。ホストが確認してすぐ書く）。
 import type { MacroSnapshot, MacroStepValue, ProfileSnapshot } from '../protocol';
+import { arrangeItems, snapshotItems } from '../itemIndex';
 import { h } from './dom';
 import { ItemSection, parseMilliseconds, type ItemSectionOptions, type ListEntry } from './itemList';
 import { macroView, type MacroView, type StepView } from './itemsModel';
-import { loadShortcutTree, PresetPicker } from './presetPicker';
+import { loadShortcutTree, PresetPicker, type PresetEntry } from './presetPicker';
 
 export const STEP_ACTION_LABEL: Record<StepView['action'], string> = {
   tap: 'タップ（tap）',
@@ -42,11 +45,26 @@ export class MacroEditor extends ItemSection<MacroSnapshot, MacroView> {
   private addAction: StepView['action'] = 'tap';
 
   constructor(options: ItemSectionOptions) {
-    super(options, { kind: 'macro', title: 'マクロ', namePlaceholder: 'Bracket Pair', className: 'macro-editor' });
+    super(options, {
+      kind: 'macro',
+      title: 'マクロ',
+      namePlaceholder: 'Bracket Pair',
+      className: 'macro-editor',
+      bundled: 'macro',
+    });
   }
 
   protected items(snapshot: ProfileSnapshot): MacroSnapshot[] | undefined {
-    return snapshot.macros;
+    return snapshot.macros ? arrangeItems(snapshotItems(snapshot, 'macro'), this.pending).used : undefined;
+  }
+
+  /** 同梱のマクロを preset: のマクロとして作る。同じ名前があれば、名前を入れた追加の欄を開く */
+  protected override pickBundled(entry: PresetEntry): void {
+    if (this.itemNames().includes(entry.label)) {
+      this.openCreateForm(entry.label, { preset: entry.name, message: `マクロ「${entry.label}」はすでにあります。別の名前にしてください` });
+      return;
+    }
+    this.createItem({ op: 'create', kind: 'macro', name: entry.label, preset: entry.name });
   }
 
   protected entry(macro: MacroSnapshot, view: MacroView): ListEntry {

@@ -1,0 +1,91 @@
+{
+  "description": "[\"index\"] の set: index: の値が空（index: / index: null）なら値を書く",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/macros/spare.yml": "---\nname: Spare\nindex:\ndescription: 予備\nsequence:\n- action: tap\n  keys: KC_A\n",
+      "profiles/default/combos/spare.yml": "---\nindex: null\nname: Spare\ntrigger_keys: [KC_Q, KC_W]\noutput_key: KC_ESCAPE\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "macros/spare.yml": "sha256:39b3013257bfb8a850b42b41f9405c0e469e79365b3b29a0f32dfd6b9df9a8a0",
+        "combos/spare.yml": "sha256:91c3ec4be9d32ee3169b939a7b38a0d788c325cdc15fe31c8dfa35103231d80b"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "macros/spare.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 10
+        },
+        {
+          "address": {
+            "file": "combos/spare.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 8
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "macros/spare.yml",
+          "baseVersion": "sha256:39b3013257bfb8a850b42b41f9405c0e469e79365b3b29a0f32dfd6b9df9a8a0",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 2,
+                  "character": 6
+                },
+                "end": {
+                  "line": 2,
+                  "character": 6
+                }
+              },
+              "newText": " 10"
+            }
+          ]
+        },
+        {
+          "file": "combos/spare.yml",
+          "baseVersion": "sha256:91c3ec4be9d32ee3169b939a7b38a0d788c325cdc15fe31c8dfa35103231d80b",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 1,
+                  "character": 7
+                },
+                "end": {
+                  "line": 1,
+                  "character": 11
+                }
+              },
+              "newText": "8"
+            }
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

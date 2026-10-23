@@ -1,0 +1,144 @@
+{
+  "description": "番号を変える（setIndex）: 使っている番号なら入れ替え。マクロの番号で書いた参照（Macro(2) / M5 / 0x7702 / 注記付きの Macro( 5 )）は表記の形を保って新しい番号に書き換える set を足し、その場所を references に。名前の参照（Macro('Copy Selected')）とタップダンスの参照は書き換えない",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/layers/5_empty.yml": "---\nname: Refs\nindex: 5\ndescription: ''\nmapping:\n  left_hand:\n    row0:\n      tab: Macro(2)\n      Q: M5\n      W: Macro('Copy Selected')\n      E: 0x7702\n      R: { key: Macro( 5 ), note: 注記 }\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n      Y: TD(4)\n      U: TapDance('Tab Escape')\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "macros/02_copy_selected.yml": "sha256:17722a02c39f5f4c65ce7b6efb91679cbe188472ff39ed61d18db53ff49a7933",
+        "macros/05_single_quote_pair.yml": "sha256:7dae59f2348274297cb09f877875661ca8dc97278b65fbdddd22476684c122d2",
+        "layers/5_empty.yml": "sha256:1a86d54e98314eff941602724be50962aca301d06eca5eefff2cd4129bfff442"
+      },
+      "edit": {
+        "op": "setIndex",
+        "kind": "macro",
+        "file": "macros/02_copy_selected.yml",
+        "index": 5
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+        {
+          "address": {
+            "file": "macros/02_copy_selected.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 5
+        },
+        {
+          "address": {
+            "file": "macros/05_single_quote_pair.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 2
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "value": "Macro(5)"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "Q"
+            ]
+          },
+          "value": "M2"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "E"
+            ]
+          },
+          "value": "0x7705"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "R"
+            ]
+          },
+          "value": "Macro( 2 )"
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "tab"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "Q"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "E"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "R"
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

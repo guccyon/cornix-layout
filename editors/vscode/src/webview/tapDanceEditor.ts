@@ -1,5 +1,7 @@
 // タップダンスの節（spec.md の「ファイルの種類ごと」の tap_dance/）。4 つの動作のキー（自分自身への参照は候補から除く）とその注記、tapping_term。
+// v0.5: 一覧は使っているタップダンスだけ（未保存の変更を当てた番号の順）。番号を変えると番号の参照（TD(2) など）も書き換わる。
 import type { ProfileSnapshot, TapDanceSnapshot } from '../protocol';
+import { arrangeItems, snapshotItems } from '../itemIndex';
 import { ItemSection, parseMilliseconds, type ItemSectionOptions, type ListEntry } from './itemList';
 import { TAP_DANCE_ACTIONS, tapDanceView, type TapDanceView } from './itemsModel';
 
@@ -8,11 +10,16 @@ export const DEFAULT_TAPPING_TERM = 250;
 
 export class TapDanceEditor extends ItemSection<TapDanceSnapshot, TapDanceView> {
   constructor(options: ItemSectionOptions) {
-    super(options, { kind: 'tapDance', title: 'タップダンス', namePlaceholder: 'Tab Escape', className: 'tap-dance-editor' });
+    super(options, {
+      kind: 'tapDance',
+      title: 'タップダンス',
+      namePlaceholder: 'Tab Escape',
+      className: 'tap-dance-editor',
+    });
   }
 
   protected items(snapshot: ProfileSnapshot): TapDanceSnapshot[] | undefined {
-    return snapshot.tapDances;
+    return snapshot.tapDances ? arrangeItems(snapshotItems(snapshot, 'tapDance'), this.pending).used : undefined;
   }
 
   protected entry(tapDance: TapDanceSnapshot, view: TapDanceView): ListEntry {

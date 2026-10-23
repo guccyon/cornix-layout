@@ -173,15 +173,14 @@ describe('キー入力欄の「同梱から選ぶ…」', () => {
   });
 });
 
-describe('ショートカットの節の「同梱からコピー」', () => {
+describe('ショートカットの節の「追加」の同梱から（v0.3 の「同梱からコピー」）', () => {
   it('選んだものを名前はラベル・値は同梱の表記で足す', async () => {
     const shortcuts = mount(new ShortcutEditor({ host }));
     shortcuts.update(snapshot(), []);
-    const pick = byFocus<HTMLButtonElement>(shortcuts.element, 'shortcut-preset-pick');
-    expect(pick.textContent).toBe('同梱からコピー');
-    pick.click();
+    expect(shortcuts.element.querySelector("[data-focus='shortcut-preset-pick']")).toBeNull();
+    byFocus<HTMLButtonElement>(shortcuts.element, 'add-menu').click();
     await settle(0);
-    const items = [...shortcuts.element.querySelectorAll<HTMLButtonElement>('.preset-item')];
+    const items = [...shortcuts.element.querySelectorAll<HTMLButtonElement>('.add-menu-bundled .preset-item')];
     expect(items.map((e) => e.firstChild?.textContent)).toEqual(['コマンドパレット', 'フレーム']);
     items[1]!.click();
     expect(host.itemEdits).toEqual([{ op: 'create', kind: 'shortcut', name: 'フレーム', value: 'F' }]);
@@ -191,9 +190,9 @@ describe('ショートカットの節の「同梱からコピー」', () => {
   it('同じ名前があれば、名前と値を入れた追加の欄を開いてエラーを見せる', async () => {
     const shortcuts = mount(new ShortcutEditor({ host }));
     shortcuts.update(snapshot({ shortcuts: [...SHORTCUTS, { name: 'コマンドパレット', address: at('shortcuts.yaml', 'shortcuts', 'コマンドパレット'), value: kv('Shift + Command + P') }] }), []);
-    byFocus<HTMLButtonElement>(shortcuts.element, 'shortcut-preset-pick').click();
+    byFocus<HTMLButtonElement>(shortcuts.element, 'add-menu').click();
     await settle(0);
-    shortcuts.element.querySelector<HTMLButtonElement>('.preset-item')!.click();
+    shortcuts.element.querySelector<HTMLButtonElement>('.add-menu-bundled .preset-item')!.click();
     expect(host.itemEdits).toEqual([]);
     expect(shortcuts.formOpen).toBe(true);
     const form = shortcuts.element.querySelector('.item-name-form')!;

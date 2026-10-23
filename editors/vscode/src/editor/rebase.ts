@@ -1,7 +1,7 @@
 // 外での変更（protocol.md の 7.3 と 12.3）の「画面の変更を残す」の当て直しと、保存・外での変更の知らせに使う小さな道具。vscode に依存しない。
 import * as crypto from 'node:crypto';
 import type { Address, AnyChange, Change, Diagnostic, FileVersion, MacroStepValue, ProfileSnapshot } from '../protocol';
-import { addressKey, fieldOf, isSequential, snapshotValueAt, valueKey, type ChangeField, type ChangeValue } from './pendingChanges';
+import { addressKey, fieldOf, isIndexAddress, isSequential, snapshotValueAt, valueKey, type ChangeField, type ChangeValue } from './pendingChanges';
 
 /** 同じ場所が外でも変わった Change（画面の値と外の値のどちらにするか項目ごとに選ばせる）。並びの外の set / remove だけ */
 export type Conflict = { change: AnyChange; external: ChangeValue | null };
@@ -139,28 +139,34 @@ const ITEM_KEYS: Record<string, string> = {
   duration: '待ち時間',
   content: '文字',
   preset: 'preset',
+  index: '番号',
 };
 
 /** 利用者に見せる場所の名前（「レイヤー 0 Base の左手 row0 tab」「QMK 設定 keyboard.tapping_term」「マクロ Bracket Pair の手順 1 のキー 2」） */
 export function describeAddress(snapshot: ProfileSnapshot, address: Address): string {
   const setting = snapshot.settings.find((s) => addressKey(s.address) === addressKey(address));
   if (setting) return `QMK 設定 ${setting.group}.${setting.name}`;
-  const layer = snapshot.layers.find((l) => l.file === address.file);
+  // v0.5: 未使用の項目（snapshot.unused）も名前で見せる（取り出してから中身を変えられる）
+  const unused = snapshot.unused;
+  const layer = [...snapshot.layers, ...(unused?.layers ?? [])].find((l) => l.file === address.file);
   const [first, hand, group, symbol] = address.path.map(String);
-  if (layer && first === 'description' && address.path.length === 1) return `レイヤー ${layer.index} ${layer.name} の説明`;
+  const layerName = layer ? (layer.index === null ? `未使用のレイヤー ${layer.name}` : `レイヤー ${layer.index} ${layer.name}`) : '';
+  if (layer && first === 'description' && address.path.length === 1) return `${layerName} の説明`;
+  if (layer && first === 'index' && address.path.length === 1) return `${layerName} の番号`;
   if (layer && hand && group && symbol) {
     const place = hand === 'encoders' ? `${group === 'left' ? '左' : '右'}のエンコーダの${ENCODER_OPS[symbol] ?? symbol}` : `${HAND_NAMES[hand] ?? hand} ${group} ${symbol}`;
-    return `レイヤー ${layer.index} ${layer.name} の${place}`;
+    return `${layerName} の${place}`;
   }
   const items = [
-    ...(snapshot.macros ?? []).map((m) => ({ kind: 'マクロ', name: m.name, file: m.file })),
-    ...(snapshot.tapDances ?? []).map((t) => ({ kind: 'タップダンス', name: t.name, file: t.file })),
-    ...(snapshot.combos ?? []).map((c) => ({ kind: 'コンボ', name: c.name, file: c.file })),
+    ...[...(snapshot.macros ?? []), ...(unused?.macros ?? [])].map((m) => ({ kind: 'マクロ', name: m.name, file: m.file, index: m.index })),
+    ...[...(snapshot.tapDances ?? []), ...(unused?.tapDances ?? [])].map((t) => ({ kind: 'タップダンス', name: t.name, file: t.file, index: t.index })),
+    ...[...(snapshot.combos ?? []), ...(unused?.combos ?? [])].map((c) => ({ kind: 'コンボ', name: c.name, file: c.file, index: c.index })),
   ];
   const item = items.find((i) => i.file === address.file);
-  if (item) return `${item.kind} ${item.name} の${describeItemPath(address.path)}`;
+  if (item) return `${item.index === null ? '未使用の' : ''}${item.kind} ${item.name} の${describeItemPath(address.path)}`;
   const shortcut = (snapshot.shortcuts ?? []).find((s) => addressKey(s.address) === addressKey(address));
   if (shortcut) return `ショートカット ${shortcut.name}`;
+  if (address.path.length === 2 && address.path[0] === 'shortcuts') return `ショートカット ${String(address.path[1])}（追加）`;
   return `${address.file} の ${address.path.join('.')}`;
 }
 
@@ -194,12 +200,14 @@ export function describeValue(value: ChangeValue | null): string {
 export function describeChange(change: AnyChange): string {
   switch (change.op) {
     case 'remove':
+      if (isIndexAddress(change.address)) return '未使用にする';
       return fieldOf(change) === 'note' ? '注記を消す' : '消す';
     case 'insert':
       return `${change.index + 1} 番目に足す: ${typeof change.value === 'string' ? change.value : describeStep(change.value)}`;
     case 'move':
       return `${change.from + 1} 番目を ${change.to + 1} 番目へ動かす`;
     default:
+      if (isIndexAddress(change.address)) return `番号 ${String(change.value)}`;
       return fieldOf(change) === 'note' ? `注記: ${String(change.value)}` : describeValue(change.value);
   }
 }

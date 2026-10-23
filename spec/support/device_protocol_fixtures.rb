@@ -67,7 +67,7 @@ module DeviceProtocolFixtures
   def setup_messages(setup)
     list = []
     unless setup['initialize'] == false
-      list << ProtocolFixtures.message('id' => 'setup:initialize', 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.4' })
+      list << ProtocolFixtures.message('id' => 'setup:initialize', 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.5' })
       list << ProtocolFixtures.message('method' => 'initialized')
     end
     list + (setup['before'] || []).map { |m| ProtocolFixtures.message(m) }

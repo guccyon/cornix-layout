@@ -1,0 +1,29 @@
+{
+  "description": "use を使っている項目に送ると -32602（field \"edit.file\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "use",
+        "kind": "macro",
+        "file": "macros/00_bracket_pair.yml"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.file"
+      }
+    }
+  }
+}

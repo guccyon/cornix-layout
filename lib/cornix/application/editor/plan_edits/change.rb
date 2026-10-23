@@ -16,6 +16,19 @@ module Cornix
           end
 
           def note? = field == :note
+
+          # protocol.md の 12.3 の Change の形（profile/planItemEdit の result の changes。set は op を省く）
+          def to_protocol
+            h = { address: { file: file, path: path } }
+            h[:op] = op.to_s unless op == :set
+            h[:field] = 'note' if note?
+            case op
+            when :set then h[:value] = value
+            when :insert then h.merge!(index: index, value: value)
+            when :move then h.merge!(from: from, to: to)
+            end
+            h
+          end
         end
       end
     end

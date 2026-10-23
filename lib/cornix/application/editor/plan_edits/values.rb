@@ -12,7 +12,7 @@ module Cornix
         #   values = Values.new(reading)
         #   values.for(target, change, i)   #=> 書く値（:remove と :move では nil）
         #
-        # - キー（:key）・文字列（:string）・注記は文字列、:integer は整数
+        # - キー（:key）・文字列（:string）・注記は文字列、:integer は整数、:index（番号）は 0 以上の整数
         # - QMK 設定は data/qmk_settings.yaml の型（真偽値の設定は true / false か 0 / 1。ファイルが 0 / 1 で書いていれば 0 / 1）
         # - マクロの手順（:step）は MacroStepValue（{ action: tap|down|up, keys: string[] } / { action: delay, duration: 整数 } /
         #   { action: text, content: 文字列 }）で、ほかの項目は書けない。ファイルには action を先にした Hash で書く
@@ -41,6 +41,10 @@ module Cornix
               return value if value.is_a?(Integer)
 
               raise InvalidChange.new(field, "#{target.path.last} の値は整数にしてください")
+            when :index
+              return value if value.is_a?(Integer) && !value.negative?
+
+              raise InvalidChange.new(field, 'index の値は 0 以上の整数にしてください')
             when :string then string(value, field, "#{target.path.last} の値")
             else string(value, field, 'キーの値')
             end

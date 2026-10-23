@@ -91,7 +91,7 @@ module Cornix
             file
           end
 
-          # use / unuse / setIndex（項目はファイルで指す。index は setIndex だけ）と reorder（files は文字列の配列）
+          # use / unuse / setIndex（項目はファイルで指す。index は setIndex だけ）と reorder（files は文字列の配列。indexes は省けるが、書くなら files と同じ数の整数）
           def index_edit(edit, op, kind)
             return reorder_edit(edit, kind) if op == 'reorder'
 
@@ -105,7 +105,11 @@ module Cornix
             files = param(edit, 'files', Array, field: 'edit.files')
             invalid('edit.files', 'params の edit.files はファイルのパスの文字列の配列です') unless files.all?(String)
             %w[file index].each { |name| invalid("edit.#{name}", "#{name} は reorder には書けません") if edit.key?(name) }
-            ItemEdits::Edit.new(op: 'reorder', kind: kind, files: files)
+            indexes = edit.key?('indexes') ? param(edit, 'indexes', Array, field: 'edit.indexes') : nil
+            if indexes && !(indexes.all?(Integer) && indexes.size == files.size)
+              invalid('edit.indexes', 'params の edit.indexes は files と同じ数の整数の配列です')
+            end
+            ItemEdits::Edit.new(op: 'reorder', kind: kind, files: files, indexes: indexes)
           end
 
           def position_edit(edit)

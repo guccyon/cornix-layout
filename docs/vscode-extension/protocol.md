@@ -1259,7 +1259,7 @@ type ItemEdit =
   | { op: "use"; kind: IndexedKind; file: string }                    // 未使用の項目を使い始める
   | { op: "unuse"; kind: IndexedKind; file: string }                  // 未使用にする
   | { op: "setIndex"; kind: IndexedKind; file: string; index: number }  // 番号を変える（使っている番号なら入れ替え）
-  | { op: "reorder"; kind: IndexedKind; files: string[] };              // 使っている項目を並べ直す（ADR 025）
+  | { op: "reorder"; kind: IndexedKind; files: string[]; indexes?: number[] }; // 使っている項目を並べ直す（ADR 025。indexes で番号を指定）
 
 // params に足す
 { "changes": AnyChange[] }   // 今の未保存の変更（当てる順の並び）。省けば []
@@ -1290,6 +1290,8 @@ type ItemEdit =
   例: 番号 0・2・5 の A・B・C を `[C, A, B]` にすると C=0・A=2・B=5）。番号の変わる項目ごとに `["index"]` の `set` を返し、参照の書き換えは setIndex と同じ（番号の変わるすべての項目について、元の番号の参照を新しい番号に。
   同時に当てるので、入れ替わる番号どうしでも取り違えない）。並びが今と同じなら `changes` は `[]`。
   `files` が使っている項目の集まりと違う（足りない・余分・重複・未使用のファイル）なら `-32602`（`"edit.files"`）。画面の並び替えの「確定」が 1 回送る
+  - `indexes`（省ける）: `files` の順に当てる番号。抜け番を作れる（レイヤーは「位置」なので、画面のレイヤーの並び替えモードは空きの枠へも動かせ、確定でこれを送る）。
+    `files` と同じ数の整数で、範囲（レイヤー 0〜9・ほかは 0〜31）の中で重ならないこと。違えば `-32602`（`"edit.indexes"`）。参照の書き換えは同じ（元の番号 → 新しい番号）
   - R2 で決めた細部: `changes` の並びは、番号の変わる項目の `["index"]` の `set`（新しい並びの順）のあとに参照の書き換え（setIndex と同じ欄の順）。
     `files` が配列でない・文字列でない要素があるときも `"edit.files"`（`file`・`index` を書けば `"edit.file"`・`"edit.index"`）。
     使っている項目の番号が重なっている（意味検証の error）ときは、どちらを指す参照か決まらないので `-32602`（`"edit"`）。

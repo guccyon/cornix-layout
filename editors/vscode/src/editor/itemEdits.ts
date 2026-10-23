@@ -36,7 +36,13 @@ export function isItemEdit(value: unknown): value is ItemEdit {
     case 'setIndex':
       return indexedKind(edit.kind) && typeof edit.file === 'string' && Number.isInteger(edit.index);
     case 'reorder':
-      return indexedKind(edit.kind) && Array.isArray(edit.files) && edit.files.length > 0 && edit.files.every((file) => typeof file === 'string');
+      return (
+        indexedKind(edit.kind) &&
+        Array.isArray(edit.files) &&
+        edit.files.length > 0 &&
+        edit.files.every((file) => typeof file === 'string') &&
+        (edit.indexes === undefined || (Array.isArray(edit.indexes) && edit.indexes.length === edit.files.length && edit.indexes.every((i) => Number.isInteger(i))))
+      );
     default:
       return false;
   }

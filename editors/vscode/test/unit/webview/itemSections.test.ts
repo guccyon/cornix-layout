@@ -261,36 +261,30 @@ describe('行の「…」と右クリック（W2・ADR 025）', () => {
   });
 });
 
-describe('節の「…」と並び替えモード（W2・ADR 025）', () => {
-  function sectionMenu(root: HTMLElement): HTMLButtonElement {
-    return byFocus<HTMLButtonElement>(root, 'section-more');
+describe('「並び替え」のボタンと並び替えモード（W2・ADR 025）', () => {
+  function reorderButton(root: HTMLElement): HTMLButtonElement {
+    return byFocus<HTMLButtonElement>(root, 'section-reorder');
   }
 
   function startReorder(root: HTMLElement): void {
-    sectionMenu(root).click();
-    root.querySelector<HTMLButtonElement>(".item-section-menu .more-menu-item[data-action='reorder']")!.click();
+    reorderButton(root).click();
   }
 
   const MACRO_C: MacroSnapshot = { ...moved(MACRO, MACRO_FILE, 'macros/05_c.yml'), name: 'C', index: 5 };
 
-  it('節の「…」は全体の操作で「並び替え」だけ。使っている項目が 1 つ以下なら押せず、ショートカットには「…」がない', () => {
+  it('「追加」の隣に「並び替え」のボタン。使っている項目が 1 つ以下なら押せず、ショートカットにはない', () => {
     const macros = mount(new MacroEditor({ host }));
     macros.update(snapshot(), []);
-    sectionMenu(macros.element).click();
-    const items = [...macros.element.querySelectorAll<HTMLElement>('.item-section-menu .more-menu-item')];
-    expect(items.map((e) => e.querySelector('.more-menu-label')?.textContent)).toEqual(['並び替え']);
-    expect(items[0]!.getAttribute('aria-disabled')).toBeNull();
+    expect(reorderButton(macros.element).disabled).toBe(false);
     const tapDances = mount(new TapDanceEditor({ host }));
     tapDances.update(snapshot(), []);
-    sectionMenu(tapDances.element).click();
-    const only = tapDances.element.querySelector<HTMLElement>(".item-section-menu .more-menu-item[data-action='reorder']")!;
-    expect(only.getAttribute('aria-disabled')).toBe('true');
-    expect(only.textContent).toContain('2 つ以上');
-    only.click();
+    expect(reorderButton(tapDances.element).disabled).toBe(true);
+    expect(reorderButton(tapDances.element).title).toContain('2 つ以上');
+    reorderButton(tapDances.element).click();
     expect(tapDances.reordering).toBe(false);
     const shortcuts = mount(new ShortcutEditor({ host }));
     shortcuts.update(snapshot(), []);
-    expect(shortcuts.element.querySelector('.item-section-menu')).toBeNull();
+    expect(shortcuts.element.querySelector("[data-focus='section-reorder']")).toBeNull();
   });
 
   it('並び替えモード: 各行に ⬆⬇（先頭の ⬆・末尾の ⬇ は押せない）、確定・やめるを出し、「追加」と行の「…」を隠す', () => {
@@ -311,25 +305,25 @@ describe('節の「…」と並び替えモード（W2・ADR 025）', () => {
     expect(macros.selected).toBe('Bracket Pair');
   });
 
-  it('⬆⬇ で画面の並びが動き（番号は今の番号のまま）、確定で reorder を 1 回送ってモードを抜ける', () => {
+  it('⬆⬇ で画面の並びが動き（番号は行の位置に付いたまま）、確定で reorder を 1 回送ってモードを抜ける', () => {
     const macros = mount(new MacroEditor({ host }));
     macros.update(snapshot({ macros: [MACRO, PRESET_MACRO, MACRO_C] }), []);
     startReorder(macros.element);
     byFocus<HTMLButtonElement>(macros.element, 'reorder-down:' + MACRO_FILE).click();
-    expect(rows(macros.element)).toEqual(['2 Copy Selected', '0 Bracket Pair', '5 C']);
+    expect(rows(macros.element)).toEqual(['0 Copy Selected', '2 Bracket Pair', '5 C']);
     // 押したボタンにフォーカスが残る
     expect(document.activeElement).toBe(byFocus(macros.element, 'reorder-down:' + MACRO_FILE));
     byFocus<HTMLButtonElement>(macros.element, 'reorder-down:' + MACRO_FILE).click();
-    expect(rows(macros.element)).toEqual(['2 Copy Selected', '5 C', '0 Bracket Pair']);
+    expect(rows(macros.element)).toEqual(['0 Copy Selected', '2 C', '5 Bracket Pair']);
     // 末尾で ⬇ が押せなくなったら ⬆ にフォーカス
     expect(document.activeElement).toBe(byFocus(macros.element, 'reorder-up:' + MACRO_FILE));
     byFocus<HTMLButtonElement>(macros.element, 'reorder-up:macros/05_c.yml').click();
-    expect(rows(macros.element)).toEqual(['5 C', '2 Copy Selected', '0 Bracket Pair']);
+    expect(rows(macros.element)).toEqual(['0 C', '2 Copy Selected', '5 Bracket Pair']);
     expect(host.itemEdits).toEqual([]);
     byFocus<HTMLButtonElement>(macros.element, 'reorder-confirm').click();
     expect(host.itemEdits).toEqual([{ op: 'reorder', kind: 'macro', files: ['macros/05_c.yml', PRESET_FILE, MACRO_FILE] }]);
     expect(macros.reordering).toBe(false);
-    expect(document.activeElement).toBe(sectionMenu(macros.element));
+    expect(document.activeElement).toBe(reorderButton(macros.element));
     // サーバーの結果（未保存の番号）が届けば番号の順に並ぶ
     macros.update(snapshot({ macros: [MACRO, PRESET_MACRO, MACRO_C] }), [], [
       { address: at('macros/05_c.yml', 'index'), value: 0 },
@@ -351,7 +345,7 @@ describe('節の「…」と並び替えモード（W2・ADR 025）', () => {
     expect(combos.reordering).toBe(false);
     startReorder(combos.element);
     byFocus<HTMLButtonElement>(combos.element, `reorder-down:${COMBO_FILE}`).click();
-    expect(rows(combos.element)).toEqual(['1 X', '0 Left Bracket']);
+    expect(rows(combos.element)).toEqual(['0 X', '1 Left Bracket']);
     byFocus<HTMLButtonElement>(combos.element, 'reorder-cancel').click();
     expect(combos.reordering).toBe(false);
     expect(rows(combos.element)).toEqual(['0 Left Bracket', '1 X']);

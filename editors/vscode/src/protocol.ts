@@ -476,9 +476,9 @@ export type ItemEdit =
   | { op: 'setIndex'; kind: IndexedKind; file: string; index: number }
   /**
    * v0.5: 使っている項目を並べ直す（15.3。結果は changes）。files は使っている項目すべて（未保存の変更を当てた状態）の新しい並び。
-   * 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）
+   * 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）。indexes を書けば files の順にその番号を当てる（抜け番を作れる。レイヤーの並び替えモード）
    */
-  | { op: 'reorder'; kind: IndexedKind; files: string[] };
+  | { op: 'reorder'; kind: IndexedKind; files: string[]; indexes?: number[] };
 
 /** v0.5: 番号（index:）を持つ種類 */
 export type IndexedKind = 'layer' | 'macro' | 'tapDance' | 'combo';

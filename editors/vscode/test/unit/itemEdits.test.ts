@@ -121,6 +121,8 @@ describe('isItemEdit', () => {
     expect(isItemEdit({ op: 'reorder', kind: 'tapDance', files: [] })).toBe(false);
     expect(isItemEdit({ op: 'reorder', kind: 'shortcut', files: ['a'] })).toBe(false);
     expect(isItemEdit({ op: 'reorder', kind: 'layer', files: [0] })).toBe(false);
+    expect(isItemEdit({ op: 'reorder', kind: 'layer', files: ['a', 'b'], indexes: [0, 5] })).toBe(true);
+    expect(isItemEdit({ op: 'reorder', kind: 'layer', files: ['a', 'b'], indexes: [0] })).toBe(false);
     expect(isItemEdit(null)).toBe(false);
   });
 });

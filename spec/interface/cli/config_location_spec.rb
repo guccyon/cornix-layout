@@ -93,6 +93,15 @@ RSpec.describe 'cornix の設定ディレクトリの指定と init' do
       expect(File.read(File.join(dir, '.cornix.yml'))).to eq("config: cfg\n")
     end
 
+    it '--json は InitResult#to_h（config_dir, created, imported_from, files, device_error, notes）を出す' do
+      source = File.join(fixtures, 'layout.vil')
+      expect(cornix('init', @root, '--profile', 'main', '--from', source, '--json')).to eq(0), err.string
+      result = JSON.parse(out.string)
+      expect(result).to include('config_dir' => File.join(@root, 'profiles', 'main'), 'imported_from' => source,
+                                'device_error' => nil)
+      expect(result['files']).to include('metadata.yaml')
+    end
+
     it 'カレントの .cornix.yml が壊れていても、ほかの場所への init は止まらない' do
       File.write(File.join(@root, '.cornix.yml'), "- x\n")
       Dir.chdir(@root) { expect(cornix('init', File.join(@root, 'other'), '--no-pull')).to eq(0), err.string }

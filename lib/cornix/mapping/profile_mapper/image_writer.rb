@@ -5,10 +5,11 @@ module Cornix
     class ProfileMapper
       # Profile → DeviceImage（旧 VialConfig#to_qmk と同じ配置・パディング）。
       #
-      #   layers      capabilities.layers 枚。レイヤーは index の位置に置き、定義のないレイヤーはすべて nil。
-      #               割り当てのない位置とキーのない位置は nil、エンコーダのプッシュはマトリクスの
-      #               PositionMap#encoder_push_matrix の位置
-      #   encoders    [layer][左, 右] の EncoderRecord（定義のないレイヤーは ccw / cw とも nil）
+      #   layers      capabilities.layers 枚。レイヤーは index の位置に置く。
+      #               position_map にある位置で割り当てのないものは KC_NO（0）、キーのない位置（col 6 など）は nil。
+      #               定義のないレイヤーも、何も割り当てのないレイヤーと同じ値（KC_NO で埋める）にする。
+      #               エンコーダのプッシュはマトリクスの PositionMap#encoder_push_matrix の位置
+      #   encoders    [layer][左, 右] の EncoderRecord（定義のないレイヤーは ccw / cw とも KC_NO）
       #   macros      capabilities.macros 個。未使用は []
       #   tap_dances  capabilities.tap_dances 個。未使用は KC_NO × 4 と DEFAULT_TAPPING_TERM
       #   combos      capabilities.combos 個。トリガーは combo_keys 個まで 0（KC_NO）で埋める。未使用はすべて 0
@@ -29,8 +30,8 @@ module Cornix
         def call
           layers = slots(profile.layers, caps.layers, 'レイヤー')
           Image::DeviceImage.new(
-            layers: layers.map { |layer| layer ? layer_grid(layer) : empty_grid },
-            encoders: layers.map { |layer| layer ? encoder_records(layer) : empty_encoders },
+            layers: layers.map { |layer| layer_grid(layer) },
+            encoders: layers.map { |layer| encoder_records(layer) },
             macros: slots(profile.macros, caps.macros, 'マクロ').map { |m| m ? macro_actions(m) : [] },
             tap_dances: slots(profile.tap_dances, caps.tap_dances, 'タップダンス').map { |td| tap_dance_record(td) },
             combos: slots(profile.combos, caps.combos, 'コンボ').map { |c| combo_record(c) },
@@ -60,23 +61,32 @@ module Cornix
 
         def empty_grid = Array.new(Domain::PositionMap::MATRIX_ROWS) { Array.new(Domain::PositionMap::MATRIX_COLS) }
 
-        def empty_encoders = ENCODER_SIDES.map { Image::EncoderRecord.new(ccw: nil, cw: nil) }
+        def no_key = encode(Domain::Keycode::NO_KEY)
 
+        # 割り当てのない位置を nil（.vil の -1）にすると、cornix device apply はその位置を飛ばして前の値が残り、
+        # Vial の読み込みも -1 をそのまま 16bit で送ろうとして失敗しうる。そのため KC_NO で埋める。
+        # 定義のないレイヤー（layer が nil）も同じ理由で、すべての位置とエンコーダのプッシュを KC_NO にする
         def layer_grid(layer)
           grid = empty_grid
-          layer.keys.each do |position, keycode|
+          position_map.positions.each do |position|
+            row, col = position_map.matrix(position)
+            grid[row][col] = no_key
+          end
+          layer&.keys&.each do |position, keycode|
             row, col = position_map.matrix(position)
             grid[row][col] = encode(keycode)
           end
           ENCODER_SIDES.each do |side|
             row, col = position_map.encoder_push_matrix(side)
-            grid[row][col] = encode(layer.encoder(side).push)
+            grid[row][col] = layer ? encode(layer.encoder(side).push) : no_key
           end
           grid
         end
 
         def encoder_records(layer)
           ENCODER_SIDES.map do |side|
+            next Image::EncoderRecord.new(ccw: no_key, cw: no_key) if layer.nil?
+
             binding = layer.encoder(side)
             Image::EncoderRecord.new(ccw: encode(binding.ccw), cw: encode(binding.cw))
           end

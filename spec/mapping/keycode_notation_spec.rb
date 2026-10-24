@@ -61,6 +61,14 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       'Cmd + "]"' => 0x0830, 'Cmd + KC_ENTER' => 0x0828, 'Win + E' => 0x0808, 'Option + Tab' => 0x042B,
       'Control + C' => 0x0106, 'RShift + RCmd + Q' => 0x1A14, 'Ctrl + Shift + Alt + A' => 0x0704,
       'Cmd + LSFT(A)' => 0x0A04,
+      # + や - を含む別名・記号の別名（修飾キー式のキーや関数の引数にも書ける）
+      'Vol+' => 0x00A9, 'Vol-' => 0x00AA, 'VolumeUp' => 0x00A9, 'Ctrl + Vol+' => 0x01A9, 'Cmd+Vol-' => 0x08AA,
+      'Shift + Cmd + Vol+' => 0x0AA9, 'LT1(Vol+)' => 0x41A9, 'LSFT(Vol-)' => 0x02AA,
+      '←' => 0x0050, '↓' => 0x0051, '→' => 0x004F, '↑' => 0x0052, 'Option + ←' => 0x0450, 'SingleQuote' => 0x0034,
+      'ForwardSlash' => 0x0038, 'Yen' => 0x041C, 'Cmd + ForwardSlash' => 0x0838, 'Shift + Yen' => 0x061C,
+      '◀◀' => 0x00BC, "▶\u{FE0E}▶\u{FE0E}" => 0x00BB, '▶▶' => 0x00BB, '⏯' => 0x00AE,
+      "▶\u{FE0F}▶\u{FE0F}" => 0x00BB, "▶\u{FE0E}▶" => 0x00BB, "◀\u{FE0E}◀\u{FE0E}" => 0x00BC, "Cmd + ▶\u{FE0F}▶\u{FE0F}" => 0x08BB,
+      'MT(MOD_LCTL, Vol-)' => 0x21AA, "Cmd + 'Vol+'" => 0x08A9,
       # 生の値
       '0x7C00' => 0x7C00, '0x00E8' => 0x00E8, '0x1000' => 0x1000
     }.each do |text, expected|
@@ -121,6 +129,10 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
         'LSFT(RCTL(A))' => /左右の修飾キーは混在できません/,
         'OSM(MOD_LCTL|MOD_RSFT)' => /左右の修飾キーは混在できません/,
         'Hoge + A' => /修飾キー名「Hoge」は使えません/,
+        'Vol + A' => /修飾キー名「Vol」は使えません/,
+        'Cmd + Vol+ + A' => /修飾キー名「Vol」は使えません/,
+        'vol+' => /「vol\+」は不明なキーコードです（もしかして: Vol\+）/,
+        'Ctrl + vol-' => /「vol-」は不明なキーコードです（もしかして: Vol-）/,
         'Cmd +' => /キーがありません/,
         'enter' => /「enter」は不明なキーコードです（もしかして: Enter）/,
         'os_lsft' => /（もしかして: OS_LSFT）/,
@@ -165,7 +177,8 @@ RSpec.describe Cornix::Mapping::KeycodeNotation do
       0x3704 => 'MT(MOD_RCTL|MOD_RSFT|MOD_RALT, A)', 0x2136 => "LCTL_T(',')", 0x4134 => %(LT1("'")),
       0x412C => 'LT1(Space)', 0x5223 => 'MO(3)', 0x5200 => 'TO(0)', 0x52E0 => 'PDF(0)',
       0x5022 => 'LM(1, MOD_LSFT)', 0x52A7 => 'OSM(MOD_LCTL|MOD_LSFT|MOD_LALT)',
-      0x7705 => 'M5', 0x5701 => 'TD(1)', 0x00E8 => '0x00E8', 0x1000 => '0x1000'
+      0x7705 => 'M5', 0x5701 => 'TD(1)', 0x00E8 => '0x00E8', 0x1000 => '0x1000',
+      0x00A9 => 'Vol+', 0x00AA => 'Vol-', 0x01A9 => 'Ctrl + Vol+', 0x41AA => 'LT1(Vol-)'
     }.each do |value, expected|
       it "0x#{format('%04X', value)} → #{expected}" do
         expect(notation.format(codec.decode(value))).to eq(expected)

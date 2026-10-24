@@ -8,7 +8,7 @@ as human-readable YAML files, and writes it directly to the connected keyboard w
 - Read the settings from the keyboard into YAML (`pull`)
 - Edit the YAML and review the differences from the keyboard (`status`)
 - Write only the differences to the keyboard (`apply`). A backup is always taken before writing, and the keyboard is read back afterwards to verify
-- If you don't like the result, restore from a backup (`restore`)
+- If you don't like the result, go back to the state before the write (`restore`). Each read, write and compile is kept as a snapshot (`snapshots`)
 
 Because the settings are plain files, you can keep them in Git to track their history or switch between setups.
 The YAML supports modifier expressions such as `Cmd + Q`, references by name such as `Macro('Bracket Pair')`, named shortcuts, notes and comments.
@@ -30,8 +30,9 @@ Some of the command output, including many error messages, is currently in Japan
 - [YAML pitfalls](#yaml-pitfalls)
 - [Validating the settings](#validating-the-settings)
 - [Naming (rename)](#naming-rename)
-- [Backups and restoring](#backups-and-restoring)
+- [Snapshots and restoring](#snapshots-and-restoring)
 - [Where the settings live and how to use the repository](#where-the-settings-live-and-how-to-use-the-repository)
+- [Editing on screen in VS Code](#editing-on-screen-in-vs-code)
 - [Using it as an MCP server](#using-it-as-an-mcp-server)
 - [Safety mechanisms](#safety-mechanisms)
 - [Troubleshooting](#troubleshooting)
@@ -121,7 +122,7 @@ How it backs up and verifies is described in [Safety mechanisms](#safety-mechani
 cornix restore         # go back to the state before the last apply
 ```
 
-See [Backups and restoring](#backups-and-restoring) for details.
+See [Snapshots and restoring](#snapshots-and-restoring) for details.
 
 ## Commands
 
@@ -135,10 +136,12 @@ cornix <command> [options]
 | `pull` | Reads | Turns the keyboard's state into YAML in the settings directory. Stops if there are settings already |
 | `status` | Reads | Shows the differences from the keyboard. Exits with 2 when there are differences |
 | `apply [--yes]` | Writes (after confirmation) | Writes to the keyboard after you confirm the differences |
-| `restore [BACKUP] [--yes]` | Writes (after confirmation) | Goes back to a backup (default: the state before the last apply) |
+| `restore [SNAPSHOT] [--yes]` | Writes (after confirmation) | Goes back to a snapshot (default: the state before the last apply) |
+| `snapshots [--kind KIND]` | Not used | Lists the snapshots of the keyboard's state and the compile output, newest first |
 | `validate` | Not used | Validates the settings files |
 | `rename` | Not used | Gives the settings files meaningful names, confirming Claude's suggestions one by one |
 | `mcp` | Depends on the tool | Starts as an MCP server (see [Using it as an MCP server](#using-it-as-an-mcp-server)) |
+| `serve [--device [--allow-writes]]` | Not used (with `--device`: reads; writes only with `--allow-writes`) | The backend of the VS Code extension (see [Editing on screen in VS Code](#editing-on-screen-in-vs-code)). `--device` starts the separate server that compares with and writes to the keyboard |
 
 `cornix device` reads and writes with explicit files.
 
@@ -146,9 +149,9 @@ cornix <command> [options]
 |---|---|
 | `device info` | Information about the connected keyboard |
 | `device read [-o FILE]` | Prints the keyboard's state in layout.vil format |
-| `device backup` | Saves the keyboard's state to `<tmp>/device_backups/` |
+| `device backup` | Saves the keyboard's state as a snapshot (kind `backup`) in `<tmp>/snapshots/` |
 | `device diff [FILE]` / `device apply [FILE] [--yes]` | Shows the differences between the given .vil and the keyboard / writes it (default: the compile output) |
-| `device restore [BACKUP] [--yes]` | Same as `restore` |
+| `device restore [SNAPSHOT] [--yes]` | Same as `restore` |
 
 `compile` / `decompile` / `cleanup` for Vial are described in [Using Vial](#using-vial-compile--decompile).
 
@@ -159,10 +162,16 @@ Common options (accepted by every command, before or after the command name):
 | `--profile NAME` | Use the settings in `profiles/NAME/` |
 | `--config DIR` | Give the settings directory directly |
 | `--root DIR` | Where `tmp/` and `profiles/` live (default: the directory containing `.cornix.yml`, otherwise this repository) |
+| `--json` | Print the result as a single JSON value on standard output (for scripts) |
 
-Normally `.cornix.yml` decides this, so you don't need them.
+Normally `.cornix.yml` decides the settings directory, so you don't need `--profile` / `--config` / `--root`.
 
 Exit codes: `0` = success, `1` = error, `2` = there are differences (`status` only). Errors are printed to standard error as `エラー: …` ("Error: …").
+
+With `--json`, standard output holds only one JSON value, with no other text, and the exit codes stay the same. Errors become `{ "error": "..." }` on standard output.
+For example, `cornix status --json` prints `{ "config", "compile", "diff" }`, and `cornix validate --json` prints `{ "config", "ok", "diagnostics": [{ "severity", "path", "message" }], "unused": [{ "kind", "file", "name" }] }`.
+`apply` / `restore` / `device apply` / `device restore` cannot ask for confirmation, so they also need `--yes` (without it they stop before touching the keyboard).
+`cleanup -f`, `rename`, `mcp` and `serve` do not support `--json` (`help` ignores it).
 
 ### When `pull` stops
 
@@ -199,7 +208,8 @@ profiles/default/
 └── combos/00_combo.yaml       # combos
 ```
 
-- You can rename files freely (both `.yaml` and `.yml` are read). The number comes from `index` in the YAML; only for layers must the leading number of the file name match `index`
+- You can rename files freely (both `.yaml` and `.yml` are read). The number comes only from `index` in the YAML; the leading number of the file name is not read. The number prefix is just for sorting the files; you may leave it out, and it may differ from `index` (`pull` and adding items in the extension write the prefix)
+- A file in `layers/`, `macros/`, `tap_dance/` or `combos/` without `index` (or with an empty `index:`) is an unused file. It is left out of `compile`, so you can keep definitions you don't use without deleting them, and enable one by writing its number. Unused files are still checked for their format, and problems are shown as warnings (`compile` does not stop). A file that cannot be read as YAML is still an error, since it cannot be told whether it is unused
 - `pull` writes keys in the most readable form (alias → modifier expression → function form → `0xHHHH`), and refers to macros and tap dances by name
 
 ### Layers
@@ -235,8 +245,8 @@ mapping:
 ```
 
 - Under `mapping` the structure is the same as `position_map.yaml`. Each hand must list all of `row0`–`row3` and `thumb_keys` (an empty value is fine)
-- Keys you leave out inside a group are unassigned. To use the layer below, write `Trans`. Encoder actions you leave out are `NoKey`
-- To change a layer's number, change the file name and `index`, and update `MO(2)` and the like in other files
+- Keys you leave out inside a group are unassigned, and `compile` / `apply` write them as `NoKey` (KC_NO). To use the layer below, write `Trans`. Encoder actions you leave out are `NoKey`
+- To change a layer's number, change only `index` (the file name can stay as it is). `MO(2)` and the like point to the number "layer 2", so other files don't change. To swap the contents of two layers, just swap the `index` of the two files; `MO(2)` and the like then point to the new layer 2
 
 ### Notes (`note`)
 
@@ -315,6 +325,8 @@ trigger_keys: [Left, Down]   # up to 4 keys
 output_key: MouseButton1
 ```
 
+Triggers are written as keycodes, not key positions. A combo whose trigger keys are not all present on any single layer cannot be pressed, so `validate` warns about it (a `Trans` position counts as the layer 0 value).
+
 ### QMK Settings
 
 ```yaml
@@ -338,7 +350,8 @@ The available names and value widths are in [data/qmk_settings.yaml](data/qmk_se
 | QMK form | `M0` | `TD(2)` |
 
 - The name is the file's `name`. Put names containing `'` in `"..."` (`Macro("Rock'n Roll")`)
-- A name that cannot be found, or a number with nothing defined, is a validation error
+- A name that cannot be found, or a number with nothing defined, is a validation error. Referring to the name of an unused file (one without `index`) is also a validation error
+- When you refer by name, changing the `index` of a macro or tap dance makes the reference point to the new number naturally (references written by number or in QMK form are not rewritten)
 - References cannot be used inside macros (in `keys` of a `sequence`)
 
 ### Named shortcuts (`shortcuts.yaml`)
@@ -459,6 +472,7 @@ cornix validate
 - The file format (YAML syntax, fields, keycodes, key names, number ranges) is checked first; once that passes, the whole setup (limits, duplicate numbers and names, reference targets, layer numbers) is checked
 - Limits: 10 layers, 32 macros, 32 tap dances, 32 combos, 4 trigger keys per combo
 - If there are only warnings (`⚠  Warning: …`), it continues
+- If there are unused files (without `index`), it prints `ℹ  Unused files (no index, not compiled): count` and the list at the end. Only the format of unused files is checked (not reference targets and so on), and problems are warnings
 
 ## Naming (`rename`)
 
@@ -472,18 +486,33 @@ and updates references by name such as `Macro('old name')` (references by number
 
 Without `claude`, you can name them by hand with `ruby bin/rename_file --config-dir profiles/default ...` (see `ruby bin/rename_file --help`).
 
-## Backups and restoring
+## Snapshots and restoring
 
-Before writing, `apply` and `restore` save the keyboard's state as a timestamped .vil (such as `20261019-010203.vil`) in `<tmp>/device_backups/`.
+Each time cornix reads the keyboard, writes to it, or compiles, it keeps a timestamped copy as a snapshot in `<tmp>/snapshots/<date-time>-<kind>/layout.vil` (such as `20261019-010203-pre-apply/layout.vil`). Snapshots are never overwritten.
 `<tmp>` is the working directory of each settings directory: `tmp/profiles/default/` for `profiles/default/` (`tmp/` is not tracked by Git).
 
+| Kind | When it is taken |
+|---|---|
+| `read` | When the keyboard is read (`pull` / `init` / `status` / `apply` / `restore` / `device read` / `device diff`) |
+| `build` | The output of `compile` (also when `status` / `apply` compile) |
+| `backup` | `cornix device backup` |
+| `pre-apply` | Just before `apply` writes |
+| `pre-restore` | Just before `restore` writes |
+| `legacy` | Backups from earlier versions in `<tmp>/device_backups/` (only read) |
+
+`read` and `build` keep the newest 50 of each kind and delete older ones. The other kinds are kept until you delete them.
+
 ```bash
-cornix restore                       # go back to the newest backup (usually the state before the last apply)
-cornix restore 20261019-010203       # go back to the given backup (a file name or a path)
+cornix snapshots                             # list the snapshots, newest first (date-time, kind, path)
+cornix snapshots --kind pre-apply            # only one kind
+cornix restore                               # go back to the newest pre-apply (the state before the last apply)
+cornix restore 20261019-010203-pre-restore   # go back to the given snapshot (a name or a path)
 ```
 
-- It shows the differences from the target and writes after confirmation. A backup taken with `cornix device backup` also counts as the newest backup
-- `restore` also backs up the current state before writing, so running `restore` again right away returns to the state before the restore
+- It shows the differences from the target and writes after confirmation
+- Before writing, `restore` keeps the current state as a `pre-restore` snapshot. To undo a restore, pass that snapshot to `restore` (running `restore` again without arguments goes back to the same `pre-apply`)
+- If there is no `pre-apply` snapshot yet, `restore` uses the newest backup from earlier versions in `<tmp>/device_backups/`
+- The latest compile output is still written to `<tmp>/build/layout.vil` and what `pull` read to `<tmp>/layout.vil`, as before. A snapshot's `layout.vil` can also be passed to `cornix device diff` and `cornix decompile`
 - `restore` only changes the keyboard. Use Git to restore the settings files
 
 ## Where the settings live and how to use the repository
@@ -526,7 +555,7 @@ echo "profile: default" > .cornix.yml
 cornix validate          # the move worked if it shows "設定: profiles/default（.cornix.yml）"
 ```
 
-Backups also move from `tmp/device_backups/` to `tmp/profiles/default/device_backups/`; copy them if you want to use earlier backups with `restore`.
+Snapshots also move from `tmp/snapshots/` to `tmp/profiles/default/snapshots/` (and the backups of earlier versions from `tmp/device_backups/` to `tmp/profiles/default/device_backups/`); copy them if you want to use earlier ones with `restore`.
 
 ### Ways to use it
 
@@ -567,6 +596,46 @@ git worktree add ../cornix-default-keymap cornix-default-keymap   # in a fork wi
 cd ../cornix-default-keymap && cornix validate
 ```
 
+## Editing on screen in VS Code
+
+`editors/vscode/` has a VS Code extension that shows a whole settings directory on one screen and lets you edit every settings file while choosing from candidates.
+It is not on the Marketplace: build a .vsix and install it yourself (the steps, in Japanese, are in [editors/vscode/README.md](editors/vscode/README.md)).
+The extension talks only to `cornix serve` (and, for the keyboard, `cornix serve --device`). It writes to the keyboard only when you allow it in the settings and confirm each time (see **The keyboard** below); `status` / `apply` from the terminal work as before.
+
+Open it with the Cornix icon in the activity bar or the command "Cornix: プロファイルを開く" (Open profile). The upper half is a diagram of the keyboard and the lower half holds the editing panes; clicking a key moves to its field.
+
+| File | What you can do on screen |
+|---|---|
+| `layers/` | Keys and encoders, notes, removing an assignment, the layer's name and description |
+| `macros/` | Steps (add, delete, move up and down), the keys of tap / down / up, `delay`, `text`, `preset`, expanding a `preset` into steps |
+| `tap_dance/` | The four actions and their notes, `tapping_term` |
+| `combos/` | The keys pressed together (up to 4; can be picked from the diagram), the output key and its note |
+| `shortcuts.yaml` | The values, adding one from the bundled shortcuts |
+| `settings/qmk_settings.yaml` | Each setting (with a description and the default value) |
+| `position_map.yaml` | The key names (position names) |
+| `metadata.yaml` | Shown read-only |
+
+- **Key input**: candidates are searched by name, alias, QMK name, and the Japanese labels and app names of the bundled shortcuts. When nothing matches as a prefix or substring, entries that contain the typed characters in order (fuzzy matches; `lbr` → `[`) are listed below. Among equally good matches, the keys used most in the profile come first. "同梱から選ぶ…" (Choose from bundled) at the bottom of the candidate list lets you pick a bundled shortcut by app → category → label and enters `Shortcut('…')`. The builder next to the field puts together modifier expressions (`Shift + Command + P`), `LT(2, Escape)` and Mod-Tap (`RSFT_T(Up)`). A value is validated as soon as you enter it, and hovering shows what it means
+- **The diagram**: the "位置の名前" (Position names) button above it (click to keep it on; temporarily while hovering over it or holding Alt) shows the position names in purple instead of the assignments. The names come from `position_map.yaml`, and while they are shown you can click a key to change its name there. A `Trans` key faintly shows the layer 0 key at the same position. Arrow keys are shown as `↑` `←` `→` `↓`. Macros get an orange `M`, your own shortcuts a `★`, and bundled shortcuts the app's icon. A position with no assignment looks like `NoKey`: an outline with nothing inside
+- **Combos**: while a combo's number button above the diagram is pressed (kept on) or hovered (temporary), the trigger keys of that combo are highlighted on the current layer. A combo that cannot be pressed (no layer has all of its trigger keys) gets a ⚠. "図から選ぶ" (Pick from diagram) in the combos section adds a trigger by clicking a key in the diagram
+- **Layer fields**: the "レイヤー別 / キー別" (By layer / By key) mode at the top of the edit form changes how the fields are laid out. By key lists, for each key position, the assignment on every layer that has a file, so you can compare how a key is assigned across layers and fix it on the spot. The rows of the layer selected in the diagram are highlighted, and "▽ と空欄を畳む" (Fold ▽ and blanks) hides the `Trans` and unwritten rows
+- **Sections**: the sections other than layers (macros, tap dances, combos, shortcuts, QMK settings) start collapsed (`▶` / `▼`)
+- **Removing an assignment**: ✕ next to a field deletes that line from the YAML. A position with no assignment is written as `NoKey` (see [Layers](#layers))
+- **Saving**: changes stay unsaved until Cmd+S (Ctrl+S), and undo works. Saving rewrites only the changed values and keeps comments and order. If Claude or another tool changes the files while they are open, the screen reloads when nothing is unsaved, and otherwise asks which side to keep
+- **Adding**: "＋" at the end of the layer buttons and "追加" (Add) in the macros, tap dances, combos and shortcuts sections open a list with a search box, "新しく作る" (Create new), "未使用（N）" (Unused (N): the [unused files](#file-layout) without `index`) and, for macros and shortcuts, the bundled ones. A new layer gets a free number and the name you choose (it may be the same as another layer's). A new macro from the bundled list is a `preset:` macro named after its label
+- **The "…" menu**: each item's heading (and the layer heading) has one "…" menu with the operations that fit: "番号を変える…" (Change number), "未使用にする" (Make unused), "名前を変える" (Rename), "ファイルを開く" (Open file) and "削除…" (Delete). Shortcuts have no number, so they only get rename, open and delete
+- **Unused items and numbers**: choosing an unused item in the "追加" list starts using it at the end (the number after the largest used one, or the smallest free one at the limit) and selects it. When every number is taken, unused items cannot be chosen until you make one unused. "番号を変える…" lists every number (current, used (with its name) and free): a free number moves the item, a used one swaps the two. For macros and tap dances, references by number (`Macro(3)`, `M3`, `TD(2)` and so on) follow the change; references by name, and layer references such as `MO(1)`, are not rewritten (the picker says so). Using an unused item, making an item unused, changing a number and adding a shortcut (from the bundled list or by name) are unsaved changes like editing a value: undo and redo work, and Cmd+S (Ctrl+S) saves them. Making an item unused asks first when references to it would break
+- **Deleting and renaming**: items and layers are deleted and renamed from the "…" menu. These, and creating a new layer, macro, tap dance or combo, are written to the files right after a confirmation dialog (if there are unsaved changes, you are asked to save them first). Deleting a layer shows in the dialog how many layer keys such as `MO(n)` point to it. Renaming also rewrites references such as `Macro('old name')` in every file and the file name, and stops if the compile result would change. Deleting leaves references as they are; the dialog shows how many there are, and the referring side shows an error
+- **Expanding presets**: "手順に展開" (Expand into steps) on a macro replaces its `preset:` line with the steps of the bundled definition. It is written right after a confirmation dialog, and stops if the compile result would change
+- **Text editor**: when you open a settings file as text, the same validation results appear as squiggles
+- **Unreadable values**: if a file has a keycode that cannot be parsed (such as `KC_FOOO`), the editor still shows the form and marks that field as an error. The other validation results, such as warnings, appear too, so you can fix it in the form (adding, deleting or renaming items and applying to the keyboard are not possible until it is fixed)
+- **The keyboard**: the "デバイス転送" (Device transfer) section at the bottom of the edit form writes the saved profile to the connected keyboard. Like `cornix device`, this needs macOS and the HID bridge (see [Requirements](#requirements))
+  - "反映のプレビュー…" (Preview apply), or the command "Cornix: 実機に反映…", compiles the saved profile (unsaved changes are saved first), reads the keyboard (about 10 seconds over Bluetooth) and shows the differences in a modal over the editor: the diagram with the differing keys outlined in orange, the number of differences on each layer tab, and a list of "place: keyboard value → profile value". Nothing is written until you press "確定" (Confirm), and "やめる" (Cancel) closes it. The editor cannot be edited while the modal is open
+  - While the profile has validation errors, "反映のプレビュー…" cannot be pressed, and the number of errors and a request to fix them and save first are shown next to it (it stops before reading the keyboard). The section lists the validation errors and warnings of the saved profile ("キーを表示" (Show key) moves to the field in the edit form, switching the layer; macros and other items, and QMK settings, move to their fields) and shows their counts in its heading. With only warnings you can still apply (the modal lists the warnings too)
+  - Confirm backs up the keyboard, writes and reads it back. It cannot be pressed when the files changed after the preview (press "もう一度比べる" (Compare again) instead)
+  - Writing is allowed only when the setting `cornix.device.allowWrites` is on (off by default; the preview always works). The extension starts `cornix serve --device` with `--allow-writes` only when the setting is on, and without it the server refuses to write
+  - To go back, undo or use git on the settings files and apply again. Restoring a backup is done on the command line (`cornix restore` / `cornix device restore`)
+
 ## Using it as an MCP server
 
 `cornix mcp` runs an MCP (Model Context Protocol) server over standard input and output.
@@ -592,9 +661,11 @@ If you keep the settings in a separate repository, run `claude mcp add cornix-de
 |---|---|---|
 | `keyboard_info` | No | Information about the keyboard |
 | `read_keymap` | No | Returns or saves the current state in layout.vil format |
-| `backup` / `list_backups` | No | Saves and lists backups |
+| `backup` / `list_backups` | No | Saves a snapshot (kind `backup`) / lists the snapshots (`kind` narrows the list) |
 | `apply_layout` | Only with `dry_run: false` | Writes a .vil (default: the output of `cornix compile`). A dry run by default, returning the differences and a `confirm_token`; writes only with `dry_run: false` and the `confirm_token` |
-| `restore_backup` | Only with `dry_run: false` | Goes back to a backup, with the same two steps as `apply_layout` |
+| `restore_backup` | Only with `dry_run: false` | Goes back to a snapshot (default: the newest `pre-apply`), with the same two steps as `apply_layout` |
+
+Each tool result has a short summary for people and, as a second item, the result as JSON in the same shape as `cornix device … --json` (without `config`). `keyboard_info` returns only that JSON, and `read_keymap` without `save_path` returns only the layout.vil contents.
 
 `apply_layout` writes the `<tmp>/build/layout.vil` last written by `cornix status` / `apply` (or `compile`). After changing the YAML, run `cornix status` first.
 If the keyboard or the file changes after the review, the token no longer matches and the write is refused. Even when you let an AI assistant write, always ask it to show you the dry run result first.

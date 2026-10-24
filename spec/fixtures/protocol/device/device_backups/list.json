@@ -1,0 +1,48 @@
+{
+  "description": "戻す先のバックアップを新しい順に返す（read と build は出さない。日時だけの名前は前の版の device_backups の legacy）",
+  "setup": {
+    "profile": "test_config",
+    "snapshots": {
+      "20261020-090000-backup": "profile",
+      "20261021-101500-pre-apply": "profile",
+      "20261021-101500-read": "profile",
+      "20261021-102000-pre-restore": "profile",
+      "20261021-103000-build": "profile",
+      "20261019-080000": "profile"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/backups",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "backups": [
+        {
+          "name": "20261021-102000-pre-restore",
+          "path": "tmp/profiles/default/snapshots/20261021-102000-pre-restore/layout.vil",
+          "kind": "pre-restore"
+        },
+        {
+          "name": "20261021-101500-pre-apply",
+          "path": "tmp/profiles/default/snapshots/20261021-101500-pre-apply/layout.vil",
+          "kind": "pre-apply"
+        },
+        {
+          "name": "20261020-090000-backup",
+          "path": "tmp/profiles/default/snapshots/20261020-090000-backup/layout.vil",
+          "kind": "backup"
+        },
+        {
+          "name": "20261019-080000",
+          "path": "tmp/profiles/default/device_backups/20261019-080000.vil",
+          "kind": "legacy"
+        }
+      ]
+    }
+  }
+}

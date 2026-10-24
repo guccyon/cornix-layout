@@ -1,0 +1,34 @@
+{
+  "description": "tapDanceAction の exclude はその表記と同じ値の候補（タップダンス自身）を除く。前方一致の TapDance('Tab Escape') は出ず、完全一致の Tab の下はあいまい一致（VerticalBar・LeftAngleBracket などが t・a・b を順に含む）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "keycode/candidates",
+    "params": {
+      "profileId": "p1",
+      "context": "tapDanceAction",
+      "query": "Tab",
+      "exclude": "TapDance('Tab Escape')"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "items": [
+        {
+          "insertText": "Tab",
+          "label": "Tab",
+          "detail": "KC_TAB",
+          "category": "basic"
+        },
+        { "insertText": "|" },
+        { "insertText": "<" },
+        { "insertText": ">" },
+        { "insertText": "ToggleBackslashBackspace" }
+      ],
+      "truncated": false
+    }
+  }
+}

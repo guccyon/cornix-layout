@@ -1,0 +1,77 @@
+{
+  "description": "[\"index\"] の set（v0.5。protocol.md の 15.2）: index: の行があれば値を置き換える。範囲と重なりは確かめず、意味検証の結果で知らせる",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "macros/02_copy_selected.yml": "sha256:17722a02c39f5f4c65ce7b6efb91679cbe188472ff39ed61d18db53ff49a7933"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "macros/02_copy_selected.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 3
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "macros/02_copy_selected.yml",
+          "baseVersion": "sha256:17722a02c39f5f4c65ce7b6efb91679cbe188472ff39ed61d18db53ff49a7933",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 4,
+                  "character": 7
+                },
+                "end": {
+                  "line": 4,
+                  "character": 8
+                }
+              },
+              "newText": "3"
+            }
+          ]
+        }
+      ],
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "マクロの番号が重複しています: 3",
+          "source": "semantic",
+          "address": {
+            "file": "macros/03_copy_current_word.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 4,
+              "character": 7
+            },
+            "end": {
+              "line": 4,
+              "character": 8
+            }
+          }
+        }
+      ]
+    }
+  }
+}

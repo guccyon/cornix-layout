@@ -1,0 +1,29 @@
+{
+  "description": "reorder の files が配列でなければ -32602（field \"edit.files\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "reorder",
+        "kind": "layer",
+        "files": "layers/0_base.yml"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.files"
+      }
+    }
+  }
+}

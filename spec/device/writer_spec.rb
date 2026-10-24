@@ -111,4 +111,37 @@ RSpec.describe Cornix::Device::Writer do
     expect(result).not_to be_success
     expect(result.remaining.map(&:kind)).to eq([:set_setting])
   end
+
+  it '書き込みの途中の失敗は WriteIncomplete（applied に書き終えた件数、backup にバックアップ）' do
+    changes = [
+      Cornix::Planning::Change::SetKeycode.new(layer: 0, row: 0, col: 1, from: 0, to: 0x05),
+      Cornix::Planning::Change::SetKeycode.new(layer: 0, row: 1, col: 3, from: 0, to: 0x06) # マトリクスの外
+    ]
+    expect { writer.apply(Cornix::Planning::Plan.new(changes: changes), backup: -> { 'b.vil' }) }
+      .to raise_error(Cornix::WriteIncomplete) { |e| expect([e.applied, e.backup]).to eq([1, 'b.vil']) }
+  end
+
+  it 'token が違うときは PlanChanged' do
+    plan = planner.plan(current: current, target: target)
+    expect { writer.apply(plan, expected_token: 'stale') }.to raise_error(Cornix::PlanChanged)
+  end
+
+  it '読み直しに失敗したら、全件書いた WriteIncomplete' do
+    plan = planner.plan(current: current, target: target)
+    failing = Cornix::Device::Reader.new(session)
+    allow(failing).to receive(:read).and_raise(Cornix::DeviceUnavailable.new('応答がありません', reason: :timeout))
+    writer = described_class.new(session, reader: failing)
+    expect { writer.apply(plan, backup: -> { 'b.vil' }) }
+      .to raise_error(Cornix::WriteIncomplete, /読み直しに失敗/) { |e| expect(e.applied).to eq(plan.size) }
+  end
+
+  it 'progress に書いた件数（:write）と読み直し（:verify）を渡す' do
+    plan = planner.plan(current: current, target: target)
+    calls = []
+    writer.apply(plan, progress: ->(phase, done, total) { calls << [phase, done, total] })
+    expect(calls.select { |c| c[0] == :write }).to eq((1..6).map { |i| [:write, i, 6] })
+    verify = calls.select { |c| c[0] == :verify }
+    expect(verify.last[1]).to eq(verify.last[2])
+    expect(calls.map(&:first).uniq).to eq(%i[write verify])
+  end
 end

@@ -1,0 +1,310 @@
+{
+  "description": "未使用のファイル（index のないか値が空。v0.5。protocol.md の 15.1）の項目を unused に、使っている項目と同じ形で index だけ null にして返す（並びはファイルのパスの順）。構造の問題で読めないファイル（tap_dance/broken.yml）は入れず、diagnostics の warning にする。shortcuts.yaml がなければ files に null",
+  "setup": {
+    "profile": "authors_config",
+    "open": false,
+    "files": {
+      "profiles/default/layers/spare.yml": "---\nname: iPad Spare\ndescription: 予備\nmapping:\n  left_hand:\n    row0:\n      tab: Macro('Bracket Pair')\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n",
+      "profiles/default/macros/old_paste.yml": "---\nname: Old Paste\ndescription: ''\nindex:\nsequence:\n- action: tap\n  keys: [KC_LGUI, KC_V]\n",
+      "profiles/default/tap_dance/spare.yml": "---\nname: Spare TD\nindex: null\nactions:\n  on_tap: KC_A\n  on_hold: KC_B\n",
+      "profiles/default/tap_dance/broken.yml": "---\nname: Broken\nactions:\n  on_tap: KC_FOOO\n",
+      "profiles/default/combos/spare.yml": "---\nname: Spare Combo\ntrigger_keys: [KC_Q, KC_W]\noutput_key: KC_ESCAPE\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/open",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "profileId": "p1",
+      "status": "ok",
+      "files": {
+        "shortcuts.yaml": null
+      },
+      "unused": {
+        "layers": [
+          {
+            "index": null,
+            "name": "iPad Spare",
+            "description": "予備",
+            "file": "layers/spare.yml",
+            "descriptionAddress": {
+              "file": "layers/spare.yml",
+              "path": [
+                "description"
+              ]
+            }
+          }
+        ],
+        "macros": [
+          {
+            "index": null,
+            "name": "Old Paste",
+            "description": null,
+            "file": "macros/old_paste.yml",
+            "descriptionAddress": {
+              "file": "macros/old_paste.yml",
+              "path": [
+                "description"
+              ]
+            },
+            "icon": null,
+            "preset": null,
+            "presetAddress": null,
+            "summary": [
+              "tap: ⌘ V"
+            ],
+            "steps": [
+              {
+                "address": {
+                  "file": "macros/old_paste.yml",
+                  "path": [
+                    "sequence",
+                    0
+                  ]
+                },
+                "action": "tap",
+                "keysAddress": {
+                  "file": "macros/old_paste.yml",
+                  "path": [
+                    "sequence",
+                    0,
+                    "keys"
+                  ]
+                },
+                "keys": [
+                  {
+                    "address": {
+                      "file": "macros/old_paste.yml",
+                      "path": [
+                        "sequence",
+                        0,
+                        "keys",
+                        0
+                      ]
+                    },
+                    "value": {
+                      "text": "KC_LGUI",
+                      "canonical": "LGui",
+                      "code": 227,
+                      "kind": "basic",
+                      "display": {
+                        "label": "⌘"
+                      }
+                    }
+                  },
+                  {
+                    "address": {
+                      "file": "macros/old_paste.yml",
+                      "path": [
+                        "sequence",
+                        0,
+                        "keys",
+                        1
+                      ]
+                    },
+                    "value": {
+                      "text": "KC_V",
+                      "canonical": "V",
+                      "code": 25,
+                      "kind": "basic",
+                      "display": {
+                        "label": "V"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "tapDances": [
+          {
+            "index": null,
+            "name": "Spare TD",
+            "description": null,
+            "file": "tap_dance/spare.yml",
+            "descriptionAddress": {
+              "file": "tap_dance/spare.yml",
+              "path": [
+                "description"
+              ]
+            },
+            "actions": {
+              "tap": {
+                "address": {
+                  "file": "tap_dance/spare.yml",
+                  "path": [
+                    "actions",
+                    "on_tap"
+                  ]
+                },
+                "value": {
+                  "text": "KC_A",
+                  "canonical": "A",
+                  "code": 4,
+                  "kind": "basic",
+                  "display": {
+                    "label": "A"
+                  }
+                }
+              },
+              "hold": {
+                "address": {
+                  "file": "tap_dance/spare.yml",
+                  "path": [
+                    "actions",
+                    "on_hold"
+                  ]
+                },
+                "value": {
+                  "text": "KC_B",
+                  "canonical": "B",
+                  "code": 5,
+                  "kind": "basic",
+                  "display": {
+                    "label": "B"
+                  }
+                }
+              },
+              "doubleTap": {
+                "address": {
+                  "file": "tap_dance/spare.yml",
+                  "path": [
+                    "actions",
+                    "on_double_tap"
+                  ]
+                },
+                "value": null
+              },
+              "tapHold": {
+                "address": {
+                  "file": "tap_dance/spare.yml",
+                  "path": [
+                    "actions",
+                    "on_tap_hold"
+                  ]
+                },
+                "value": null
+              }
+            },
+            "tappingTerm": {
+              "address": {
+                "file": "tap_dance/spare.yml",
+                "path": [
+                  "tapping_term"
+                ]
+              },
+              "value": null
+            }
+          }
+        ],
+        "combos": [
+          {
+            "index": null,
+            "name": "Spare Combo",
+            "description": null,
+            "file": "combos/spare.yml",
+            "descriptionAddress": {
+              "file": "combos/spare.yml",
+              "path": [
+                "description"
+              ]
+            },
+            "triggersAddress": {
+              "file": "combos/spare.yml",
+              "path": [
+                "trigger_keys"
+              ]
+            },
+            "triggers": [
+              {
+                "address": {
+                  "file": "combos/spare.yml",
+                  "path": [
+                    "trigger_keys",
+                    0
+                  ]
+                },
+                "value": {
+                  "text": "KC_Q",
+                  "canonical": "Q",
+                  "code": 20,
+                  "kind": "basic",
+                  "display": {
+                    "label": "Q"
+                  }
+                }
+              },
+              {
+                "address": {
+                  "file": "combos/spare.yml",
+                  "path": [
+                    "trigger_keys",
+                    1
+                  ]
+                },
+                "value": {
+                  "text": "KC_W",
+                  "canonical": "W",
+                  "code": 26,
+                  "kind": "basic",
+                  "display": {
+                    "label": "W"
+                  }
+                }
+              }
+            ],
+            "output": {
+              "address": {
+                "file": "combos/spare.yml",
+                "path": [
+                  "output_key"
+                ]
+              },
+              "value": {
+                "text": "KC_ESCAPE",
+                "canonical": "Escape",
+                "code": 41,
+                "kind": "basic",
+                "display": {
+                  "label": "Escape"
+                }
+              }
+            },
+            "reachable": true
+          }
+        ]
+      },
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "キーコード「KC_FOOO」を解釈できません: 「KC_FOOO」は不明なキーコードです（未使用のファイルなので compile に含めません）",
+          "source": "structure",
+          "address": {
+            "file": "tap_dance/broken.yml",
+            "path": [
+              "actions",
+              "on_tap"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 3,
+              "character": 10
+            },
+            "end": {
+              "line": 3,
+              "character": 17
+            }
+          }
+        }
+      ]
+    }
+  }
+}

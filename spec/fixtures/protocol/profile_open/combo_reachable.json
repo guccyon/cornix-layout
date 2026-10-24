@@ -1,0 +1,67 @@
+{
+  "description": "コンボの reachable（13.2）は、どれかのレイヤーでトリガーのキーがすべてそろうか（KC_TRNS の位置はレイヤー 0 の値で見る）。トリガーが KC_NO だけなら true。そろわないコンボは意味検証の警告（address は trigger_keys）",
+  "setup": {
+    "files": {
+      "profiles/default/metadata.yaml": "keyboard: cornix\nversion: 1\n",
+      "profiles/default/position_map.yaml": "left_hand:\n  row0: [tab, Q, W, E, R, T]\n  row1: [caps, A, S, D, F, G]\n  row2: [lshift, Z, X, C, V, B]\n  row3: [lctrl, command, option]\n  thumb_keys: [left, middle, right]\nright_hand:\n  row0: [Y, U, I, O, P, backspace]\n  row1: [H, J, K, L, colon, enter]\n  row2: [N, M, comma, dot, up, rshift]\n  row3: [left, down, right]\n  thumb_keys: [left, middle, right]\nencoders:\n  left: { push: push, ccw: ccw, cw: cw }\n  right: { push: push, ccw: ccw, cw: cw }\n",
+      "profiles/default/layers/0_base.yaml": "name: Base\nindex: 0\nmapping:\n  left_hand:\n    row0: { tab: Tab }\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n",
+      "profiles/default/layers/1_upper.yaml": "name: Upper\nindex: 1\nmapping:\n  left_hand:\n    row0: { tab: KC_TRNS, Q: Q }\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n  right_hand:\n    row0:\n    row1:\n    row2:\n    row3:\n    thumb_keys:\n",
+      "profiles/default/combos/00_tab_q.yaml": "name: Tab Q\nindex: 0\ntrigger_keys: [KC_TAB, KC_Q]\noutput_key: KC_ESCAPE\n",
+      "profiles/default/combos/01_tab_w.yaml": "name: Tab W\nindex: 1\ntrigger_keys: [KC_TAB, KC_W]\noutput_key: KC_ESCAPE\n",
+      "profiles/default/combos/02_new.yaml": "name: New\nindex: 2\ntrigger_keys: [KC_NO, KC_NO]\noutput_key: KC_NO\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/open",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "status": "ok",
+      "combos": [
+        {
+          "index": 0,
+          "name": "Tab Q",
+          "reachable": true
+        },
+        {
+          "index": 1,
+          "name": "Tab W",
+          "reachable": false
+        },
+        {
+          "index": 2,
+          "name": "New",
+          "reachable": true
+        }
+      ],
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）",
+          "source": "semantic",
+          "address": {
+            "file": "combos/01_tab_w.yaml",
+            "path": [
+              "trigger_keys"
+            ]
+          },
+          "range": {
+            "start": {
+              "line": 2,
+              "character": 14
+            },
+            "end": {
+              "line": 2,
+              "character": 28
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -2,15 +2,20 @@
 
 cornix-layout のプロファイル（設定ディレクトリ）丸ごとを 1 画面で構造化して見せ、補完つきで編集できる VS Code 拡張の設計文書。
 仕様は 2026-10-19 の相談ですべて決まり、自分用の v0.1（レイヤーと QMK 設定を画面で編集して保存できるところまで）が main に入っている。
+v0.2（すべての設定ファイルを画面だけで編集できる）と v0.3（手で直すときにテキストを開かなくなる）、v0.4（下の欄のキー別の並べ方とレイヤーの追加・削除、実機とつなぐ: 節「デバイス転送」からの反映のプレビュー → 確定）も main に入っている。v0.5（未使用の項目を取り出す・未使用にする・番号の変更と入れ替え、見出しの「…」、ショートカットの追加を未保存の変更に）は統合ブランチ `feature/vscode-extension` に入り、main への PR の前の仕上げ（段 3）をしている。
 
 | 文書 | 内容 |
 |---|---|
 | [spec.md](spec.md) | 背景と目標、仕様（画面・作り・アイコン・検証・範囲）、入力と補完 |
-| [adr.md](adr.md) | 設計の決定（ADR 001〜015） |
-| [roadmap.md](roadmap.md) | 版ごとの中身と終わったと言える条件、将来の拡張、v0.1 の進め方 |
-| [protocol.md](protocol.md) | Ruby のバックエンドと拡張の間のリクエストの約束（v0.1） |
+| [adr.md](adr.md) | 設計の決定（ADR 001〜025） |
+| [roadmap.md](roadmap.md) | 版ごとの中身と終わったと言える条件・状態、将来の拡張、v0.1 の進め方 |
+| [protocol.md](protocol.md) | Ruby のバックエンドと拡張の間のリクエストの約束（v0.1 と、12 節の v0.2 で足すもの、13 節の v0.3 で足すもの、14 節の v0.4 で足す実機の操作、15 節の v0.5 で足す未使用の項目と番号の操作） |
 | [tasks.md](tasks.md) | v0.1 の作業の分け方（並列に進める単位）と、作業の間の契約、v0.2 からの進め方 |
+| [tasks-v0.2.md](tasks-v0.2.md) | v0.2 で入れるもの、決めたこと、作業の分け方と契約、進み具合、段 2 の PR で決めたこと |
+| [tasks-v0.3.md](tasks-v0.3.md) | v0.3 で入れるもの、決めたこと、作業の分け方と契約、進み具合、段 2 の PR で決めたこと |
+| [tasks-v0.4.md](tasks-v0.4.md) | v0.4（実機とつなぐ）で入れるもの、決めたこと、画面、作業の分け方と契約、進み具合、段 2 の PR で決めたこと |
+| [tasks-v0.5.md](tasks-v0.5.md) | v0.5（未使用の項目を取り出す・未使用にする・番号の変更、ショートカットの追加を未保存に）の決めたこと、作業の分け方と契約、進み具合 |
 
-拡張のコードは `editors/vscode/`（開発の手順と .vsix の入れ方は [editors/vscode/README.md](../../editors/vscode/README.md)）、
-バックエンドは `cornix serve`（Interface 層の `Interface::EditorServer` と Application 層の `Application::Editor::*`。
-[architecture.md](../architecture.md) の層と依存の向きを守る）にある。
+拡張のコードは `editors/vscode/`（開発の手順・.vsix の入れ方・ファイルの構成は [editors/vscode/README.md](../../editors/vscode/README.md)）、
+バックエンドは `cornix serve` と実機の操作の `cornix serve --device`（Interface 層の `Interface::EditorServer` と Application 層の `Application::Editor::*`。
+[architecture.md](../architecture.md) の層と依存の向きを守る）にある。項目の名前の変更で使う参照の置き換えは [rename.md](../rename.md) の「部品」。

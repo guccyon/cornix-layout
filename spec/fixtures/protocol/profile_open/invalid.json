@@ -1,5 +1,5 @@
 {
-  "description": "構造検証で読めなければ status: invalid。layers などは空で、diagnostics に構造の問題（値の問題は Address と range、ファイル全体の問題は file）",
+  "description": "構造検証で読めなければ status: invalid。layers などは空（v0.2 の macros・tapDances・combos・shortcuts も）で、diagnostics に構造の問題（値の問題は Address と range、ファイル全体の問題は file）",
   "setup": {
     "profile": "test_config",
     "open": false,
@@ -19,6 +19,10 @@
       "layers": [],
       "settings": [],
       "references": { "layers": [], "macros": [], "tapDances": [], "shortcuts": [] },
+      "macros": [],
+      "tapDances": [],
+      "combos": [],
+      "shortcuts": [],
       "diagnostics": [
         { "severity": "error", "message": "未知のキーです（使えるキー: shortcuts）", "source": "structure", "file": "shortcuts.yaml" },
         { "severity": "error", "message": "shortcuts がありません", "source": "structure", "file": "shortcuts.yaml" },

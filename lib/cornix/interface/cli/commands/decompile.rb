@@ -30,7 +30,8 @@ module Cornix
 
           def run(args)
             (file,), = parse!(args, max_args: 1)
-            report_decompile(use_case(:decompile).call(input: file), config_exists: CONFIG_EXISTS)
+            result = use_case(:decompile).call(input: file)
+            json? ? json_decompile(result) : report_decompile(result, config_exists: CONFIG_EXISTS)
           end
         end
       end

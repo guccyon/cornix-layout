@@ -1,0 +1,55 @@
+{
+  "description": "バックアップと実機の差分（profile はバックアップの値）。source はバックアップのパス",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile"
+    },
+    "snapshots": {
+      "20261021-101500-pre-apply": {
+        "from": "profile",
+        "keys": [
+          {
+            "layer": 0,
+            "row": 0,
+            "col": 1,
+            "value": "KC_A"
+          }
+        ]
+      }
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compareBackup",
+    "params": {
+      "dir": "profiles/default",
+      "backup": "20261021-101500-pre-apply"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "plan": {
+        "token": "68fbf3809474f4a4",
+        "empty": false,
+        "changes": [
+          {
+            "kind": "key",
+            "layer": 0,
+            "key": {
+              "hand": "left",
+              "row": 0,
+              "col": 1
+            },
+            "position": "Q",
+            "device": "KC_Q",
+            "profile": "KC_A",
+            "text": "レイヤー0 (0,1): KC_Q → KC_A"
+          }
+        ]
+      },
+      "source": "tmp/profiles/default/snapshots/20261021-101500-pre-apply/layout.vil"
+    }
+  }
+}

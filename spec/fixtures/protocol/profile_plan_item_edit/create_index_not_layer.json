@@ -1,0 +1,30 @@
+{
+  "description": "index はレイヤーを足すときだけ書ける（ほかの種類は -32602、field \"edit.index\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "macro",
+        "name": "New",
+        "index": 3
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.index"
+      }
+    }
+  }
+}

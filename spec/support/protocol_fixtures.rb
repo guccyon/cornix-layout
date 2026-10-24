@@ -8,9 +8,11 @@ require 'tmpdir'
 # 約束の適合テスト（docs/vscode-extension/protocol.md の 8.2）。
 # spec/fixtures/protocol/<メソッド>/<名前>.json の「リクエストと期待する応答」の組を読み、cornix serve と同じ枠で
 # サーバーに流して確かめる。データを足すだけで spec/interface/editor_server/conformance_spec.rb が拾う。
-# データの形（setup・request / raw・response・notifications）と比べ方は protocol.md の 8.2 に書いた（TypeScript 版も同じに読む）
+# データの形（setup・request / raw・response・notifications）と比べ方は protocol.md の 8.2 に書いた（TypeScript 版も同じに読む）。
+# device/ の下（device のサーバーのデータ。protocol.md の 14.10）は拾わない（spec/support/device_protocol_fixtures.rb が読む）
 module ProtocolFixtures
   DIR = File.expand_path('../fixtures/protocol', __dir__)
+  DEVICE_DIR = File.join(DIR, 'device')
   FIXTURES = File.expand_path('../fixtures', __dir__)
   DEFAULT_PROFILE_DIR = 'profiles/default'
 
@@ -30,7 +32,7 @@ module ProtocolFixtures
 
   module_function
 
-  def all = Dir[File.join(DIR, '**', '*.json')].sort.map { |path| load(path) }
+  def all = Dir[File.join(DIR, '**', '*.json')].reject { |path| path.start_with?("#{DEVICE_DIR}/") }.sort.map { |path| load(path) }
 
   def load(path) = Fixture.new(path: path, data: JSON.parse(File.read(path, encoding: 'UTF-8')))
 
@@ -44,7 +46,9 @@ module ProtocolFixtures
 
       setup = setup_messages(workbench, fixture.setup)
       body = fixture.raw || JSON.generate(message(fixture.request))
-      execute(workbench, setup, body, fixture.request&.dig('id'))
+      execute(setup, body, fixture.request&.dig('id')) do |input, output, error|
+        Cornix::Interface::EditorServer::Server.new(workbench: workbench, input: input, output: output, error: error)
+      end
     end
   end
 
@@ -79,6 +83,9 @@ module ProtocolFixtures
     profiles.each { |dir, source| copy_profile(root, dir, source) }
     (setup['files'] || {}).each do |rel, text|
       path = File.join(root, rel)
+      # null は消す（profile で置いたファイルを除くとき）
+      next FileUtils.rm_f(path) if text.nil?
+
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, text)
     end
@@ -100,7 +107,7 @@ module ProtocolFixtures
   def setup_messages(workbench, setup)
     list = []
     unless setup['initialize'] == false
-      list << message('id' => 'setup:initialize', 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.1' })
+      list << message('id' => 'setup:initialize', 'method' => 'initialize', 'params' => { 'protocolVersion' => '0.5' })
       list << message('method' => 'initialized')
     end
     if setup['profile'] && setup['open'] != false
@@ -121,22 +128,25 @@ module ProtocolFixtures
     full
   end
 
-  def execute(workbench, setup, body, request_id)
+  # setup のメッセージ・本文・after のメッセージを枠に入れて、ブロックが作るサーバー（|input, output, error|）に流す。
+  # setup と after への応答は確かめない（setup のリクエストの失敗だけは例外にする）
+  def execute(setup, body, request_id, after: [])
     framing = Cornix::Interface::EditorServer::Framing
     input = StringIO.new(+'')
     setup.each { |m| framing.write(input, m) }
     input.write("Content-Length: #{body.bytesize}\r\n\r\n", body)
+    after.each { |m| framing.write(input, m) }
     input.rewind
     output = StringIO.new(+'')
     error = StringIO.new
-    Cornix::Interface::EditorServer::Server.new(workbench: workbench, input: input, output: output, error: error).run
+    yield(input, output, error).run
     output.rewind
     received = []
     while (m = framing.read(output))
       received << m
     end
     responses = received.reject { |m| m.key?('method') }
-    setup_ids = setup.filter_map { |m| m['id'] }
+    setup_ids = (setup + after).filter_map { |m| m['id'] }
     failed = responses.select { |m| m['id'].to_s.start_with?('setup:') && m.key?('error') }
     raise "setup のリクエストが失敗しました: #{failed.inspect}\n#{error.string}" unless failed.empty?
 

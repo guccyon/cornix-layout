@@ -1,0 +1,39 @@
+{
+  "description": "読む間に届いた $/cancelRequest で -32800 にする（after は request の後に送る）",
+  "setup": {
+    "profile": "test_config",
+    "device": {
+      "from": "profile"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/compare",
+    "params": {
+      "dir": "profiles/default"
+    }
+  },
+  "after": [
+    {
+      "method": "$/cancelRequest",
+      "params": {
+        "id": 1
+      }
+    }
+  ],
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32800
+    }
+  },
+  "notifications": [
+    {
+      "method": "device/progress",
+      "params": {
+        "phase": "read",
+        "done": 1
+      }
+    }
+  ]
+}

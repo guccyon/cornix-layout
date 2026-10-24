@@ -17,6 +17,20 @@ RSpec.describe Cornix::Storage::DiagnosticLocator do
     expect(at('layers[2]')).to eq('layers/2_layer_2.yaml')
   end
 
+  it '未使用のファイル（index のないもの）を除いて並べた i 番目のファイルを指す（issue #85）' do
+    with_config_copy do |dir|
+      write_file(dir, 'layers/0_spare.yaml', "name: Spare\nmapping: {}\n")
+      write_file(dir, 'layers/2_a_old.yaml', "name: Old\nindex:\nmapping: {}\n")
+      write_file(dir, 'macros/00_a.yaml', "name: Spare\nsequence: []\n")
+      locator = described_class.new(dir)
+      expect(locator.locate_path('layers[0].left_hand.row0.tab')).to eq('layers/0_layer_0.yaml: mapping.left_hand.row0.tab')
+      expect(locator.address('layers[3]')).to eq(['layers/3_layer_3.yaml', []])
+      expect(locator.address('layers[9].left_hand.row0.tab')).to eq(['layers/9_layer_9.yaml', %w[mapping left_hand row0 tab]])
+      expect(locator.address('layers[10]')).to be_nil
+      expect(locator.address('macros[0].name')).to eq(['macros/00_macro.yaml', ['name']])
+    end
+  end
+
   it 'マクロの steps は sequence、keys が 1 つの文字列なら keys' do
     expect(at('macros[9].steps[1].keys[0]')).to eq('macros/10_macro.yaml: sequence[1].keys[0]')
     expect(at('macros[0].name')).to eq('macros/00_macro.yaml: name')

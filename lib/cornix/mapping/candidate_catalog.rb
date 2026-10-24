@@ -7,7 +7,8 @@ module Cornix
     #
     #   candidates = CandidateCatalog.new(catalog:, notation:, shortcut_catalog:, categories: CandidateCatalog.default_categories,
     #                                     icon_for: ->(app_name) { nil })
-    #   candidates.search(query:, context: 'layerKey', references:, layer_names: { 1 => 'Symbols' }, limit: 50)
+    #   candidates.search(query:, context: 'layerKey', references:, layer_names: { 1 => 'Symbols' }, limit: 50,
+    #                     usage: { 0x0004 => 3 })   # 16bit 値 => プロファイルで使っている回数（省けば数えない）
     #     #=> Result(items: [Candidate], truncated:)
     #   candidates.shortcut_tree #=> [{ name:, icon:, categories: [{ name:, items: [{ label:, insert_text:, text:, macro: }] }] }]
     #
@@ -23,9 +24,21 @@ module Cornix
     # 選んでも Shortcut('名前') にはしない（decompile ならそう書くが、選んだ表記を残す。spec.md の「手で打った表記は残す」と同じ扱い）
     #
     # 並べ方: 対応していないキー（unsupported_keycodes.yaml。warning に理由）を最後に、その前は
-    # 「完全一致 → 前方一致 → 部分一致」（大文字小文字は区別しない）、同じなら context の上に出すもの（keycode_categories.yaml の contexts）、
+    # 「完全一致 → 前方一致 → 部分一致 → あいまい一致」（大文字小文字は区別しない）、同じなら context の上に出すもの（keycode_categories.yaml の contexts。上に出すものどうしは書いた順）、
+    # 同じなら usage の回数の多いもの（プロファイルでよく使うキー。protocol.md の 13.3）、
     # 同じなら分類の順（keycode_categories.yaml の order のあとに layer, macro, tapDance, shortcut, presetShortcut）と表の順。
     # query が空なら全部が一致したものとして並べる。
+    #
+    # あいまい一致: 前方一致・部分一致に当たらない候補のうち、query の文字を順に含むもの（間を飛ばしてよい。lbrkt → KC_LBRACKET）。
+    # 大文字小文字・_・空白は区別しない（query と候補の両方から除いて比べる）。最初に当たった文字から最後に当たった文字までの間で
+    # 飛ばした文字の少ないものを上に（前に付いた KC_ などは数えない）。
+    #
+    # 場面（context）ごとの扱い（protocol.md の 12.4）
+    #   exclude.categories  その分類の候補を出さない（all: true なら出す）
+    #   prefer.baseLayer    base_codes（ベースレイヤーに割り当ててある 16bit 値）と同じ値の候補を上に出す
+    #   exclude:            その 16bit 値と同じ値の候補を出さない（タップダンスの動作の欄でそのタップダンス自身を除くなど）
+    #   format_references:  候補の表記（insert_text）を作る名前参照。マクロの手順のキーは名前参照を読まないので
+    #                       References::NONE を渡すと、マクロ・タップダンスの候補は M0 / TD(4) の形になる（label は名前のまま）
     class CandidateCatalog
       Candidate = Data.define(:insert_text, :label, :detail, :category, :icon, :warning)
       Result = Data.define(:items, :truncated)
@@ -40,10 +53,18 @@ module Cornix
       DETAIL_SEPARATOR = ' · '
       PATH_SEPARATOR = ' › '
       DEFAULT_LIMIT = 50
+      # 当てはまり方（小さいほど上）。あいまい一致は [FUZZY, 飛ばした文字の数]
+      EXACT = [0].freeze
+      PREFIX = [1].freeze
+      SUBSTRING = [2].freeze
+      FUZZY = 3
+      # あいまい一致で区別しない文字
+      FUZZY_IGNORED = /[\s_]/
 
-      # 候補 1 つと、当てる文字（小文字にしたもの）・並べるための値。
+      # 候補 1 つと、当てる文字（小文字にしたもの）・あいまい一致で当てる文字（さらに _ と空白を除いたもの）・並べるための値。
       # key_name はキーの表の候補の keycodes.yaml の name、shortcut は同梱のショートカットの名前
-      Entry = Data.define(:candidate, :terms, :position, :key_name, :shortcut, :unsupported)
+      # code はその候補の 16bit 値（exclude と base_codes で比べる）
+      Entry = Data.define(:candidate, :terms, :fuzzy_terms, :position, :key_name, :shortcut, :unsupported, :code)
       private_constant :Entry
 
       def self.default_categories = @default_categories ||= Categories.load
@@ -70,20 +91,25 @@ module Cornix
 
       # references が Shortcut(...) を使えない場面（shortcuts_available? が false。既定の NONE も）なら、
       # 選んでも読めないので shortcut / presetShortcut の候補は出さない。limit は 1 未満なら 1 にする
-      def search(query:, context:, references: References::NONE, layer_names: {}, limit: DEFAULT_LIMIT)
+      def search(query:, context:, references: References::NONE, layer_names: {}, limit: DEFAULT_LIMIT, all: false,
+                 exclude: nil, base_codes: [], format_references: references, usage: {})
         raise ArgumentError, "知らない context です: #{context.inspect}" unless @categories.context?(context)
 
         limit = [limit.to_i, 1].max
 
         query = query.to_s.strip
         needle = query.downcase
-        entries = @key_entries + reference_entries(references, layer_names) + preset_entries(references)
+        fuzzy_needle = fuzzy(needle)
+        base = @categories.prefer_base_layer?(context) ? base_codes.to_set : Set.new
+        entries = @key_entries + reference_entries(references, layer_names, format_references) + preset_entries(references)
         ranked = entries.filter_map do |entry|
-          rank = match_rank(entry.terms, needle)
-          rank && [entry, sort_key(entry, rank, context)]
+          next unless shown?(entry.candidate.category, entry.code, context, all, exclude)
+
+          rank = match_rank(entry, needle, fuzzy_needle)
+          rank && [entry, sort_key(entry, rank, context, base, usage)]
         end
         items = ranked.sort_by(&:last).map { |entry, _| entry.candidate }
-        items.unshift(*raw_candidates(query, references))
+        items.unshift(*raw_candidates(query, format_references, context, all, exclude))
         Result.new(items: items.first(limit).freeze, truncated: items.size > limit)
       end
 
@@ -95,22 +121,57 @@ module Cornix
 
       # ---- 並べ方
 
-      # 0: 完全一致、1: 前方一致、2: 部分一致、nil: 当たらない
-      def match_rank(terms, needle)
-        return 0 if needle.empty?
+      # EXACT: 完全一致、PREFIX: 前方一致、SUBSTRING: 部分一致、[FUZZY, 飛ばした文字の数]: あいまい一致、nil: 当たらない
+      def match_rank(entry, needle, fuzzy_needle)
+        return EXACT if needle.empty?
 
-        terms.filter_map do |term|
-          if term == needle then 0
-          elsif term.start_with?(needle) then 1
-          elsif term.include?(needle) then 2
+        direct = entry.terms.filter_map do |term|
+          if term == needle then EXACT
+          elsif term.start_with?(needle) then PREFIX
+          elsif term.include?(needle) then SUBSTRING
           end
         end.min
+        return direct if direct
+        return nil if fuzzy_needle.empty?
+
+        skipped = entry.fuzzy_terms.filter_map { |term| skipped_chars(term, fuzzy_needle) }.min
+        skipped && [FUZZY, skipped]
       end
 
-      def sort_key(entry, rank, context)
+      # term が needle の文字を順に含むなら、最初に当たった文字から最後に当たった文字までの間で飛ばした文字の数の最小。含まなければ nil。
+      # 始まりごとに前から貪欲に当てる（始まりを決めれば、貪欲に当てたものが最も短い）
+      def skipped_chars(term, needle)
+        best = nil
+        start = term.index(needle[0])
+        while start
+          finish = start
+          ok = needle.each_char.with_index.all? do |char, i|
+            next true if i.zero?
+
+            finish = term.index(char, finish + 1)
+          end
+          break unless ok # この始まりで当たらなければ、後ろの始まりでも当たらない
+
+          gap = finish - start + 1 - needle.length
+          best = gap if best.nil? || gap < best
+          break if best.zero?
+
+          start = term.index(needle[0], start + 1)
+        end
+        best
+      end
+
+      def sort_key(entry, rank, context, base, usage)
         category = entry.candidate.category
-        prefer = @categories.prefer?(context, category, entry.key_name)
-        [entry.unsupported ? 1 : 0, rank, prefer ? 0 : 1, @group_order.fetch(category), entry.position]
+        prefer = @categories.prefer_rank(context, category, entry.key_name) || (base.include?(entry.code) ? 0 : nil)
+        [entry.unsupported ? 1 : 0, rank, prefer || Float::INFINITY, -usage.fetch(entry.code, 0),
+         @group_order.fetch(category), entry.position]
+      end
+
+      def shown?(category, code, context, all, exclude)
+        return false if !exclude.nil? && code == exclude
+
+        all || !@categories.exclude?(context, category)
       end
 
       # ---- キーの表
@@ -144,8 +205,8 @@ module Cornix
         position = [@categories.position(name) || Float::INFINITY, code]
         Entry.new(candidate: Candidate.new(insert_text: text, label: text, detail: join(detail), category: category,
                                            icon: nil, warning: @unsupported[code]),
-                  terms: downcase(terms), position: position, key_name: name, shortcut: nil,
-                  unsupported: @unsupported.key?(code))
+                  terms: downcase(terms), fuzzy_terms: fuzzy_terms(terms), position: position, key_name: name, shortcut: nil,
+                  unsupported: @unsupported.key?(code), code: code)
       end
 
       def section(code)
@@ -165,33 +226,37 @@ module Cornix
 
       # ---- プロファイルから作る候補（レイヤー・マクロ・タップダンス・利用者のショートカット）
 
-      def reference_entries(references, layer_names)
-        layer_entries(layer_names) + macro_entries(references) + tap_dance_entries(references) + shortcut_entries(references)
+      def reference_entries(references, layer_names, format_references)
+        layer_entries(layer_names) + macro_entries(references, format_references) +
+          tap_dance_entries(references, format_references) + shortcut_entries(references)
       end
 
       def layer_entries(layer_names)
         layer_names.keys.sort.flat_map do |index|
           name = layer_names[index]
           LAYER_OPS.each_with_index.map do |op, i|
-            text = @notation.format(Domain::Keycode::LayerAction.new(op: op, layer: Domain::LayerRef.new(index: index)))
-            reference_entry(text, text, name, 'layer', [i, index], [text, name, "L#{index}"])
+            keycode = Domain::Keycode::LayerAction.new(op: op, layer: Domain::LayerRef.new(index: index))
+            text = @notation.format(keycode)
+            reference_entry(text, text, name, 'layer', [i, index], [text, name, "L#{index}"], keycode)
           end
         end
       end
 
-      def macro_entries(references)
+      def macro_entries(references, format_references)
         references.macro_names.map do |name|
           index = references.macro_index(name)
-          text = @notation.format(Domain::Keycode::MacroCall.new(index: index), references: references)
-          reference_entry(text, name, "M#{index}", 'macro', [index], [name, text, "M#{index}"])
+          keycode = Domain::Keycode::MacroCall.new(index: index)
+          text = @notation.format(keycode, references: format_references)
+          reference_entry(text, name, "M#{index}", 'macro', [index], [name, text, "M#{index}"], keycode)
         end
       end
 
-      def tap_dance_entries(references)
+      def tap_dance_entries(references, format_references)
         references.tap_dance_names.map do |name|
           index = references.tap_dance_index(name)
-          text = @notation.format(Domain::Keycode::TapDanceCall.new(index: index), references: references)
-          reference_entry(text, name, "TD(#{index})", 'tapDance', [index], [name, text, "TD(#{index})"])
+          keycode = Domain::Keycode::TapDanceCall.new(index: index)
+          text = @notation.format(keycode, references: format_references)
+          reference_entry(text, name, "TD(#{index})", 'tapDance', [index], [name, text, "TD(#{index})"], keycode)
         end
       end
 
@@ -199,15 +264,16 @@ module Cornix
         return [] unless references.shortcuts_available?
 
         references.shortcut_names.each_with_index.map do |name, i|
-          detail = @notation.format(references.shortcut(name))
-          reference_entry(shortcut_text(name), name, detail, 'shortcut', [i], [name])
+          keycode = references.shortcut(name)
+          reference_entry(shortcut_text(name), name, @notation.format(keycode), 'shortcut', [i], [name], keycode)
         end
       end
 
-      def reference_entry(text, label, detail, category, position, terms)
+      def reference_entry(text, label, detail, category, position, terms, keycode)
         Entry.new(candidate: Candidate.new(insert_text: text, label: label, detail: detail, category: category,
                                            icon: nil, warning: nil),
-                  terms: downcase(terms.compact), position: position, key_name: nil, shortcut: nil, unsupported: false)
+                  terms: downcase(terms.compact), fuzzy_terms: fuzzy_terms(terms.compact), position: position, key_name: nil, shortcut: nil, unsupported: false,
+                  code: @codec.encode(keycode))
       end
 
       # ---- 同梱のショートカット
@@ -228,9 +294,16 @@ module Cornix
           Entry.new(candidate: Candidate.new(insert_text: shortcut_text(name), label: label,
                                              detail: "#{app}#{PATH_SEPARATOR}#{category}#{DETAIL_SEPARATOR}#{text}",
                                              category: 'presetShortcut', icon: @icon_for.call(app), warning: nil),
-                    terms: downcase([label, app, name]), position: [i], key_name: nil, shortcut: name,
-                    unsupported: false)
+                    terms: downcase([label, app, name]), fuzzy_terms: fuzzy_terms([label, app, name]), position: [i], key_name: nil, shortcut: name,
+                    unsupported: false, code: preset_code(text))
         end.freeze
+      end
+
+      # 同梱のショートカットの表記の 16bit 値（読めなければ nil。読めない定義は ShortcutCatalog#library が知らせる）
+      def preset_code(text)
+        @codec.encode(@notation.parse(text))
+      rescue UnknownKeycode
+        nil
       end
 
       def build_shortcut_tree
@@ -261,12 +334,12 @@ module Cornix
 
       # ---- 直接の値
 
-      def raw_candidates(query, references)
+      def raw_candidates(query, references, context, all, exclude)
         return [] unless query.match?(RAW_PREFIX)
 
         match = query.match(RAW) or return []
         code = match[1].to_i(16)
-        return [] if @catalog.dangerous?(code)
+        return [] if @catalog.dangerous?(code) || !shown?('raw', code, context, all, exclude)
 
         keycode = @codec.decode(code)
         text = @notation.format(keycode, references: references)
@@ -289,6 +362,10 @@ module Cornix
       def join(parts) = parts.empty? ? nil : parts.join(DETAIL_SEPARATOR)
 
       def downcase(terms) = terms.map(&:downcase).uniq.freeze
+
+      def fuzzy_terms(terms) = terms.map { |term| fuzzy(term.downcase) }.reject(&:empty?).uniq.freeze
+
+      def fuzzy(text) = text.gsub(FUZZY_IGNORED, '')
 
       def hex(code) = ::Kernel.format('0x%04X', code)
     end

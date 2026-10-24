@@ -35,7 +35,8 @@ module Cornix
               p.on('--no-pull') { o[:no_pull] = true }
             end
             from = opts[:from] && File.expand_path(opts[:from])
-            report(use_case_for(dir).call(from: from, pull: !opts[:no_pull]))
+            result = use_case_for(dir).call(from: from, pull: !opts[:no_pull])
+            json? ? emit(result.to_h) : report(result)
             SUCCESS
           end
 

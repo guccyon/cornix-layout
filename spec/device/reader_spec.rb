@@ -52,4 +52,21 @@ RSpec.describe Cornix::Device::Reader do
     expect(image.settings.transform_keys(&:to_s)).to eq(snap['settings'])
     expect(image.meta.slice('uid', 'vial_protocol', 'via_protocol')).to eq(snap.slice('uid', 'vial_protocol', 'via_protocol'))
   end
+
+  it 'progress に読んだ単位を渡し、最後は done が total になる（マクロを打ち切った残りは飛ばす）' do
+    reader = Cornix::Device::Reader.new(Cornix::Device::Session.new(FakeRmkDevice.new, definition: FakeRmkDevice::DEFINITION))
+    calls = []
+    reader.read(progress: ->(done, total) { calls << [done, total] })
+    expect(calls.map(&:first)).to eq(calls.map(&:first).sort)
+    expect(calls.map(&:last).uniq).to eq([reader.total_steps])
+    expect(calls.last).to eq([reader.total_steps, reader.total_steps])
+  end
+
+  it 'progress が送出した例外で読むのをやめる（取り消し）' do
+    device = FakeRmkDevice.new
+    reader = Cornix::Device::Reader.new(Cornix::Device::Session.new(device, definition: FakeRmkDevice::DEFINITION))
+    sent = device.sent.size
+    expect { reader.read(progress: ->(_, _) { raise 'やめる' }) }.to raise_error('やめる')
+    expect(device.sent.size - sent).to eq(1)
+  end
 end

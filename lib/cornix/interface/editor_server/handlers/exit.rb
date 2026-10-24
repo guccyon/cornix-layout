@@ -8,7 +8,7 @@ module Cornix
       module Handlers
         # exit（通知）: プロセスを終える。サーバーの run がここで戻る（終了コードは shutdown を受けていれば 0）
         class Exit < Handler
-          notification 'exit'
+          notification 'exit', servers: SERVERS
 
           def call(_params, _context) = nil
         end

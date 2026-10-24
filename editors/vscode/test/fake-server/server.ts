@@ -13,8 +13,16 @@ import type { Readable, Writable } from 'node:stream';
 import {
   ErrorCodes,
   PROTOCOL_VERSION,
-  type Change,
+  type Address,
+  type AnyChange,
+  type ComboSnapshot,
   type Diagnostic,
+  type ItemEdit,
+  type ItemFileEdits,
+  type MacroSnapshot,
+  type PlanItemEditResult,
+  type ShortcutSnapshot,
+  type TapDanceSnapshot,
   type DidChangeFilesParams,
   type DraftParams,
   type FileEdits,
@@ -25,8 +33,19 @@ import {
   type QmkSettingSnapshot,
   type ProfileSnapshot,
   type TextEdit,
+  type Unused,
+  type UnusedItems,
 } from '../../src/protocol';
 import * as data from './fixtures';
+import { NotLocal, applyChange, quote } from './yamlLines';
+import { INDEX_LIMITS, arrangeItems, indexAddress, isPendingItemEdit, nextIndex, snapshotItems } from '../../src/itemIndex';
+import { addressKey } from '../../src/editor/pendingChanges';
+
+/** 偽のサーバーの profile/validate・planEdits の params（changes は v0.2 の AnyChange。protocol.md の 12.3） */
+type Draft = DraftParams;
+
+/** 名前の変更でこの名前にすると、compile の照合に失敗したことにする（-32061 の reason "verify" を試すため） */
+export const VERIFY_FAIL_NAME = 'VerifyFail';
 
 export type FakeServerOptions = {
   /** ワークスペースのフォルダ（--root） */
@@ -276,6 +295,8 @@ class FakeServer {
         const p = this.checkDraft(params);
         return { files: this.planEdits(p), diagnostics: this.validate(p.profileId, p.changes) };
       }
+      case 'profile/planItemEdit':
+        return this.planItemEdit(params as Record<string, unknown>);
       case 'profile/saved': {
         const p = params as { profileId: string; files: Record<string, FileVersion> };
         requireString(p, 'profileId');
@@ -386,6 +407,10 @@ class FakeServer {
         ],
       };
     }
+    // v0.5（protocol.md の 15.1）: index: のないファイルは未使用として unused に返す
+    const allLayers = [...data.LAYERS.flatMap((layer) => layerFromDisk(base, layer) ?? []), ...extraLayersFromDisk(base)];
+    const layers = allLayers.filter((layer): layer is LayerSnapshot => layer.index !== null).sort((a, b) => a.index - b.index);
+    const { unused: unusedItems, ...items } = itemsFromDisk(base);
     return {
       profileId,
       name,
@@ -394,9 +419,16 @@ class FakeServer {
       files,
       metadata: data.METADATA,
       positionMap: data.POSITION_MAP,
-      layers: data.LAYERS.flatMap((layer) => layerFromDisk(base, layer) ?? []),
+      layers,
       settings: settingsFromDisk(base, data.SETTINGS),
-      references: data.REFERENCES,
+      references: {
+        layers: layers.map((layer) => ({ index: layer.index, name: layer.name })),
+        macros: items.macros.map((m) => ({ index: m.index, name: m.name, icon: m.icon })),
+        tapDances: items.tapDances.map((t) => ({ index: t.index, name: t.name })),
+        shortcuts: items.shortcuts.map((s) => ({ name: s.name, text: s.value?.text ?? '' })),
+      },
+      ...items,
+      unused: { layers: allLayers.filter((layer): layer is Unused<LayerSnapshot> => layer.index === null), ...unusedItems },
       diagnostics: [...BASE_DIAGNOSTICS],
     };
   }
@@ -414,6 +446,8 @@ class FakeServer {
     const result: Record<string, FileVersion> = {};
     for (const rel of configFiles(base)) result[rel] = versionOf(fs.readFileSync(path.join(base, rel)));
     if (!('settings/qmk_settings.yaml' in result) && !('settings/qmk_settings.yml' in result)) result['settings/qmk_settings.yaml'] = null;
+    // v0.5（protocol.md の 15.2）: ショートカットの行を足す Change で作ることがあるので、なければ null で入れる
+    if (!('shortcuts.yaml' in result) && !('shortcuts.yml' in result)) result['shortcuts.yaml'] = null;
     return result;
   }
 
@@ -451,7 +485,7 @@ class FakeServer {
    * profile/validate・planEdits の params を確かめる。順は #41 の Ruby のサーバーと同じ:
    * params の形（-32602）→ 版の食い違い（-32060）→ 宛先・値の型・baseVersions の抜け（-32602）。書き換えられない（-32061）はそのあと
    */
-  private checkDraft(raw: unknown): DraftParams {
+  private checkDraft(raw: unknown): Draft {
     const params = raw as Record<string, unknown>;
     requireString(params, 'profileId');
     const { dir } = this.profile(params.profileId as string);
@@ -461,7 +495,7 @@ class FakeServer {
     if (!Array.isArray(params.changes)) throw new RpcError(ErrorCodes.InvalidParams, 'changes の形が違います', { field: 'changes' });
     params.changes.forEach((change: unknown, index) => {
       const at = `changes[${index}]`;
-      const c = change as { address?: { file?: unknown; path?: unknown }; value?: unknown } | null;
+      const c = change as { op?: unknown; address?: { file?: unknown; path?: unknown }; value?: unknown; index?: unknown; from?: unknown; to?: unknown } | null;
       if (!c || typeof c !== 'object') throw new RpcError(ErrorCodes.InvalidParams, `${at} の形が違います`, { field: at });
       if (!c.address || typeof c.address !== 'object' || typeof c.address.file !== 'string') {
         throw new RpcError(ErrorCodes.InvalidParams, `${at}.address の形が違います`, { field: `${at}.address` });
@@ -469,11 +503,17 @@ class FakeServer {
       if (!Array.isArray(c.address.path) || !c.address.path.every((k) => typeof k === 'string' || typeof k === 'number')) {
         throw new RpcError(ErrorCodes.InvalidParams, `${at}.address.path の形が違います`, { field: `${at}.address.path` });
       }
-      if (!['string', 'number', 'boolean'].includes(typeof c.value)) {
+      const op = c.op ?? 'set';
+      if (!['set', 'remove', 'insert', 'move'].includes(op as string)) throw new RpcError(ErrorCodes.InvalidParams, `${at}.op の形が違います`, { field: `${at}.op` });
+      if (op === 'set' && !['string', 'number', 'boolean'].includes(typeof c.value)) {
         throw new RpcError(ErrorCodes.InvalidParams, `${at}.value の形が違います`, { field: `${at}.value` });
       }
+      if (op === 'insert' && (!Number.isInteger(c.index) || (typeof c.value !== 'string' && (typeof c.value !== 'object' || c.value === null)))) {
+        throw new RpcError(ErrorCodes.InvalidParams, `${at} の形が違います`, { field: `${at}.value` });
+      }
+      if (op === 'move' && (!Number.isInteger(c.from) || !Number.isInteger(c.to))) throw new RpcError(ErrorCodes.InvalidParams, `${at} の形が違います`, { field: `${at}.from` });
     });
-    const draft = params as unknown as DraftParams;
+    const draft = params as unknown as Draft;
     const current = this.files(dir);
     const conflicts = Object.entries(draft.baseVersions).filter(([file, version]) => file in current && current[file] !== version);
     if (conflicts.length > 0) {
@@ -484,18 +524,33 @@ class FakeServer {
     draft.changes.forEach((change, index) => {
       const at = `changes[${index}]`;
       const setting = data.SETTINGS.find((s) => s.address.file === change.address.file && s.address.path.join('/') === change.address.path.join('/'));
-      if (setting) {
+      const content = /^(macros|tap_dance|combos)\//.test(change.address.file) || change.address.file === 'shortcuts.yaml';
+      const header = change.address.path.length === 1 && (change.address.path[0] === 'description' || change.address.path[0] === 'index');
+      const description = change.address.file.startsWith('layers/') && header;
+      if (content || description) {
+        // v0.2 の中身（protocol.md の 12.2）: ディスクにあるファイルなら宛先として受け付ける（道筋は書き換えるときに確かめる）。
+        // v0.5: index（15.2）も同じ。shortcuts.yaml は版が null（まだない）でも、行を足す set なら受け付ける
+        if (!(change.address.file in current)) throw new RpcError(ErrorCodes.InvalidParams, `${at}.address は指せない場所です`, { field: `${at}.address` });
+        const value = (change as { value?: unknown }).value;
+        if (change.address.path[0] === 'index' && change.op !== 'remove' && !(Number.isInteger(value) && (value as number) >= 0)) {
+          throw new RpcError(ErrorCodes.InvalidParams, `${at}.value は 0 以上の整数です`, { field: `${at}.value` });
+        }
+        // v0.5: ショートカットの名前の決まり（空でない・前後の空白なし。15.2）
+        const name = change.address.file === 'shortcuts.yaml' && change.address.path[0] === 'shortcuts' ? change.address.path[1] : undefined;
+        if (typeof name === 'string' && (!name.trim() || name.trim() !== name)) {
+          throw new RpcError(ErrorCodes.InvalidParams, `${at}.address のショートカットの名前が空か、前後に空白があります`, { field: `${at}.address` });
+        }
+      } else if (change.op !== undefined && change.op !== 'set' && change.op !== 'remove') {
+        throw new RpcError(ErrorCodes.InvalidParams, `${at}.address は並びではありません`, { field: `${at}.address` });
+      } else if (change.op === 'remove' && setting) {
+        throw new RpcError(ErrorCodes.InvalidParams, `${at}.address は消せない場所です`, { field: `${at}.address` });
+      } else if (change.op === 'remove') {
+        this.checkLayerAddress(change.address, current, at);
+      } else if (setting) {
         const ok = setting.type === 'integer' ? Number.isInteger(change.value) : typeof change.value === 'boolean' || change.value === 0 || change.value === 1;
         if (!ok) throw new RpcError(ErrorCodes.InvalidParams, `${setting.name} の値の形が違います`, { field: `${at}.value` });
       } else {
-        // レイヤーのキー・エンコーダ: ディスクにあるファイルで、position_map の位置か、エンコーダの操作だけを指せる
-        const [mapping, hand, group, symbol] = change.address.path.map(String);
-        const handName = hand === 'left_hand' ? 'left' : hand === 'right_hand' ? 'right' : undefined;
-        const key = handName && data.POSITION_MAP.some((e) => e.hand === handName && e.group === group && e.symbol === symbol);
-        const encoder = hand === 'encoders' && (group === 'left' || group === 'right') && ['push', 'ccw', 'cw'].includes(symbol ?? '');
-        if (!(change.address.file in current) || !change.address.file.startsWith('layers/') || mapping !== 'mapping' || change.address.path.length !== 4 || !(key || encoder)) {
-          throw new RpcError(ErrorCodes.InvalidParams, `${at}.address は指せない場所です`, { field: `${at}.address` });
-        }
+        this.checkLayerAddress(change.address, current, at);
         if (typeof change.value !== 'string') throw new RpcError(ErrorCodes.InvalidParams, `${at}.value はキーの表記の文字列です`, { field: `${at}.value` });
       }
       if (!(change.address.file in draft.baseVersions)) {
@@ -506,14 +561,393 @@ class FakeServer {
   }
 
   /**
+   * profile/planItemEdit（protocol.md の 12.5）。ディスクの設定ディレクトリに対して、素朴に作る。
+   * 名前の変更で to を VERIFY_FAIL_NAME にすると -32061（reason "verify"）を返す。
+   * v0.3 の expandPreset（13.1）は preset: の行を fixtures の PRESET_SEQUENCES の手順に置き換える
+   */
+  private planItemEdit(params: Record<string, unknown>): PlanItemEditResult {
+    requireString(params, 'profileId');
+    const profileId = params.profileId as string;
+    const { dir } = this.profile(profileId);
+    if (params.baseVersions === null || typeof params.baseVersions !== 'object' || Array.isArray(params.baseVersions)) {
+      throw new RpcError(ErrorCodes.InvalidParams, 'baseVersions の形が違います', { field: 'baseVersions' });
+    }
+    const baseVersions = params.baseVersions as Record<string, FileVersion>;
+    const edit = params.edit as ItemEdit | undefined;
+    if (!edit || typeof edit !== 'object') throw new RpcError(ErrorCodes.InvalidParams, 'edit の形が違います', { field: 'edit' });
+    const base = path.resolve(this.options.root, dir);
+    if (!fs.existsSync(base)) throw new RpcError(ErrorCodes.InvalidParams, '設定ディレクトリがディスクにありません（偽のサーバー）', { field: 'edit' });
+    const current = this.files(dir);
+    const snapshot = this.snapshot(profileId);
+    const read = (rel: string) => fs.readFileSync(path.join(base, rel), 'utf-8');
+    const invalid = (message: string, field: string): never => {
+      throw new RpcError(ErrorCodes.InvalidParams, message, { field });
+    };
+    const checkName = (name: unknown, field: string): string => {
+      if (typeof name !== 'string' || !name || name.trim() !== name) invalid('名前が空か、前後に空白があります', field);
+      return name as string;
+    };
+    const files: ItemFileEdits[] = [];
+    const references: Address[] = [];
+    const diagnostics: Diagnostic[] = [];
+    const editOf = (rel: string): ItemFileEdits => {
+      let entry = files.find((f) => f.file === rel);
+      if (!entry) {
+        entry = { file: rel, baseVersion: current[rel] ?? null, create: false, edits: [] };
+        files.push(entry);
+      }
+      return entry;
+    };
+    const itemsOf = (kind: string): { name: string; file: string; index: number }[] => {
+      if (kind === 'macro') return snapshot.macros ?? [];
+      if (kind === 'tapDance') return snapshot.tapDances ?? [];
+      if (kind === 'combo') return snapshot.combos ?? [];
+      if (kind === 'layer') return snapshot.layers;
+      return [];
+    };
+    const referenceText = (kind: string, name: string) =>
+      kind === 'macro' ? `Macro('${name}')` : kind === 'tapDance' ? `TapDance('${name}')` : kind === 'shortcut' ? `Shortcut('${name}')` : undefined;
+    const referencesTo = (text: string | undefined): Address[] =>
+      text === undefined
+        ? []
+        : snapshot.layers.flatMap((layer) =>
+            [...layer.keys, ...[layer.encoders.left, layer.encoders.right].flatMap((e) => [e.push, e.ccw, e.cw])]
+              .filter((slot) => slot.value?.text === text)
+              .map((slot) => slot.address),
+          );
+    // レイヤーは名前が重なってよいので、file があればファイルで探す（issue #84）
+    const findItem = (kind: string, name: string, file: string | undefined) =>
+      kind === 'layer' && file !== undefined
+        ? (itemsOf(kind).find((i) => i.file === file) ?? invalid(`レイヤーのファイル ${file} はありません`, 'edit.file'))
+        : (itemsOf(kind).find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name'));
+    const zero = { line: 0, character: 0 };
+
+    // v0.5（protocol.md の 15.3）: 番号の操作とショートカットの追加は、今の未保存の変更を当てた状態で決めて Change の並びを返す
+    if (isPendingItemEdit(edit)) return this.planPendingItemEdit(edit, snapshot, params.changes, baseVersions, current, referencesTo);
+
+    switch (edit.op) {
+      case 'create': {
+        const name = checkName(edit.name, 'edit.name');
+        if (edit.kind === 'shortcut') {
+          if ((snapshot.shortcuts ?? []).some((s) => s.name === name)) invalid(`ショートカット ${name} はすでにあります`, 'edit.name');
+          const line = `  ${quote(name)}: ${quote(edit.value)}\n`;
+          if ('shortcuts.yaml' in current) {
+            const lines = read('shortcuts.yaml').split('\n');
+            const at = { line: lines.at(-1) === '' ? lines.length - 1 : lines.length, character: 0 };
+            editOf('shortcuts.yaml').edits.push({ range: { start: at, end: at }, newText: lines.at(-1) === '' ? line : `\n${line}` });
+          } else {
+            files.push({ file: 'shortcuts.yaml', baseVersion: null, create: true, edits: [{ range: { start: zero, end: zero }, newText: `---\nshortcuts:\n${line}` }] });
+          }
+          break;
+        }
+        if (edit.index !== undefined && edit.kind !== 'layer') invalid('index はレイヤーだけに書けます', 'edit.index');
+        if (edit.kind === 'layer') {
+          // v0.4（protocol.md の 14.9）: 選んだ番号（省けば空いているいちばん小さい番号）で layers/<番号>_<slug> を作る
+          const layers = snapshot.layers;
+          let index = edit.index ?? 0;
+          if (edit.index === undefined) while (layers.some((layer) => layer.index === index)) index += 1;
+          if (!Number.isInteger(index) || index < 0 || index > 9) invalid('レイヤーの番号は 0〜9 です', edit.index === undefined ? 'edit' : 'edit.index');
+          if (layers.some((layer) => layer.index === index)) invalid(`レイヤー ${index} はもうあります`, 'edit.index');
+          const file = `layers/${index}_${slug(name) || 'layer'}.${extensionIn(base, 'layers')}`;
+          const groups = ['row0', 'row1', 'row2', 'row3', 'thumb_keys'].map((group) => `    ${group}: {}\n`).join('');
+          const body = `---\nname: ${quote(name)}\ndescription: ''\nindex: ${index}\nmapping:\n  left_hand:\n${groups}  right_hand:\n${groups}`;
+          files.push({ file, baseVersion: null, create: true, edits: [{ range: { start: zero, end: zero }, newText: body }] });
+          break;
+        }
+        const folder = { macro: 'macros', tapDance: 'tap_dance', combo: 'combos' }[edit.kind];
+        if (!folder) invalid(`知らない種類です: ${String(edit.kind)}`, 'edit.kind');
+        const items = itemsOf(edit.kind);
+        if (items.some((item) => item.name === name)) invalid(`${name} はすでにあります`, 'edit.name');
+        if (edit.kind === 'macro' && edit.preset !== undefined) {
+          const presets = data.SHORTCUT_TREE.apps.flatMap((app) => app.categories.flatMap((c) => c.items.filter((i) => i.macro).map((i) => i.insertText)));
+          if (!presets.includes(edit.preset)) invalid(`同梱にない preset です: ${edit.preset}`, 'edit.preset');
+        }
+        let index = 0;
+        while (items.some((item) => item.index === index)) index += 1;
+        const slugText = slug(name) || { macro: 'macro', tapDance: 'tap_dance', combo: 'combo' }[edit.kind];
+        const file = `${folder}/${String(index).padStart(2, '0')}_${slugText}.${extensionIn(base, folder)}`;
+        const body =
+          edit.kind === 'macro'
+            ? edit.preset
+              ? `preset: ${quote(edit.preset)}\n`
+              : 'sequence:\n- action: tap\n  keys: [KC_NO]\n'
+            : edit.kind === 'combo'
+              ? 'trigger_keys: [KC_NO, KC_NO]\noutput_key: KC_NO\n'
+              : '';
+        files.push({ file, baseVersion: null, create: true, edits: [{ range: { start: zero, end: zero }, newText: `---\nname: ${quote(name)}\nindex: ${index}\n${body}` }] });
+        break;
+      }
+      case 'delete': {
+        const name = checkName(edit.name, 'edit.name');
+        if (edit.kind === 'shortcut') {
+          const lines = read('shortcuts.yaml').split('\n');
+          const line = lines.findIndex((text) => new RegExp(`^\\s+(["']?)${escapeRegExp(name)}\\1:`).test(text));
+          if (line < 0) invalid(`ショートカット ${name} はありません`, 'edit.name');
+          editOf('shortcuts.yaml').edits.push({ range: { start: { line, character: 0 }, end: { line: line + 1, character: 0 } }, newText: '' });
+        } else {
+          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.file : undefined);
+          files.push({ file: item.file, baseVersion: current[item.file] ?? null, create: false, delete: true, edits: [] });
+          if (edit.kind === 'layer') {
+            // そのレイヤーを指すレイヤー操作（display.hold が "L<番号>"）。消すファイルの中は入れない
+            for (const layer of snapshot.layers) {
+              if (layer.file === item.file) continue;
+              for (const slot of [...layer.keys, ...[layer.encoders.left, layer.encoders.right].flatMap((e) => [e.push, e.ccw, e.cw])]) {
+                const kind = slot.value?.kind;
+                if ((kind === 'layerAction' || kind === 'layerTap' || kind === 'layerMod') && slot.value?.display.hold === `L${item.index}`) {
+                  references.push(slot.address);
+                  diagnostics.push({ severity: 'warning', source: 'semantic', message: `レイヤー ${item.index} が定義されていません`, address: slot.address });
+                }
+              }
+            }
+            break;
+          }
+        }
+        references.push(...referencesTo(referenceText(edit.kind, name)));
+        for (const address of references) diagnostics.push({ severity: 'error', source: 'structure', message: `「${referenceText(edit.kind, name)}」は読めない表記です（定義がありません）`, address });
+        break;
+      }
+      case 'rename': {
+        const name = checkName(edit.name, 'edit.name');
+        const to = checkName(edit.to, 'edit.to');
+        if (edit.kind === 'shortcut') {
+          const shortcuts = snapshot.shortcuts ?? [];
+          if (!shortcuts.some((s) => s.name === name)) invalid(`ショートカット ${name} はありません`, 'edit.name');
+          if (shortcuts.some((s) => s.name === to)) invalid(`ショートカット ${to} はすでにあります`, 'edit.to');
+          // 同梱のショートカットの名前（アプリ:カテゴリ:ラベル）にすると、それを指していた参照の値が変わる（Ruby の照合と同じ結果を素朴にまねる）
+          if (to === VERIFY_FAIL_NAME || to.split(':').length === 3) this.verifyFail({ file: 'shortcuts.yaml', path: ['shortcuts', name] });
+          const lines = read('shortcuts.yaml').split('\n');
+          const line = lines.findIndex((text) => new RegExp(`^\\s+(["']?)${escapeRegExp(name)}\\1:`).test(text));
+          const start = indentOfLine(lines[line] ?? '');
+          const end = (lines[line] ?? '').indexOf(':', start);
+          editOf('shortcuts.yaml').edits.push({ range: { start: { line, character: start }, end: { line, character: end } }, newText: quote(to) });
+        } else {
+          const items = itemsOf(edit.kind);
+          const item = findItem(edit.kind, name, edit.kind === 'layer' ? edit.file : undefined);
+          if (edit.kind !== 'layer' && items.some((i) => i.name === to)) invalid(`${to} はすでにあります`, 'edit.to');
+          if (to === VERIFY_FAIL_NAME) this.verifyFail({ file: item.file, path: ['name'] });
+          const lines = read(item.file).split('\n');
+          const range = findValue(lines, ['name']);
+          if (range) editOf(item.file).edits.push({ range, newText: quote(to) });
+          const entry = /^(.*\/)?(\d+)_.*?\.(ya?ml)$/.exec(item.file);
+          const renameTo = entry ? `${entry[1] ?? ''}${entry[2]}_${slug(to) || 'item'}.${entry[3]}` : undefined;
+          if (renameTo && renameTo !== item.file) editOf(item.file).renameTo = renameTo;
+        }
+        // 参照をテキストとして置き換える（レイヤーのキーとエンコーダだけ）
+        const from = referenceText(edit.kind, name);
+        const next = referenceText(edit.kind, to);
+        for (const address of referencesTo(from)) {
+          references.push(address);
+          const range = findValue(read(address.file).split('\n'), address.path);
+          if (range && next) editOf(address.file).edits.push({ range, newText: quote(next) });
+        }
+        break;
+      }
+      case 'renamePosition': {
+        if (edit.hand !== 'left' && edit.hand !== 'right') invalid('hand は left か right です', 'edit.hand');
+        if (!Number.isInteger(edit.row)) invalid('row は整数です', 'edit.row');
+        if (!Number.isInteger(edit.col)) invalid('col は整数です', 'edit.col');
+        const to = checkName(edit.to, 'edit.to');
+        const entry = data.POSITION_MAP.find((e) => e.hand === edit.hand && e.row === edit.row && e.col === edit.col) ?? invalid('position_map にない位置です', 'edit');
+        if (data.POSITION_MAP.some((e) => e.hand === entry.hand && e.group === entry.group && e.symbol === to)) invalid(`${entry.group} に ${to} はすでにあります`, 'edit.to');
+        const hand = entry.hand === 'left' ? 'left_hand' : 'right_hand';
+        const lines = read('position_map.yaml').split('\n');
+        const range = findValue(lines, [hand, entry.group]);
+        if (!range) invalid('position_map.yaml にその位置がありません（偽のサーバー）', 'edit');
+        const text = textAt(lines, range!);
+        const list = text.startsWith('[') ? text.slice(1, -1).split(',').map((s) => s.trim()) : [];
+        list[list.indexOf(entry.symbol)] = to;
+        editOf('position_map.yaml').edits.push({ range: range!, newText: `[${list.join(', ')}]` });
+        for (const layer of snapshot.layers) {
+          const layerLines = read(layer.file).split('\n');
+          const at = findValue(layerLines, ['mapping', hand, entry.group, entry.symbol]);
+          if (!at) continue;
+          const keyStart = indentOfLine(layerLines[at.start.line] ?? '');
+          const keyEnd = (layerLines[at.start.line] ?? '').indexOf(':', keyStart);
+          editOf(layer.file).edits.push({ range: { start: { line: at.start.line, character: keyStart }, end: { line: at.start.line, character: keyEnd } }, newText: to });
+          references.push({ file: layer.file, path: ['mapping', hand, entry.group, entry.symbol] });
+        }
+        break;
+      }
+      case 'expandPreset': {
+        // protocol.md の 13.1: preset: の行を同梱の定義の sequence: に置き換える（ほかの行は変えない）
+        const name = checkName(edit.name, 'edit.name');
+        if (edit.kind !== 'macro') invalid('kind は macro です', 'edit.kind');
+        const item = itemsOf('macro').find((i) => i.name === name) ?? invalid(`${name} はありません`, 'edit.name');
+        const lines = read(item.file).split('\n');
+        const line = lines.findIndex((text) => /^preset:/.test(text));
+        if (line < 0) invalid(`${name} は preset: で書いたマクロではありません`, 'edit.name');
+        const preset = unquote(lines[line]!.replace(/^preset:\s*/, '').trim());
+        const steps = data.PRESET_SEQUENCES[preset] ?? invalid(`同梱にない preset です: ${preset}`, 'edit.name');
+        const sequence = ['sequence:', ...steps.flatMap((step) => [`- action: ${step.action}`, '  keys:', ...step.keys.map((key) => `  - ${key}`)])].join('\n');
+        const last = line + 1 >= lines.length;
+        const end = last ? { line, character: lines[line]!.length } : { line: line + 1, character: 0 };
+        editOf(item.file).edits.push({ range: { start: { line, character: 0 }, end }, newText: last ? sequence : `${sequence}\n` });
+        break;
+      }
+      default:
+        invalid('edit.op が違います', 'edit.op');
+    }
+    // 書き換えるファイルだけ版を比べる（protocol.md の 12.5）。今あるファイルの版が baseVersions になければ -32602
+    if (files.some((f) => !f.create && !(f.file in baseVersions))) invalid('書き換えるファイルの版が baseVersions にありません', 'baseVersions');
+    const conflicts = files.filter((f) => !f.create && f.file in baseVersions && baseVersions[f.file] !== (current[f.file] ?? null));
+    if (conflicts.length > 0) {
+      throw new RpcError(ErrorCodes.VersionConflict, 'ファイルが外で変わっています', {
+        files: Object.fromEntries(conflicts.map((f) => [f.file, current[f.file] ?? null])),
+      });
+    }
+    return { files, references, diagnostics };
+  }
+
+  /**
+   * v0.5 の use / unuse / setIndex / reorder と create（shortcut）（protocol.md の 15.3）。素朴に作る: 番号の参照の書き換えはレイヤーのキーとエンコーダの
+   * `Macro(n)` / `M<n>` / `TD(n)` / `TapDance(n)` とレイヤー操作（MO(n)・LT(n, …) など）だけ、壊れる参照は表記が同じものとレイヤー操作の display.hold だけを数える
+   */
+  private planPendingItemEdit(
+    edit: ItemEdit,
+    snapshot: ProfileSnapshot,
+    rawChanges: unknown,
+    baseVersions: Record<string, FileVersion>,
+    current: Record<string, FileVersion>,
+    referencesTo: (text: string | undefined) => Address[],
+  ): PlanItemEditResult {
+    const invalid = (message: string, field: string): never => {
+      throw new RpcError(ErrorCodes.InvalidParams, message, { field });
+    };
+    if (rawChanges !== undefined && !Array.isArray(rawChanges)) invalid('changes の形が違います', 'changes');
+    const pending = (rawChanges ?? []) as AnyChange[];
+    const changes: AnyChange[] = [];
+    const references: Address[] = [];
+    // setIndex / reorder で変わる番号（元 → 新）
+    let moves: Map<number, number> | undefined;
+    const slots = snapshot.layers.flatMap((layer) => [...layer.keys, ...[layer.encoders.left, layer.encoders.right].flatMap((e) => [e.push, e.ccw, e.cw])]);
+    // 当てたあとの値（未保存の変更で書き換えた値を優先する）
+    const textAtSlot = (address: Address, saved: string | undefined) => {
+      let text = saved;
+      for (const change of pending) if ((change.op === undefined || change.op === 'set') && change.field !== 'note' && addressKey(change.address) === addressKey(address)) text = String(change.value);
+      return text;
+    };
+
+    if (edit.op === 'create' && edit.kind === 'shortcut') {
+      const name = edit.name;
+      if (typeof name !== 'string' || !name || name.trim() !== name) invalid('名前が空か、前後に空白があります', 'edit.name');
+      const added = pending.filter((c) => c.address.file === 'shortcuts.yaml' && c.address.path.length === 2 && c.address.path[0] === 'shortcuts').map((c) => c.address.path[1]);
+      if ((snapshot.shortcuts ?? []).some((s) => s.name === name) || added.includes(name)) invalid(`ショートカット ${name} はすでにあります`, 'edit.name');
+      if (typeof edit.value !== 'string') invalid('value は表記の文字列です', 'edit.value');
+      changes.push({ address: { file: 'shortcuts.yaml', path: ['shortcuts', name] }, value: edit.value });
+    } else if (edit.op === 'use' || edit.op === 'unuse' || edit.op === 'setIndex') {
+      const kind = edit.kind;
+      if (!(kind in INDEX_LIMITS)) invalid(`知らない種類です: ${String(kind)}`, 'edit.kind');
+      const items = snapshotItems(snapshot, kind) as { file: string; name: string; index: number | null }[];
+      const { used, unused } = arrangeItems(items, pending);
+      const file = edit.file;
+      const isUsed = used.find((item) => item.file === file);
+      const isUnused = unused.find((item) => item.file === file);
+      if (!isUsed && !isUnused) invalid(`${file} はありません`, 'edit.file');
+      const numeric = (index: number) =>
+        kind === 'macro' ? [`Macro(${index})`, `M${index}`] : kind === 'tapDance' ? [`TD(${index})`, `TapDance(${index})`] : [];
+      if (edit.op === 'use') {
+        if (!isUnused) invalid(`${file} はもう使っています`, 'edit.file');
+        const index = nextIndex(kind, used.map((item) => item.index));
+        if (index === null) invalid('空いている番号がありません。先にどれかを未使用にしてください', 'edit');
+        changes.push({ address: indexAddress(file), value: index! });
+      } else if (edit.op === 'unuse') {
+        if (!isUsed) invalid(`${file} は未使用です`, 'edit.file');
+        const item = isUsed!;
+        changes.push({ op: 'remove', address: indexAddress(file) });
+        if (kind === 'layer') {
+          for (const slot of slots) {
+            const value = slot.value;
+            if ((value?.kind === 'layerAction' || value?.kind === 'layerTap' || value?.kind === 'layerMod') && value.display.hold === `L${item.index}`) references.push(slot.address);
+          }
+        } else {
+          const texts = [...numeric(item.index), kind === 'macro' ? `Macro('${item.name}')` : kind === 'tapDance' ? `TapDance('${item.name}')` : undefined];
+          for (const text of texts) references.push(...referencesTo(text));
+        }
+      } else if (edit.op === 'setIndex') {
+        if (!isUsed) invalid(`${file} は未使用です。先に使ってください`, 'edit.file');
+        const item = isUsed!;
+        const index = edit.index;
+        if (!Number.isInteger(index) || index < 0 || index >= INDEX_LIMITS[kind]) invalid(`番号は 0〜${INDEX_LIMITS[kind] - 1} です`, 'edit.index');
+        if (index === item.index) invalid(`番号はもう ${index} です`, 'edit.index');
+        const other = used.find((i) => i.index === index);
+        changes.push({ address: indexAddress(file), value: index });
+        if (other) changes.push({ address: indexAddress(other.file), value: item.index });
+        moves = new Map<number, number>([[item.index, index], ...(other ? ([[index, item.index]] as [number, number][]) : [])]);
+      }
+    } else if (edit.op === 'reorder') {
+      const kind = edit.kind;
+      if (!(kind in INDEX_LIMITS)) invalid(`知らない種類です: ${String(kind)}`, 'edit.kind');
+      const items = snapshotItems(snapshot, kind) as { file: string; name: string; index: number | null }[];
+      const { used } = arrangeItems(items, pending);
+      const files = edit.files;
+      const same = Array.isArray(files) && files.length === used.length && new Set(files).size === files.length && used.every((item) => files.includes(item.file));
+      if (!same) invalid('files は使っている項目すべての並びです', 'edit.files');
+      // 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）。indexes があればその番号（抜け番を作れる）
+      const given = edit.indexes;
+      if (given !== undefined) {
+        const ok = Array.isArray(given) && given.length === files.length && given.every((i) => Number.isInteger(i) && i >= 0 && i < INDEX_LIMITS[kind]) && new Set(given).size === given.length;
+        if (!ok) invalid(`indexes は files と同じ数の、重ならない 0〜${INDEX_LIMITS[kind] - 1} の番号です`, 'edit.indexes');
+      }
+      const slotsInOrder = given ?? used.map((item) => item.index).sort((a, b) => a - b);
+      moves = new Map();
+      files.forEach((f, at) => {
+        const item = used.find((i) => i.file === f)!;
+        const to = slotsInOrder[at]!;
+        if (item.index === to) return;
+        changes.push({ address: indexAddress(f), value: to });
+        moves!.set(item.index, to);
+      });
+    }
+    // 番号の参照を新しい番号に書き換える（表記はそのまま。マクロ・タップダンスは番号の形、レイヤーはレイヤー操作）
+    if (moves && moves.size > 0 && (edit.op === 'setIndex' || edit.op === 'reorder')) {
+      const kind = edit.kind;
+      for (const slot of slots) {
+        const text = textAtSlot(slot.address, slot.value?.text);
+        if (text === undefined) continue;
+        const moved = moveReference(kind, text, moves);
+        if (moved === undefined) continue;
+        changes.push({ address: slot.address, value: moved });
+        references.push(slot.address);
+      }
+    }
+    const touched = [...new Set(changes.map((c) => c.address.file))];
+    if (touched.some((f) => !(f in baseVersions))) invalid('書き換えるファイルの版が baseVersions にありません', 'baseVersions');
+    const conflicts = touched.filter((f) => baseVersions[f] !== (current[f] ?? null));
+    if (conflicts.length > 0) {
+      throw new RpcError(ErrorCodes.VersionConflict, 'ファイルが外で変わっています', { files: Object.fromEntries(conflicts.map((f) => [f, current[f] ?? null])) });
+    }
+    return { files: [], changes, references, diagnostics: [] };
+  }
+
+  private verifyFail(address: Address): never {
+    throw new RpcError(ErrorCodes.EditNotLocal, '名前を変える前と後で compile の結果が変わります（偽のサーバー）', { address, reason: 'verify' });
+  }
+
+  /** レイヤーのキー・エンコーダ: ディスクにあるファイルで、position_map の位置か、エンコーダの操作だけを指せる */
+  private checkLayerAddress(address: Address, current: Record<string, FileVersion>, at: string): void {
+    const [mapping, hand, group, symbol] = address.path.map(String);
+    const handName = hand === 'left_hand' ? 'left' : hand === 'right_hand' ? 'right' : undefined;
+    const key = handName && data.POSITION_MAP.some((e) => e.hand === handName && e.group === group && e.symbol === symbol);
+    const encoder = hand === 'encoders' && (group === 'left' || group === 'right') && ['push', 'ccw', 'cw'].includes(symbol ?? '');
+    if (!(address.file in current) || !address.file.startsWith('layers/') || mapping !== 'mapping' || address.path.length !== 4 || !(key || encoder)) {
+      throw new RpcError(ErrorCodes.InvalidParams, `${at}.address は指せない場所です`, { field: `${at}.address` });
+    }
+  }
+
+  /**
    * 保存済みのファイルの問題（BASE_DIAGNOSTICS）に、変更の値の問題を足す。読めない表記があれば構造の error だけを返す（protocol.md の 5.6）。
    * `Macro(数字)` は定義のないマクロ（意味検証の error）。`MO(9)` にすると、レイヤー 0 の左手 row3 の fn（MO(3)）にも
    * 「ほかの項目にかかる問題」の例として warning を出す（参照している側に出すことを画面で確かめるためのもの）
    */
-  private validate(profileId: string, changes: Change[]): Diagnostic[] {
+  private validate(profileId: string, changes: AnyChange[]): Diagnostic[] {
     this.profile(profileId);
     const own = changes.flatMap((change): Diagnostic[] => {
-      if (typeof change.value !== 'string') return [];
+      if (change.op === 'insert' && typeof change.value === 'string') {
+        return data.interpret(change.value) ? [] : [{ ...unreadable(change.value), address: change.address }];
+      }
+      // キーの表記の set だけを確かめる（注記・説明・数値は見ない）
+      if ((change.op !== undefined && change.op !== 'set') || change.field === 'note' || typeof change.value !== 'string') return [];
+      if (/^(macros|tap_dance|combos)\//.test(change.address.file) && !change.address.path.some((k) => typeof k === 'number' || /^(on_|output_key)/.test(String(k)))) return [];
       if (change.value === 'MO(9)') {
         return [
           { severity: 'error', source: 'semantic', message: 'レイヤー 9 は定義されていません', address: change.address },
@@ -531,24 +965,56 @@ class FakeServer {
       }
       return data.interpret(change.value) ? [] : [{ ...unreadable(change.value), address: change.address }];
     });
-    if (own.some((d) => d.source === 'structure')) return own.filter((d) => d.source === 'structure');
-    return [...BASE_DIAGNOSTICS, ...own];
+    // 読めない値（構造の error）は先に並べ、意味検証の結果も続ける（Ruby のサーバーは読めない値を NoKey として読み続ける）
+    return [...own.filter((d) => d.source === 'structure'), ...BASE_DIAGNOSTICS, ...own.filter((d) => d.source !== 'structure')];
   }
 
   /**
    * ディスクのファイルの行を素朴にたどって値の部分を置き換える（ブロック形式の `キー: 値` だけ）。
    * Ruby のサーバーの書き換え（Storage::YamlDocument）の代わりではなく、保存の流れを試すためのもの。
    */
-  private planEdits(params: DraftParams): FileEdits[] {
+  private planEdits(params: Draft): FileEdits[] {
     const { dir } = this.profile(params.profileId);
-    const byFile = new Map<string, Change[]>();
+    const byFile = new Map<string, AnyChange[]>();
     for (const change of params.changes) byFile.set(change.address.file, [...(byFile.get(change.address.file) ?? []), change]);
     return [...byFile].map(([file, changes]) => {
       const full = path.resolve(this.options.root, dir, file);
-      if (!fs.existsSync(full)) {
+      const created = !fs.existsSync(full) && file === 'shortcuts.yaml';
+      if (!fs.existsSync(full) && !created) {
         throw new RpcError(ErrorCodes.EditNotLocal, `${file} がないので書き換えられません（偽のサーバー）`, { address: changes[0]?.address, reason: 'flowInsert' });
       }
-      const lines = fs.readFileSync(full, 'utf-8').split('\n');
+      if (created) {
+        // v0.5（protocol.md の 15.2）: まだない shortcuts.yaml は、足す行だけのファイルとして作る
+        const lines = ['---', 'shortcuts:', ''];
+        for (const change of changes) applyChange(lines, change);
+        return { file, baseVersion: null, create: true, edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, newText: lines.join('\n') }] };
+      }
+      const text = fs.readFileSync(full, 'utf-8');
+      const baseVersion = versionOf(fs.readFileSync(full));
+      const plain = changes.every(
+        (c) => (c.op === undefined || c.op === 'set') && c.field !== 'note' && !c.address.path.some((k) => typeof k === 'number') && findValue(text.split('\n'), c.address.path) !== null,
+      );
+      if (!plain) {
+        // v0.2 の Change（12.3）: 順に当てたあとの中身で、ファイル全体を 1 つの書き換えにする（偽のサーバーの簡略。Ruby は値の部分だけ）
+        const lines = text.split('\n');
+        for (const change of changes) {
+          try {
+            applyChange(lines, change);
+          } catch (error) {
+            if (!(error instanceof NotLocal)) throw error;
+            throw new RpcError(ErrorCodes.EditNotLocal, `${file} の ${change.address.path.join('.')} は書き換えられません（偽のサーバー: ${error.message}）`, {
+              address: change.address,
+              reason: 'flowInsert',
+            });
+          }
+        }
+        const after = lines.join('\n');
+        const old = text.split('\n');
+        const end = { line: old.length - 1, character: old.at(-1)!.length };
+        const edits: TextEdit[] = after === text ? [] : [{ range: { start: { line: 0, character: 0 }, end }, newText: after }];
+        return { file, baseVersion, create: false, edits };
+      }
+      const lines = text.split('\n');
       const edits: TextEdit[] = changes.flatMap((change) => {
         const range = findValue(lines, change.address.path);
         if (!range) {
@@ -557,11 +1023,11 @@ class FakeServer {
             reason: 'flowInsert',
           });
         }
-        const newText = quote(String(change.value));
+        const newText = quote(String((change as { value: string | number | boolean }).value));
         // 今の値と同じなら書き換えない（protocol.md の 6.3）
         return textAt(lines, range) === newText ? [] : [{ range, newText }];
       });
-      return { file, baseVersion: versionOf(fs.readFileSync(full)), create: false, edits };
+      return { file, baseVersion, create: false, edits };
     }).filter((file) => file.edits.length > 0);
   }
 
@@ -626,7 +1092,7 @@ const BASE_DIAGNOSTICS: Diagnostic[] = [
  * レイヤーのキーとエンコーダの値をディスクのファイルから読む（設定ディレクトリがディスクになければ fixtures のまま）。
  * 書いてある表記が fixtures と同じなら fixtures の KeyValue（注記付き）を、違えば読み直した KeyValue を使う
  */
-function layerFromDisk(base: string, layer: LayerSnapshot): LayerSnapshot | undefined {
+function layerFromDisk(base: string, layer: LayerSnapshot): LayerSnapshot | Unused<LayerSnapshot> | undefined {
   const full = path.join(base, layer.file);
   // 設定ディレクトリがディスクにあるのにレイヤーのファイルがなければ、そのレイヤーはない
   if (!fs.existsSync(full)) return fs.existsSync(base) ? undefined : layer;
@@ -645,9 +1111,31 @@ function layerFromDisk(base: string, layer: LayerSnapshot): LayerSnapshot | unde
   });
   return {
     ...layer,
+    index: indexOnDisk(lines.join('\n')),
     keys: layer.keys.map((key) => ({ ...key, value: read(key.address.path, key.value) })),
     encoders: { left: encoder(layer.encoders.left), right: encoder(layer.encoders.right) },
   };
+}
+
+/**
+ * v0.4: fixtures にないレイヤーのファイル（拡張から足したもの）。name と index の行だけを読み、割り当ては layerFromDisk と同じく読む
+ */
+function extraLayersFromDisk(base: string): (LayerSnapshot | Unused<LayerSnapshot>)[] {
+  const dir = path.join(base, 'layers');
+  if (!fs.existsSync(dir)) return [];
+  const known = new Set(data.LAYERS.map((layer) => layer.file));
+  return fs
+    .readdirSync(dir)
+    .filter((name) => /\.ya?ml$/.test(name) && !known.has(`layers/${name}`))
+    .sort()
+    .flatMap((name) => {
+      const file = `layers/${name}`;
+      const text = fs.readFileSync(path.join(dir, name), 'utf-8');
+      const layerName = /^name:\s*(.+)$/m.exec(text)?.[1];
+      if (layerName === undefined) return [];
+      const layer = data.buildLayer({ index: indexOnDisk(text) ?? 0, name: unquote(layerName.trim()), description: '', file, keys: {} });
+      return layerFromDisk(base, layer) ?? [];
+    });
 }
 
 /** QMK 設定の値をディスクの settings/qmk_settings.yaml から読む（ファイルがなければ fixtures のまま、書いていなければ null） */
@@ -662,6 +1150,113 @@ function settingsFromDisk(base: string, settings: QmkSettingSnapshot[]): QmkSett
     const value = setting.type === 'boolean' ? text === 'true' || text === '1' : Number(text);
     return { ...setting, value };
   });
+}
+
+type Items = Required<Pick<ProfileSnapshot, 'macros' | 'tapDances' | 'combos' | 'shortcuts'>> & { unused: Omit<UnusedItems, 'layers'> };
+
+/** index: の値（書いていない・値がない・null なら未使用の null。protocol.md の 15.1） */
+function indexOnDisk(text: string): number | null {
+  const value = /^index:[ \t]*(\S*)/m.exec(text)?.[1];
+  return value !== undefined && /^\d+$/.test(value) ? Number(value) : null;
+}
+
+/** 使っているもの（番号の順）と未使用のものに分ける */
+function splitUsed<T extends { index: number }>(items: (T | Unused<T>)[]): { used: T[]; unused: Unused<T>[] } {
+  const used = items.filter((item): item is T => item.index !== null).sort((a, b) => a.index - b.index);
+  return { used, unused: items.filter((item): item is Unused<T> => item.index === null) };
+}
+
+/**
+ * マクロ・タップダンス・コンボ・ショートカットの一覧（protocol.md の 12.2）。設定ディレクトリがディスクになければ fixtures のまま。
+ * ディスクにあれば、ファイルの一覧と `name:` `index:` の行から作り、fixtures に同じファイル・同じ名前のものがあればその中身を使う
+ * （中身はディスクから読まない。追加・削除・名前の変更の流れを試すためのもの）
+ */
+function itemsFromDisk(base: string): Items {
+  if (!fs.existsSync(base)) return { macros: data.MACROS, tapDances: data.TAP_DANCES, combos: data.COMBOS, shortcuts: data.SHORTCUTS, unused: { macros: [], tapDances: [], combos: [] } };
+  const header = (file: string) => ({
+    file,
+    descriptionAddress: { file, path: ['description'] },
+    description: null,
+  });
+  const macros = readItems(base, 'macros', data.MACROS, (file, name, index): MacroSnapshot => ({
+    ...header(file),
+    index,
+    name,
+    icon: null,
+    preset: null,
+    presetAddress: null,
+    summary: [],
+    steps: [],
+  }));
+  const tapDances = readItems(base, 'tap_dance', data.TAP_DANCES, (file, name, index): TapDanceSnapshot => {
+    const action = (key: string) => ({ address: { file, path: ['actions', key] }, value: null });
+    return {
+      ...header(file),
+      index,
+      name,
+      actions: { tap: action('on_tap'), hold: action('on_hold'), doubleTap: action('on_double_tap'), tapHold: action('on_tap_hold') },
+      tappingTerm: { address: { file, path: ['tapping_term'] }, value: null },
+    };
+  });
+  const combos = readItems(base, 'combos', data.COMBOS, (file, name, index): ComboSnapshot => ({
+    ...header(file),
+    index,
+    name,
+    triggersAddress: { file, path: ['trigger_keys'] },
+    triggers: [0, 1].map((i) => ({ address: { file, path: ['trigger_keys', i] }, value: data.interpret('NoKey') })),
+    output: { address: { file, path: ['output_key'] }, value: data.interpret('NoKey') },
+  }));
+  const m = splitUsed(macros);
+  const t = splitUsed(tapDances);
+  const c = splitUsed(combos);
+  return { macros: m.used, tapDances: t.used, combos: c.used, shortcuts: readShortcuts(base), unused: { macros: m.unused, tapDances: t.unused, combos: c.unused } };
+}
+
+function readItems<T extends { file: string; name: string; index: number }>(base: string, dir: string, fixtures: T[], make: (file: string, name: string, index: number) => T): (T | Unused<T>)[] {
+  const full = path.join(base, dir);
+  if (!fs.existsSync(full)) return [];
+  return fs
+    .readdirSync(full)
+    .filter((name) => /\.ya?ml$/.test(name) && !name.startsWith('.'))
+    .sort()
+    .map((entry) => {
+      const file = `${dir}/${entry}`;
+      const text = fs.readFileSync(path.join(full, entry), 'utf-8');
+      const name = unquote(/^name:\s*(.*?)\s*$/m.exec(text)?.[1] ?? entry);
+      // 番号は index: だけで決まる（#85）。書いていなければ未使用（null）
+      const index = indexOnDisk(text);
+      const fixture = fixtures.find((item) => item.file === file && item.name === name);
+      const item = { ...(fixture ?? make(file, name, index ?? 0)), index } as T | Unused<T>;
+      // 説明はディスクの値を出す（保存したあとの snapshot で、書いた説明が未保存の変更として残らないように）
+      if (!('description' in item)) return item;
+      const description = /^description:\s*(.*?)\s*$/m.exec(text)?.[1];
+      return { ...item, description: description === undefined ? null : unquote(description) };
+    });
+}
+
+/** shortcuts.yaml の `shortcuts:` の下の `名前: 値` の行（ファイルがなければ []） */
+function readShortcuts(base: string): ShortcutSnapshot[] {
+  const full = path.join(base, 'shortcuts.yaml');
+  if (!fs.existsSync(full)) return [];
+  const result: ShortcutSnapshot[] = [];
+  let inside = false;
+  for (const line of fs.readFileSync(full, 'utf-8').split('\n')) {
+    if (/^shortcuts:\s*$/.test(line)) {
+      inside = true;
+      continue;
+    }
+    if (!inside) continue;
+    const match = /^\s+(["']?)(.+?)\1:\s*(.*?)\s*$/.exec(line);
+    if (!match) {
+      if (line.trim() && !line.startsWith(' ')) inside = false;
+      continue;
+    }
+    const name = match[2]!;
+    const text = unquote(match[3]!);
+    const value = data.interpret(text) ?? { text, canonical: text, code: null, kind: 'raw' as const, display: { label: text } };
+    result.push({ name, address: { file: 'shortcuts.yaml', path: ['shortcuts', name] }, value });
+  }
+  return result;
 }
 
 function textAt(lines: string[], range: { start: { line: number; character: number }; end: { character: number } }): string {
@@ -682,8 +1277,8 @@ function unquote(text: string): string {
 
 /** keycode/candidates の limit を省いたときの数（protocol.md の 5.3） */
 const DEFAULT_LIMIT = 50;
-/** v0.1 の context（protocol.md の 5.3） */
-const CONTEXTS = new Set(['layerKey', 'encoder']);
+/** context（protocol.md の 5.3 と 12.4）。偽のサーバーは v0.2 の context でも v0.1 と同じ並びで返す */
+const CONTEXTS = new Set(['layerKey', 'encoder', 'macroKey', 'tapDanceAction', 'comboTrigger', 'comboOutput', 'shortcutValue']);
 
 /** params の文字列の項目。なければ・文字列でなければ -32602（Ruby のサーバーと同じ data: { field }） */
 function requireString(params: Record<string, unknown>, field: string): string {
@@ -783,10 +1378,46 @@ function findValue(lines: string[], keyPath: (string | number)[]) {
   return { start: { line, character: start }, end: { line, character: end } };
 }
 
-function quote(value: string): string {
-  return /^[\w()' +\-]+$/u.test(value) && !/^[-?:,]/.test(value) ? value : JSON.stringify(value);
+/** ファイル名の slug（ASCII の英数字を小文字にして、ほかを _ にまとめたもの。protocol.md の 12.5） */
+function slug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+/** そのディレクトリでいちばん多い拡張子（なければ yaml） */
+function extensionIn(base: string, folder: string): string {
+  const full = path.join(base, folder);
+  const names = fs.existsSync(full) ? fs.readdirSync(full) : [];
+  const yml = names.filter((n) => n.endsWith('.yml')).length;
+  const yaml = names.filter((n) => n.endsWith('.yaml')).length;
+  return yml === 0 && yaml === 0 ? 'yaml' : yml >= yaml ? 'yml' : 'yaml';
+}
+
+function indentOfLine(line: string): number {
+  return line.length - line.trimStart().length;
 }
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** 番号の参照の表記を、番号を変えたあとの表記にする（表記はそのまま）。番号の参照でないか、動かない番号なら undefined */
+function moveReference(kind: string, text: string, moves: Map<number, number>): string | undefined {
+  const patterns =
+    kind === 'macro'
+      ? [/^(Macro\()(\d+)(\))$/, /^(M)(\d+)()$/]
+      : kind === 'tapDance'
+        ? [/^(TD\()(\d+)(\))$/, /^(TapDance\()(\d+)(\))$/]
+        : kind === 'layer'
+          ? [/^((?:MO|TG|TO|TT|OSL|DF|PDF)\()(\d+)(\))$/, /^((?:LT|LM)\()(\d+)(,.*\))$/, /^(LT)(\d+)(\(.*\))$/]
+          : [];
+  for (const pattern of patterns) {
+    const match = pattern.exec(text);
+    if (!match) continue;
+    const to = moves.get(Number(match[2]));
+    return to === undefined ? undefined : `${match[1]}${to}${match[3]}`;
+  }
+  return undefined;
 }

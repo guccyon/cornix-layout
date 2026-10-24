@@ -1,8 +1,8 @@
 // 画面の部品のテスト用の HostClient。偽のサーバーのデータ（test/fake-server/fixtures.ts）で候補と解釈を返す。
 // 返事を止めておいて（hold）、好きな順で返す（release）こともできる。
-import type { CandidatesResult, Change, KeyValue, ProfileSnapshot, Range } from '../../../src/protocol';
+import type { AnyChange, CandidatesResult, Change, ItemEdit, KeyValue, ProfileSnapshot, Range } from '../../../src/protocol';
 import type { HostClient } from '../../../src/webview/hostClient';
-import type { WebviewRequestMap, WebviewRequestMethod } from '../../../src/webviewMessages';
+import type { DeviceAction, WebviewRequestMap, WebviewRequestMethod } from '../../../src/webviewMessages';
 import * as data from '../../fake-server/fixtures';
 
 type Call = { method: WebviewRequestMethod; params: unknown; resolve: () => void };
@@ -10,7 +10,10 @@ type Call = { method: WebviewRequestMethod; params: unknown; resolve: () => void
 export class FakeHost implements HostClient {
   readonly requests: { method: WebviewRequestMethod; params: unknown }[] = [];
   readonly changes: Change[] = [];
+  readonly edits: AnyChange[] = [];
+  readonly itemEdits: ItemEdit[] = [];
   readonly opened: { file: string; range?: Range }[] = [];
+  readonly deviceActions: DeviceAction[] = [];
   /** true の間は返事を溜める */
   holding = false;
   /** 候補をいくつで切るか（サーバーの limit の代わり） */
@@ -32,8 +35,20 @@ export class FakeHost implements HostClient {
     this.changes.push(change);
   }
 
+  edit(change: AnyChange): void {
+    this.edits.push(change);
+  }
+
+  itemEdit(edit: ItemEdit): void {
+    this.itemEdits.push(edit);
+  }
+
   openFile(file: string, range?: Range): void {
     this.opened.push(range ? { file, range } : { file });
+  }
+
+  deviceAction(action: DeviceAction): void {
+    this.deviceActions.push(action);
   }
 
   /** 溜めた返事の i 番目を返す */
@@ -48,6 +63,7 @@ export class FakeHost implements HostClient {
 }
 
 function answer(method: WebviewRequestMethod, params: unknown, limit: number, values: ReadonlyMap<string, KeyValue>): unknown {
+  if (method === 'keycode/shortcutTree') return data.SHORTCUT_TREE;
   if (method === 'keycode/inspect') {
     const { text } = params as { text: string };
     const value = values.get(text) ?? data.interpret(text);

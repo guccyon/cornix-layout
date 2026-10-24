@@ -1,0 +1,72 @@
+{
+  "description": "読み直して違いが残れば remaining に返す",
+  "setup": {
+    "profile": "test_config",
+    "allowWrites": true,
+    "device": {
+      "from": "profile",
+      "keys": [
+        {
+          "layer": 0,
+          "row": 0,
+          "col": 1,
+          "value": "KC_A"
+        },
+        {
+          "layer": 0,
+          "row": 4,
+          "col": 0,
+          "value": "KC_NO"
+        },
+        {
+          "layer": 1,
+          "row": 2,
+          "col": 6,
+          "value": "KC_B"
+        }
+      ],
+      "ignoreWrites": true
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "device/apply",
+    "params": {
+      "dir": "profiles/default",
+      "token": "828ecd9225e5c798"
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "applied": 3,
+      "remaining": [
+        {
+          "kind": "key",
+          "layer": 0,
+          "key": {
+            "hand": "left",
+            "row": 0,
+            "col": 1
+          },
+          "position": "Q",
+          "device": "KC_A",
+          "profile": "KC_Q"
+        },
+        {
+          "kind": "key",
+          "layer": 0,
+          "position": "backspace"
+        },
+        {
+          "kind": "encoder",
+          "layer": 1,
+          "encoder": {
+            "side": "left",
+            "direction": "push"
+          }
+        }
+      ]
+    }
+  }
+}

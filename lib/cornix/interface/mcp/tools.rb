@@ -6,6 +6,8 @@ module Cornix
   module Interface
     module Mcp
       # tools/call の実行。ユースケースを呼び、結果を MCP のツール結果（content / isError）にする。
+      # content は人が読む要約と、結果の to_h（CLI の --json と同じ変換。Application::Serialize）の JSON の 2 つ
+      # （keyboard_info と、save_path なしの read_keymap は中身そのものが JSON なので 1 つ）。
       # Cornix::Error などの失敗は isError: true のツール結果にする（JSON-RPC のエラーにはしない）
       class Tools
         # use_cases: Interface::UseCases.build の表（name => ->(env) { ユースケース }）
@@ -14,21 +16,21 @@ module Cornix
           @use_cases = use_cases
         end
 
-        # → { content: [{ type: 'text', text: }], isError: true? }
+        # → { content: [{ type: 'text', text: }, ...], isError: true? }
         def call(name, args)
           args ||= {}
-          text =
+          texts =
             case name
-            when 'keyboard_info' then JSON.pretty_generate(use(:device_info).call.to_h)
+            when 'keyboard_info' then [JSON.pretty_generate(use(:device_info).call.to_h)]
             when 'read_keymap' then read_keymap(args)
-            when 'backup' then "バックアップを保存しました: #{use(:device_backup).call.path}"
-            when 'list_backups' then list_backups
+            when 'backup' then backup
+            when 'list_backups' then list_backups(args)
             when 'apply_layout' then apply_layout(args)
             when 'restore_backup' then restore_backup(args)
             else
               return tool_error("不明なツール: #{name}")
             end
-          { content: [{ type: 'text', text: text }] }
+          { content: texts.map { |text| { type: 'text', text: text } } }
         rescue Cornix::Error, ArgumentError, SystemCallError => e
           tool_error(e.message)
         end
@@ -37,32 +39,49 @@ module Cornix
 
         def use(name) = @use_cases.fetch(name).call(@env)
 
+        # [要約, 結果の to_h の JSON]
+        def summarized(summary, result) = [summary, JSON.pretty_generate(result.to_h)]
+
         def read_keymap(args)
-          return use(:device_read).call.vil unless args['save_path']
+          return [use(:device_read).call.vil] unless args['save_path']
 
           path = File.expand_path(args['save_path'])
-          use(:device_read).call(output: path)
-          "保存しました: #{path}"
+          summarized("保存しました: #{path}", use(:device_read).call(output: path))
         end
 
-        def list_backups
-          list = use(:list_backups).call
-          list.empty? ? 'バックアップはありません' : list.paths.join("\n")
+        def backup
+          result = use(:device_backup).call
+          summarized("バックアップを保存しました: #{result.path}", result)
+        end
+
+        # 要約は 1 行に 1 件、「日時  種類  パス」を新しい順に
+        def list_backups(args)
+          list = use(:list_snapshots).call(kind: args['kind'])
+          summary =
+            if list.empty?
+              'スナップショットはありません'
+            else
+              list.snapshots.map { |s| "#{s.time.strftime('%Y-%m-%d %H:%M:%S')}  #{s.kind}  #{s.path}" }.join("\n")
+            end
+          summarized(summary, list)
         end
 
         def apply_layout(args)
           path = File.expand_path(args['vil_path'] || @env.layout_path)
-          return format_diff(use(:device_diff).call(vil_path: path)) if dry_run?(args)
+          return diff(use(:device_diff).call(vil_path: path)) if dry_run?(args)
 
-          format_apply(use(:device_apply).call(vil_path: path, expected_token: token!(args)))
+          applied(use(:device_apply).call(vil_path: path, expected_token: token!(args)))
         end
 
         def restore_backup(args)
-          source = args['backup_path'] && File.expand_path(args['backup_path'])
-          return format_diff(use(:device_restore).call(source, dry_run: true)) if dry_run?(args)
+          source = args['backup_path'] # 名前でも指定できるので、パスに広げない（相対パスはカレントから）
+          return diff(use(:device_restore).call(source, dry_run: true)) if dry_run?(args)
 
-          format_apply(use(:device_restore).call(source, expected_token: token!(args)))
+          applied(use(:device_restore).call(source, expected_token: token!(args)))
         end
+
+        def diff(plan) = summarized(format_diff(plan), plan)
+        def applied(outcome) = summarized(format_apply(outcome), outcome)
 
         def dry_run?(args) = args.fetch('dry_run', true)
 

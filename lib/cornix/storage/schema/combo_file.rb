@@ -8,7 +8,7 @@ module Cornix
       #   name: Bracket Pair
       #   description: ...                # 省略可
       #   enabled: true                   # 省略可（読み飛ばす）
-      #   index: 0                        # コンボ番号
+      #   index: 0                        # コンボ番号。省くか空にすると未使用（compile に含めない）
       #   trigger_keys: [KC_K, KC_L]      # 同時に押すキー
       #   output_key: Macro('Bracket Pair')   # 注記付きの形（{ key: ..., note: ... }）も書ける
       module ComboFile

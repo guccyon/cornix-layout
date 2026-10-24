@@ -51,6 +51,17 @@ RSpec.describe Cornix::Storage::ConfigEditor do
     end
   end
 
+  it 'replace_references_in はテキストの中だけで置き換え（ファイルは書かない）、Shortcut(...) も扱う' do
+    text = "tab: Shortcut('Mine')\nQ: Shortcut(\"Mine\")\nW: Shortcut('Mine 2')\nE: Macro('Mine')\n"
+    expect(described_class.replace_references_in(text, 'Shortcut', 'Mine', '自分の'))
+      .to eq("tab: Shortcut('自分の')\nQ: Shortcut(\"自分の\")\nW: Shortcut('Mine 2')\nE: Macro('Mine')\n")
+    expect(described_class.reference_pattern('Macro', 'Mine')).to match("Macro( 'Mine' )")
+    expect { described_class.reference_pattern('Layer', 'x') }.to raise_error(ArgumentError)
+    with_config_copy do |dir|
+      expect { described_class.new(dir).replace_references('Shortcut', 'a', 'b') }.to raise_error(ArgumentError)
+    end
+  end
+
   it 'backup / restore / backups / delete_backup' do
     with_config_copy do |dir|
       editor = described_class.new(dir)

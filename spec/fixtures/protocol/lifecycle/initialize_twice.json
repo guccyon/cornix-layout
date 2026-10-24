@@ -1,5 +1,5 @@
 {
   "description": "2 回目の initialize は -32600（InvalidRequest）",
-  "request": { "id": 1, "method": "initialize", "params": { "protocolVersion": "0.1" } },
+  "request": { "id": 1, "method": "initialize", "params": { "protocolVersion": "0.5" } },
   "response": { "id": 1, "error": { "code": -32600 } }
 }

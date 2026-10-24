@@ -16,6 +16,8 @@ module Cornix
     #                               settings_catalog: Mapping::QmkSettingCatalog.default)
     #                               # shortcut_catalog: 同梱のショートカット（既定は Mapping::ShortcutCatalog.default）
     #   profile = repo.load            # 問題があれば InvalidConfig（すべての問題を「ファイル: キーの位置: 内容」で並べる）
+    #   loaded = repo.load_all         # => ConfigLoader::Loaded（profile と、Profile に入れない未使用のファイル unused。UnusedFile の一覧）
+    #   partial = repo.load_partial    # エディタ用: 解析できないキーコードは NoKey にして読む（ConfigLoader::Partial。unused も持つ。ほかの問題は InvalidConfig）
     #   repo.save(profile)             # => 書いたファイルの相対パスの一覧
     #   repo.locate(diagnostic)        # Profile#diagnostics のパスをファイル上の位置にした Diagnostic
     #   repo.address(model_path)       # => [ファイル, キーの道筋]（DiagnosticLocator#address）
@@ -37,10 +39,12 @@ module Cornix
         @shortcut_catalog = shortcut_catalog
       end
 
-      def load
-        ConfigLoader.new(@dir, notation: @notation, settings_catalog: @settings_catalog,
-                               shortcut_catalog: @shortcut_catalog, source: @source).load
-      end
+      def load = loader.load
+
+      # 未使用のファイル（index のないもの。issue #85）も返す。未使用のファイルの問題は InvalidConfig にしない
+      def load_all = loader.load_all
+
+      def load_partial = loader.load_partial
 
       def save(profile)
         Domain::Checks.instance!(profile, Domain::Profile, '保存するプロファイル')
@@ -76,7 +80,18 @@ module Cornix
 
       private
 
-      def locator = DiagnosticLocator.new(@dir, source: @source)
+      def loader
+        ConfigLoader.new(@dir, notation: @notation, settings_catalog: @settings_catalog,
+                               shortcut_catalog: @shortcut_catalog, source: @source)
+      end
+
+      # 中身の変わらない読み込み元（FileSource::Memory。エディタが読んだ時点の中身）なら作ったものを使い回す
+      # （address を欄ごとに呼ぶので、毎回すべてのファイルを読み直すと遅い）。ディスクは読み直す
+      def locator
+        return @locator ||= DiagnosticLocator.new(@dir, source: @source) if @source.is_a?(FileSource::Memory)
+
+        DiagnosticLocator.new(@dir, source: @source)
+      end
     end
   end
 end

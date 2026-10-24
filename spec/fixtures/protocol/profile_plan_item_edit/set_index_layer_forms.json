@@ -1,0 +1,346 @@
+{
+  "description": "レイヤーの番号の入れ替え（setIndex）でのレイヤー操作の書き換え: MO( 6 ) / TG(7) / LT(6, Space) / LT7(A) / LM(6, MOD_LSFT) / 0x5226 / 0x50e1（桁数と小文字を保つ）/ 注記付きの OSL(6) / LT6(NoKey) とエンコーダの TT(7)、マクロの手順のキー・コンボの出力・shortcuts.yaml の値（引用符付きも）を、表記の形を保って新しい番号に。入れ替わらないレイヤー（MO(8)）と Shortcut('Layer 6')（shortcuts.yaml の値が書き換わるので追従する）は書き換えない",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/layers/5_empty.yml": "---\nname: Empty\nindex: 5\ndescription: Empty layer (reserved for future use)\nmapping:\n  left_hand:\n    row0:\n      tab: MO( 6 )\n      Q: TG(7)\n      W: LT(6, Space)\n      E: LT7(A)\n      R: LM(6, MOD_LSFT)\n      T: 0x5226\n    row1:\n      lctrl: NoKey\n      A: NoKey\n      S: NoKey\n      D: NoKey\n      F: NoKey\n      G: NoKey\n    row2:\n      lshift: NoKey\n      Z: NoKey\n      X: NoKey\n      C: NoKey\n      V: NoKey\n      B: NoKey\n    row3:\n      caps: NoKey\n      fn: NoKey\n      option: NoKey\n    thumb_keys:\n      left: NoKey\n      middle: NoKey\n      right: NoKey\n  right_hand:\n    row0:\n      Y: 0x50e1\n      U: { key: OSL(6), note: 注記 }\n      I: MO(8)\n      O: Shortcut('Layer 6')\n      P: LT6(NoKey)\n      backspace: NoKey\n    row1:\n      H: NoKey\n      J: NoKey\n      K: NoKey\n      L: NoKey\n      colon: NoKey\n      enter: NoKey\n    row2:\n      N: NoKey\n      M: NoKey\n      comma: NoKey\n      dot: NoKey\n      up: NoKey\n      rshift: NoKey\n    row3:\n      left: NoKey\n      down: NoKey\n      right: NoKey\n    thumb_keys:\n      left: NoKey\n      middle: NoKey\n      right: NoKey\n  encoders:\n    left:\n      push: TT(7)\n      ccw: VolumeDown\n      cw: VolumeUp\n    right:\n      push: MouseButton3\n      ccw: MouseWheelUp\n      cw: MouseWheelDown\n",
+      "profiles/default/macros/10_layer_switch.yml": "---\nname: Layer Switch\nindex: 10\nsequence:\n- action: tap\n  keys:\n  - MO(7)\n  - KC_A\n",
+      "profiles/default/combos/08_layer_combo.yml": "---\nname: Layer Combo\nindex: 8\ntrigger_keys:\n- KC_J\n- KC_K\noutput_key: TO(6)\n",
+      "profiles/default/shortcuts.yaml": "shortcuts:\n  Layer 6: MO(6)\n  Layer 7: \"DF(7)\"\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/6_empty.yml": "sha256:2503dd1469e704bc600c68f752a6e4bfb28d3f326c7f02ef73f08d5364b0a42e",
+        "layers/7_empty.yml": "sha256:8eaf65d721e0225271debd481271941eedaecedcd52c22f9da8b7a8081df54b6",
+        "layers/5_empty.yml": "sha256:f2666ad41c221a592b4f929291065cd509f26467c0f41c4699463d223d1ffc98",
+        "macros/10_layer_switch.yml": "sha256:57fa3c48aa58554010b37f2ca277963b3094108c898add6ec103253f3b0cca2b",
+        "combos/08_layer_combo.yml": "sha256:4ddf09d9a8683dc336801ca3738ea863f520c1682afa29fd8bb3ef8c56c2c1b7",
+        "shortcuts.yaml": "sha256:6d3f6513b7c6ded1a520af9bd15bdcb112daa72b25d23a837352cf0d78ed8e5b"
+      },
+      "edit": {
+        "op": "setIndex",
+        "kind": "layer",
+        "file": "layers/6_empty.yml",
+        "index": 7
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+        {
+          "address": {
+            "file": "layers/6_empty.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 7
+        },
+        {
+          "address": {
+            "file": "layers/7_empty.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 6
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "value": "MO( 7 )"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "Q"
+            ]
+          },
+          "value": "TG(6)"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "W"
+            ]
+          },
+          "value": "LT(7, Space)"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "E"
+            ]
+          },
+          "value": "LT6(A)"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "R"
+            ]
+          },
+          "value": "LM(7, MOD_LSFT)"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "T"
+            ]
+          },
+          "value": "0x5227"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "row0",
+              "Y"
+            ]
+          },
+          "value": "0x50c1"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "row0",
+              "U"
+            ]
+          },
+          "value": "OSL(7)"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "right_hand",
+              "row0",
+              "P"
+            ]
+          },
+          "value": "LT7(NoKey)"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "encoders",
+              "left",
+              "push"
+            ]
+          },
+          "value": "TT(6)"
+        },
+        {
+          "address": {
+            "file": "macros/10_layer_switch.yml",
+            "path": [
+              "sequence",
+              0,
+              "keys",
+              0
+            ]
+          },
+          "value": "MO(6)"
+        },
+        {
+          "address": {
+            "file": "combos/08_layer_combo.yml",
+            "path": [
+              "output_key"
+            ]
+          },
+          "value": "TO(7)"
+        },
+        {
+          "address": {
+            "file": "shortcuts.yaml",
+            "path": [
+              "shortcuts",
+              "Layer 6"
+            ]
+          },
+          "value": "MO(7)"
+        },
+        {
+          "address": {
+            "file": "shortcuts.yaml",
+            "path": [
+              "shortcuts",
+              "Layer 7"
+            ]
+          },
+          "value": "DF(6)"
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "tab"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "Q"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "W"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "E"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "R"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "T"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "row0",
+            "Y"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "row0",
+            "U"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "right_hand",
+            "row0",
+            "P"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "encoders",
+            "left",
+            "push"
+          ]
+        },
+        {
+          "file": "macros/10_layer_switch.yml",
+          "path": [
+            "sequence",
+            0,
+            "keys",
+            0
+          ]
+        },
+        {
+          "file": "combos/08_layer_combo.yml",
+          "path": [
+            "output_key"
+          ]
+        },
+        {
+          "file": "shortcuts.yaml",
+          "path": [
+            "shortcuts",
+            "Layer 6"
+          ]
+        },
+        {
+          "file": "shortcuts.yaml",
+          "path": [
+            "shortcuts",
+            "Layer 7"
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

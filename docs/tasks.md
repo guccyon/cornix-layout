@@ -84,6 +84,7 @@ Domain::PositionMap.from_h(hash)                           # position_map.yaml �
 Domain::EncoderBinding(push:, ccw:, cw:, notes: { push: String, ... })   # 各 Keycode。notes は省略可
 Domain::Layer(index:, name:, description:, keys: { KeyPosition => Keycode }, encoders: { left: EncoderBinding, right: EncoderBinding },
               notes: { KeyPosition => String })            # notes（注記）は割り当てのある位置だけ。省略可
+  #blank? #=> すべての位置とエンコーダが KC_NO か（KC_TRNS は割り当てとみなす。decompile が空のレイヤーを書かない判定）
 Domain::MacroStep::Tap / Down / Up(keys: [Keycode]), Delay(ms:), Text(content:)   # KEY_ACTIONS: action の名前 → Tap / Down / Up
 Domain::Macro(index:, name:, description:, steps:, preset: nil)   # preset は同梱のショートカットの名前（デバイスにはない。書き戻し用）
 Domain::TapDance(index:, name:, description:, on_tap:, on_hold:, on_double_tap:, on_tap_hold:, tapping_term:,
@@ -97,6 +98,7 @@ Domain::Diagnostic(severity: :error|:warning, path: String, message: String)
 Domain::Profile(metadata:, settings:, position_map:, layers:, macros:, tap_dances:, combos:, shortcuts: ShortcutLibrary::EMPTY)
   #diagnostics(capabilities = Capabilities::CORNIX) #=> [Diagnostic]
   #references #=> Mapping に依存しない形で名前 → 番号（macro_names / tap_dance_names の Hash）と shortcuts（名前 → Keycode）を返す
+  #referenced_layer_indexes #=> [Integer]（レイヤー操作のキーが指すレイヤーの番号。昇順・重複なし）
 ```
 
 - 旧 `models/` と `Validatable` の検証内容（範囲、必須、重複、件数の上限、参照先の存在）を構造検証と `diagnostics` に移す。
@@ -134,6 +136,7 @@ mapper.to_profile(image, position_map:, previous: nil) #=> Domain::Profile   # p
 ```ruby
 repo = Storage::ConfigRepository.new(dir, notation:, settings_catalog:, shortcut_catalog: Mapping::ShortcutCatalog.default)
 repo.load    #=> Domain::Profile（問題はすべて集めて Storage::InvalidConfig(problems) で送出）
+repo.load_all #=> ConfigLoader::Loaded(profile:, unused: [Storage::UnusedFile])（未使用のファイル。issue #85）
 repo.save(profile) #=> [書いたファイル]   # decompile。ファイル名の規則は旧 YamlWriter と同じ
 ```
 
@@ -156,7 +159,7 @@ Storage::VilFile.new(vial:).read(path) #=> Image::DeviceImage / #write(image, pa
 
 ```ruby
 env = Application::Environment.new(root: dir, claude: fake)     # repository / config_editor / decompile_lock / claude
-Application::Validate.new(env).call          #=> ValidationReport(errors:, warnings:, profile:)（config/ がなければ ConfigNotFound）
+Application::Validate.new(env).call          #=> ValidationReport(diagnostics:, profile:, unused:)。#errors / #warnings は文字列（config/ がなければ ConfigNotFound）
 Application::Compile.new(env).call(output: nil)   #=> CompileResult(report:, path:, image:)
 Application::Decompile.new(env).call(input: nil)  #=> DecompileResult(status: :decompiled | :input_missing | :config_exists, ...)
 Application::Cleanup.new(env).call(force: false, confirm: ->(lock) { ... })   #=> CleanupResult(status:, lock:, deleted:)
@@ -164,6 +167,7 @@ Application::RenameFiles.new(env).check(plan) / #call(plans, verify: true)    #=
 Application::SuggestRenames.new(env).call / #load_plans / #cleanup            #=> RenameSuggestions
 ```
 
+- 各結果の `#to_h` は JSON にできる Hash（キーは文字列）。共通の部品は `Application::Serialize`。CLI の `--json` と MCP のツール結果が使う（#26）。
 - `bin/cornix` は `Interface::Cli::Main`。`bin/subcommands/` と旧コード・旧 spec は削除した。
 - 旧コードを正解にしていた spec は、旧コードで求めた値を `spec/fixtures/expected/` に保存して比べる。
   authors-keymap の config とその compile / decompile 結果は `spec/fixtures/authors_*` に複写してあり、

@@ -1,0 +1,47 @@
+{
+  "description": "shortcuts.yaml がなくても [\"shortcuts\", 名前] の set を返す（v0.5。保存で create: true で作る。baseVersions になくてよい）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "create",
+        "kind": "shortcut",
+        "name": "前のタブへ",
+        "value": "Command + Shift + ["
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+        {
+          "address": {
+            "file": "shortcuts.yaml",
+            "path": [
+              "shortcuts",
+              "前のタブへ"
+            ]
+          },
+          "value": "Command + Shift + ["
+        }
+      ],
+      "references": [
+
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

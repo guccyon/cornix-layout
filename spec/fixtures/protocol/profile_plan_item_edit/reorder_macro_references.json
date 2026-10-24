@@ -1,0 +1,125 @@
+{
+  "description": "マクロの並び替え（reorder）: 抜け番のある番号（0・2・4〜8・12・15 と、params の changes（未保存の変更）で 20 にした 03）を小さい順に並べ、新しい並び [04, 02, 00, 05, …, 03] の順に当てる（04=0・02=2・00=4。ほかは変わらないので set を作らない）。番号で書いた参照（Macro(0) / 0x7704）は表記の形を保って新しい番号に、名前の参照（Macro('Bracket Pair')）と番号の変わらないマクロの参照（M2 / M12）は書き換えない",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/macros/01_curly_brace_pair.yml": "---\nname: Curly Brace Pair\ndescription: 波括弧ペア {} を挿入してカーソルを内側に配置\nenabled: true\nindex: 12\nsequence:\n- action: down\n  keys: KC_LSHIFT\n- action: tap\n  keys:\n  - KC_LBRACKET\n  - KC_RBRACKET\n- action: up\n  keys: KC_LSHIFT\n- action: tap\n  keys:\n  - KC_LEFT\n",
+      "profiles/default/macros/09_code_block.yml": "---\nname: Code block\ndescription: \"``` ペアを挿入し改行を挿入してカーソルを内側に配置\"\nenabled: true\nindex: 15\nsequence:\n- action: text\n  content: \"``````\"\n- action: tap\n  keys:\n  - KC_LEFT\n  - KC_LEFT\n  - KC_LEFT\n  - KC_ENTER\n  - KC_ENTER\n  - KC_UP\n",
+      "profiles/default/layers/5_empty.yml": "---\nname: Empty\nindex: 5\ndescription: Empty layer (reserved for future use)\nmapping:\n  left_hand:\n    row0:\n      tab: Macro(0)\n      Q: M2\n      W: 0x7704\n      E: Macro('Bracket Pair')\n      R: M12\n      T: NoKey\n    row1:\n      lctrl: NoKey\n      A: NoKey\n      S: NoKey\n      D: NoKey\n      F: NoKey\n      G: NoKey\n    row2:\n      lshift: NoKey\n      Z: NoKey\n      X: NoKey\n      C: NoKey\n      V: NoKey\n      B: NoKey\n    row3:\n      caps: NoKey\n      fn: NoKey\n      option: NoKey\n    thumb_keys:\n      left: NoKey\n      middle: NoKey\n      right: NoKey\n  right_hand:\n    row0:\n      Y: NoKey\n      U: NoKey\n      I: NoKey\n      O: NoKey\n      P: NoKey\n      backspace: NoKey\n    row1:\n      H: NoKey\n      J: NoKey\n      K: NoKey\n      L: NoKey\n      colon: NoKey\n      enter: NoKey\n    row2:\n      N: NoKey\n      M: NoKey\n      comma: NoKey\n      dot: NoKey\n      up: NoKey\n      rshift: NoKey\n    row3:\n      left: NoKey\n      down: NoKey\n      right: NoKey\n    thumb_keys:\n      left: NoKey\n      middle: NoKey\n      right: NoKey\n  encoders:\n    left:\n      push: Mute\n      ccw: VolumeDown\n      cw: VolumeUp\n    right:\n      push: MouseButton3\n      ccw: MouseWheelUp\n      cw: MouseWheelDown\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "macros/04_copy_current_line.yml": "sha256:534e11d80bdf3fae403859fa709567d5249a6a8e27d5ed1b52d9486c0e322c5e",
+        "macros/00_bracket_pair.yml": "sha256:9d27d8248f986aa7d20cb4091363eed5f44528d05478ce093a0499b9982ed436",
+        "layers/5_empty.yml": "sha256:50c2b0a98f9876d1224ace5d2f4e88d3ff44f2999de5c6eaa39a9554e9d82b5d"
+      },
+      "edit": {
+        "op": "reorder",
+        "kind": "macro",
+        "files": [
+          "macros/04_copy_current_line.yml",
+          "macros/02_copy_selected.yml",
+          "macros/00_bracket_pair.yml",
+          "macros/05_single_quote_pair.yml",
+          "macros/06_parenthesis_pair.yml",
+          "macros/07_clipboard_history.yml",
+          "macros/08_double_quote_pair.yml",
+          "macros/01_curly_brace_pair.yml",
+          "macros/09_code_block.yml",
+          "macros/03_copy_current_word.yml"
+        ]
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "macros/03_copy_current_word.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 20
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+
+      ],
+      "changes": [
+        {
+          "address": {
+            "file": "macros/04_copy_current_line.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 0
+        },
+        {
+          "address": {
+            "file": "macros/00_bracket_pair.yml",
+            "path": [
+              "index"
+            ]
+          },
+          "value": 4
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "tab"
+            ]
+          },
+          "value": "Macro(4)"
+        },
+        {
+          "address": {
+            "file": "layers/5_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row0",
+              "W"
+            ]
+          },
+          "value": "0x7700"
+        }
+      ],
+      "references": [
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "tab"
+          ]
+        },
+        {
+          "file": "layers/5_empty.yml",
+          "path": [
+            "mapping",
+            "left_hand",
+            "row0",
+            "W"
+          ]
+        }
+      ],
+      "diagnostics": [
+
+      ]
+    }
+  }
+}

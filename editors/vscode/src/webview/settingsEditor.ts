@@ -1,5 +1,6 @@
 // QMK 設定の欄（spec.md の「ファイルの種類ごと」の settings/qmk_settings.yaml）。整数は数値、真偽値はチェックボックスで、説明と既定値を添える。
 // 値を決めたら（change）Change をホストに渡す。描き直しはホストからの snapshot と未保存の変更で行う（打ちかけの欄はそのまま残す）。
+// v0.3: 節は最初は畳んでおく（details は作り直さないので、開いた状態は描き直しで戻らない）。
 import type { Change, Diagnostic, ProfileSnapshot, QmkSettingSnapshot } from '../protocol';
 import { h, nodes } from './dom';
 import { addressKey, changeMap, diagnosticsByAddress, severityOf } from './model';
@@ -36,8 +37,19 @@ export class SettingsEditor {
     this.element = h(
       'section',
       { class: 'settings-editor', 'aria-label': 'QMK 設定' },
-      h('details', { class: 'section-details', open: true }, h('summary', {}, h('h2', {}, 'QMK 設定')), this.body),
+      h('details', { class: 'section-details' }, h('summary', {}, h('h2', {}, 'QMK 設定')), this.body),
     );
+  }
+
+  /** v0.4: 検証の結果の行から移る。節を開いてその設定の欄へ（address は settings/qmk_settings.yaml の [group, name]）。移ったら true */
+  revealAddress(address: { file: string; path: (string | number)[] }): boolean {
+    const row = [...this.rows.values()].find((r) => r.setting.address.file === address.file && r.setting.address.path.join('.') === address.path.join('.'));
+    if (!row) return false;
+    const details = this.element.querySelector('details');
+    if (details) details.open = true;
+    row.element.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    row.input.focus();
+    return true;
   }
 
   /** 開いている入力欄（テスト用） */

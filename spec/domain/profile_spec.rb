@@ -10,7 +10,9 @@ RSpec.describe Cornix::Domain::Profile do
   let(:tap_dances) { [build_tap_dance(index: 4, name: 'Tab Escape')] }
   let(:combos) { [build_combo(index: 0, name: 'Bracket')] }
   let(:profile) do
-    build_profile(layers: [build_layer(index: 0), build_layer(index: 1)], macros: macros, tap_dances: tap_dances,
+    # コンボのトリガー（KC_K と KC_L）はレイヤー 0 にある（押せないコンボの警告を出さない）
+    triggers = { key_position(:right, 1, 2) => basic(0x0E), key_position(:right, 1, 3) => basic(0x0F) }
+    build_profile(layers: [build_layer(index: 0, keys: triggers), build_layer(index: 1)], macros: macros, tap_dances: tap_dances,
                   combos: combos)
   end
 
@@ -76,6 +78,28 @@ RSpec.describe Cornix::Domain::Profile do
       expect { build_profile(macros: [build_layer]) }.to raise_error(Cornix::InvalidValue, /マクロ\[0\]/)
       expect { build_profile(tap_dances: [nil]) }.to raise_error(Cornix::InvalidValue, /タップダンス\[0\]/)
       expect { build_profile(combos: {}) }.to raise_error(Cornix::InvalidValue, /コンボ/)
+    end
+  end
+
+  describe '#referenced_layer_indexes' do
+    it 'レイヤー・エンコーダ・マクロ・タップダンス・コンボのレイヤー操作が指す番号を昇順・重複なしで返す' do
+      lt = k::LayerTap.new(layer: layer_ref(5), base: basic(0x2C))
+      lm = k::LayerMod.new(layer: layer_ref(6), mods: d::ModifierSet.new(side: :left, mods: [:shift]))
+      tg = k::LayerAction.new(op: :toggle, layer: layer_ref(8))
+      raw = k::Raw.new(code: 0x7C77) # FN_MO13（Raw として持つ値は数えない）
+      keys = { key_position(:left, 0, 0) => mo(3), key_position(:left, 0, 1) => lt, key_position(:left, 0, 2) => lm,
+               key_position(:left, 0, 3) => tg, key_position(:left, 0, 4) => raw }
+      layers = [build_layer(index: 0, keys: keys),
+                build_layer(index: 1, encoders: { left: encoder_binding(push: mo(2)), right: encoder_binding })]
+      macros = [build_macro(steps: [d::MacroStep::Tap.new(keys: [mo(7)])])]
+      tap_dances = [build_tap_dance(on_hold: mo(3))]
+      combos = [build_combo(output_key: mo(9))]
+      profile = build_profile(layers: layers, macros: macros, tap_dances: tap_dances, combos: combos)
+      expect(profile.referenced_layer_indexes).to eq([2, 3, 5, 6, 7, 8, 9])
+    end
+
+    it 'レイヤー操作がなければ空' do
+      expect(build_profile.referenced_layer_indexes).to eq([])
     end
   end
 

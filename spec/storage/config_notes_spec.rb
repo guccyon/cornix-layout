@@ -57,7 +57,7 @@ RSpec.describe 'Storage::ConfigRepository の注記（{ key: ..., note: ... }）
         repository(out).save(profile)
         expect(File.read(File.join(out, 'layers/0_layer.yaml')))
           .to include("      tab:\n        key: Tab\n        note: インデント\n      Q: Q\n")
-          .and include("      push:\n        key: Mute\n        note: ミュート\n      ccw: VolumeDown\n")
+          .and include("      push:\n        key: Mute\n        note: ミュート\n      ccw: Vol-\n")
         expect(File.read(File.join(out, 'combos/00_combo.yaml'))).to include("output_key:\n  key: \"[\"\n  note: 開き括弧\n")
         expect(repository(out).load).to eq(profile)
       end

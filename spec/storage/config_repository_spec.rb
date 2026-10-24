@@ -162,7 +162,7 @@ RSpec.describe Cornix::Storage::ConfigRepository do
       end
     end
 
-    it 'レイヤーの必須の項目とファイル名の番号' do
+    it 'レイヤーの必須の項目（ファイル名の番号と index が違っても問題にしない）' do
       with_config_copy do |dir|
         path = File.join(dir, 'layers/2_layer_2.yaml')
         File.write(path, File.read(path).sub('index: 2', 'index: 3').sub(/^    row3:/, '    row9:'))
@@ -171,7 +171,7 @@ RSpec.describe Cornix::Storage::ConfigRepository do
           'layers/2_layer_2.yaml: mapping.left_hand: row3 がありません'
         )
         File.write(path, File.read(path).sub('row9:', 'row3:'))
-        expect(load_problems(dir)).to eq(['layers/2_layer_2.yaml: index: ファイル名の番号（2）と index（3）が違います'])
+        expect(load_problems(dir)).to eq([])
       end
     end
 
@@ -261,6 +261,114 @@ RSpec.describe Cornix::Storage::ConfigRepository do
 
     it '設定ディレクトリがなければ ConfigError' do
       expect { repository('/nonexistent/config').load }.to raise_error(Cornix::ConfigError, /設定ディレクトリがありません/)
+    end
+  end
+
+  describe '未使用のファイル（index のないもの。issue #85）' do
+    def unused_layer(name, extra = '')
+      <<~YAML
+        name: #{name}
+        #{extra}mapping:
+          left_hand: { row0: { tab: Escape }, row1: {}, row2: {}, row3: {}, thumb_keys: {} }
+          right_hand: { row0: {}, row1: {}, row2: {}, row3: {}, thumb_keys: {} }
+      YAML
+    end
+
+    it 'index がないか値が空のファイルは Profile に入れず、load_all の unused に返す' do
+      with_config_copy do |dir|
+        write_file(dir, 'layers/spare.yaml', unused_layer('Spare'))
+        write_file(dir, 'layers/0_old_base.yaml', unused_layer('Old Base', "index:\n"))
+        write_file(dir, 'macros/02_old.yaml', "name: Old\nsequence: [{ action: tap, keys: [KC_A] }]\n")
+        write_file(dir, 'tap_dance/x.yaml', "name: Spare TD\nindex: ~\n")
+        write_file(dir, 'combos/09_x.yaml', "name: Spare Combo\ntrigger_keys: [KC_A, KC_B]\noutput_key: KC_C\n")
+        loaded = repository(dir).load_all
+        before = repository(StorageHelpers::TEST_CONFIG).load
+        expect(loaded.profile).to eq(before)
+        expect(loaded.unused.map { |u| [u.kind, u.file, u.name] }).to eq(
+          [[:layers, 'layers/0_old_base.yaml', 'Old Base'], [:layers, 'layers/spare.yaml', 'Spare'],
+           [:macros, 'macros/02_old.yaml', 'Old'], [:tap_dances, 'tap_dance/x.yaml', 'Spare TD'],
+           [:combos, 'combos/09_x.yaml', 'Spare Combo']]
+        )
+        expect(loaded.unused.flat_map(&:problems)).to be_empty
+        expect(repository(dir).load).to eq(before)
+      end
+    end
+
+    it 'ファイル名に番号がなくても、番号の接頭辞が index と違っても読む' do
+      with_config_copy do |dir|
+        FileUtils.mv(File.join(dir, 'layers/1_layer_1.yaml'), File.join(dir, 'layers/symbols.yaml'))
+        FileUtils.mv(File.join(dir, 'macros/01_macro.yaml'), File.join(dir, 'macros/07_bracket.yaml'))
+        FileUtils.mv(File.join(dir, 'macros/07_macro.yaml'), File.join(dir, 'macros/01_macro.yaml'))
+        expect(repository(dir).load).to eq(repository(StorageHelpers::TEST_CONFIG).load.then do |p|
+          p.with(layers: p.layers.sort_by { |l| l.index == 1 ? 99 : l.index },
+                 macros: p.macros.sort_by { |m| { 7 => 1, 1 => 7 }.fetch(m.index, m.index) })
+        end)
+      end
+    end
+
+    it '未使用のファイルの構造の問題は unused に集め、compile を止めない（InvalidConfig にしない）' do
+      with_config_copy do |dir|
+        write_file(dir, 'layers/spare.yaml', unused_layer('Spare').sub('tab: Escape', 'tabb: Nope'))
+        write_file(dir, 'macros/x.yaml', "name: X\nsequence: [{ action: beep }]\n")
+        write_file(dir, 'combos/x.yaml', "name: X\ntrigger_keys: [KC_A]\noutput_key: Macro('Nothing')\n")
+        loaded = repository(dir).load_all
+        expect(loaded.unused.flat_map { |u| u.problems.map(&:to_s) }).to contain_exactly(
+          start_with('layers/spare.yaml: mapping.left_hand.row0.tabb: position_map の left_hand.row0 にないキーです'),
+          'macros/x.yaml: sequence[0].action: beep は対応していません',
+          match(/\Acombos\/x.yaml: output_key: .*マクロ「Nothing」が見つかりません/)
+        )
+      end
+    end
+
+    it '整数でない index は今までどおり問題（未使用にしない）' do
+      with_config_copy do |dir|
+        write_file(dir, 'layers/spare.yaml', unused_layer('Spare', "index: two\n"))
+        expect(load_problems(dir)).to contain_exactly(start_with('layers/spare.yaml: index: レイヤー番号（'))
+      end
+    end
+
+    it '名前の参照は使っているものだけを引き、未使用のものを指せば「未使用です」' do
+      with_config_copy do |dir|
+        write_file(dir, 'macros/x.yaml', "name: Spare\nsequence: [{ action: tap, keys: [KC_A] }]\n")
+        write_file(dir, 'tap_dance/x.yaml', "name: Spare TD\n")
+        path = File.join(dir, 'combos/00_combo.yaml')
+        File.write(path, File.read(path).sub('output_key: KC_LBRACKET', "output_key: Macro('Spare')"))
+        path = File.join(dir, 'combos/01_combo.yaml')
+        File.write(path, File.read(path).sub(/^output_key: .*$/, "output_key: TapDance('Spare TD')"))
+        expect(load_problems(dir)).to contain_exactly(
+          match(/combos\/00_combo.yaml: output_key: .*マクロ「Spare」は未使用です（ファイルに index がありません）/),
+          match(/combos\/01_combo.yaml: output_key: .*タップダンス「Spare TD」は未使用です/)
+        )
+      end
+    end
+
+    it '未使用のものは名前の重複に数えない（別の版を同じ名前で控えておける）' do
+      with_config_copy do |dir|
+        write_file(dir, 'macros/x.yaml', "name: Macro 1\nsequence: [{ action: tap, keys: [KC_B] }]\n")
+        profile = repository(dir).load
+        expect(profile.diagnostics.select(&:error?)).to be_empty
+        expect(profile.macro_names['Macro 1']).to eq(1)
+      end
+    end
+
+    it 'load_partial は未使用のファイルの読めないキーコードを代わりの値にせず、unused の問題にする' do
+      with_config_copy do |dir|
+        write_file(dir, 'macros/x.yaml', "name: Spare\nsequence: [{ action: tap, keys: [Nope] }]\n")
+        partial = repository(dir).load_partial
+        expect(partial.problems).to eq([])
+        expect(partial.unused.flat_map { |u| u.problems.map(&:to_s) }).to contain_exactly(start_with('macros/x.yaml: sequence[0].keys[0]: '))
+        expect(partial.profile).to eq(repository(StorageHelpers::TEST_CONFIG).load)
+      end
+    end
+
+    it 'InvalidConfig にも読めた範囲の未使用のファイルを持たせる' do
+      with_config_copy do |dir|
+        write_file(dir, 'macros/x.yaml', "name: Spare\nsequence: [{ action: tap, keys: [KC_A] }]\n")
+        File.delete(File.join(dir, 'metadata.yaml'))
+        expect { repository(dir).load_all }.to raise_error(Cornix::Storage::InvalidConfig) { |e|
+          expect(e.unused.map(&:file)).to eq(['macros/x.yaml'])
+        }
+      end
     end
   end
 

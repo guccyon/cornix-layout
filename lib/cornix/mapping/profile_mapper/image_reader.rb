@@ -6,8 +6,9 @@ module Cornix
       # DeviceImage → Profile（旧 VialConfig.from_qmk に当たる）。ImageWriter と逆の対応で、
       # to_image(to_profile(image)) が image に戻るように読む。
       #
-      #   レイヤー      すべての位置とエンコーダが nil のレイヤーは定義なしとして読まない。
-      #                 キーの位置で nil のものは割り当てなし。エンコーダの nil は KC_NO
+      #   レイヤー      すべての位置とエンコーダが KC_NO（か nil）のレイヤーは定義なしとして読まない（compile が KC_NO で
+      #                 埋めて戻す）。ただしレイヤー 0 と、レイヤー操作のキー（MO(n) / LT(n, kc) など）が指すレイヤーは読む。
+      #                 KC_TRNS は割り当てとみなす。キーの位置で nil のものは割り当てなし。エンコーダの nil は KC_NO
       #   マクロ        動作が空の枠は読まない
       #   タップダンス  KC_NO × 4 で tapping_term が DEFAULT_TAPPING_TERM（または nil）の枠は読まない
       #   コンボ        トリガーと出力がすべて KC_NO の枠は読まない。トリガーは末尾の KC_NO だけを落とす
@@ -25,7 +26,7 @@ module Cornix
         end
 
         def call
-          Domain::Profile.new(
+          profile = Domain::Profile.new(
             metadata: metadata,
             settings: Domain::QmkSettings.new(values: image.settings.to_h),
             position_map: position_map,
@@ -35,6 +36,8 @@ module Cornix
             combos: combos,
             shortcuts: inheritance.shortcuts
           )
+          kept = [0, *profile.referenced_layer_indexes]
+          profile.with(layers: profile.layers.reject { |layer| layer.blank? && !kept.include?(layer.index) })
         end
 
         private
@@ -50,10 +53,8 @@ module Cornix
         # --- レイヤー ---
 
         def layers
-          image.layers.each_with_index.filter_map do |grid, index|
+          image.layers.each_with_index.map do |grid, index|
             encoders = image.encoders[index] || []
-            next if grid.flatten.all?(&:nil?) && encoders.all? { |e| e.ccw.nil? && e.cw.nil? }
-
             keys = layer_keys(grid)
             Domain::Layer.new(**named(:layer, index), keys: keys, encoders: layer_encoders(index, grid, encoders),
                                                       notes: inheritance.notes(:layer, index, keys))

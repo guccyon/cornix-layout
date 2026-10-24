@@ -21,9 +21,10 @@ const SUPPORTED = [
   'profile_plan_edits',
   'profile_saved',
   'workspace_did_change_files',
+  'profile_plan_item_edit',
 ];
 /** 応答が error のデータだけを流すディレクトリ（keycode_shortcut_tree は error のデータがないので流さない） */
-const ERRORS_ONLY = new Set(['profile_open', 'keycode_candidates', 'keycode_inspect', 'profile_validate', 'profile_plan_edits', 'profile_saved']);
+const ERRORS_ONLY = new Set(['profile_open', 'keycode_candidates', 'keycode_inspect', 'profile_validate', 'profile_plan_edits', 'profile_saved', 'profile_plan_item_edit']);
 /** 偽のサーバーでは比べない項目（偽のサーバーの implementation は "fake"） */
 const IGNORED = new Set(['$.result.serverInfo.implementation']);
 
@@ -31,7 +32,7 @@ type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type JsonObject = { [key: string]: Json };
 type Fixture = {
   description?: string;
-  setup?: { initialize?: boolean; profile?: string; profiles?: Record<string, string | null>; files?: Record<string, string>; before?: JsonObject[] };
+  setup?: { initialize?: boolean; profile?: string; profiles?: Record<string, string | null>; files?: Record<string, string | null>; before?: JsonObject[] };
   request?: JsonObject;
   raw?: string;
   response?: JsonObject;
@@ -53,6 +54,11 @@ function prepare(root: string, setup: NonNullable<Fixture['setup']>): void {
     else fs.cpSync(path.join(REPO, 'spec/fixtures', source), dest, { recursive: true });
   }
   for (const [rel, text] of Object.entries(setup.files ?? {})) {
+    // null は消す（profile で置いたファイルを除くとき）
+    if (text === null) {
+      fs.rmSync(path.join(root, rel), { force: true });
+      continue;
+    }
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), text);
   }
@@ -65,7 +71,7 @@ async function run(fixture: Fixture) {
     prepare(root, setup);
     const before: JsonObject[] = [];
     if (setup.initialize !== false) {
-      before.push(message({ id: 'setup:initialize', method: 'initialize', params: { protocolVersion: '0.1' } }), message({ method: 'initialized' }));
+      before.push(message({ id: 'setup:initialize', method: 'initialize', params: { protocolVersion: '0.5' } }), message({ method: 'initialized' }));
     }
     if (setup.profile) before.push(message({ id: 'setup:open', method: 'profile/open', params: { dir: 'profiles/default' } }));
     before.push(...(setup.before ?? []).map(message));

@@ -118,8 +118,11 @@ describe('App の描画', () => {
     expect(keyElement(id).classList.contains('error')).toBe(true);
     expect(field(id).querySelector('.message-line.error')?.textContent).toBe('マクロ M20 が定義されていません');
     expect(root.querySelector('.problems summary')?.textContent).toBe('ファイルの問題（1 件）');
+    // レイヤーのファイルの問題は、ファイルを開かずにそのレイヤーに切り替える
+    expect(root.querySelector<HTMLElement>('.problems .link-button')!.textContent).toBe('表示');
     root.querySelector<HTMLElement>('.problems .link-button')?.click();
-    expect(host.opened).toEqual([{ file: 'layers/1_symbols.yml' }]);
+    expect(host.opened).toEqual([]);
+    expect(root.querySelector('.layer-tab[data-layer="1"]')!.getAttribute('aria-pressed')).toBe('true');
   });
 });
 
@@ -266,7 +269,27 @@ describe('App の描き直し', () => {
     expect(document.activeElement).toBe(input);
     expect(input.value).toBe('Es');
     expect(pane.scrollTop).toBe(40);
-    expect(root.querySelectorAll('.layer-tab')).toHaveLength(3);
+    expect(root.querySelectorAll('.layer-tab[data-layer]')).toHaveLength(3);
+    expect(host.changes).toEqual([]);
+  });
+
+  it('欄の中のほかの入力（絞り込みなど）にフォーカスがあるときは、作り直してもキーの欄の打ちかけ・フォーカスにしない', () => {
+    const snapshot = fixtureSnapshot();
+    app.receive({ type: 'snapshot', snapshot, changes: [] });
+    const qId = slotOf('left_hand', 'row0', 'Q');
+    const before = field(qId).querySelector('input')!.value;
+    const other = document.createElement('input');
+    field(qId).append(other);
+    other.focus();
+    other.value = 'figma';
+
+    const grown = structuredClone(snapshot);
+    grown.layers.push({ ...structuredClone(snapshot.layers[1]!), index: 2, name: 'Extra', file: 'layers/2_extra.yml' });
+    app.receive({ type: 'snapshot', snapshot: grown, changes: [] });
+
+    const input = field(qId).querySelector('input')!;
+    expect(input.value).toBe(before);
+    expect(document.activeElement).not.toBe(input);
     expect(host.changes).toEqual([]);
   });
 

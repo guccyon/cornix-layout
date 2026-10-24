@@ -39,3 +39,6 @@ editors/vscode/.vscode-test/
 editors/vscode/*.vsix
 # 手元の全体の gitignore で package-lock.json を除いていても、拡張のものはコミットする
 !editors/vscode/package-lock.json
+
+# Claude Code の個人用の設定（手元ごとに違うのでコミットしない）
+.claude/settings.local.json

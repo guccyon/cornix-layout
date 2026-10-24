@@ -7,6 +7,8 @@ require_relative 'plan_edits/version_conflict'
 require_relative 'plan_edits/invalid_change'
 require_relative 'plan_edits/not_local'
 require_relative 'plan_edits/targets'
+require_relative 'plan_edits/values'
+require_relative 'plan_edits/state_check'
 require_relative 'plan_edits/draft'
 
 module Cornix
@@ -18,6 +20,8 @@ module Cornix
       #                                       changes: [PlanEdits::Change.new(file:, path:, value:)])
       #   #=> { files: [{ file:, baseVersion:, create:, edits: [{ range:, newText: }] }], diagnostics: [Diagnostic] }
       #
+      # Change は値の書き換え（op: :set）のほか、項目・要素の削除（:remove）、並びへの挿入（:insert）と移動（:move）、
+      # 注記（field: :note）を持てる（protocol.md の 12.3。宛先の規則は Targets、当てる直前の確かめは StateCheck）。
       # 設定ディレクトリをいま読み、baseVersions と今の版を比べてから変更を当てる（Draft）。
       # files は書き換えのあるファイルだけ（変更を当てても中身が変わらないファイルは入れない）で、changes に初めて出てきた順。
       # create は settings/qmk_settings.yaml がなくて作るときだけ true。diagnostics は書き換えたあとの中身の検証の結果

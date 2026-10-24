@@ -2,28 +2,29 @@
 
 require_relative 'diagnostic'
 require_relative 'keycode'
-require_relative 'keycode/layer_action'
-require_relative 'keycode/layer_tap'
-require_relative 'keycode/layer_mod'
+require_relative 'keycode/layer_reference'
 require_relative 'keycode/macro_call'
 require_relative 'keycode/tap_dance_call'
 require_relative 'keycode/quantum'
 require_relative 'encoder_binding'
+require_relative 'combo_reachability'
 
 module Cornix
   module Domain
     # Profile の意味検証。Profile#diagnostics から使う。
     #
-    #   レイヤー      枚数の上限、番号の上限・重複（error）、番号の抜け（warning）
+    #   レイヤー      枚数の上限、番号の上限・重複（error）、レイヤー 0 がない（warning）。
+    #                 途中の番号の抜けは許す（compile が KC_NO で埋める）
     #   マクロ / タップダンス / コンボ   件数の上限、番号の上限・重複、名前の重複（error）
-    #   コンボ        トリガーの数の上限（error）
+    #   コンボ        トリガーの数の上限（error）、押せない（トリガーのキーがすべてそろうレイヤーがない。warning。
+    #                 判定は ComboReachability）
     #   キーコード    すべての割り当て（レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、
     #                 コンボのトリガーと出力）について
     #                 M(n) / TD(n) の参照先がない（error）、レイヤー番号がレイヤー数を超える（error）、
     #                 レイヤー数の内だが定義されていないレイヤーを指す（warning）、
     #                 Capabilities#unsupported_keycodes にある特殊キー（warning。書き込みは止めない）
     class ProfileDiagnostics
-      LAYER_REF_TYPES = [Keycode::LayerAction, Keycode::LayerTap, Keycode::LayerMod].freeze
+      LAYER_REF_TYPES = Keycode::LAYER_REF_TYPES
 
       def initialize(profile, capabilities)
         @profile = profile
@@ -37,6 +38,7 @@ module Cornix
         check_items('tap_dances', profile.tap_dances, caps.tap_dances, 'タップダンス')
         check_items('combos', profile.combos, caps.combos, 'コンボ')
         check_combo_keys
+        check_combo_reachable
         keycode_entries.each { |path, keycode| check_keycode(path, keycode) }
         @result.freeze
       end
@@ -54,11 +56,7 @@ module Cornix
         layers = profile.layers
         error('layers', "レイヤーは #{caps.layers} 枚までです: #{layers.size} 枚") if layers.size > caps.layers
         check_indexes('layers', layers, caps.layers, 'レイヤー')
-        indexes = layers.map(&:index)
-        return if indexes.empty?
-
-        missing = (0..indexes.max).to_a - indexes
-        warning('layers', "レイヤー #{missing.join(', ')} がありません") unless missing.empty?
+        warning('layers', 'レイヤー 0（ベース）がありません') unless layer_indexes.include?(0)
       end
 
       # --- マクロ / タップダンス / コンボ ---
@@ -88,6 +86,16 @@ module Cornix
 
           error("combos[#{i}].trigger_keys",
                 "コンボのトリガーは #{caps.combo_keys} 個までです: #{combo.trigger_keys.size} 個")
+        end
+      end
+
+      def check_combo_reachable
+        reachability = ComboReachability.new(profile)
+        profile.combos.each_with_index do |combo, i|
+          next if reachability.reachable?(combo)
+
+          warning("combos[#{i}].trigger_keys",
+                  "押せないコンボです: トリガーのキーがすべてそろうレイヤーがありません（KC_TRNS の位置はレイヤー 0 の値で見ます）")
         end
       end
 
@@ -134,7 +142,7 @@ module Cornix
       def tap_dance_indexes = @tap_dance_indexes ||= profile.tap_dances.map(&:index)
       def layer_indexes = @layer_indexes ||= profile.layers.map(&:index)
 
-      # [パス, Keycode] の一覧
+      # [パス, Keycode] の一覧。対象は Profile#all_keycodes（decompile が残すレイヤーの判定に使う）と同じにする
       def keycode_entries
         layer_entries + macro_entries + tap_dance_entries + combo_entries
       end

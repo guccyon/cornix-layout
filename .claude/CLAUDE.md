@@ -15,8 +15,9 @@
   - [キーコードの表記](../docs/notation.md) - 修飾キー表現、Macro / TapDance の参照、Shortcut('名前')
   - [検証](../docs/validation.md) - 構造検証と意味検証
   - [rename](../docs/rename.md) - `cornix rename` と `bin/rename_file`
-  - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp`、RMK 0.8 の挙動と安全設計
-  - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・ロードマップ・バックエンドとのリクエストの約束（v0.1。コードは `editors/vscode/`、バックエンドは `cornix serve`）
+  - [コマンドの体系と cornix self](../docs/cli.md) - サブコマンドの並べ方の方針、`cornix self link`（Ruby を固定した shim を PATH に置く。設計だけ）
+  - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp` / `cornix serve --device`、RMK 0.8 の挙動と安全設計
+  - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・ロードマップ・バックエンドとのリクエストの約束（v0.1〜v0.4。v0.4 は実機への反映（プレビュー → 確定）と #84 のキーごとの並べ方。コードは `editors/vscode/`、バックエンドは `cornix serve` と `cornix serve --device`）
 - **Memories**: [memories/](memories/)
   - [domain_architecture_refactor](memories/domain_architecture_refactor.md) - 作り直しの知見・意図的に変えた振る舞い
   - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
@@ -25,6 +26,13 @@
   - [named_shortcuts](memories/named_shortcuts.md) - Shortcut('名前') を nape_pro-layout から移植したときの判断
   - [keycode_coverage](memories/keycode_coverage.md) - cornixhub / QMK / vial-qmk に基づくキーコードの網羅と出典
   - [vscode_extension](memories/vscode_extension.md) - VS Code 拡張の作業で分かったこと（QMK 設定の既定値は RMK、YAML の書き換えの注意、CI と必須チェック、通しの確認で分かった古い Ruby が選ばれる件と .vscodeignore の件）
+  - [vscode_extension_v03](memories/vscode_extension_v03.md) - VS Code 拡張 v0.3 の作業の知見（P の squash のあとに段 2 のブランチで起きた衝突と解き方、webview.css の末尾の衝突で閉じ括弧が落ちた件、コンテナでの rspec の動かし方）
+  - [vscode_extension_v04](memories/vscode_extension_v04.md) - VS Code 拡張 v0.4 の作業の知見（#84 のキーごとの並べ方・レイヤーの追加と削除、約束の版を上げるときに直す場所、YAML のアンカー、コンテナで画面を見る方法、実機とつなぐ作業: 橙の枠と ::after、vscode-jsonrpc の取り消しと読む間だけの転送、vitest と vscode の import、device のサーバーの取り消しと適合テストの token、Tetsuro の確認で作り直した反映のプレビューのモーダル）
+  - [json_output](memories/json_output.md) - 共通のオプション --json（issue #26）で決めたこと（変換の置き場所、エラーの出し方、--yes 必須、status の形）
+  - [snapshots](memories/snapshots.md) - スナップショットの履歴（issue #25）で決めたこと（latest の扱い、種類 backup、restore の既定、古いものの削除、device_backups の扱い）とテストの注意
+  - [vscode_extension_v02](memories/vscode_extension_v02.md) - VS Code 拡張 v0.2 の作業の知見（コンテナでの rspec の動かし方と統合テストが CI でしか走らない件、偽のサーバーの注意、並列の PR の進め方、planItemEdit の解釈、未保存の変更の並びと畳み方）
+  - [empty_layers](memories/empty_layers.md) - 空のレイヤーのファイルの省略（#83）: compile の埋め方、decompile が書かない条件、authors の空のレイヤーの落とし穴
+  - [unused_files](memories/unused_files.md) - 未使用のファイルとファイル名の番号（#85）: 未使用の判定、load_all と UnusedFile、項目とファイルの対応をずらさない場所
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---
@@ -62,6 +70,19 @@ PR の説明は、読み手が背景から結論まで追えるよう丁寧に�
 
 小さな変更（typo 修正など）では概要と対応内容だけでよい。複数の独立した修正を含む PR では、問題と対応内容を修正ごとに分けて書く。
 
+### マージ後の片付け（このリポジトリ固有）
+
+PR を main にマージしたら、共通の片付け（作業ブランチと worktree の削除、main の worktree の最新化。アカウントのスキル `post-merge-cleanup`）に続けて、次も必ず行う。
+
+- **キーマップのブランチを main に追従させる**: `authors-keymap` と `cornix-default-keymap` は、main の先端に個人のキーマップのコミットを載せたブランチ。
+  1. それぞれの worktree で未コミットの変更を確かめる（あれば退避してから）
+  2. `git rebase origin/main` し、`cornix validate` が通ることを確かめる
+  3. `git push --force-with-lease -u origin <branch>` で remote に反映する
+- キーマップのブランチで直した機能（キーマップ以外の変更）は main に取り込み、キーマップのブランチには個人のキーマップのコミットだけを残す
+- 手元の Mac で作業していないとき（クラウドのセッションなど）は、remote 側を rebase して push したうえで、手元の worktree（main・`authors-keymap`・`cornix-default-keymap`）も origin に合わせる。
+  手元に触れないなら、合わせ方を利用者に伝える
+- 新しい worktree を作ったら、起点の worktree（なければ `main`）の `.claude/settings.local.json`（Git の管理外）を作成先の `.claude/` にコピーする（あれば上書きしない）
+
 ## Project Overview
 
 Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`config/`）の双方向変換ツール。
@@ -69,9 +90,9 @@ Cornix キーボードの Vial `layout.vil` と YAML 設定ファイル（`confi
 - `cornix compile` / `decompile` / `validate` / `rename` / `cleanup`: 設定ファイルの変換・検証・名前付け
 - `cornix pull` / `status` / `apply` / `restore`: compile・decompile と `cornix device` を組み合わせたショートカット
   （compile の出力は `tmp/build/layout.vil`、pull は `tmp/layout.vil` に読み出してから decompile）
-- `cornix init` と共通のオプション `--config` / `--profile` / `--root`: 設定ディレクトリの作成と場所の指定
+- `cornix init` と共通のオプション `--config` / `--profile` / `--root` / `--json`: 設定ディレクトリの作成と場所の指定、結果の JSON での出力
 - `cornix device` / `cornix mcp`: 接続中のキーボードへの直接読み書き（差分だけ書き込む）
-- `cornix serve`: VS Code 拡張（`editors/vscode/`）のバックエンド。標準入出力の JSON-RPC（docs/vscode-extension/protocol.md）でプロファイルを読み、候補・検証・書き換えを返す（実機には触らない）
+- `cornix serve`: VS Code 拡張（`editors/vscode/`）のバックエンド。標準入出力の JSON-RPC（docs/vscode-extension/protocol.md）でプロファイルを読み、候補・検証・書き換えを返す（実機には触らない）。`cornix serve --device [--allow-writes]` は別のプロセスで、実機と比べる・反映・戻すを受け持つ（書き込みは `--allow-writes` のときだけ）
 - 名前参照（`Macro('名前')`）、名前付きショートカット（`Shortcut('名前')`、`config/shortcuts.yaml` と同梱の `data/shortcuts/`）、VS Code 風修飾キー表現（`Cmd + Q`）、エイリアス（`Tab`, `!`）
 - decompile → compile で 16bit 値が元と一致する
 
@@ -84,14 +105,14 @@ Mapping         KeycodeCatalog / KeycodeCodec / KeycodeNotation / VialNotation /
 Planning        ImageDiff / Change / Plan
 Domain          Profile 集約と値オブジェクト（Keycode, ModifierSet, LayerRef, Layer, Macro, TapDance, Combo, PositionMap, ...）。I/O なし
 Image           DeviceImage（16bit 値とバイト列のまま）。I/O なし
-Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ BackupStore / ConfigEditor / DecompileLock / YamlDocument / TextEdit / FileSource / FileVersion
+Storage         ConfigRepository（config/*.yaml）/ VilFile（layout.vil）/ SnapshotStore / ConfigEditor / DecompileLock / YamlDocument / TextEdit / FileSource / FileVersion
 Device          HidBridge / Protocol / Session / Reader / Planner / Writer
 ```
 
 ```
 compile    config/ ─ConfigRepository→ Profile ─ProfileMapper→ DeviceImage ─VilFile→ tmp/build/layout.vil
 decompile  layout.vil ─VilFile→ DeviceImage ─ProfileMapper→ Profile ─ConfigRepository→ config/
-validate   ConfigRepository#load（構造検証）→ Profile#diagnostics（意味検証）
+validate   ConfigRepository#load_all（構造検証。未使用のファイルは警告）→ Profile#diagnostics（意味検証）
 device     layout.vil → DeviceImage（目標）、実機 ─Reader→ DeviceImage（現在）→ ImageDiff → Plan(token) → Writer → 読み直して検証
 ```
 

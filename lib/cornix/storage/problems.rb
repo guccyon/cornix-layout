@@ -21,8 +21,9 @@ module Cornix
       def size = @list.size
       def to_a = @list.dup
 
-      def raise_if_any!
-        raise InvalidConfig, @list unless @list.empty?
+      # unused は InvalidConfig#unused に渡す未使用のファイル
+      def raise_if_any!(unused: [])
+        raise InvalidConfig.new(@list, unused: unused) unless @list.empty?
       end
     end
   end

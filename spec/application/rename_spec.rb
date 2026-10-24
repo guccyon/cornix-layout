@@ -70,23 +70,41 @@ RSpec.describe Cornix::Application::RenameFiles do
     expect(read_config('macros/20_window_capture.yml')).to include("name: Window Capture\n", 'preset: macOS:システム:ウィンドウキャプチャ')
   end
 
-  it '事前検証: 番号の接頭辞の違い、行き先の重複、ないファイル。何も変えない' do
+  it '事前検証: 行き先の重複、ないファイル。何も変えない' do
     plans = [
-      plan.merge('new_basename' => '08_clip.yml'),
       plan.merge('old_path' => 'config/macros/00_bracket_pair.yml', 'new_basename' => '01_curly_brace_pair.yml'),
       plan.merge('old_path' => 'config/macros/99_none.yml')
     ]
     expect(plans.map { |p| renamer.check(p) }).to eq([
-      ["Index prefix mismatch: expected '07_', got '08_'"],
-      ["Index prefix mismatch: expected '00_', got '01_'",
-       "Destination file already exists: #{config_file('macros/01_curly_brace_pair.yml')}"],
+      ["Destination file already exists: #{config_file('macros/01_curly_brace_pair.yml')}"],
       ["File not found: #{config_file('macros/99_none.yml')}"]
     ])
     outcome = renamer.call(plans)
     expect(outcome).not_to be_success
-    expect(outcome.errors.first).to start_with('Plan 0: Index prefix mismatch')
+    expect(outcome.errors.first).to start_with('Plan 0: Destination file already exists')
     expect(outcome.backup_path).to be_nil
-    expect(File).to exist(config_file('macros/07_clipboard_history.yml'))
+    expect(File).to exist(config_file('macros/00_bracket_pair.yml'))
+  end
+
+  it '番号の接頭辞は変えても外しても足してもよい（番号は index: だけで決まる。issue #85）' do
+    expect(renamer.check(plan.merge('new_basename' => '08_clip.yml'))).to eq([])
+    outcome = renamer.call([plan.merge('new_basename' => 'clip_history.yml'),
+                            { 'old_path' => 'config/macros/00_bracket_pair.yml', 'new_basename' => '12_bracket_pair.yml' }])
+    expect(outcome).to be_success
+    expect(outcome.verified).to be(true)
+    File.rename(config_file('macros/clip_history.yml'), config_file('macros/clip.yml'))
+    expect(renamer.check({ 'old_path' => 'config/macros/clip.yml', 'new_basename' => '07_clip.yml' })).to eq([])
+  end
+
+  it '未使用のファイル（index のないもの）の名前を変えても、同じ名前の使っているものへの参照は書き換えない' do
+    File.write(config_file('macros/old_clip.yml'), read_config('macros/07_clipboard_history.yml').sub(/^index: 7\n/, ''))
+    numbers = read_config('layers/2_numbers.yml')
+    outcome = renamer.call([{ 'old_path' => 'config/macros/old_clip.yml', 'new_basename' => 'old_clip_2.yml',
+                              'content_updates' => { 'name' => 'Old Clip' } }])
+    expect(outcome).to be_success
+    expect(outcome.updated_references).to eq([])
+    expect(read_config('layers/2_numbers.yml')).to eq(numbers)
+    expect(read_config('macros/old_clip_2.yml')).to include("name: Old Clip\n")
   end
 
   it '変更後に読み込めなければ（参照を書き換えられないなど）元に戻す' do

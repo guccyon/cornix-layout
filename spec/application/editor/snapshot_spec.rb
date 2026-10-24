@@ -50,6 +50,14 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
     expect(again[:layers][1][:name]).to eq('Renamed')
   end
 
+  it 'v0.5: shortcuts.yaml がなければ files に null で入れる' do
+    expect(snapshot[:files]).to include('shortcuts.yaml' => nil)
+    write('shortcuts.yml', "shortcuts:\n  a: KC_A\n")
+    files = described_class.new(workbench).call(opened.id)[:files]
+    expect(files).to include('shortcuts.yml')
+    expect(files).not_to have_key('shortcuts.yaml')
+  end
+
   it 'settings/qmk_settings.yaml がなければ files に null で入れ、設定の value は null' do
     File.delete(File.join(@root, 'profile', 'settings/qmk_settings.yaml'))
     expect(snapshot[:files]).to include('settings/qmk_settings.yaml' => nil)
@@ -115,7 +123,8 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
 
   it 'positionMap は論理位置とグループ・記号' do
     expect(snapshot[:positionMap].size).to eq(48)
-    expect(snapshot[:positionMap][21]).to eq(hand: 'left', row: 3, col: 3, group: 'thumb_keys', symbol: 'left')
+    expect(snapshot[:positionMap][21]).to eq(hand: 'left', row: 3, col: 3, group: 'thumb_keys', symbol: 'left',
+                                             address: { file: 'position_map.yaml', path: ['left_hand', 'thumb_keys', 0] })
   end
 
   it 'references はレイヤー・マクロ・タップダンス・自分のショートカット（ファイルに書いた表記）' do
@@ -127,15 +136,24 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
     expect(refs[:shortcuts]).to eq([{ name: '前のタブへ', text: 'Command + Shift + [' }])
   end
 
+  it '読めない値（解析できないキーコード）だけなら status: ok。その欄は書いてある表記のままで、構造の error と意味検証の結果を並べる' do
+    text = File.read(File.join(@root, 'profile', 'layers/0_layer_0.yaml'))
+    write('layers/0_layer_0.yaml', text.sub('tab: Tab', 'tab: KC_FOOO').sub('Q: Q', 'Q: Macro(20)'))
+    expect(snapshot).to include(status: 'ok')
+    expect(key(snapshot, 0, 'left', 0, 0)[:value]).to include(text: 'KC_FOOO', canonical: 'KC_FOOO', display: { label: 'KC_FOOO' })
+    expect(snapshot[:diagnostics].map { |d| [d[:source], d[:severity], d.dig(:address, :path)&.last] })
+      .to eq([%w[structure error tab], %w[semantic error Q]])
+  end
+
   it '構造検証で読めなければ status: invalid、diagnostics だけ（注記付きの形の .key は Address に付けない）' do
     text = File.read(File.join(@root, 'profile', 'layers/0_layer_0.yaml'))
-    write('layers/0_layer_0.yaml', text.sub('tab: Tab', 'tab: { key: Unknown, note: x }'))
+    write('layers/0_layer_0.yaml', text.sub('tab: Tab', 'tab: { key: [Unknown], note: x }'))
     expect(snapshot).to include(status: 'invalid', layers: [], settings: [], metadata: {}, positionMap: [])
     expect(snapshot[:files]).to include('layers/0_layer_0.yaml' => version('layers/0_layer_0.yaml'))
     diagnostic = snapshot[:diagnostics].then { |list| expect(list.size).to eq(1); list.first }
     expect(diagnostic).to include(severity: 'error', source: 'structure',
                                   address: { file: 'layers/0_layer_0.yaml', path: %w[mapping left_hand row0 tab] })
-    expect(diagnostic[:range]).to eq(start: { line: 7, character: 18 }, end: { line: 7, character: 25 })
+    expect(diagnostic[:range]).to eq(start: { line: 7, character: 18 }, end: { line: 7, character: 27 })
   end
 
   it 'YAML として読めないファイルは file だけ' do
@@ -156,5 +174,49 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
         range: { start: { line: 8, character: 9 }, end: { line: 8, character: 18 } } },
       a_hash_including(severity: 'error', source: 'semantic', file: 'macros/')
     )
+  end
+
+  describe '未使用のファイル（index のないもの。issue #85）' do
+    before do
+      write('layers/0_spare.yaml', File.read(File.join(@root, 'profile/layers/1_layer_1.yaml')).sub(/^index: 1\n/, ''))
+      write('macros/spare.yaml', "name: Spare\nsequence: [{ action: tap, keys: [Nope] }]\n")
+    end
+
+    it '未使用の項目は返さず、レイヤーの file と Address は使っているファイルのもの（ずれない）' do
+      expect(snapshot[:status]).to eq('ok')
+      expect(snapshot[:layers].map { |l| [l[:index], l[:file]] }).to eq((0..9).map { |i| [i, "layers/#{i}_layer_#{i}.yaml"] })
+      expect(key(snapshot, 1, 'left', 0, 0)[:address]).to eq({ file: 'layers/1_layer_1.yaml', path: %w[mapping left_hand row0 tab] })
+      expect(snapshot[:references][:macros].map { |m| m[:name] }).not_to include('Spare')
+      expect(snapshot[:files]).to include('layers/0_spare.yaml', 'macros/spare.yaml')
+    end
+
+    it 'レイヤーと項目はファイル名の順ではなく index の順（Address は元のファイル）' do
+      FileUtils.mv(File.join(@root, 'profile/layers/0_layer_0.yaml'), File.join(@root, 'profile/layers/zz_base.yaml'))
+      FileUtils.mv(File.join(@root, 'profile/macros/00_macro.yaml'), File.join(@root, 'profile/macros/zz.yaml'))
+      expect(snapshot[:layers].map { |l| [l[:index], l[:file]] }.first(2)).to eq([[0, 'layers/zz_base.yaml'], [1, 'layers/1_layer_1.yaml']])
+      expect(key(snapshot, 0, 'left', 0, 0)[:address][:file]).to eq('layers/zz_base.yaml')
+      expect(snapshot[:macros].map { |m| m[:index] }).to eq([0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11])
+      expect(snapshot[:macros].first[:file]).to eq('macros/zz.yaml')
+      expect(snapshot[:references][:layers].map { |l| l[:index] }).to eq((0..9).to_a)
+      expect(snapshot[:references][:macros].map { |m| m[:index] }).to eq([0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11])
+    end
+
+    it '未使用のファイルの構造の問題は warning で、開けなくしない' do
+      expect(snapshot[:diagnostics]).to contain_exactly(
+        include(severity: 'warning', source: 'structure', address: { file: 'macros/spare.yaml', path: ['sequence', 0, 'keys', 0] })
+      )
+    end
+
+    it 'v0.5: 未使用の項目は unused に使っている項目と同じ形で index だけ nil（構造の問題のあるファイルは入れない）' do
+      unused = snapshot[:unused]
+      expect(unused[:macros]).to eq([])
+      expect(unused[:layers].size).to eq(1)
+      layer = unused[:layers].first
+      expect(layer).to include(index: nil, name: 'Layer 1', file: 'layers/0_spare.yaml')
+      used = snapshot[:layers][1]
+      expect(layer[:keys].map { |k| k[:value] }).to eq(used[:keys].map { |k| k[:value] })
+      expect(layer[:keys].first[:address]).to eq({ file: 'layers/0_spare.yaml', path: %w[mapping left_hand row0 tab] })
+      expect(unused.slice(:tapDances, :combos)).to eq(tapDances: [], combos: [])
+    end
   end
 end

@@ -1,9 +1,9 @@
-// 拡張とサーバー（`cornix serve`）の間のリクエストの約束（docs/vscode-extension/protocol.md の v0.1）を TypeScript にしたもの。
+// 拡張とサーバー（`cornix serve`）の間のリクエストの約束（docs/vscode-extension/protocol.md の v0.1・v0.2）を TypeScript にしたもの。
 // 型だけを置き、vscode にも vscode-jsonrpc にも依存しない（Webview とテスト用の偽のサーバーからも読む）。
 // protocol.md を変えたら、ここも同じ PR で変える。
 
 /** 約束の版（protocol.md の 4.）。1.0 になるまでは major.minor 全体が一致しなければ話せない */
-export const PROTOCOL_VERSION = '0.1';
+export const PROTOCOL_VERSION = '0.5';
 
 // ---------------------------------------------------------------------------
 // 2. 共通の型
@@ -94,8 +94,37 @@ export type KeyValue = {
 
 /** 画面での変更 1 つ。キーは表記の文字列、QMK 設定は数値か真偽値 */
 export type Change = {
+  /** v0.2。省けば set */
+  op?: 'set';
   address: Address;
   value: string | number | boolean;
+  /** v0.2。"note" は注記を書く（省けば割り当て） */
+  field?: 'key' | 'note';
+};
+
+/** v0.2: 行や並びの要素を消す（protocol.md の 12.3） */
+export type RemoveChange = { op: 'remove'; address: Address; field?: 'key' | 'note' };
+
+/** v0.2: マクロの手順 1 つの値 */
+export type MacroStepValue =
+  | { action: 'tap' | 'down' | 'up'; keys: string[] }
+  | { action: 'delay'; duration: number }
+  | { action: 'text'; content: string };
+
+/** v0.2: 並び（sequence・keys・trigger_keys）の index の前に足す */
+export type InsertChange = { op: 'insert'; address: Address; index: number; value: string | MacroStepValue };
+
+/** v0.2: 並びの中で from の要素を to へ動かす */
+export type MoveChange = { op: 'move'; address: Address; from: number; to: number };
+
+/** v0.2 の Change の全部。並びを指すものは畳まずに順に持つ（protocol.md の 12.3） */
+export type AnyChange = Change | RemoveChange | InsertChange | MoveChange;
+
+/** v0.2: キーを入れる欄 1 つ（protocol.md の 12.1） */
+export type KeySlot = {
+  address: Address;
+  /** 書いていなければ null。注記は KeyValue.note */
+  value: KeyValue | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -153,6 +182,8 @@ export type PositionMapEntry = {
   group: string;
   /** position_map.yaml の記号（"tab"） */
   symbol: string;
+  /** v0.2: 名前を書いている場所 */
+  address?: Address;
 };
 
 /** レイヤーのキー 1 つ。割り当てのない位置も返り、そのとき value は null */
@@ -186,7 +217,56 @@ export type LayerSnapshot = {
   file: string;
   keys: LayerKey[];
   encoders: { left: EncoderBinding; right: EncoderBinding };
+  /** v0.2: description を書く場所（書いていなければ挿入の場所） */
+  descriptionAddress?: Address;
 };
+
+/** v0.2: 値 1 つの欄（数値・文字） */
+export type ValueSlot<T> = { address: Address; value: T | null };
+
+/** v0.2: マクロの手順 1 つ */
+export type MacroStepSnapshot =
+  | { address: Address; action: 'tap' | 'down' | 'up'; keysAddress: Address; keys: KeySlot[] }
+  | { address: Address; action: 'delay'; duration: ValueSlot<number> }
+  | { address: Address; action: 'text'; content: ValueSlot<string> };
+
+/** v0.2: マクロ・タップダンス・コンボの共通の項目 */
+type ItemHeader = {
+  index: number;
+  name: string;
+  /** 書いていなければ null */
+  description: string | null;
+  file: string;
+  descriptionAddress: Address;
+};
+
+export type MacroSnapshot = ItemHeader & {
+  /** preset: のマクロの元のアプリのアイコン */
+  icon: string | null;
+  /** preset: の名前（sequence で書いていれば null） */
+  preset: string | null;
+  presetAddress: Address | null;
+  /** 手順を 1 行ずつ（keycode/inspect の説明の手順の行と同じ文） */
+  summary: string[];
+  /** sequence の手順（preset で書いていれば []） */
+  steps: MacroStepSnapshot[];
+};
+
+export type TapDanceSnapshot = ItemHeader & {
+  actions: { tap: KeySlot; hold: KeySlot; doubleTap: KeySlot; tapHold: KeySlot };
+  /** 書いていなければ value は null（読み込みでは 250） */
+  tappingTerm: ValueSlot<number>;
+};
+
+export type ComboSnapshot = ItemHeader & {
+  triggersAddress: Address;
+  triggers: KeySlot[];
+  output: KeySlot;
+  /** v0.3: トリガーのキーがすべてそろうレイヤーがある（protocol.md の 13.2。v0.2 のサーバーは返さない） */
+  reachable?: boolean;
+};
+
+export type ShortcutSnapshot = { name: string; address: Address; value: KeyValue | null };
 
 export type QmkSettingSnapshot = {
   group: 'keyboard' | 'vial';
@@ -223,14 +303,38 @@ export type ProfileSnapshot = {
   layers: LayerSnapshot[];
   settings: QmkSettingSnapshot[];
   references: ProfileReferences;
+  /** v0.2: 中身の画面（protocol.md の 12.2）。v0.1 のサーバーは返さない */
+  macros?: MacroSnapshot[];
+  tapDances?: TapDanceSnapshot[];
+  combos?: ComboSnapshot[];
+  shortcuts?: ShortcutSnapshot[];
+  /** v0.5: 未使用の項目（index: のないファイル。protocol.md の 15.1）。v0.4 のサーバーは返さない */
+  unused?: UnusedItems;
   /** 保存済みのファイルの検証の結果 */
   diagnostics: Diagnostic[];
 };
 
+/** v0.5: 未使用の項目（protocol.md の 15.1）。形は使っている項目と同じで、index だけが null */
+export type Unused<T extends { index: number }> = Omit<T, 'index'> & { index: null };
+
+export type UnusedItems = {
+  layers: Unused<LayerSnapshot>[];
+  macros: Unused<MacroSnapshot>[];
+  tapDances: Unused<TapDanceSnapshot>[];
+  combos: Unused<ComboSnapshot>[];
+};
+
 export type ProfileCloseParams = { profileId: string };
 
-/** v0.1 は layerKey と encoder。v0.2 で macroKey などを足す */
-export type CandidateContext = 'layerKey' | 'encoder';
+/** v0.1 は layerKey と encoder。macroKey からあとは v0.2（protocol.md の 12.4） */
+export type CandidateContext =
+  | 'layerKey'
+  | 'encoder'
+  | 'macroKey'
+  | 'tapDanceAction'
+  | 'comboTrigger'
+  | 'comboOutput'
+  | 'shortcutValue';
 
 export type CandidateCategory =
   | 'basic'
@@ -264,6 +368,10 @@ export type CandidatesParams = {
   query?: string;
   /** 省くと 50。1 未満は 1 */
   limit?: number;
+  /** v0.2: macroKey で除くものも出す（既定 false） */
+  all?: boolean;
+  /** v0.2: この表記と同じ値の候補を除く（タップダンス自身など） */
+  exclude?: string;
 };
 
 export type CandidatesResult = {
@@ -316,7 +424,8 @@ export type DraftParams = {
   profileId: string;
   /** 変更を作ったときのファイルの版（変更のあるファイルだけ） */
   baseVersions: Record<string, FileVersion>;
-  changes: Change[];
+  /** 当てる順の並び。v0.1 の Change（op を省いた set）も AnyChange に入る（12.3） */
+  changes: AnyChange[];
 };
 
 export type ValidateParams = DraftParams;
@@ -340,6 +449,63 @@ export type PlanEditsParams = DraftParams;
 export type PlanEditsResult = {
   files: FileEdits[];
   /** 書き換えたあとの検証の結果（validate と同じ） */
+  diagnostics: Diagnostic[];
+};
+
+/** v0.2: 項目の操作（protocol.md の 12.5） */
+export type ItemKind = 'macro' | 'tapDance' | 'combo' | 'shortcut';
+
+export type ItemEdit =
+  | { op: 'create'; kind: 'macro' | 'tapDance' | 'combo'; name: string; preset?: string; index?: undefined }
+  | { op: 'create'; kind: 'shortcut'; name: string; value: string; index?: undefined }
+  /** v0.4: レイヤーを足す（protocol.md の 14.9）。index を省けば空いているいちばん小さい番号 */
+  | { op: 'create'; kind: 'layer'; name: string; index?: number }
+  | { op: 'delete'; kind: ItemKind; name: string }
+  | { op: 'rename'; kind: ItemKind; name: string; to: string }
+  /** v0.4: レイヤーは名前が重なってよく、番号のないレイヤーも予定している（#85）のでファイルで探す（省けば name。protocol.md の 14.9） */
+  | { op: 'delete'; kind: 'layer'; name: string; file?: string }
+  | { op: 'rename'; kind: 'layer'; name: string; to: string; file?: string }
+  | { op: 'renamePosition'; hand: Hand; row: number; col: number; to: string }
+  /** v0.3: preset: のマクロを同梱の定義の手順に置き換える（protocol.md の 13.1） */
+  | { op: 'expandPreset'; kind: 'macro'; name: string }
+  /** v0.5: 未使用の項目を末尾の番号で使い始める（protocol.md の 15.3。結果は changes） */
+  | { op: 'use'; kind: IndexedKind; file: string }
+  /** v0.5: 使っている項目の index: を消して未使用にする（15.3。結果は changes） */
+  | { op: 'unuse'; kind: IndexedKind; file: string }
+  /** v0.5: 番号を変える。index がほかの項目の番号なら入れ替える（15.3。結果は changes） */
+  | { op: 'setIndex'; kind: IndexedKind; file: string; index: number }
+  /**
+   * v0.5: 使っている項目を並べ直す（15.3。結果は changes）。files は使っている項目すべて（未保存の変更を当てた状態）の新しい並び。
+   * 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）。indexes を書けば files の順にその番号を当てる（抜け番を作れる。レイヤーの並び替えモード）
+   */
+  | { op: 'reorder'; kind: IndexedKind; files: string[]; indexes?: number[] };
+
+/** v0.5: 番号（index:）を持つ種類 */
+export type IndexedKind = 'layer' | 'macro' | 'tapDance' | 'combo';
+
+export type PlanItemEditParams = {
+  profileId: string;
+  /** snapshot.files をそのまま */
+  baseVersions: Record<string, FileVersion>;
+  edit: ItemEdit;
+  /** v0.5: 今の未保存の変更（当てる順の並び）。use / unuse / setIndex / reorder と create（shortcut）は、これを当てた状態で決める（protocol.md の 15.3） */
+  changes?: AnyChange[];
+};
+
+/** FileEdits に、消す・改名を足したもの */
+export type ItemFileEdits = FileEdits & {
+  delete?: boolean;
+  /** 改名の行き先（設定ディレクトリからの相対パス） */
+  renameTo?: string;
+};
+
+export type PlanItemEditResult = {
+  /** v0.5: use / unuse / setIndex / reorder と create（shortcut）では []（代わりに changes） */
+  files: ItemFileEdits[];
+  /** v0.5: 未保存の変更に積む Change の並び（use / unuse / setIndex / reorder と create（shortcut）だけ。protocol.md の 15.3） */
+  changes?: AnyChange[];
+  /** 書き換える（削除・unuse なら壊れる）参照の場所 */
+  references: Address[];
   diagnostics: Diagnostic[];
 };
 
@@ -383,6 +549,7 @@ export interface RequestMap {
   'profile/validate': { params: ValidateParams; result: ValidateResult };
   'profile/planEdits': { params: PlanEditsParams; result: PlanEditsResult };
   'profile/saved': { params: SavedParams; result: ProfileSnapshot };
+  'profile/planItemEdit': { params: PlanItemEditParams; result: PlanItemEditResult };
 }
 
 /** 拡張 → サーバーの通知 */
@@ -429,5 +596,5 @@ export type ErrorData = {
   ProtocolVersionMismatch: { supported: string[] };
   NotSupported: { capability: string };
   VersionConflict: { files: Record<string, FileVersion> };
-  EditNotLocal: { address: Address; reason: 'multiline' | 'anchor' | 'flowInsert' };
+  EditNotLocal: { address: Address; reason: 'multiline' | 'anchor' | 'flowInsert' | 'verify' };
 };

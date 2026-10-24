@@ -1,0 +1,74 @@
+{
+  "description": "中身のないフロー表記の見出し（\"row1: {}\"。profile/planItemEdit の create（layer）が書く形）にキーを足すときは、{} を消して下に字下げして足す",
+  "setup": {
+    "profile": "authors_config",
+    "files": {
+      "profiles/default/layers/9_empty.yml": "---\nname: Test\ndescription: ''\nindex: 9\nmapping:\n  left_hand:\n    row0: {}\n    row1: {}\n    row2: {}\n    row3: {}\n    thumb_keys: {}\n  right_hand:\n    row0: {}\n    row1: {}\n    row2: {}\n    row3: {}\n    thumb_keys: {}\n"
+    }
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planEdits",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+        "layers/9_empty.yml": "sha256:209d382f65e927c90a1467bce77c2665ecf7b63756367091b3ee230d6850a6c1"
+      },
+      "changes": [
+        {
+          "address": {
+            "file": "layers/9_empty.yml",
+            "path": [
+              "mapping",
+              "left_hand",
+              "row1",
+              "A"
+            ]
+          },
+          "value": "A"
+        }
+      ]
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "files": [
+        {
+          "file": "layers/9_empty.yml",
+          "baseVersion": "sha256:209d382f65e927c90a1467bce77c2665ecf7b63756367091b3ee230d6850a6c1",
+          "create": false,
+          "edits": [
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 9
+                },
+                "end": {
+                  "line": 7,
+                  "character": 12
+                }
+              },
+              "newText": ""
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 7,
+                  "character": 12
+                },
+                "end": {
+                  "line": 7,
+                  "character": 12
+                }
+              },
+              "newText": "\n      A: A"
+            }
+          ]
+        }
+      ],
+      "diagnostics": []
+    }
+  }
+}

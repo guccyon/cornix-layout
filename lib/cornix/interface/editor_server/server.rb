@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'json'
+require 'set'
+require 'io/wait'
 require_relative 'error_codes'
 require_relative 'rpc_error'
 require_relative 'framing'
@@ -22,22 +24,37 @@ module Cornix
       #
       # 通知とリクエストの別はハンドラ（rpc / notification）に合わせる。rpc のメソッドを通知で送られたら実行せずにログに書き、
       # notification のメソッドを id 付きで送られたら -32600 を返す
+      #
+      # device を渡すと device のサーバー（cornix serve --device。protocol.md の 14.）になり、servers に :device を持つ
+      # ハンドラ（device/* とライフサイクル）だけを振り分ける。
+      #   Server.new(device: Application::Editor::DeviceOperations.new(root: dir), allow_writes: false).run
+      #
+      # 進み具合と取り消し（14.6）: ハンドラは context.progress(phase, done, total) を呼び、サーバーが device/progress を送る。
+      # phase が :read の間は、そのたびに入力に届いているメッセージを先に読む（読み取りのスレッドは使わない）。
+      # 処理中のリクエストへの $/cancelRequest があれば -32800 で終える。ほかのメッセージはためておき、処理のあとで順に扱う
       class Server
-        def initialize(workbench:, input: $stdin, output: $stdout, error: $stderr)
-          @workbench = workbench
+        def initialize(workbench: nil, device: nil, allow_writes: false, input: $stdin, output: $stdout, error: $stderr)
+          raise ArgumentError, 'workbench か device のどちらか一方を渡してください' unless workbench.nil? ^ device.nil?
+
+          @kind = device ? :device : :editor
           @input = input
           @output = output
           @error = error
           @state = :uninitialized
           @shutdown_seen = false
-          @context = Context.new(workbench: workbench, notifier: method(:send_notification), logger: method(:log))
+          @pending = []
+          @eof = false
+          @cancelled = Set.new
+          @current_id = nil
+          @context = Context.new(workbench: workbench, device: device, allow_writes: allow_writes,
+                                 notifier: method(:send_notification), logger: method(:log), progress: method(:progress))
         end
 
         def run
           @input.binmode if @input.respond_to?(:binmode)
           @output.binmode if @output.respond_to?(:binmode)
           until @state == :exited
-            message = read_message
+            message = next_message
             break if message == :eof
             next if message == :skip
 
@@ -68,6 +85,14 @@ module Cornix
 
         private
 
+        # 処理の途中で先に読んでためておいたもの、なければ入力から次のメッセージ
+        def next_message
+          return @pending.shift unless @pending.empty?
+          return :eof if @eof
+
+          read_message
+        end
+
         def read_message
           Framing.read(@input) || :eof
         rescue Framing::ParseError => e
@@ -83,14 +108,63 @@ module Cornix
           gate = lifecycle_gate(name, request)
           return (gate == :drop ? nil : error_response(id, gate)) if gate
 
-          handler = Handler.fetch(name)
+          handler = Handler.fetch(name, server: @kind)
           return kind_mismatch(name, id, request) if handler && handler.notification? == request
 
+          @current_id = id if request
           result = invoke(handler, name, params, request)
           after(name)
           request ? { jsonrpc: '2.0', id: id, result: result } : nil
         rescue RpcError => e
           request ? error_response(id, e) : log_failure(name, e)
+        ensure
+          if request
+            @cancelled.delete(id)
+            @current_id = nil
+          end
+        end
+
+        # context.progress の中身: device/progress を送り、読む間は届いた取り消しを拾う
+        def progress(phase, done, total)
+          send_notification('device/progress', { phase: phase.to_s, done: done, total: total })
+          return unless phase.to_s == 'read'
+
+          poll_input
+          return unless !@current_id.nil? && @cancelled.include?(@current_id)
+
+          raise RpcError.new(ErrorCodes::REQUEST_CANCELLED, '取り消しました')
+        end
+
+        # 入力に届いているメッセージを、待たずに読めるだけ読む。処理中のリクエストへの $/cancelRequest は取り消しの印にし、
+        # ほかはためておく（ほかのリクエストへの取り消しも、ためて何もしない通知として扱う）
+        def poll_input
+          while input_ready?
+            message = read_message
+            if message == :eof
+              @eof = true
+            elsif message != :skip
+              cancel_id = cancel_target(message)
+              !cancel_id.nil? && cancel_id == @current_id ? @cancelled << cancel_id : @pending << message
+            end
+          end
+        rescue Framing::HeaderError => e
+          log("入力の枠が読めないので、処理のあとで終わります: #{e.message}")
+          @eof = true
+        end
+
+        def input_ready?
+          return false if @eof
+          return !@input.eof? unless @input.respond_to?(:wait_readable) # StringIO（テスト）
+
+          !@input.wait_readable(0).nil?
+        end
+
+        # $/cancelRequest の通知なら取り消すリクエストの id。ほかは nil
+        def cancel_target(message)
+          return nil unless message.is_a?(Hash) && message['method'] == '$/cancelRequest' && !message.key?('id')
+
+          params = message['params']
+          params.is_a?(Hash) && valid_id?(params['id']) ? params['id'] : nil
         end
 
         # ライフサイクルで止めるとき RpcError か :drop（通知を捨てる）、通すとき nil
@@ -198,7 +272,7 @@ module Cornix
         end
 
         def log(message)
-          @error.puts("[cornix serve] #{message}")
+          @error.puts("[cornix serve#{' --device' if @kind == :device}] #{message}")
           @error.flush if @error.respond_to?(:flush)
         end
       end

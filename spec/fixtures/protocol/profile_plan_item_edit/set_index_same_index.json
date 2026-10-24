@@ -1,0 +1,30 @@
+{
+  "description": "setIndex の番号が今と同じなら -32602（field \"edit.index\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "setIndex",
+        "kind": "combo",
+        "file": "combos/03_quote_pair.yml",
+        "index": 3
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "edit.index"
+      }
+    }
+  }
+}

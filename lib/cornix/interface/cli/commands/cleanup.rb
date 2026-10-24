@@ -13,10 +13,15 @@ module Cornix
                   args: '[-f|--force]'
 
           CONFIRM = 'Are you sure you want to continue? [y/N]: '
+          JSON_WITH_FORCE = '-f は y/N で確認するので --json と一緒には使えません'
 
           def run(args)
             _, opts = parse!(args) { |p, o| p.on('-f', '--force', 'ロックがあっても（確認してから）消す') { o[:force] = true } }
+            raise UsageError, JSON_WITH_FORCE if json? && opts[:force]
+
             result = use_case(:cleanup).call(force: opts[:force] == true, confirm: method(:confirm_force))
+            return json(result) if json?
+
             case result.status
             when :nothing then out.line('✓ Nothing to clean up')
             when :protected then return protected(result.lock)
@@ -27,6 +32,11 @@ module Cornix
           end
 
           private
+
+          def json(result)
+            emit(with_config(result.to_h))
+            result.status == :protected ? FAILURE : SUCCESS
+          end
 
           def protected(lock)
             out.line('⚠️  Protected: config/ directory has an active lock file')

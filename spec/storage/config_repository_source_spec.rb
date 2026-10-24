@@ -48,8 +48,8 @@ RSpec.describe 'Storage::ConfigRepository の source（保存前の中身で読�
     expect(repo.load.settings).to be_empty
     expect(problems(repository_with('metadata.yaml' => nil))).to eq(['metadata.yaml: ファイルがありません'])
 
-    layer = disk.read('layers/9_empty.yml').sub('index: 9', 'index: 3')
-    expect(problems(repository_with('layers/9_x.yml' => layer)).join).to include('layers/9_x.yml: index')
+    layer = disk.read('layers/9_empty.yml').sub('index: 9', 'index: 3').sub('name: Empty', 'name: Added')
+    expect(repository_with('layers/9_x.yml' => layer).load.layers.map(&:name)).to include('Added')
   end
 
   it '意味検証の位置と Address も保存前の中身で決める' do

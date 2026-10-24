@@ -1,0 +1,17 @@
+{
+  "description": "書き込みが許されていなくても、知らない dir は先に -32050",
+  "request": {
+    "id": 1,
+    "method": "device/apply",
+    "params": {
+      "dir": "profiles/nope",
+      "token": "828ecd9225e5c798"
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32050
+    }
+  }
+}

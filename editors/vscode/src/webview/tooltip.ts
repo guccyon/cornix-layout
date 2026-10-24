@@ -17,7 +17,11 @@ function element(): HTMLElement {
   return tooltip;
 }
 
-export function showTooltip(anchor: HTMLElement, content: Node): void {
+/**
+ * avoid を渡したら、その要素に重ならない所に出す（コンボのボタンの説明が、強調したキーを隠さないように）。
+ * avoid の下に入ればその下、入らなければ anchor の上、どちらも入らなければいつもの所
+ */
+export function showTooltip(anchor: HTMLElement, content: Node, avoid?: HTMLElement | null): void {
   // 作り直しで消えた要素には出さない（mouseleave が来ず、出たまま残るため）
   if (!anchor.isConnected) return;
   if (current && current !== anchor) current.removeAttribute('aria-describedby');
@@ -30,7 +34,12 @@ export function showTooltip(anchor: HTMLElement, content: Node): void {
   const width = tip.offsetWidth;
   const left = Math.max(4, Math.min(rect.left, window.innerWidth - width - 4));
   const below = rect.bottom + 6;
-  const top = below + tip.offsetHeight > window.innerHeight && rect.top > tip.offsetHeight + 6 ? rect.top - tip.offsetHeight - 6 : below;
+  let top = below + tip.offsetHeight > window.innerHeight && rect.top > tip.offsetHeight + 6 ? rect.top - tip.offsetHeight - 6 : below;
+  if (avoid?.isConnected) {
+    const area = avoid.getBoundingClientRect();
+    if (area.bottom + 6 + tip.offsetHeight <= window.innerHeight) top = area.bottom + 6;
+    else if (rect.top - tip.offsetHeight - 6 >= 0) top = rect.top - tip.offsetHeight - 6;
+  }
   tip.style.left = `${left}px`;
   tip.style.top = `${top}px`;
 }
@@ -48,6 +57,8 @@ export type TooltipOptions = {
   focus?: 'always' | 'visible';
   /** 今出してよいか（入力欄は候補の一覧を開いている間は出さない） */
   canShow?: () => boolean;
+  /** 重ねたくない要素（showTooltip の avoid） */
+  avoid?: () => HTMLElement | null;
 };
 
 /** 載せて（フォーカスして）しばらくしたら content() の結果を出す。null なら出さない */
@@ -62,7 +73,7 @@ export function attachTooltip(target: HTMLElement, content: () => Promise<Node |
       if (!wanted()) return;
       void content().then(
         (node) => {
-          if (wanted() && node) showTooltip(target, node);
+          if (wanted() && node) showTooltip(target, node, options.avoid?.());
         },
         () => undefined,
       );
@@ -107,11 +118,11 @@ function matchesFocusVisible(element: HTMLElement): boolean {
   }
 }
 
-/** 説明の中身: どの欄か・題・図の印の意味・説明の行・注記・その欄の問題 */
+/** 説明の中身: どの欄か・題・図の印の意味・レイヤー 0 の値・説明の行・注記・その欄の問題 */
 export function describeContent(
   text: string,
   result: InspectResult | undefined,
-  options: { context?: string | undefined; note?: string | undefined; mark?: string; diagnostics?: readonly Diagnostic[] } = {},
+  options: { context?: string | undefined; note?: string | undefined; mark?: string; base?: string; diagnostics?: readonly Diagnostic[] } = {},
 ): Node | null {
   if (!text && !options.diagnostics?.length) return null;
   const root = h('div', { class: 'tooltip-body' });
@@ -121,12 +132,51 @@ export function describeContent(
   root.append(h('div', { class: 'tooltip-title' }, title));
   if (result?.value && result.value.text !== title) root.append(h('div', { class: 'tooltip-code' }, result.value.text));
   if (options.mark) root.append(h('div', { class: 'tooltip-mark' }, options.mark));
+  // KC_TRNS のキー: 図に薄く描いた、レイヤー 0 の同じ位置の値
+  if (options.base) root.append(h('div', { class: 'tooltip-base' }, `レイヤー 0 の値: ${options.base}`));
   for (const line of result?.description?.lines ?? []) root.append(h('div', { class: 'tooltip-line' }, line));
-  const note = options.note ?? result?.value?.note;
+  // note を渡したら（空でも）それを使う（未保存の注記を出すため）
+  const note = options.note !== undefined ? options.note : result?.value?.note;
   if (note) root.append(h('div', { class: 'tooltip-note' }, `注記: ${note}`));
   const diagnostics = options.diagnostics ?? result?.diagnostics ?? [];
   for (const diagnostic of diagnostics) {
     root.append(h('div', { class: `tooltip-diagnostic ${diagnostic.severity}` }, `${diagnostic.severity === 'error' ? 'エラー' : '警告'}: ${diagnostic.message}`));
   }
+  return root;
+}
+
+/** v0.3: 図の上のコンボのボタンの説明に出すもの（表記は未保存の変更を重ねた今のもの） */
+export type ComboDescription = {
+  index: number;
+  name: string;
+  description: string | null;
+  /** 同時に押すキーの表記（書いていないものは省く） */
+  triggers: string[];
+  /** 出すキーの表記（書いていなければ空） */
+  output: string;
+  /** false なら押せない（サーバーが返さなければ undefined） */
+  reachable?: boolean | undefined;
+  /** 今のレイヤーで強調する位置の数 */
+  matches: number;
+};
+
+/** コンボのボタンの説明: 名前・説明・同時に押すキー・出すキー・押せない印・このレイヤーで強調する位置の数 */
+export function comboContent(combo: ComboDescription): Node {
+  const root = h('div', { class: 'tooltip-body' });
+  root.append(h('div', { class: 'tooltip-context' }, `コンボ ${combo.index}`));
+  root.append(h('div', { class: 'tooltip-title' }, combo.name));
+  if (combo.description) root.append(h('div', { class: 'tooltip-line' }, combo.description));
+  root.append(h('div', { class: 'tooltip-line' }, `同時に押すキー: ${combo.triggers.length > 0 ? combo.triggers.join(' + ') : '書いていない'}`));
+  root.append(h('div', { class: 'tooltip-line' }, `出すキー: ${combo.output || '書いていない'}`));
+  if (combo.reachable === false) {
+    root.append(h('div', { class: 'tooltip-diagnostic warning' }, '警告: 押せないコンボ（同時に押すキーがすべてそろうレイヤーがない）'));
+  }
+  root.append(
+    h(
+      'div',
+      { class: 'tooltip-mark' },
+      combo.matches > 0 ? `このレイヤーで同時に押すキーの位置 ${combo.matches} か所を強調` : 'このレイヤーには同時に押すキーの位置がない',
+    ),
+  );
   return root;
 }

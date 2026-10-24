@@ -106,7 +106,7 @@ Keycode（すべて Keycode::Value を include する）
 
 | 形式 | 例 |
 |---|---|
-| 別名 | `A`, `Enter`, `Tab`, `!`, `MouseButton1`, `VolumeUp`, `NoKey`, `Trans`（`data/aliases.yaml`） |
+| 別名 | `A`, `Enter`, `Tab`, `!`, `MouseButton1`, `Vol+`, `←`, `NoKey`, `Trans`（`data/aliases.yaml`） |
 | QMK 名 | `KC_A`, `KC_BTN1`, `QK_BOOT` |
 | 修飾キー式 | `Cmd + Shift + A`, `Ctrl + Option + Left` |
 | 関数形式 | `LSFT(KC_1)`, `SGUI(KC_4)`, `LGUI_T(KC_LANG2)`, `LT(1, KC_A)`, `LT1(Space)`, `MO(3)`, `OSM(MOD_LSFT)` |
@@ -145,9 +145,10 @@ nape_pro-layout の `Assignment(keycode, label, shortcut)` のように包まな
 ### Layer
 
 - `index` は `LayerRef` の範囲（0〜31）、`name` は空でない 50 文字以内、`description` は任意
-- `keys` は割り当てのある位置だけを持つ（ない位置はデバイスで -1）
+- `keys` は割り当てのある位置だけを持つ（ない位置は compile で KC_NO（0）になる。キーのない枠だけがデバイスで -1）
 - `encoders` は `:left` / `:right` の両方が必須
 - `notes` の位置は `keys` にある位置だけ
+- `#blank?` はすべての位置とエンコーダが KC_NO（割り当てなし）か。KC_TRNS は割り当てとみなす
 - 番号がレイヤー数（10）に収まるか、重複がないかは `Profile#diagnostics`
 
 ### Macro と MacroStep
@@ -177,6 +178,8 @@ nape_pro-layout の `Assignment(keycode, label, shortcut)` のように包まな
 - `#layer(index)` / `#macro(index)` などは番号の要素（重複していれば先のもの）
 - `#references` は名前参照の対応表（`{ macros: 名前 => 番号, tap_dances: 名前 => 番号, shortcuts: 名前 => Keycode }`）。
   Mapping の `References.new(**profile.references)` にそのまま渡せる
+- `#referenced_layer_indexes` はレイヤー操作のキー（`MO(n)` / `LT(n, kc)` / `LM(n, mod)` など）が指すレイヤーの番号。
+  レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、コンボのトリガーと出力から集める
 
 ## 5. 座標系（PositionMap）
 
@@ -233,7 +236,8 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 - `PositionMap#position_at(row, col)` は逆変換。キーのない位置（col 6 の -1、プッシュ）は nil
 - エンコーダの回転（ccw / cw）はマトリクスではなく layout.vil の `encoder_layout[layer][左, 右]` に入る
   （`Image::EncoderRecord`）。プッシュだけがマトリクス上のキー
-- layout.vil の `-1` は `Image::DeviceImage` では nil。ProfileMapper は割り当てのない位置も nil にする
+- layout.vil の `-1` は `Image::DeviceImage` では nil。ProfileMapper は position_map にある位置で割り当てのないものと、定義のないレイヤーの position_map にある位置とエンコーダを KC_NO（0）にし、nil にするのはキーのない枠（プッシュ以外の col 6）だけ。
+  `-1` だと `cornix device apply` がその位置を飛ばして前の値が残り、Vial の読み込みも失敗しうるため
 - テスト: `spec/domain/position_map_spec.rb`（全位置の物理座標と逆変換）、`spec/mapping/profile_mapper/*`（レイヤー・エンコーダの配置、旧 compile 結果との一致）
 
 ## 6. 意味検証（`Profile#diagnostics`）
@@ -242,7 +246,7 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 
 | 対象 | error | warning |
 |---|---|---|
-| レイヤー | 枚数の上限、番号の上限・重複 | 番号の抜け |
+| レイヤー | 枚数の上限、番号の上限・重複 | レイヤー 0 がない（途中の番号の抜けは許す。compile が KC_NO で埋める） |
 | マクロ / タップダンス / コンボ | 件数の上限、番号の上限・重複、名前の重複 | |
 | コンボ | トリガーの数の上限 | |
 | すべての割り当て（レイヤーのキーとエンコーダ、マクロのキー、タップダンスの動作、コンボのトリガーと出力） | `M(n)` / `TD(n)` の参照先がない、レイヤー番号がレイヤー数を超える | レイヤー数の内だが定義されていないレイヤーを指す、`Capabilities#unsupported_keycodes` にある特殊キー（書き込みは止めない。`Capabilities::CORNIX` の表は空で、表は `Application::Environment#capabilities` が足す） |
@@ -272,8 +276,8 @@ Row 7: 右 row3 (逆順: col 2-0) + 右親指 (逆順: col 5-3) + -1
 
 | Profile | DeviceImage（to_image） | to_profile で読まないもの |
 |---|---|---|
-| `layers` | 10 枚。レイヤーは index の位置に置き、定義のないレイヤーはすべて nil。割り当てのない位置も nil。エンコーダの push は `PositionMap#encoder_push_matrix` の位置 | すべての位置とエンコーダが nil のレイヤー |
-| `Layer#encoders` | `[layer][左, 右]` の `EncoderRecord`（定義のないレイヤーは ccw / cw とも nil） | （nil は KC_NO として読む） |
+| `layers` | 10 枚。レイヤーは index の位置に置く。割り当てのない位置は KC_NO（0）、キーのない位置は nil。定義のないレイヤーも割り当てのないレイヤーと同じ（KC_NO で埋める）。エンコーダの push は `PositionMap#encoder_push_matrix` の位置 | すべての位置とエンコーダが KC_NO か nil のレイヤー（`Layer#blank?`。KC_TRNS は空ではない）。ただしレイヤー 0 と、レイヤー操作のキーが指すレイヤー（`Profile#referenced_layer_indexes`）は読む |
+| `Layer#encoders` | `[layer][左, 右]` の `EncoderRecord`（定義のないレイヤーは ccw / cw とも KC_NO） | （nil は KC_NO として読む） |
 | `macros` | 32 個。未使用は `[]` | 動作が空の枠 |
 | `tap_dances` | 32 個。未使用は KC_NO × 4 と tapping_term 250 | KC_NO × 4 で tapping_term が 250（か nil）の枠 |
 | `combos` | 32 個。トリガーは 4 個まで 0 で埋める。未使用はすべて 0 | トリガーと出力がすべて KC_NO の枠（トリガーは末尾の KC_NO だけ落とす） |
@@ -302,6 +306,25 @@ config/
   tap_dance/{番号 2 桁}_{名前}.yaml
   combos/{番号 2 桁}_{名前}.yaml
 ```
+
+番号は各ファイルの `index:` だけで決まり、ファイル名の先頭の番号は読まない（`{番号}_` の接頭辞は並びを見やすくするためのもので、
+付けなくても、`index:` と違ってもよい。番号を入れ替えるときにファイル名を変えなくてすむ）。書くとき（decompile、拡張の追加）は今どおり接頭辞を付ける（`ConfigFiles.item_path`）。
+
+`index:` のキーがないか値が空（null）のファイルは**未使用**（`Schema::Header.unused?`）。`Profile` に入れず compile に含めない。
+使わない定義を消さずに控えておき、番号を書けば有効にできる（Vial にない、cornix-layout ならではの使い方）。
+
+- 未使用のファイルも同じ `Schema::*File` で読み（番号は仮に 0 を入れる）、構造（YAML、項目、キーコードの表記、`position_map` にある位置か）を検証する。
+  問題は `Storage::UnusedFile#problems` に集め、validate は警告にする（compile は止めない）。意味検証（参照先、重複など）はしない
+- `ConfigRepository#load_all` が `Profile` とは別に未使用のファイルの一覧（`UnusedFile(kind, file, name, problems)`）を返す。`#load` は `Profile` だけ
+- 名前の参照（`Macro('名前')` / `TapDance('名前')`）は使っているものだけを引く。未使用のものの名前ならエラー「…は未使用です」
+- 名前の重複の検査は使っているもの同士だけ（未使用のものは別の版を同じ名前で控えておける）
+- YAML として読めない・マッピングでないファイル（空のファイルなど）は未使用か判定できないので、使っているものと同じく今どおりエラー（compile を止める）
+- 整数でない `index:`（文字列など）は今どおりエラー。`enabled:` は今どおり読み飛ばし、未使用かどうかには使わない
+- `Storage::DiagnosticLocator` は、未使用のファイルを除いて名前順に並べた i 番目のファイルを `layers[i]` などに対応させる（validate の位置と拡張の Address が同じ仕組み）
+
+レイヤー・マクロ・タップダンス・コンボは、使わない番号のファイルを置かなくてよい（ディレクトリごとなくてもよい）。番号の抜けは 4 種類とも許し、警告しない（#83 の実機の確認で、抜けた番号は空のまま残り、後ろの番号はずれないと分かった。[device.md](device.md)）。
+decompile も空のもの（読まない枠。8 の表の右の列）は書かない。compile は抜けた番号を空のデータで埋め、layout.vil には全レイヤー・全枠を出す。
+レイヤーは途中の番号を省いてもよい（すべて KC_NO のレイヤーと同じになる）。KC_NO だけの既存のファイルもそのまま読める。
 
 ```yaml
 # layers/1_symbols.yaml

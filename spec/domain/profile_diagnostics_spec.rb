@@ -39,10 +39,16 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
       expect(diags.first.message).to include('重複')
     end
 
-    it '番号の抜けは warning' do
-      diags = diagnostics_of(build_profile(layers: [build_layer(index: 0), build_layer(index: 3)]))
+    it '途中の番号の抜けは許す（compile が KC_NO で埋める）' do
+      layers = [0, 1, 2, 4].map { |i| build_layer(index: i) }
+      expect(diagnostics_of(build_profile(layers: layers))).to eq([])
+    end
+
+    it 'レイヤー 0 がなければ warning' do
+      diags = diagnostics_of(build_profile(layers: [build_layer(index: 1)]))
       expect(summary(diags)).to eq([[:warning, 'layers']])
-      expect(diags.first.message).to include('1, 2')
+      expect(diags.first.message).to eq('レイヤー 0（ベース）がありません')
+      expect(summary(diagnostics_of(build_profile(layers: [])))).to eq([[:warning, 'layers']])
     end
   end
 
@@ -89,10 +95,31 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
     it_behaves_like '番号付きの集まり', :combos, 'コンボ'
 
     it 'トリガーの数が上限を超えれば error' do
-      combo = build_combo(trigger_keys: Array.new(5) { |i| basic(0x04 + i) })
-      diags = diagnostics_of(build_profile(combos: [combo]))
+      keys = Array.new(5) { |i| basic(0x04 + i) }
+      layer = build_layer(keys: keys.each_with_index.to_h { |kc, i| [key_position(:left, 1, i), kc] })
+      diags = diagnostics_of(build_profile(layers: [layer], combos: [build_combo(trigger_keys: keys)]))
       expect(summary(diags)).to eq([[:error, 'combos[0].trigger_keys']])
       expect(diags.first.message).to include('4 個まで')
+    end
+
+    describe '押せないコンボ' do
+      let(:a) { key_position(:left, 1, 1) }
+      let(:s) { key_position(:left, 1, 2) }
+
+      it 'トリガーのキーがすべてそろうレイヤーがなければ warning（path は trigger_keys）' do
+        layers = [build_layer(index: 0, keys: { a => basic(0x04) }), build_layer(index: 1, keys: { s => basic(0x16) })]
+        diags = diagnostics_of(build_profile(layers: layers, combos: [build_combo(trigger_keys: [basic(0x04), basic(0x16)])]))
+        expect(summary(diags)).to eq([[:warning, 'combos[0].trigger_keys']])
+        expect(diags.first.message).to include('押せないコンボです')
+      end
+
+      it 'KC_TRNS の位置はレイヤー 0 の値で見る。トリガーが KC_NO だけなら警告しない' do
+        layers = [build_layer(index: 0, keys: { a => basic(0x04) }),
+                  build_layer(index: 1, keys: { a => k::TRANSPARENT, s => basic(0x16) })]
+        combos = [build_combo(index: 0, trigger_keys: [basic(0x04), basic(0x16)]),
+                  build_combo(index: 1, name: 'New', trigger_keys: [k::NO_KEY, k::NO_KEY])]
+        expect(diagnostics_of(build_profile(layers: layers, combos: combos))).to eq([])
+      end
     end
   end
 
@@ -124,6 +151,7 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
       combo = build_combo(index: 0, trigger_keys: [basic(4), td_call(8)], output_key: macro_call(7))
       paths = diagnostics_of(build_profile(layers: [layer], macros: [macro], tap_dances: [td], combos: [combo])).map(&:path)
       expect(paths).to eq(%w[
+        combos[0].trigger_keys
         layers[0].encoders.left.cw layers[0].encoders.right.push macros[0].steps[1].keys[1]
         tap_dances[0].on_hold combos[0].trigger_keys[1] combos[0].output_key
       ])
@@ -155,7 +183,7 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
       layer = build_layer(keys: { tab => repeat }, encoders: { left: encoder_binding(cw: repeat), right: encoder_binding })
       macro = build_macro(steps: [d::MacroStep::Tap.new(keys: [repeat])])
       td = build_tap_dance(on_hold: repeat)
-      combo = build_combo(output_key: repeat)
+      combo = build_combo(trigger_keys: [k::NO_KEY], output_key: repeat)
       profile = build_profile(layers: [layer], macros: [macro], tap_dances: [td], combos: [combo])
       diags = diagnostics_of(profile, unsupported)
       expect(summary(diags)).to eq([[:warning, 'layers[0].left_hand.row0.tab'], [:warning, 'layers[0].encoders.left.cw'],
@@ -173,7 +201,8 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
 
   it 'Capabilities を差し替えられる' do
     small = d::Capabilities.new(layers: 2, macros: 1, tap_dances: 1, combos: 1, combo_keys: 2)
-    profile = build_profile(layers: [build_layer(index: 0)], macros: [build_macro(index: 1)],
+    triggers = { tab => basic(4), key_position(:left, 0, 1) => basic(5), key_position(:left, 0, 2) => basic(6) }
+    profile = build_profile(layers: [build_layer(index: 0, keys: triggers)], macros: [build_macro(index: 1)],
                             combos: [build_combo(trigger_keys: [basic(4), basic(5), basic(6)])])
     layer = build_layer(index: 0, keys: { tab => mo(2) })
     expect(summary(diagnostics_of(profile, small))).to eq([[:error, 'macros[0].index'], [:error, 'combos[0].trigger_keys']])

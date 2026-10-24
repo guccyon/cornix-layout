@@ -32,6 +32,19 @@ RSpec.describe Cornix::Domain::Layer do
     expect(layer.encoders).to be_frozen
   end
 
+  describe '#blank?' do
+    it 'すべての位置とエンコーダが KC_NO（か割り当てなし）なら true' do
+      expect(build_layer).to be_blank
+      expect(build_layer(keys: { tab => k::NO_KEY })).to be_blank
+    end
+
+    it 'KC_NO 以外のキー（KC_TRNS も）やエンコーダの割り当てがあれば false' do
+      expect(build_layer(keys: { tab => basic(0x2B) })).not_to be_blank
+      expect(build_layer(keys: { tab => k::TRANSPARENT })).not_to be_blank
+      expect(build_layer(encoders: { left: encoder_binding(cw: basic(0x52)), right: encoder_binding })).not_to be_blank
+    end
+  end
+
   describe '構造検証' do
     it '番号は 0〜31 の整数（デバイスのレイヤー数との比較は diagnostics）' do
       expect(build_layer(index: 31).index).to eq(31)

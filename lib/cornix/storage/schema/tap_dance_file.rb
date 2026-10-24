@@ -8,7 +8,7 @@ module Cornix
       #   name: Tab Escape
       #   description: ...          # 省略可
       #   enabled: true             # 省略可（読み飛ばす）
-      #   index: 4                  # タップダンス番号（TD(4)）
+      #   index: 4                  # タップダンス番号（TD(4)）。省くか空にすると未使用（compile に含めない）
       #   actions:                  # 省略した動作は KC_NO。注記付きの形（{ key: ..., note: ... }）も書ける
       #     on_tap: KC_TAB
       #     on_hold: KC_ESCAPE

@@ -1,11 +1,14 @@
-# バックエンドとのリクエストの約束（v0.1）
+# バックエンドとのリクエストの約束（v0.1〜v0.5）
 
 VS Code 拡張（以下「拡張」）と、プロファイルを読んで解釈するバックエンド（以下「サーバー」）の間の約束。
 拡張はこの約束だけでサーバーと話し、`cornix` コマンドを直接叩かない（[ADR 003](adr.md)）。
 今のサーバーは Ruby（`cornix` のサブコマンド）だが、将来は同梱の TypeScript 版（B 案、[roadmap.md](roadmap.md) の「将来の拡張」）に
 差し替えられるように、約束には Ruby のクラス名や内部の形を出さない。
 
-**状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。
+**状態: 決定（2026-10-19）。** 決めたことと理由は「[11. 決めたこと](#11-決めたこと)」。v0.2 で足すもの（2026-10-20 決定）は「[12. v0.2 で足すもの](#12-v02-で足すもの)」、
+v0.3 で足すもの（2026-10-20 決定）は「[13. v0.3 で足すもの](#13-v03-で足すもの)」、v0.4 で足す実機の操作（2026-10-21 設計、2026-10-22 実装）は「[14. v0.4 で足すもの](#14-v04-で足すもの)」、
+v0.5 で足す未使用の項目と番号の操作（2026-10-22 決定）は「[15. v0.5 で足すもの](#15-v05-で足すもの)」。
+今の約束の版（`protocolVersion`）は `"0.5"`（v0.5 の段 3 の J（#115）で `"0.4"` から上げた。編集のサーバーと device のサーバーで同じ版）。
 
 起動・終了とプロファイルの一覧（`initialize`、`profile/list` など）のほかに、中身のメソッドとして次の 5 つを決める。
 
@@ -94,7 +97,7 @@ type FileVersion = string | null;   // ディスク上のバイト列そのも�
 type Diagnostic = {
   severity: "error" | "warning";
   message: string;              // 利用者向けの日本語。validate の表示から「ファイル: キーの位置: 」を除いた文
-  source: "structure" | "semantic";   // 構造検証（読み込み）か意味検証（Profile#diagnostics）か
+  source: "structure" | "semantic";   // 構造検証（読み込み）か意味検証（Profile#diagnostics）か。未使用のファイル（index のないもの。#85）の構造の問題は "structure" の warning
   address?: Address;            // どの値の問題か。ファイルやディレクトリ全体の問題では省く
   file?: string;                // address がないときの、問題のあるファイル（ディレクトリの問題は "macros/"）
   range?: Range;                // 波線を引く範囲（値の部分）。位置が分からなければ省く
@@ -181,10 +184,10 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 
 ```jsonc
 // params
-{ "protocolVersion": "0.1", "clientInfo": { "name": "cornix-vscode", "version": "0.1.0" } }
+{ "protocolVersion": "0.2", "clientInfo": { "name": "cornix-vscode", "version": "0.2.0" } }
 // result
 {
-  "protocolVersion": "0.1",
+  "protocolVersion": "0.2",
   "serverInfo": { "name": "cornix", "version": "1.0.0", "implementation": "ruby" },   // version は Cornix::VERSION（約束の版 protocolVersion とは別）
   "capabilities": {
     "semanticValidation": true,   // Profile#diagnostics に当たる意味検証をする
@@ -195,6 +198,9 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 
 - 版は `major.minor`。1.0 になるまでは `major.minor` 全体が一致しなければ、サーバーは `-32051`（[9. エラー](#9-エラー)）で断る。
   1.0 からは major が違えば断り、minor の違いは知らない項目を無視して続ける
+- 拡張も、返った `protocolVersion` が自分の版と違えばつながない（v0.2 の拡張は v0.1 のサーバーを使わない。中身の画面が v0.1 のサーバーの返さない項目を前提にするため）。
+  断られたとき・違う版が返ったときは、サーバーの版（`-32051` なら `data.supported`）と自分の版を比べて、
+  サーバーのほうが古ければ「cornix を新しく」、新しければ「拡張を新しく」、分からなければ両方を挙げて知らせる
 - 拡張は `capabilities` が false の機能を画面に出さない（意味検証がなければ、構造の検証の結果だけを出す）
 
 ### `shutdown` / `exit`
@@ -239,7 +245,7 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
   "profileId": "p1",         // 以降のリクエストで使う。profile/close まで有効
   "name": "default",
   "dir": "profiles/default",
-  "status": "ok",            // "ok" | "invalid"（構造検証で読めなかった）
+  "status": "ok",            // "ok" | "invalid"（構造検証で読めなかった。読めない値（解析できないキーコード）だけなら "ok"）
   "files": {                 // 読んだファイルとその中身の版。外での変更と保存のときの照合に使う
     "metadata.yaml": "sha256:9f2c…",
     "layers/0_base.yml": "sha256:41ab…",
@@ -304,7 +310,14 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 - `settings` は `data/qmk_settings.yaml` のすべての設定を返す（ファイルにない設定は `value: null`）
 - `status: "invalid"` のときは `files` と `diagnostics` だけを信じてよい（`layers` などは空）。
   拡張はエラーの一覧と、ファイルを開くボタンを出す（[11. 決めたこと](#11-決めたこと) の 6）
+- v0.4（ADR 021）: 構造検証の問題が読めない値（解析できないキーコード）だけなら、その値を `NoKey` として読み続けて `status: "ok"` で返す。
+  その欄の `value` は書いてある表記のまま（`text` と `canonical` と `display.label` が書いてある表記。`code` などは `NoKey` のもの）で、
+  `diagnostics` には構造の error（その `address`）を先に並べ、意味検証の結果を続ける。`profile/validate`・`profile/planEdits` の `diagnostics` も同じ。
+  この状態では `profile/planItemEdit` は `-32602`（field `"edit"`、先にその値を直す）
 - マクロ・タップダンス・コンボ・ショートカットの中身の画面は v0.2。v0.1 では `references` の名前の一覧だけを返す
+- 未使用のファイル（`index:` のないか値が空のもの。#85）の項目は `layers` や `references` などに返さない（`files` には版が入る）。
+  レイヤーなどの `file` / Address は未使用のファイルを除いて対応させるので、未使用のファイルがあっても別のファイルを指さない。
+  未使用のファイルの構造の問題は `diagnostics` に `source: "structure"` の warning で入り、`status` は `"ok"` のまま。未使用の項目は v0.5 で `unused` に返す（[15.1](#151-profileopen-に足すもの)）
 
 各項目の決まり（`null` になるものと、項目ごと省くもの）:
 
@@ -547,7 +560,7 @@ type CandidateCategory =
 
 1. 拡張は、書き換える対象のファイルがテキストエディタで未保存（dirty）のまま開いていれば保存を止め、「テキストの変更を先に保存するか戻してください」と知らせる
 2. `profile/planEdits` を呼ぶ。`diagnostics` に構造の error があれば保存しない（保存するとプロファイル全体が `invalid` になり、画面で直せなくなるため）。
-   意味検証の error と warning は保存を止めない
+   意味検証の error と warning は保存を止めない。v0.4: 保存済みの snapshot にすでにある構造の error（同じ場所・同じ文。ディスクにすでにある読めない値）は数えない
 3. 拡張は当てる前に、対象のファイルのディスクのバイト列の版（[2.](#fileversion) の FileVersion）が `files` の `baseVersion` と同じか確かめる
    （`create: true` ならファイルがないこと）。違えば（2 のあとに外で変わった）当てずに、[7.3](#73-拡張の扱い) の扱いをしてから 2 からやり直す
    （サーバーは planEdits の時点のディスクと比べるだけなので、古い位置の書き換えが新しい中身に当たって外の変更を壊さないように）。
@@ -672,8 +685,8 @@ Ruby の RSpec と、将来の TypeScript の vitest の両方から同じデー
     "profile": "test_config",          // spec/fixtures/<名前> をワークスペースの profiles/default に置き、開いておく（profileId は "p1"）
     "open": false,                     // profile を置くだけで開かない（profile/open 自体を確かめるとき）
     "profiles": { "profiles/ipad": "test_config", "config": null },   // ほかの設定ディレクトリ（null なら空のディレクトリ。profile と重ねない）
-    "files": { ".cornix.yml": "profile: ipad\n" },   // ワークスペースに書くファイル（ワークスペースからの相対パス）
-    "initialize": false,               // initialize（protocolVersion "0.1"）と initialized を先に送らない
+    "files": { ".cornix.yml": "profile: ipad\n", "profiles/default/layers/5_empty.yml": null },   // ワークスペースに書くファイル（ワークスペースからの相対パス。null なら消す）
+    "initialize": false,               // initialize（protocolVersion "0.2"）と initialized を先に送らない
     "before": [{ "id": "b1", "method": "shutdown" }]  // request の前に送るメッセージ（応答は確かめない）
   },
   "request": { "id": 1, "method": "profile/list", "params": {} },   // jsonrpc は省くと "2.0"。"jsonrpc": null なら項目ごと外す。id がなければ通知
@@ -713,7 +726,7 @@ JSON-RPC のエラーで返す。`message` は利用者に見せてよい日本�
 | -32603 | InternalError | サーバーの不具合、検証の結果にならない `Cornix::Error`（message にその文を入れる） | — |
 | -32002 | ServerNotInitialized | `initialize` の前のリクエスト（LSP と同じ code） | — |
 | -32050 | ProfileNotFound | `dir` や `profileId` が分からない | `{ "dir": "profiles/ipad" }` か `{ "profileId": "p9" }` |
-| -32051 | ProtocolVersionMismatch | 約束の版が合わない（[4.](#initialize)） | `{ "supported": ["0.1"] }` |
+| -32051 | ProtocolVersionMismatch | 約束の版が合わない（[4.](#initialize)） | `{ "supported": ["0.2"] }` |
 | -32052 | NotSupported | capabilities にない機能を呼んだ（v0.1 では使わない。TypeScript 版が持たないコマンドを足すとき用） | `{ "capability": "…" }` |
 | -32060 | VersionConflict | `baseVersions` が今のファイルと違う | `{ "files": { "layers/0_base.yml": "sha256:e1d4…" } }`（今の版） |
 | -32061 | EditNotLocal | 値の部分だけでは書き換えられない | `{ "address": { … }, "reason": "multiline" }`（reason: `"multiline"` \| `"anchor"` \| `"flowInsert"`） |
@@ -724,9 +737,9 @@ JSON-RPC のエラーで返す。`message` は利用者に見せてよい日本�
 ## 10. v0.1 のこの案に入れないもの
 
 - compile / validate / status をエディタから実行するコマンド（v0.1 の後半で `command/compile` などとして足す。status は読むだけ）
-- マクロ・タップダンス・コンボ・ショートカットの中身の画面と、その `context`（v0.2）
-- 項目の追加・削除・名前の変更（v0.2。名前の変更は `cornix rename`）
-- 注記の編集（v0.2。`Change` の `address` に `note` を指す道筋を足す）
+- マクロ・タップダンス・コンボ・ショートカットの中身の画面と、その `context`（v0.2。[12.2](#122-profileopen-に足すもの)・[12.4](#124-中身の画面の-context)）
+- 項目の追加・削除・名前の変更（v0.2。[12.5](#125-profileplanitemedit)）
+- 注記の編集（v0.2。Address ではなく Change の `field: "note"` で指す。[12.3](#123-change-に足すもの)）
 - 実機への書き込み（入れない。[ADR 014](adr.md)）
 
 ## 11. 決めたこと
@@ -740,9 +753,563 @@ JSON-RPC のエラーで返す。`message` は利用者に見せてよい日本�
 5. **値の部分だけでは書き換えられないとき**: 書かずにエラーにする。コメントを壊さないことを優先し、画面には「テキストで直してください」とファイルを開くボタンを出す（そのファイルだけ作り直す）
 6. **構造検証で読めないプロファイルを開いたとき**: エラーの一覧だけを出す。Claude が書きかけのときは、直れば `profile/didChange` で描き直る（読めたファイルだけを描く）。
    今の読み込みはキー 1 つの読めない表記でも全体を止めるので、外で 1 か所書き間違えると画面では直せない。画面から構造の error を作って保存することは止める（[6.2](#62-保存の流れ)）
-7. **割り当てを消す操作**: v0.1 では入れず、`NoKey`（KC_NO）を選んでもらう。行の削除は v0.2 の項目の削除と一緒に決める（空の値にする、行を消す）
+7. **割り当てを消す操作**: v0.1 では入れず、`NoKey`（KC_NO）を選んでもらう。行の削除は v0.2 の項目の削除と一緒に決める（空の値にする、行を消す）。v0.2 では Change の `op: "remove"`（[12.3](#123-change-に足すもの)）
 8. **候補を絞る場所**: 打つたびにサーバーに聞く。並べ方がサーバー 1 か所に集まり、適合テストで両方の実装を縛れる（最初に全部もらって画面で絞る）。
    これはサーバーを別のプロセスに置く今の作り（LSP と同じ形）での決め。将来サーバーを不要にする（拡張だけで動かす）ときは、候補のデータと絞り込みのロジックを拡張の側に持つ
 9. **画面の作り**: プロファイルを 1 つの仮想ドキュメント（`cornix-profile:` のスキーム）に見立て、カスタムエディタ（`CustomEditorProvider`）に乗せる。
    dirty の印・Ctrl+S・閉じるときの確認を VS Code に任せられる。元に戻す・やり直しの中身は、拡張が Change を `onDidChangeCustomDocument` の編集として渡して作る
    （ふつうの Webview パネルでこれらを自前で作る）。[ADR 015](adr.md)
+
+## 12. v0.2 で足すもの
+
+[tasks-v0.2.md](tasks-v0.2.md) の「決めたこと」を約束にしたもの。v0.1 の形は変えず、項目とメソッドを足す（v0.1 の拡張が知らない項目は無視できる）。
+**状態: 決定。** 約束の版（`protocolVersion`）は段 3 で `"0.2"` に上げた（段 2 の間は `"0.1"` のまま足した）。
+`"0.2"` のサーバーは、1.0 になるまでの決まり（[4.](#initialize)）のとおり `"0.1"` の拡張を `-32051` で断る。
+
+### 12.1 KeySlot（キーを入れる欄 1 つ）
+
+v0.1 のレイヤーのキー・エンコーダの操作と同じ「Address と値」の組に名前を付け、中身の画面でも使う。
+
+```ts
+type KeySlot = {
+  address: Address;             // その値を書く場所（まだ書いていなければ、書くときの場所）
+  value: KeyValue | null;       // 書いていなければ null。注記は KeyValue.note
+};
+```
+
+`LayerKey` と `EncoderAction` は KeySlot に位置（hand / row / col）を足したもの・KeySlot そのものとして読み替えてよい（形は v0.1 と同じ）。
+
+### 12.2 `profile/open` に足すもの
+
+```jsonc
+{
+  "positionMap": [
+    { "hand": "left", "row": 0, "col": 0, "group": "row0", "symbol": "tab",
+      "address": { "file": "position_map.yaml", "path": ["left_hand", "row0", 0] } }       // 足す: 名前を書いている場所
+  ],
+  "layers": [
+    { "index": 0, "name": "Base", "...": "v0.1 と同じ",
+      "descriptionAddress": { "file": "layers/0_base.yml", "path": ["description"] } }   // 足す
+  ],
+  "macros": [
+    {
+      "index": 0, "name": "Bracket Pair", "description": "角括弧ペア", "file": "macros/00_bracket_pair.yml",
+      "descriptionAddress": { "file": "macros/00_bracket_pair.yml", "path": ["description"] },
+      "icon": null,                       // preset: のマクロの元のアプリのアイコン（なければ null）
+      "preset": null,                     // preset: の名前（sequence で書いていれば null）
+      "presetAddress": null,              // preset: で書いていれば ["preset"] の Address（同梱のマクロの選び直しに使う）
+      "summary": ["tap: [ ] ←"],         // 手順を 1 行ずつ（keycode/inspect の説明の手順の行と同じ文。preset でも出す）
+      "steps": [                          // sequence の手順（preset で書いていれば []）
+        {
+          "address": { "file": "macros/00_bracket_pair.yml", "path": ["sequence", 0] },
+          "action": "tap",                // "tap" | "down" | "up" | "delay" | "text"
+          "keysAddress": { "file": "…", "path": ["sequence", 0, "keys"] },          // tap / down / up だけ
+          "keys": [ { "address": { "file": "…", "path": ["sequence", 0, "keys", 0] }, "value": { "text": "KC_LBRACKET", "...": "KeyValue" } } ]
+        },
+        { "address": { "…": "…" }, "action": "delay",
+          "duration": { "address": { "file": "…", "path": ["sequence", 1, "duration"] }, "value": 100 } },
+        { "address": { "…": "…" }, "action": "text",
+          "content": { "address": { "file": "…", "path": ["sequence", 2, "content"] }, "value": "hello" } }
+      ]
+    }
+  ],
+  "tapDances": [
+    {
+      "index": 4, "name": "Tab Escape", "description": null, "file": "tap_dance/04_tab_escape.yml",
+      "descriptionAddress": { "…": "…" },
+      "actions": { "tap": KeySlot, "hold": KeySlot, "doubleTap": KeySlot, "tapHold": KeySlot },
+      "tappingTerm": { "address": { "file": "…", "path": ["tapping_term"] }, "value": 200 }   // 書いていなければ value は null（読み込みでは 250）
+    }
+  ],
+  "combos": [
+    {
+      "index": 0, "name": "Left Bracket", "description": null, "file": "combos/00_left_bracket.yml",
+      "descriptionAddress": { "…": "…" },
+      "triggersAddress": { "file": "…", "path": ["trigger_keys"] },
+      "triggers": [KeySlot, KeySlot],     // trigger_keys に書いてある数だけ（KC_NO の詰め物も書いてあれば出す）
+      "output": KeySlot
+    }
+  ],
+  "shortcuts": [
+    { "name": "前のタブへ", "address": { "file": "shortcuts.yaml", "path": ["shortcuts", "前のタブへ"] },
+      "value": { "text": "Command + Shift + [", "...": "KeyValue" } }
+  ]
+}
+```
+
+- 並びは `references` と同じ（マクロ・タップダンス・コンボは番号の順、ショートカットはファイルの順）。`layers` と `references` のレイヤー・マクロ・タップダンスも番号の順（ファイル名の接頭辞は `index` と違ってよいので、ファイル名の順ではない。#85）。`status: "invalid"` のときは 4 つとも `[]`
+- `description` は書いていなければ `null`。`descriptionAddress` はいつもある（書いていなければ挿入の場所）
+- 名前（`name`）の Address は返さない。名前を変えるのは参照の書き換えを伴うので Change ではなく [12.5](#125-profileplanitemedit) で行う
+- マクロの手順の `keys` は、ファイルが 1 つの値（`keys: KC_A`）で書いていれば要素 1 つで、その Address は `["sequence", i, "keys"]`
+- タップダンスの動作の Address は、ファイルが `actions:` の下に書いていれば `["actions", "on_tap"]`、上の階層なら `["on_tap"]`。
+  動作をどちらにも書いていなければ `actions:` の下（`Schema::TapDanceFile.write` と同じ形）
+- コンボの `triggers` の要素の Address は `["trigger_keys", i]`、`output` は `["output_key"]`
+- ショートカットの `path` は `["shortcuts", 名前]`（名前に `.` があってもそのまま 1 つの要素）
+
+### 12.3 Change に足すもの
+
+`op` を省けば v0.1 と同じ値の書き換え（`set`）。
+
+```ts
+type Change =
+  | { op?: "set"; address: Address; value: string | number | boolean; field?: "key" | "note" }
+  | { op: "remove"; address: Address; field?: "key" | "note" }
+  | { op: "insert"; address: Address; index: number; value: string | MacroStepValue }
+  | { op: "move"; address: Address; from: number; to: number };
+
+type MacroStepValue =
+  | { action: "tap" | "down" | "up"; keys: string[] }
+  | { action: "delay"; duration: number }
+  | { action: "text"; content: string };
+```
+
+- **set**: `field: "note"` は注記を書く（`field` を省くか `"key"` なら割り当て）。注記のない形（`tab: Escape`）に注記を書くと
+  フロー表記の `{ key: Escape, note: 注記 }` にする（ブロック表記の行の中で値の部分だけを置き換える）。注記を書けるのは注記付きの形を書ける場所
+  （レイヤーのキー・エンコーダの操作・タップダンスの動作・コンボの `output_key`。[notation.md](../notation.md)）だけで、ほかは `-32602`
+- **remove**: 宛先の行（Hash の 1 項目）か並びの要素を消す。`field: "note"` は注記だけを消して `key` の値だけの形に戻す。
+  消せる宛先: レイヤーのキー（行を消す。消したあとの読み込みでは「割り当てなし」で、compile では KC_NO。[tasks-v0.2.md](tasks-v0.2.md) の決めたことの 4）、エンコーダの操作、タップダンスの動作、`description`、
+  `tapping_term`、マクロの手順（`["sequence", i]`）、手順のキー（`["sequence", i, "keys", j]`）、コンボのキー（`["trigger_keys", i]`）。
+  消したあとの中身が構造の問題になるとき（手順のキーが 0 個など）も書き換えは作り、検証の結果で知らせる（[6.2](#62-保存の流れ) のとおり保存は止まる）
+- **insert**: 宛先は並び（`["sequence"]`、`["sequence", i, "keys"]`、`["trigger_keys"]`）で、`index` の前に足す（並びの長さなら末尾）。
+  手順の値は MacroStepValue、キーは表記の文字列。1 つの値で書いた `keys`（`keys: KC_A`）に足すときは、フロー表記の並び（`keys: [KC_A, KC_B]`）に置き換える
+- **move**: 並びの中で `from` の要素を `to` の位置へ動かす（ほかの要素の順は保つ）。要素の行（コメントを含む）ごと動かす
+- 並び（`sequence`・`keys`・`trigger_keys`）の中を指す Address は、それより前の Change を当てたあとの位置で数える。
+  そのため拡張は、並びの要素を指す Change と並びへの `insert` / `remove` / `move` を畳まずに並びの順のまま持つ
+  （v0.1 の「同じ Address は最後の値だけ」は、並びの中を指さない `set` にだけ使う）
+- フロー表記の並びの中への挿入・移動は、並び全体を 1 行のフロー表記として書き直す（並びの中のコメントはないものとする。
+  並びが複数行のフロー表記なら `-32061`（reason `"flowInsert"`））
+- 拡張の当て直し（[7.3](#73-拡張の扱い)）: 並びを指す Change（`insert` / `remove` / `move` と、並びの要素を指す `set`）があるファイルが外で変わったら、
+  そのファイルの Change はまとめて「当て直せないもの」として扱う（並びの位置がずれているかもしれないため）
+
+### 12.4 中身の画面の context
+
+`keycode/candidates` と `keycode/inspect` の `context` に足す。上に出すものは `data/keycode_categories.yaml` の `contexts` に書く（[spec.md](spec.md) の「ファイルの種類ごと」）。
+
+| context | 欄 | 候補から除くもの | 上に出すもの |
+|---|---|---|---|
+| `macroKey` | マクロの手順のキー | レイヤー操作・マクロ・タップダンス・ショートカット（「すべて出す」は `all: true`） | 基本キー・修飾キー・メディア |
+| `tapDanceAction` | タップダンスの動作 | そのタップダンス自身（params の `exclude: "TapDance('名前')"`） | 基本キー・レイヤー操作 |
+| `comboTrigger` | コンボの同時に押すキー | レイヤー操作・マクロ・タップダンス・ショートカット | ベースレイヤー（レイヤー 0）にあるキー |
+| `comboOutput` | コンボの出すキー | — | マクロ・基本キー |
+| `shortcutValue` | `shortcuts.yaml` の値 | ショートカット（`Shortcut(...)`） | 修飾キー式の候補・基本キー |
+
+- params に足す: `all?: boolean`（`macroKey` で除くものも出す。既定 `false`）、`exclude?: string`（その表記と同じ値の候補を除く）
+- 修飾キー式の組み立て欄（[tasks-v0.2.md](tasks-v0.2.md) の 6）は拡張が表記を組み立て、`keycode/inspect` で解釈を確かめる（サーバーに組み立てのメソッドは足さない）
+
+### 12.5 `profile/planItemEdit`
+
+項目の追加・削除・名前の変更を、ファイルの作成・削除・改名と書き換えにして返す。[tasks-v0.2.md](tasks-v0.2.md) の決めたことの 2 のとおり、
+拡張は確認のダイアログを出してからすぐに当てて保存する（未保存の変更には積まない）。未保存の変更があるときは、拡張が先に保存を促す。
+
+```jsonc
+// params
+{ "profileId": "p1", "baseVersions": { /* snapshot.files をそのまま */ }, "edit": ItemEdit }
+// result
+{
+  "files": [
+    { "file": "macros/05_new_macro.yml", "baseVersion": null, "create": true,
+      "edits": [{ "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 0 } }, "newText": "---\nindex: 5\n…" }] },
+    { "file": "macros/03_old.yml", "baseVersion": "sha256:…", "renameTo": "macros/03_new_name.yml", "edits": [ /* name の行 */ ] },
+    { "file": "macros/04_unused.yml", "baseVersion": "sha256:…", "delete": true, "edits": [] }
+  ],
+  "references": [ /* Address[]。削除・名前の変更で書き換える（削除なら壊れる）参照の場所 */ ],
+  "diagnostics": []
+}
+```
+
+```ts
+type ItemKind = "macro" | "tapDance" | "combo" | "shortcut";   // rename だけ "layer" も使える（v0.4 で create・delete も。14.9）
+type ItemEdit =
+  | { op: "create"; kind: "macro" | "tapDance" | "combo"; name: string; preset?: string }
+  | { op: "create"; kind: "shortcut"; name: string; value: string }
+  | { op: "delete"; kind: ItemKind; name: string }
+  | { op: "rename"; kind: ItemKind | "layer"; name: string; to: string }
+  | { op: "renamePosition"; hand: "left" | "right"; row: number; col: number; to: string };
+```
+
+- **create**: 番号は空いているいちばん小さい番号（上限を超えれば `-32602`、`data: { "field": "edit" }`）。ファイル名は `<2 桁の番号>_<名前から作った slug>.<拡張子>`
+  （slug は ASCII の英数字を小文字にして、ほかを `_` にまとめたもの。残らなければ `macro` / `tap_dance` / `combo`。拡張子はそのディレクトリでいちばん多いもの、なければ `yaml`）。
+  中身は `Schema::*File.write` と同じ形の最小のもの（マクロは `action: tap`・`keys: [KC_NO]` の手順 1 つか `preset:`、タップダンスは動作なし、コンボは `trigger_keys: [KC_NO, KC_NO]` と `output_key: KC_NO`）。
+  ショートカットは `shortcuts.yaml` の `shortcuts:` の末尾に `名前: 値` の行を足す（ファイルがなければ作る）。同じ名前がすでにあれば `-32602`
+- **delete**: ファイルを消す（ショートカットは行を消す）。参照は書き換えず、`references` に壊れる参照の場所を返す（拡張は確認のダイアログに件数を出す）。
+  `diagnostics` は消したあとの検証の結果（参照している側にエラー）
+- **rename**: `name` の行を書き換え、参照（`Macro('旧名')` / `TapDance('旧名')` / `Shortcut('旧名')`）をすべての設定ファイルでテキストとして置き換え、
+  ファイル名の slug を新しい名前に合わせて `renameTo` にする（番号の接頭辞は保つ）。前後の compile の結果（16bit 値）が同じでなければ、書かずに `-32061`（reason `"verify"`）。
+  `Application::RenameFiles` と同じ手順だが、ファイルは書かずに書き換えとして返す。レイヤーは名前で参照されないので、`name` の行とファイル名だけを変える
+- **renamePosition**: `position_map.yaml` のその位置の名前と、すべてのレイヤーのファイルの `mapping` の下のその名前のキーを書き換える（compile の結果は変わらない）。
+  同じグループに同じ名前があれば `-32602`。フロー表記の position_map（`row0: [tab, Q, …]`）は並びの中の 1 要素だけを置き換える
+- 名前の決まり（空でない・前後の空白なし・既存の名前と重ならない）に合わなければ `-32602`（`data: { "field": "edit.name" }` か `"edit.to"`）。知らない名前は `-32050` ではなく `-32602`
+- 拡張は `files` を 1 つの `WorkspaceEdit`（`createFile` / `deleteFile` / `renameFile` と `replace`）にして当て、書き換えたファイルを保存し、
+  `profile/saved` に新しい版（消したファイルは `null`、改名したファイルは古い名前に `null`・新しい名前に版）を送る。VS Code の元に戻す（ファイルの undo）で戻せる
+- `baseVersions` の照合と `-32060` は [6.1](#61-profileplanedits) と同じ（書き換えるファイルだけを比べる）
+
+### 12.6 エラーに足すもの
+
+- `-32061` の reason に `"verify"`（名前の変更の前後で compile の結果が変わる）を足す
+
+### 12.7 拡張だけで作るもの
+
+約束は変えない。
+
+- 位置の名前の表示: 図の上のトグルボタンで固定の切り替え、Alt を押している間だけ一時表示。名前は紫（`--vscode-charts-purple`）、マクロの `M` の印は橙（`--vscode-charts-orange`）に変える。
+  下のペインのレイヤーの欄のラベルも同じ紫
+- `KC_TRNS` のキー: レイヤー 0 の同じ位置の値の `display.label` を薄く描き、説明に「レイヤー 0 の値」と書く（snapshot の `layers[0]` から拡張が引く）
+- 候補の行のアイコン: `Candidate.icon`（v0.1 からある）を候補の行に描く
+- テキストの波線: `profile/open` と `profile/didChange` の `diagnostics` の `range` を `DiagnosticCollection` に入れる（`address` も `file` もないものは出さない）
+
+## 13. v0.3 で足すもの
+
+[tasks-v0.3.md](tasks-v0.3.md) の「決めたこと」を約束にしたもの。v0.2 の形は変えず、項目を足す（v0.2 の拡張が知らない項目は無視できる）。
+**状態: 決定。** 約束の版（`protocolVersion`）は段 3 で `"0.3"` に上げた（段 2 の間は `"0.2"` のまま足した）。
+`"0.3"` のサーバーは、1.0 になるまでの決まり（[4.](#initialize)）のとおり `"0.2"` の拡張を `-32051` で断る。
+
+### 13.1 `profile/planItemEdit` に足すもの
+
+```ts
+type ItemEdit =
+  | /* 12.5 のもの */
+  | { op: "expandPreset"; kind: "macro"; name: string };
+```
+
+- **expandPreset**: `preset:` で書いたマクロの `preset:` の行を、同梱の定義（`data/shortcuts/` の `macro: true` の項目）の手順の `sequence:` に置き換える。
+  ほかの行（`name` `description` `index` やコメント）は変えない。手順の書き方は `Schema::MacroFile.write` と同じ形
+- 前後の compile の結果（16bit 値）が同じでなければ、書かずに `-32061`（reason `"verify"`）
+- `preset:` で書いていないマクロ・知らない名前は `-32602`（`data: { "field": "edit.name" }`）
+- 結果の形は 12.5 と同じ（`files` は書き換える 1 ファイル、`references` は `[]`）。拡張は確認のダイアログのあとすぐ当てて保存する
+
+### 13.2 `profile/open` に足すもの
+
+```jsonc
+{
+  "combos": [
+    { "index": 0, "name": "Left Bracket", "...": "12.2 と同じ",
+      "reachable": true }               // 足す: トリガーのキーがすべてそろうレイヤーがある
+  ]
+}
+```
+
+- `reachable` は、どれかのレイヤーで、そのレイヤーに割り当てたキーコード（`KC_TRNS` の位置はレイヤー 0 の値）にトリガーのキーがすべて入っていれば `true`。
+  トリガーが `KC_NO` だけのコンボは `true`（作ったばかりのものに印を付けない）
+- 同じ判定で、意味検証の警告「押せないコンボ」を出す（`address` はそのコンボの `["trigger_keys"]`。validate にも出る）
+
+### 13.3 振る舞いだけ変えるもの
+
+形は変えない。
+
+- `keycode/candidates`: 前方一致・部分一致の下に、query の文字を順に含むもの（あいまい一致）を出す。大文字小文字・`_`・空白は区別しない。
+  当てはまり方が同じ候補の中では、そのプロファイルで使っている回数の多いものを上にする（context ごとに上に出すものは今までどおり先）
+- `KeyValue.display`: `KC_UP` / `KC_LEFT` / `KC_RIGHT` / `KC_DOWN` の `label`（と `tap`）を `↑` / `←` / `→` / `↓` にする。`text`（表記）は変えない
+
+### 13.4 拡張だけで作るもの
+
+約束は変えない。[tasks-v0.3.md](tasks-v0.3.md) の決めたことの 1〜3 と、申し送りの見た目の直し（`（なし）` を出さない、節を畳む、書いていない位置を NoKey と同じ枠に）。
+同梱のショートカットの選択は `keycode/shortcutTree`（v0.2 からある）を使い、コピーは `create`・`kind: "shortcut"`（12.5）で足す。
+
+## 14. v0.4 で足すもの
+
+[tasks-v0.4.md](tasks-v0.4.md) の「決めたこと」を約束にしたもの。実機の操作は、`cornix serve` とは別のプロセスの device のサーバーで行う（ADR 018）。
+**状態: 入れた。** device のサーバー（Ruby。14.1〜14.7・14.10）は D1（#97）、拡張の型と偽の device のサーバーは P（#94）、拡張のホストと画面（14.8）は D2（#96）・D3（#95）で入れた。
+14.9（レイヤーの追加と削除。issue #84）も入れた。14.9 は足しただけ（今のリクエストの形は変えない）なので、14.9 を入れたときは約束の版（`protocolVersion`）を `"0.3"` のままにした。
+約束の版は段 3 の J1 で `"0.4"` に上げた（編集のサーバーと device のサーバーで同じ版）。device のサーバー（14.1〜14.8・14.10）のほかは、編集のサーバー（`cornix serve`）の形は変えない。
+
+### 14.1 device のサーバー
+
+```
+cornix serve --device [--allow-writes]
+```
+
+- 枠（Content-Length）・JSON-RPC・ライフサイクル（`initialize` / `shutdown` / `exit`）は [1.](#1-通信) と [4.](#4-ライフサイクルのメソッド) と同じ。登録するメソッドは `device/*` だけ（ほかは `-32601`）
+- `initialize` の `capabilities` に `"device": true` と `"deviceWrites": <--allow-writes を付けたか>` を返す（`semanticValidation`・`keycodeCode` は `false`。device のサーバーは検証もキーコードの値も返さない）
+- `--allow-writes` は `--device` と一緒にだけ使える（`cornix serve --allow-writes` は使い方の誤り）
+- 拡張は設定 `cornix.device.allowWrites` が `true` のときだけ `--allow-writes` を付ける。付けずに起動したサーバーは `device/apply` と `device/restore` を `-32074` で断る（ADR 019）
+- 拡張は必要になったときに起動し、使い終わっても残す。`allowWrites` が変わったら起動し直す。キーボードへの接続はメソッドごとに開いて閉じる（今の `Environment#open_device` と同じ）
+- リクエストは 1 つずつ処理する。実機を読むのに BLE で約 10 秒かかる（[device.md](../device.md)）が、編集のサーバーとは別のプロセスなので候補や検証は止まらない
+- プロファイルは各メソッドの `dir`（[5.1](#51-profilelist) の `dir`）で指す。compile の出力はそのプロファイルの tmp（`Application::Workspace` の決まり）
+
+### 14.2 共通の型
+
+```ts
+// 実機との違い 1 件
+interface DeviceChange {
+  kind: "key" | "encoder" | "macro" | "tapDance" | "combo" | "setting" | "other";
+  layer?: number;            // kind が key / encoder のとき
+  key?: { hand: "left" | "right"; row: number; col: number };   // kind が key のとき。論理位置（LayerKey と同じ。図と欄で使う）
+  position?: string;         // kind が key のとき。position_map の記号（"tab"。一覧の「レイヤー名 / 位置の名前」）
+  encoder?: { side: "left" | "right"; direction: "cw" | "ccw" | "push" };
+  index?: number;            // macro / tapDance / combo の番号
+  name?: string;             // 名前がある項目（マクロなど）・設定の名前
+  device: string;            // 実機の今の値の表記（キーは VialNotation の表記。項目は短い要約）
+  profile: string;           // このプロファイルの値の表記
+  text: string;              // 1 行の説明（Device::ChangeDescriber と同じ文）
+}
+
+interface DevicePlan {
+  token: string;             // Planning::Plan#token。device/apply・device/restore に渡す
+  empty: boolean;
+  changes: DeviceChange[];
+  warnings: string[];        // RMK 未対応のキーコードなど（Device::ChangePolicy）
+  keyboard: { name: string; uid: string };   // 書き込み先（確認のダイアログに出す）
+}
+```
+
+- マトリクスの座標 → `key`（論理位置）と `position`（記号）は `Domain::PositionMap` で直す（位置の表はそのプロファイルの `position_map.yaml`）。
+  エンコーダのプッシュの位置（左 (2,6)・右 (5,6)）のキーは `kind: "encoder"`（`direction: "push"`）。
+  位置に名前がない（`position_map.yaml` にない）キーは `kind: "other"` にして `text` だけを使う（`layer` は付ける）。エンコーダは番号 0 が左、1 が右
+- マクロは書き込みでは領域全体を 1 件で書くが、`changes` では中身が変わる番号ごとに 1 件にする（`index`・`name`。`device`・`profile` はその番号の動作の要約）
+- `name` はプロファイルにある名前（マクロ・タップダンス・コンボ。戻す先がバックアップのときもいまのプロファイルの名前）と、設定の名前（`tapping_term` など）。なければ省く
+- `keyboard.name` はキーボード定義の名前、`keyboard.uid` は .vil の `uid`（64 ビットの整数）を 10 進の文字列にしたもの
+- `changes` の並びは `Planning::Plan#changes` の順（キー → エンコーダ → タップダンス → コンボ → マクロ → 設定）
+
+### 14.3 `device/compare`（読むだけ）
+
+```jsonc
+// params
+{ "dir": "profiles/default" }
+// result
+{ "plan": DevicePlan, "source": "tmp/profiles/default/build/layout.vil" }
+```
+
+- 保存済みのファイルを compile し、その出力と実機の差分を返す（`Application::Compile` → `Application::DeviceDiff`）。未保存の変更は見ない（拡張は先に保存を促す）
+- プロファイルが検証のエラーで compile できないときは、何も読まずに `-32075` CompileFailed（message に compile のエラーの文、`data: { "diagnostics": Diagnostic[] }`。
+  diagnostics は `profile/validate` と同じ形で、エラーのほかに警告も入る）
+- `source`・`backup`・`path` はワークスペースのフォルダからの相対パス（外なら絶対パス）
+
+### 14.4 `device/apply`
+
+```jsonc
+// params
+{ "dir": "profiles/default", "token": "…" }   // token は直前の device/compare の plan.token
+// result
+{ "applied": 12, "backup": "tmp/profiles/default/device_backups/20261021-101500.vil", "remaining": DeviceChange[] }
+```
+
+- サーバーは compile し直して計画し直し、`token` が違えば何も書かずに `-32071`（直前の比べたあとで、ファイルか実機が変わった）
+- 差分がなければ何も書かず、バックアップも取らない（`applied: 0`・`backup: null`）
+- 書く前に今の状態をバックアップし、1 件ずつ書き、読み直して検証する（`Application::DeviceApply` の `expected_token`）。`remaining` は読み直しで残った違い（ふつうは `[]`）
+- 書いている途中で切れたら `-32072`（`data: { "applied": 5, "backup": "…" }`）。もう一度比べて反映すれば続きからそろう。
+  全件書いたあとの読み直しに失敗したときも `-32072`（`applied` は全件）
+- エラーの順: params の形（`-32602`）→ 知らない `dir`（`-32050`）→ `--allow-writes` なし（`-32074`。実機は読まない）→ compile（`-32075`）→ 実機（`-32070` など）
+
+### 14.5 `device/backups` と `device/compareBackup`・`device/restore`
+
+```jsonc
+// device/backups の params / result
+{ "dir": "profiles/default" }
+{ "backups": [ { "name": "20261021-101500-pre-apply", "path": "tmp/…/snapshots/20261021-101500-pre-apply/layout.vil", "createdAt": "2026-10-21T10:15:00+09:00", "kind": "pre-apply" } ] }   // 新しい順
+
+// device/compareBackup（読むだけ）の params / result
+{ "dir": "profiles/default", "backup": "20261021-101500" }
+{ "plan": DevicePlan, "source": "tmp/…/20261021-101500.vil" }
+
+// device/restore の params / result（14.4 と同じ形）
+{ "dir": "profiles/default", "backup": "20261021-101500", "token": "…" }
+{ "applied": 12, "backup": "tmp/…/20261021-101820.vil", "remaining": [] }
+```
+
+- `Application::ListSnapshots` / `DeviceRestore`（`dry_run: true` が compareBackup）を使う。`backup` は `device/backups` の一覧にある名前だけ（パスや `read`・`build` の名前は受け付けない）。
+  知らない `backup` は `-32602`（`data: { "field": "backup" }`）。`device/restore` では `--allow-writes` の確かめより先
+- `device/backups` は実機を読まない（実機が使えなくても一覧を返す）。`createdAt` はサーバーの時差付き
+- 一覧に出すのはスナップショット（`Storage::SnapshotStore`）のうち種類 `pre-apply`・`pre-restore`・`backup`・`legacy`（前の版の `device_backups/`）。
+  `read` と `build` は数が多く、戻す先には向かないので出さない。`kind` は拡張が「反映の前」「戻す前」などと添えるのに使う
+- 戻す前にも今の状態をバックアップする（続けてもう一度戻すと戻す前に戻る）
+
+### 14.6 `device/progress`（サーバー → 拡張、通知）
+
+```jsonc
+{ "phase": "read" | "write" | "verify", "done": 120, "total": 560 }
+```
+
+- 読む・書く・読み直すの進み具合。拡張は `withProgress` に出す。`done` は 1 から増え、段階の最後の通知は `done == total`
+  （読む・読み直すの単位はキーマップとマクロの 1 回の読み出し、エンコーダ・タップダンス・コンボ・設定の 1 件。Cornix では 170 ほど。
+  マクロを途中で読み終えたら残りの分を飛ばすので、`done` が飛ぶことがある。書くの単位は変更 1 件）
+- `$/cancelRequest` は `phase: "read"` の間だけ受け付け、そのリクエストを `-32800`（RequestCancelled）で終える。書き始めたら取り消せない（受け取っても続ける）。
+  サーバーは読む単位ごとに（`device/progress` を送るたびに）、届いているメッセージを先に読んで取り消しを拾う。compile の間に届いた取り消しは、最初の単位で拾う。
+  ほかのリクエストへの取り消しは何もしない。先に読んだほかのメッセージは、処理のあとで届いた順に扱う
+
+### 14.7 エラーに足すもの
+
+| code | 名前 | いつ | data |
+|---|---|---|---|
+| -32070 | DeviceUnavailable | 実機が使えない | `{ "reason": "platform" \| "bridge" \| "notConnected" \| "timeout" }`（macOS 以外・ブリッジをビルド・起動できない・見つからない／開けない・応答がない／ブリッジが終わった。`Cornix::DeviceUnavailable#reason`） |
+| -32071 | PlanChanged | `token` が計画し直したものと違う | — |
+| -32072 | WriteIncomplete | 書いている途中で切れた・失敗した | `{ "applied": 5, "backup": "…" }` |
+| -32073 | PlanRejected | 書き込み禁止のキーコード（`QK_BOOT` など。`Device::ChangePolicy`）を含む計画。`device/compare` でも返す。ほかに計画を作れないとき（レイヤー数・マクロがキーボードの上限を超える）も返し、そのとき `keycodes` は空 | `{ "keycodes": ["QK_BOOT"] }` |
+| -32074 | WritesNotAllowed | `--allow-writes` なしで書き込みのメソッドを呼んだ | — |
+| -32075 | CompileFailed | プロファイルが compile できない | `{ "diagnostics": Diagnostic[] }` |
+| -32800 | RequestCancelled | 読む間に取り消された（LSP と同じ code） | — |
+
+
+### 14.8 拡張だけで作るもの
+
+約束は変えない。[tasks-v0.4.md](tasks-v0.4.md) の「Tetsuro の確認で変えたこと」（ADR 020）: 編集フォームの一番下の節「デバイス転送」と、反映のプレビューのモーダル
+（違うキーの橙の枠・レイヤーのタブの件数・違いの一覧・警告・`keyboard.name`、「確定」と「やめる」）、設定 `cornix.device.allowWrites`。
+拡張が使うのは `device/compare`（プレビュー）と `device/apply`（確定。プレビューの token）と `device/progress` だけ。`device/backups`・`device/compareBackup`・`device/restore`（14.5）は約束に残すが、拡張からは使わない。
+プレビューのあとで設定ファイルの版が変わったら（`profile/saved` のあと・外での変更）、そのプレビューでは確定させない（もう一度 `device/compare`）。最後はサーバーが token で確かめる（-32071）。
+
+### 14.9 `profile/planItemEdit` に足すもの（レイヤーの追加と削除。issue #84）
+
+**状態: 入れた。** 空のレイヤーのファイルを置かなくてよくなった（issue #83）ので、ファイルのないレイヤーは画面に出ない。拡張からレイヤーのファイルを作る・消す。
+
+```ts
+type ItemEdit =
+  | /* 12.5・13.1 のもの */
+  | { op: "create"; kind: "layer"; name: string; index?: number }   // index は 0〜9。省けば空いているいちばん小さい番号
+  | { op: "delete"; kind: "layer"; name: string; file?: string }   // file があればファイルで探す（下の「レイヤーの指し方」）
+  | { op: "rename"; kind: "layer"; name: string; to: string; file?: string };   // rename は 12.5 のもの。file を足した
+```
+
+- **レイヤーの指し方**: レイヤーの名前は重なってよい（decompile は空のレイヤーをどれも `Empty` などにする。ファイル名は番号の接頭辞で分かれる）。
+  また番号のない（使わない）レイヤーのファイルも予定している（issue #85）。名前でも番号でも 1 つに決まらないので、`delete`・`rename` は
+  `file`（設定ディレクトリからの相対パス。snapshot の `layers[].file`）があればそのファイルのレイヤーを探す（省けば `name` の最初のもの。v0.2 の拡張のため）。
+  ファイルのパスは設定ディレクトリの中で一意。そのファイルのレイヤーがなければ `-32602`（`"edit.file"`）。`file` はレイヤーだけ、`index` は `create` だけに書ける。
+  `create`・`rename` の新しい名前は、ほかのレイヤーと同じでもよい（空・前後の空白・改行はだめ）。拡張は削除と名前の変更にいつも `file` を付ける。
+  名前を変えるとファイル名も変わるが、結果の `renameTo` と次の snapshot で新しいパスが分かる。
+  マクロ・タップダンス・コンボも #85 で同じことになるので、そのときにそろえる
+
+- **create**: `layers/<番号>_<名前>.<拡張子>` を作る。名前の部分は `Storage::ConfigFiles.item_path` と同じ（decompile が書く名前とそろえる。既定の名前 `Layer N` なら `layer`）、
+  拡張子はそのディレクトリでいちばん多いもの（なければ `yaml`）。中身は `Schema::LayerFile` が受け付ける最小の形（`name`・`description: ''`・`index`・`mapping` の両手の空のグループ。エンコーダは書かない）。
+  その番号のレイヤーがもうある・範囲の外なら `-32602`（`data: { "field": "edit.index" }`）、`index` を省いて空いている番号がなければ `"edit"`。
+  名前は空でなければよい（上の「名前の重なり」）。`index` はレイヤーのときだけ書ける（ほかの種類に書けば `-32602`、`"edit.index"`）
+- **delete**: そのファイルを消す。参照は書き換えず、`references` にそのレイヤーを指すレイヤー操作（`MO` / `TG` / `TO` / `OSL` / `LT` / `LM` など。
+  16bit 値で数える。消すファイルの中は入れない）の場所を返す。`diagnostics` は消したあとの検証の結果（指していた側に警告「レイヤー N が定義されていません」）。
+  compile では消したレイヤーは `KC_NO` で埋まる（#83）
+- 結果の形・確認のダイアログのあとすぐ当てて保存することは 12.5 と同じ
+- 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `create_layer*.json`・`create_index_not_layer.json`・`delete_layer*.json`
+- 同じ issue の下の欄の「キー別」の並べ方（位置ごとに全レイヤーの欄を並べる）は拡張だけで作る。欄の変更は今と同じ `Change`（そのレイヤーのファイルの `address`）で、約束は変えない
+
+### 14.10 適合テストのデータ（device）
+
+[8.2](#82-適合テスト) と同じ形で `spec/fixtures/protocol/device/<メソッド>/<名前>.json` に置く（編集のサーバーの適合テストとは別の spec で流す。
+`setup` の `initialize` は `cornix serve --device` に送る）。`setup` に足すもの:
+
+```jsonc
+{
+  "setup": {
+    "profile": "test_config",          // 8.2 と同じ（profiles/default に置く）
+    "allowWrites": true,               // --allow-writes を付けたことにする（既定 false）
+    "device": {                        // 偽の実機（spec/device/fake_cornix_device.rb の FakeCornixDevice）の初めの状態
+      "from": "profile",               // "profile" はそのプロファイル（setup.files を書く前）の compile の出力と同じ状態。
+                                       // fixtures のディレクトリ名（"authors_config"）や spec/fixtures からの .vil のパスも書ける
+      "keys": [ { "layer": 0, "row": 0, "col": 1, "value": "KC_A" } ],   // その上で変える値（マトリクスの座標・Vial の表記）
+      "set": [ { "path": ["settings", "7"], "value": 300 } ],             // その上で変える .vil の値（JSON の道筋。エンコーダ・マクロなど）
+      "unavailable": "notConnected",   // 書けば実機が使えないことにする
+      "failWriteAfter": 1,             // 書き込みのコマンドをこの回数送ったあと応答がなくなる（-32072 を確かめる）
+      "ignoreWrites": true             // 書き込みに応答するが値が変わらない（読み直しで残る remaining を確かめる）
+    },
+    "snapshots": { "20261021-101500-pre-apply": "profile" }   // 置いておくバックアップ（名前 → その状態の元。文字列は from、
+                                       // オブジェクトなら device と同じ from・keys・set）。名前が日時だけなら前の版の device_backups/<名前>.vil
+  },
+  "after": [ { "method": "$/cancelRequest", "params": { "id": 1 } } ]   // request の後に送るメッセージ（応答は確かめない）
+}
+```
+
+- `setup` の `initialize`（`protocolVersion` は今の版）・`before`・`files` は 8.2 と同じ。`setup.profile` は開かない（device のサーバーは `profile/open` を持たない）。
+  ライフサイクルのデータは `device/lifecycle/` に置く
+- `token` は書き込む内容（場所と目標の値）だけで決まるので、`device/apply`・`device/restore` のデータには同じ状態の `device/compare` の `token` をそのまま書く
+- `notifications` を省くと通知は比べない（`device/progress` は件数が多いので、比べたいデータだけ書く。`[]` と書けば実機を読まなかったことを確かめられる）
+- token・日時・バックアップのパスの日時の部分のように毎回変わる値は、期待する応答に書かない（8.2 の比べ方は書いた項目だけを比べる）
+- 拡張の偽の device のサーバー（`editors/vscode/test/fake-device-server/`）は compile しないので、このデータは流さない。
+  偽のほうはプロセスの中に実機とプロファイルの値の表を持ち、環境変数 `CORNIX_FAKE_DEVICE` と通知 `$/fake/configure` で状態を変える（ファイルの先頭のコメント）
+
+## 15. v0.5 で足すもの
+
+issue #105（未使用の項目を取り出す・未使用にする・番号の変更）とショートカットの追加を未保存の変更にすることを約束にしたもの。計画と UI の決めごとは [tasks-v0.5.md](tasks-v0.5.md)、理由は ADR 022・023。
+**状態: 入れた。** 拡張の型（`editors/vscode/src/protocol.ts`）・番号の決まり（`src/itemIndex.ts`）・偽のサーバーは P（#109・PR #117）、Ruby のサーバーは R（#111・PR #121）で入れた。
+v0.4 の形は変えず、項目と op を足した。約束の版（`protocolVersion`）は段 3 の J（#115）で `"0.5"` に上げた（段 2 の間は `"0.4"` のまま足した）。
+
+### 15.1 `profile/open` に足すもの
+
+```jsonc
+{
+  "unused": {
+    "layers": [ { "index": null, "name": "iPad Base", "file": "layers/ipad_base.yml", "keys": [ /* 5.2 と同じ */ ], "encoders": { /* 同じ */ }, "...": "LayerSnapshot と同じ" } ],
+    "macros": [ { "index": null, "name": "Old Paste", "file": "macros/old_paste.yml", "...": "MacroSnapshot と同じ" } ],
+    "tapDances": [ /* TapDanceSnapshot と同じで index だけ null */ ],
+    "combos": [ /* ComboSnapshot と同じで index だけ null */ ]
+  }
+}
+```
+
+- 未使用のファイル（`index:` のキーがないか値が空・`null`。#85 の `Storage::Schema::Header.unused?`）の項目を、使っている項目と同じ形で `index: null` にして返す。並びはファイルのパスの順
+- 中身（レイヤーのキー・マクロの手順など）も返す。取り出す操作（15.3 の `use`）は未保存の変更なので、保存する前に画面に描くため。Address は使っている項目と同じ決まり（そのファイルの道筋）
+- 使っている項目の一覧（`layers`・`macros` など）と `references` には入れない（5.2 のまま）。未使用の名前は参照の候補にならない
+- 未使用のファイルの構造の問題は今のまま `diagnostics` に `source: "structure"` の warning（`file` はそのファイル）。構造の問題で読めないファイルは `unused` に入れない（`files` には版が入る）
+- `status: "invalid"` のときは 4 つとも `[]`
+- `shortcuts.yaml` がなければ `files` に `"shortcuts.yaml": null` を入れる（15.2 の行の追加で作ることがあるため。`settings/qmk_settings.yaml` と同じ）
+
+### 15.2 Change に足すもの
+
+形は 12.3 のまま。宛先を足す。
+
+- **`["index"]` の `set`**: 値は 0 以上の整数。`index:` の行があれば値を置き換え、値が空（`index:`・`index: null`）なら値を書く。行がなければ `name:` の行のすぐ後に `index: N` の行を足す（`name:` がなければ先頭の `---` の後、それもなければ 1 行目）。
+  レイヤー・マクロ・タップダンス・コンボのファイルに書ける。範囲（レイヤー 0〜9、ほかは 0〜31）と重なりは書き換えでは確かめず、検証の結果（意味検証の error）で知らせる
+- **`["index"]` の `remove`**: `index:` の行を消す（未使用にする）。行がなければ書き換えを作らない
+- **`["shortcuts", 名前]` の `set` で、その名前がまだないとき**: `shortcuts:` の下の末尾に `名前: 値` の行を足す（12.5 の create と同じ書き方）。`shortcuts:` がなければ足し、ファイルがなければ `create: true` で作る。
+  名前の決まり（空でない・前後の空白なし）に合わなければ `-32602`
+- 拡張の畳み方（12.3）: これらは並びの中を指さないので、同じ場所の前の変更を外して末尾に足す。保存済みの値と同じになったら持たない（`["index"]` の保存済みの値は snapshot の `index`。未使用なら `null` で、`remove` が保存済みと同じ）
+- `profile/validate`・`profile/planEdits` はこれらを当てた状態で読む。`index` を書いた未使用のファイルは使っている項目として、消したファイルは未使用として検証する
+- 未使用のレイヤーのファイルのキー・エンコーダの Address も宛先にできる（`use` は未保存の変更なので、保存する前にそのレイヤーを編集できるように。R #111 で決めた）
+
+### 15.3 `profile/planItemEdit` に足すもの
+
+```ts
+type IndexedKind = "layer" | "macro" | "tapDance" | "combo";
+type ItemEdit =
+  | /* 12.5・13.1・14.9 のもの */
+  | { op: "use"; kind: IndexedKind; file: string }                    // 未使用の項目を使い始める
+  | { op: "unuse"; kind: IndexedKind; file: string }                  // 未使用にする
+  | { op: "setIndex"; kind: IndexedKind; file: string; index: number }  // 番号を変える（使っている番号なら入れ替え）
+  | { op: "reorder"; kind: IndexedKind; files: string[]; indexes?: number[] }; // 使っている項目を並べ直す（ADR 025。indexes で番号を指定）
+
+// params に足す
+{ "changes": AnyChange[] }   // 今の未保存の変更（当てる順の並び）。省けば []
+// result に足す
+{ "files": [], "changes": AnyChange[], "references": Address[], "diagnostics": Diagnostic[] }
+```
+
+- `use` / `unuse` / `setIndex` / `reorder` と `create`（`kind: "shortcut"`）は、ファイルの書き換え（`files`）ではなく、**未保存の変更に積む Change の並び**（`changes`）を返す（`files` は `[]`）。
+  拡張は確認なしで（`unuse` で壊れる参照があるときだけ確認して）未保存の変更の末尾に足す。1 回の操作の Change は元に戻す・やり直しで一緒に動く（ADR 022）
+- どれも params の `changes`（今の未保存の変更）を当てた状態で決める（2 つ続けて取り出したときに同じ番号にならないように）。`baseVersions` の照合は返す Change の宛先のファイルだけ（12.5 と同じ）
+- 項目はファイル（`file`）で指す（14.9 と同じ理由で、名前も番号も 1 つに決まらないため）。そのファイルのその種類の項目がなければ `-32602`（`"edit.file"`）
+- **use**: 未使用の項目に `["index"]` の `set` を返す。番号は、使っているいちばん大きい番号の次。それが上限（レイヤー 10・ほかは 32）なら空いているいちばん小さい番号。何も使っていなければ 0。
+  空きがなければ `-32602`（`"edit"`）。使っている項目なら `-32602`（`"edit.file"`）。参照は書き換えない（`references` は `[]`）
+- **unuse**: 使っている項目に `["index"]` の `remove` を返す。参照は書き換えず、`references` に壊れる参照の場所を返す（レイヤーはそのレイヤーを指すレイヤー操作（14.9 の delete と同じ数え方）、
+  マクロ・タップダンスは名前の参照と番号の参照、コンボは `[]`）。`diagnostics` は当てたあとの検証の結果。未使用の項目なら `-32602`（`"edit.file"`）
+- **setIndex**: 使っている項目の番号を `index` にする。`index` がほかの使っている項目の番号なら、その項目に今の番号を付ける（入れ替え。`changes` に 2 つの `["index"]` の `set`）。
+  範囲の外・今と同じ番号なら `-32602`（`"edit.index"`）、未使用の項目なら `-32602`（`"edit.file"`。先に `use`）
+  - **マクロ・タップダンス**: 番号の参照（`Macro(3)` / `M3` / `TD(2)` / `TapDance(2)` など、番号で書いた参照）を、表記の形を保ったまま新しい番号に書き換える `set` を `changes` に足す（入れ替えなら両方向）。
+    名前の参照（`Macro('名前')`）は名前で引くので書き換えない。書き換えた場所を `references` に返す。参照を書き換えたあとの compile の結果は、その参照の 16bit 値だけが変わる（中身は同じものを指す）
+  - **レイヤー**: そのレイヤーを指すレイヤー操作（`MO(n)` / `TG(n)` / `TO(n)` / `TT(n)` / `OSL(n)` / `DF(n)` / `PDF(n)` / `LT(n, kc)` / `LT<n>(kc)` / `LM(n, mod)` など、16bit 値の中のレイヤーの番号）を、
+    表記の形を保ったまま新しい番号に書き換える `set` を `changes` に足し、書き換えた場所を `references` に返す（ADR 025 で変えた。v0.5 の最初は書き換えなかった）。
+    書き換えたあとの compile の結果は、そのレイヤー操作の 16bit 値の番号だけが変わる（同じ中身のレイヤーを指す）
+  - **コンボ**: 参照されないので番号だけ
+  - 番号の参照に数えるのは、16bit 値がその `M(n)` / `TD(n)` になる欄のうち、表記が `Macro(n)` / `M<n>` / `TapDance(n)` / `TD(n)` / `0xHHHH`（桁数と大文字・小文字を保つ）のもの。
+    レイヤーのキー・エンコーダのほか、マクロの手順のキー・タップダンスの動作・コンボ・`shortcuts.yaml` の値も書き換える。
+    書き換えられない番号の参照（YAML の整数で書いた 16bit 値など）が残って参照の指す先が変わるときは、書き換えを作らずに `-32061`（reason `"verify"`）（R #111 で決めた）
+- **reorder**（ADR 025）: `files` は使っている項目すべて（params の `changes` を当てた状態）を新しい並びにしたもの。今の番号を小さい順に並べ、新しい並びの順に当てる（抜け番はそのまま残る。
+  例: 番号 0・2・5 の A・B・C を `[C, A, B]` にすると C=0・A=2・B=5）。番号の変わる項目ごとに `["index"]` の `set` を返し、参照の書き換えは setIndex と同じ（番号の変わるすべての項目について、元の番号の参照を新しい番号に。
+  同時に当てるので、入れ替わる番号どうしでも取り違えない）。並びが今と同じなら `changes` は `[]`。
+  `files` が使っている項目の集まりと違う（足りない・余分・重複・未使用のファイル）なら `-32602`（`"edit.files"`）。画面の並び替えの「確定」が 1 回送る
+  - `indexes`（省ける）: `files` の順に当てる番号。抜け番を作れる（レイヤーは「位置」なので、画面のレイヤーの並び替えモードは空きの枠へも動かせ、確定でこれを送る）。
+    `files` と同じ数の整数で、範囲（レイヤー 0〜9・ほかは 0〜31）の中で重ならないこと。違えば `-32602`（`"edit.indexes"`）。参照の書き換えは同じ（元の番号 → 新しい番号）
+  - R2 で決めた細部: `changes` の並びは、番号の変わる項目の `["index"]` の `set`（新しい並びの順）のあとに参照の書き換え（setIndex と同じ欄の順）。
+    `files` が配列でない・文字列でない要素があるときも `"edit.files"`（`file`・`index` を書けば `"edit.file"`・`"edit.index"`）。
+    使っている項目の番号が重なっている（意味検証の error）ときは、どちらを指す参照か決まらないので `-32602`（`"edit"`）。
+    書き換えられない参照が残るときの `-32061`（reason `"verify"`）の `address` は、最初に番号の変わる項目の `["index"]`
+- レイヤーの参照の書き換え（setIndex・reorder。R2 で決めた細部）: 数えるのは 16bit 値のレイヤーの番号の欄（`LT` は 0x4000〜0x4FFF、`LM` は 0x5000〜0x51FF、レイヤー操作は基準値 + 0〜31。
+  基本キーでない `LT1(NoKey)` のような値も含む）が元の番号のもの。書き換える表記は `MO(n)` などの関数の形（`TG( 1 )` の空白も保つ）・`LT(n, kc)`・`LT<n>(kc)`・`LM(n, mod)`・`0xHHHH`。
+  `Shortcut('名前')` は書き換えず、`shortcuts.yaml` の値のほうを書き換える（名前で引くので追従する）。
+  空いている番号へ移すとき、その番号をもとから指していた参照（定義のないレイヤーを指す、壊れていた参照）は書き換えない（マクロ・タップダンスと同じ）
+- `unuse` の `references` は 14.9 の delete と同じく、そのファイルの中の欄を入れない。params の `changes` が当てられなければ、5.6 と同じ `-32602`（field `"changes[i]...."`）
+- **create（shortcut）**: 12.5 の行の追加の代わりに、`["shortcuts", 名前]` の `set`（15.2）を返す。同じ名前が保存済みにも未保存の変更にもあれば `-32602`（`"edit.name"`）
+- ほかの op（create（shortcut 以外）・delete・rename・renamePosition・expandPreset）は今のまま `files` を返し、拡張は未保存の変更があれば先に保存を促す
+- 拡張がこれらの op を送るのは画面の操作だけ。YAML を手で書き換えたときは参照は追従しない（#85）
+- 適合テストのデータは `spec/fixtures/protocol/profile_plan_item_edit/` の `use_*`・`unuse_*`・`set_index_*`・`create_shortcut_*`、
+  `profile_plan_edits/` の `index_*`・`shortcut_add*`、`profile_open/` の `unused*`（R が足す）。reorder とレイヤーの参照の書き換えは `reorder_*`・`set_index_layer_*`（R2 が足す）
+
+### 15.4 拡張だけで作るもの
+
+約束は変えない。
+
+- 今どの項目がどの番号かは、snapshot（保存済み）に未保存の `["index"]` の変更を当てて決める（`src/itemIndex.ts` の `effectiveIndex` / `arrangeItems`。ホストと画面で同じ規則）
+- 画面の部品（追加の一覧・「…」メニュー・番号の選択。W0 #110）とその組み込み（L #113・I #114）

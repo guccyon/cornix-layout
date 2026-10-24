@@ -1,0 +1,29 @@
+{
+  "description": "書き換える（今ある）ファイルの版が baseVersions になければ -32602（field \"baseVersions\"）",
+  "setup": {
+    "profile": "authors_config"
+  },
+  "request": {
+    "id": 1,
+    "method": "profile/planItemEdit",
+    "params": {
+      "profileId": "p1",
+      "baseVersions": {
+      },
+      "edit": {
+        "op": "delete",
+        "kind": "combo",
+        "name": "Left Click"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "data": {
+        "field": "baseVersions"
+      }
+    }
+  }
+}

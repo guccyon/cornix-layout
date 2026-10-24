@@ -1,8 +1,19 @@
 // 外での変更の当て直し（protocol.md の 7.3）と、保存・知らせの道具
 import { describe, expect, it } from 'vitest';
-import type { Address, Change, ProfileSnapshot } from '../../src/protocol';
-import { addressKey } from '../../src/editor/pendingChanges';
-import { backupBefore, changedFiles, describeAddress, describeValue, fileVersionOf, rebaseChanges, structureErrors } from '../../src/editor/rebase';
+import type { Address, AnyChange, Change, ProfileSnapshot } from '../../src/protocol';
+import { addressKey, snapshotValueAt } from '../../src/editor/pendingChanges';
+import {
+  backupBefore,
+  changedFiles,
+  describeAddress,
+  describeChange,
+  describeValue,
+  fileVersionOf,
+  inverseOf,
+  rebaseChanges,
+  structureErrors,
+} from '../../src/editor/rebase';
+import * as data from '../fake-server/fixtures';
 import { fixtureSnapshot } from './webview/fakeHost';
 
 const base = 'layers/0_base.yml';
@@ -66,6 +77,47 @@ describe('rebaseChanges', () => {
   });
 });
 
+describe('rebaseChanges の v0.2 の Change（12.3）', () => {
+  const macro = 'macros/00_bracket_pair.yml';
+  const before = fixtureSnapshot({ files: { [base]: 'sha256:base', [macro]: 'sha256:m1' }, macros: data.MACROS });
+  const valueBefore = (address: Address, field: 'key' | 'note' = 'key') => snapshotValueAt(before, address, field);
+  const insert: AnyChange = { op: 'insert', address: { file: macro, path: ['sequence'] }, index: 1, value: { action: 'delay', duration: 10 } };
+  const description: AnyChange = { address: { file: macro, path: ['description'] }, value: '新しい説明' };
+
+  it('並びを指す Change のあるファイルが外で変わったら、そのファイルの Change はまとめて当て直せない', () => {
+    const after = { ...before, files: { ...before.files, [macro]: 'sha256:m2' } };
+    const changes: AnyChange[] = [{ address: q, value: 'Tab' }, insert, description];
+    expect(rebaseChanges(changes, valueBefore, after, before.files)).toEqual({ kept: [{ address: q, value: 'Tab' }], conflicts: [], lost: [insert, description] });
+  });
+
+  it('並びのあるファイルが変わっていなければ、並びの変更はそのまま当て直す', () => {
+    const after = { ...before, files: { ...before.files, [base]: 'sha256:base2' } };
+    expect(rebaseChanges([insert, description], valueBefore, after, before.files)).toEqual({ kept: [insert, description], conflicts: [], lost: [] });
+  });
+
+  it('注記と remove も同じ場所が外でも変わっていれば選ばせる', () => {
+    const thumb: Address = { file: base, path: ['mapping', 'left_hand', 'thumb_keys', 'left'] };
+    const after = fixtureSnapshot({
+      layers: before.layers.map((layer) => ({
+        ...layer,
+        keys: layer.keys.map((k) => (addressKey(k.address) === addressKey(thumb) && k.value ? { ...k, value: { ...k.value, note: '外の注記' } } : k)),
+      })),
+    });
+    const note: AnyChange = { address: thumb, value: '画面の注記', field: 'note' };
+    const removeQ: AnyChange = { op: 'remove', address: q };
+    expect(rebaseChanges([note, removeQ], valueBefore, after)).toEqual({ kept: [removeQ], conflicts: [{ change: note, external: '外の注記' }], lost: [] });
+  });
+
+  it('逆の Change と見せ方', () => {
+    expect(inverseOf(insert)).toEqual({ op: 'remove', address: { file: macro, path: ['sequence', 1] } });
+    expect(inverseOf({ op: 'move', address: { file: macro, path: ['sequence'] }, from: 0, to: 2 })).toEqual({ op: 'move', address: { file: macro, path: ['sequence'] }, from: 2, to: 0 });
+    expect(inverseOf(description)).toBeUndefined();
+    expect(describeChange(insert)).toBe('2 番目に足す: delay 10ms');
+    expect(describeChange({ op: 'remove', address: q, field: 'note' })).toBe('注記を消す');
+    expect(describeAddress(before, { file: macro, path: ['sequence', 0, 'keys', 1] })).toBe('マクロ Bracket Pair の手順 1 のキー 2');
+  });
+});
+
 describe('backupBefore と changedFiles', () => {
   const snapshot = fixtureSnapshot({ files: { [base]: 'sha256:new', 'settings/qmk_settings.yaml': 'sha256:same' } });
   const backupFiles = { [base]: 'sha256:old', 'settings/qmk_settings.yaml': 'sha256:same' };
@@ -91,6 +143,13 @@ describe('知らせに使う道具', () => {
       { severity: 'error', source: 'structure', message: 'c' },
     ]);
     expect(errors.map((d) => d.message)).toEqual(['c']);
+  });
+
+  it('保存済みの snapshot にすでにある読めない値（同じ場所・同じ文）は除く（保存で増えるものだけ止める）', () => {
+    const address = { file: 'layers/0_base.yml', path: ['mapping', 'left_hand', 'row0', 'tab'] };
+    const old = { severity: 'error' as const, source: 'structure' as const, message: '「KC_FOOO」は読めない表記です', address };
+    const added = { ...old, message: '「KC_BAR」は読めない表記です', address: { ...address, path: ['mapping', 'left_hand', 'row0', 'Q'] } };
+    expect(structureErrors([old, added], [old]).map((d) => d.message)).toEqual(['「KC_BAR」は読めない表記です']);
   });
 
   it('場所と値の名前', () => {

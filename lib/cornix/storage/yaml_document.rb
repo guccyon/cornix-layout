@@ -7,6 +7,7 @@ require_relative 'text_range'
 require_relative 'text_edit'
 require_relative 'edit_not_local'
 require_relative 'yaml_document/scalar_format'
+require_relative 'yaml_document/collection_edits'
 
 module Cornix
   module Storage
@@ -18,6 +19,9 @@ module Cornix
     #   doc.replace(%w[mapping left_hand row0 tab], 'Esc')  # => [TextEdit]（同じ値なら []）
     #   doc.insert(%w[mapping left_hand row2 Z], 'Z', order: %w[lshift Z X C V B])   # まだない場所に足す
     #   TextEdit.apply(text, edits)                         # => 書き換えたテキスト
+    #
+    # 項目の削除・並びの要素の挿入と移動・注記の書き換え（remove / insert_item / move_item / set_note / remove_note）は
+    # yaml_document/collection_edits.rb。
     #
     # path はファイルの中のキーの道筋（文字列はマッピングのキー、整数は並びの位置）。
     # 注記付きの形（{ key: 表記, note: 注記 }）は、割り当ての場所を指せば key の値を扱う（note は残す）。
@@ -107,7 +111,11 @@ module Cornix
         parent = steps.last.node
         case parent
         when nil then insert_at_end(new_lines(missing, value, 0))
-        when Nodes::Mapping then insert_into_mapping(parent, path, depth, value, order)
+        when Nodes::Mapping
+          # 空のフロー表記（"row1: {}"。レイヤーを足したときのファイルの形）は、値なしの見出しと同じく下に字下げして足す
+          return insert_under_empty(steps.last, missing, value, path) if empty_flow_mapping?(parent) && steps.last.key
+
+          insert_into_mapping(parent, path, depth, value, order)
         when Nodes::Scalar
           raise ArgumentError, "値の中には足せません: #{path[0, depth].join('.')}" unless null?(parent)
 
@@ -353,7 +361,12 @@ module Cornix
         [TextEdit.new(range: TextRange.at(key.start_line, 0), new_text: lines.join(nl) + nl)]
       end
 
-      # 値なしの見出し（"row2:"）の下に字下げして足す。~ や null と書いてあればそれを消す
+      # 中身のない 1 行のフロー表記のマッピング（{}）
+      def empty_flow_mapping?(node)
+        node.style == Nodes::Mapping::FLOW && node.children.empty? && node.start_line == node.end_line
+      end
+
+      # 値なしの見出し（"row2:"）の下に字下げして足す。~ や null、{} と書いてあればそれを消す
       def insert_under_empty(step, missing, value, path)
         key = step.key
         unless key
@@ -365,7 +378,7 @@ module Cornix
 
         lines = new_lines(missing, value, key.start_column + indent_step)
         edits = []
-        unless step.node.value.empty?
+        unless step.node.is_a?(Nodes::Scalar) && step.node.value.empty?
           start_line, start_character = after_colon(key)
           stop = node_range(step.node)
           edits << TextEdit.new(range: TextRange.new(start_line: start_line, start_character: start_character,

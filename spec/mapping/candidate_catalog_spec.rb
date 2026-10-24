@@ -156,8 +156,109 @@ RSpec.describe Cornix::Mapping::CandidateCatalog do
     end
 
     it '知らない context は ArgumentError' do
-      expect { search('A', context: 'macroKey') }.to raise_error(ArgumentError, /context/)
-      expect(candidates.contexts).to eq(%w[layerKey encoder])
+      expect { search('A', context: 'unknown') }.to raise_error(ArgumentError, /context/)
+      expect(candidates.contexts).to eq(%w[layerKey encoder macroKey tapDanceAction comboTrigger comboOutput shortcutValue])
+    end
+
+    describe 'v0.2 の context（protocol.md の 12.4）' do
+      let(:references) do
+        Cornix::Mapping::References.new(macros: { 'Bracket Pair' => 0 }, tap_dances: { 'Tab Escape' => 4 },
+                                        shortcuts: { '前のタブへ' => notation.parse('Command + Shift + [') },
+                                        preset_shortcuts: Cornix::Mapping::ShortcutCatalog.default.library(notation).entries)
+      end
+
+      def categories_of(query, context, **options)
+        candidates.search(query: query, context: context, references: references, layer_names: { 1 => 'Symbols' },
+                          limit: 500, **options).items.map(&:category).uniq
+      end
+
+      it 'macroKey と comboTrigger はレイヤー操作・マクロ・タップダンス・ショートカットを出さず、all: true なら出す' do
+        %w[macroKey comboTrigger].each do |context|
+          expect(categories_of('', context)).not_to include('layer', 'macro', 'tapDance', 'shortcut', 'presetShortcut')
+        end
+        expect(categories_of('', 'macroKey', all: true)).to include('layer', 'macro', 'tapDance', 'shortcut')
+        expect(categories_of('', 'layerKey')).to include('layer', 'macro', 'tapDance', 'shortcut', 'presetShortcut')
+      end
+
+      it 'shortcutValue は Shortcut(...) を出さない' do
+        expect(categories_of('', 'shortcutValue')).not_to include('shortcut', 'presetShortcut')
+        expect(categories_of('', 'shortcutValue')).to include('macro', 'tapDance')
+      end
+
+      it 'format_references で候補の表記を変える（マクロの手順のキーでは M0 / TD(4)、label は名前のまま）' do
+        items = candidates.search(query: 'Bracket Pair', context: 'macroKey', references: references, all: true,
+                                  format_references: Cornix::Mapping::References::NONE).items
+        expect(items.first.to_h).to include(insert_text: 'M0', label: 'Bracket Pair', category: 'macro')
+      end
+
+      it 'exclude はその 16bit 値と同じ候補を除く' do
+        td = Cornix::Mapping::KeycodeCodec.new.encode(Cornix::Domain::Keycode::TapDanceCall.new(index: 4))
+        texts = ->(**o) { candidates.search(query: 'Tab', context: 'tapDanceAction', references: references, **o).items.map(&:insert_text) }
+        expect(texts.call).to include("TapDance('Tab Escape')")
+        expect(texts.call(exclude: td)).not_to include("TapDance('Tab Escape')")
+        expect(texts.call(exclude: 0x2B)).not_to include('Tab')
+      end
+
+      it '上に出すものどうしは書いた順（comboOutput はマクロを基本キーより先に）' do
+        items = candidates.search(query: '', context: 'comboOutput', references: references, limit: 2).items
+        expect(items.map(&:category)).to eq(%w[macro basic])
+      end
+
+      it 'comboTrigger は base_codes の値を上に出す（ほかの context では効かない）' do
+        base = [0x14, 0x04] # Q, A
+        first = ->(context) { candidates.search(query: '', context: context, base_codes: base, limit: 2).items.map(&:insert_text) }
+        expect(first.call('comboTrigger')).to eq(%w[A Q])
+        expect(first.call('layerKey')).to eq(%w[A B])
+      end
+    end
+
+    describe 'あいまい一致（protocol.md の 13.3）' do
+      def texts(query, **options) = search(query, **options).items.map(&:insert_text)
+
+      it '前方一致・部分一致のあとに、query の文字を順に含むものを出す' do
+        # Tab は完全一致、TapDance などがなければ残りは t・a・b を順に含むもの（VerticalBar・LeftAngleBracket など）
+        expect(texts('tab')).to eq(['Tab', '|', '<', '>', 'ToggleBackslashBackspace'])
+        expect(texts('lbrkt')).to eq(['[', '<', '>'])
+      end
+
+      it '大文字小文字・_・空白は区別しない' do
+        expect(texts('KC_L BRACKET').first).to eq('[')
+        expect(texts('kcl_brkt').first).to eq('[')
+        expect(texts('KC U P').first).to eq('Up')
+      end
+
+      it '飛ばした文字の少ないものを上に（前に付いた KC_ などは数えない）' do
+        # kc up: KC_UP は 0 文字、KC_PGUP・KC_MS_UP は 2 文字飛ばす
+        expect(texts('kc up', limit: 3)).to eq(%w[Up PageUp MouseUp])
+      end
+
+      it '順に含まなければ出さない。_ や空白だけの query はあいまい一致に使わない' do
+        expect(texts('brktl')).to be_empty
+        expect(texts('_ _')).to be_empty
+      end
+    end
+
+    describe 'よく使うキーを上に（usage）' do
+      def texts(query, limit: 50, **options)
+        candidates.search(query: query, context: 'layerKey', limit: limit, **options).items.map(&:insert_text)
+      end
+
+      it '当てはまり方が同じ候補の中で、usage の回数の多いものを上に（同じ回数なら今の並び）' do
+        expect(texts('', limit: 4)).to eq(%w[A B C D])
+        expect(texts('', limit: 4, usage: { 0x06 => 2, 0x05 => 5 })).to eq(%w[B C A D])
+        # | は 3 文字、< と > は 5 文字飛ばす。よく使う > は飛ばした数が同じ < の上に出るが、| は越えない
+        expect(texts('tab', usage: { 0x237 => 3 })).to eq(['Tab', '|', '>', '<', 'ToggleBackslashBackspace'])
+      end
+
+      it '当てはまり方が先（よく使うあいまい一致のキーより、完全一致のキーが上）' do
+        expect(texts('tab', usage: { 0x231 => 9 }).first).to eq('Tab')
+      end
+
+      it 'context の上に出すものが先（layerKey の基本キーは、よく使うレイヤー操作より上）' do
+        items = texts('', limit: 10_000, layer_names: { 1 => 'Symbols' }, usage: { 0x5261 => 50 })
+        expect(items.index('Z')).to be < items.index('TG(1)')
+        expect(items.index('TG(1)')).to be < items.index('MO(1)')
+      end
     end
   end
 
@@ -206,6 +307,24 @@ RSpec.describe Cornix::Mapping::CandidateCatalog do
         .to raise_error(Cornix::ConfigError, /2 つの分類/)
       expect { described_class.new(**base, order: %w[basic special]) }.to raise_error(Cornix::ConfigError, /order/)
       expect { described_class.new(**base, defaults: { 'basic' => 'basic' }) }.to raise_error(Cornix::ConfigError, /defaults/)
+      expect { described_class.new(**base, contexts: { 'x' => { 'prefer' => { 'baseLayer' => 1 } } }) }
+        .to raise_error(Cornix::ConfigError, /baseLayer/)
+      expect { described_class.new(**base, contexts: { 'x' => { 'exclude' => { 'categories' => ['nope'] } } }) }
+        .to raise_error(Cornix::ConfigError, /order/)
+      expect { described_class.new(**base, contexts: { 'x' => { 'prefre' => {} } }) }
+        .to raise_error(Cornix::ConfigError, /prefre/)
+    end
+
+    it 'contexts の分類にはプロファイルから作る分類も書け、exclude? / prefer_base_layer? / prefer_rank で引ける' do
+      categories = described_class.load
+      expect(categories.exclude?('macroKey', 'layer')).to be(true)
+      expect(categories.exclude?('layerKey', 'layer')).to be(false)
+      expect(categories.prefer_base_layer?('comboTrigger')).to be(true)
+      expect(categories.prefer_base_layer?('layerKey')).to be(false)
+      expect(categories.prefer_rank('comboOutput', 'macro', nil)).to eq(0)
+      expect(categories.prefer_rank('comboOutput', 'basic', 'KC_A')).to eq(1)
+      expect(categories.prefer_rank('encoder', 'mouse', 'KC_WH_U')).to eq(1)
+      expect(categories.prefer_rank('encoder', 'mouse', 'KC_BTN1')).to be_nil
     end
   end
 end

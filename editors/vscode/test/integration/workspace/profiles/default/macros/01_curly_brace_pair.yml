@@ -1,0 +1,14 @@
+---
+name: Curly Brace Pair
+index: 1
+sequence:
+- action: down
+  keys: [LShift]
+- action: tap
+  keys: [LBracket, RBracket]
+- action: up
+  keys: [LShift]
+- action: delay
+  duration: 50
+- action: text
+  content: hello

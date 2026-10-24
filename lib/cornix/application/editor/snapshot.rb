@@ -3,6 +3,8 @@
 require_relative 'profile_reading'
 require_relative 'key_values'
 require_relative 'diagnostics'
+require_relative 'inspect'
+require_relative 'snapshot/items'
 
 module Cornix
   module Application
@@ -11,10 +13,16 @@ module Cornix
       #
       #   Snapshot.new(workbench).call('p1')
       #   #=> { profileId:, name:, dir:, status: "ok" | "invalid", files:, metadata:, positionMap:, layers:, settings:,
-      #   #     references:, diagnostics: }
+      #   #     references:, macros:, tapDances:, combos:, shortcuts:, unused:, diagnostics: }
+      #
+      # v0.2 で足したもの（protocol.md の 12.2）: macros / tapDances / combos / shortcuts（Snapshot::Items）、
+      # positionMap の各位置の address（position_map.yaml の名前を書いている場所 [hand, group, 並びの位置]）、
+      # レイヤーの descriptionAddress（["description"]。書いていなければ挿入の場所）
+      # v0.5 で足したもの（protocol.md の 15.1）: unused（未使用のファイルの項目。使っている項目と同じ形で index だけ nil）
       #
       # 読んだファイルの版を workbench.versions(id) の「知っている版」にする（前の中身は置き換える）。
       # 構造検証で読めなければ status: "invalid" で、files と diagnostics のほかは空（metadata は {}）。
+      # 読めない値（解析できないキーコード）だけなら status: "ok" で、その割り当ては書いてある表記のまま返し、diagnostics に構造の error と意味検証の結果を並べる。
       #
       # layers の keys は position_map のすべての位置（割り当てのない位置は value: nil）、encoders は左右の push / ccw / cw
       # （ファイルに書いていない操作は value: nil）。value の text はファイルに書いてある表記（YamlDocument#scalar）。
@@ -37,38 +45,95 @@ module Cornix
           versions.replace(reading.files)
           head = { profileId: opened.id, name: opened.name, dir: opened.dir, status: reading.ok? ? 'ok' : 'invalid',
                    files: reading.files }
-          body = reading.ok? ? contents(env, reading) : empty_contents
-          head.merge(body, diagnostics: Diagnostics.new(reading, env.capabilities).call)
+          diagnostics = Diagnostics.new(reading, env.capabilities).call
+          body = reading.ok? ? unreadable_values(contents(env, reading), diagnostics) : empty_contents
+          head.merge(body, diagnostics: diagnostics)
         end
+
+        # [項目, Profile の中の位置] を index の順に（同じ番号なら Profile の順）。位置は ConfigRepository#address に使う。
+        # ファイル名の接頭辞は index と違ってよいので（issue #85）、Profile の順（ファイル名の順）のままだと番号の順にならない
+        def self.by_index(items) = items.each_with_index.sort_by { |item, i| [item.index, i] }
 
         private
 
+        # 読めない値（ProfileReading の説明。代わりに NoKey で読んだ割り当て）は、書いてある表記をそのまま図と欄に出す
+        # （canonical と display.label を text にする。どれかは diagnostics の構造の error で分かる）
+        def unreadable_values(body, diagnostics)
+          unreadable = diagnostics.filter_map { |d| d[:address] if d[:source] == 'structure' }.to_set
+          return body if unreadable.empty?
+
+          patch = lambda do |node|
+            case node
+            when Array then node.map { |child| patch.call(child) }
+            when Hash
+              node = node.transform_values { |child| patch.call(child) }
+              value = node[:value]
+              if node[:address] && unreadable.include?(node[:address]) && value.is_a?(Hash) && value[:text]
+                node = node.merge(value: value.merge(canonical: value[:text], display: { label: value[:text] }))
+              end
+              node
+            else node
+            end
+          end
+          patch.call(body)
+        end
+
         def empty_contents
           { metadata: {}, positionMap: [], layers: [], settings: [],
-            references: { layers: [], macros: [], tapDances: [], shortcuts: [] } }
+            references: { layers: [], macros: [], tapDances: [], shortcuts: [] },
+            macros: [], tapDances: [], combos: [], shortcuts: [],
+            unused: { layers: [], macros: [], tapDances: [], combos: [] } }
         end
 
         def contents(env, reading)
           profile = reading.profile
           values = KeyValues.new(env: env, profile: profile, icons: @icons)
+          description = Inspect::Description.new(values: values, profile: profile, qmk: env.qmk)
+          items = Items.new(reading: reading, values: values, description: description)
           {
             metadata: profile.metadata.to_h,
-            positionMap: position_map(profile.position_map),
-            layers: profile.layers.each_with_index.map { |layer, i| layer(layer, i, profile.position_map, reading, values) },
+            positionMap: position_map(profile.position_map, reading),
+            layers: self.class.by_index(profile.layers).map do |layer, i|
+              layer(layer, reading.repository.address("layers[#{i}]").first, profile.position_map, reading, values)
+            end,
             settings: settings(env.settings_catalog, profile.settings, reading),
-            references: references(profile, reading, values)
+            references: references(profile, reading, values),
+            **items.to_h,
+            unused: unused(reading, profile.position_map, values, items)
           }
         end
 
-        def position_map(map)
+        # 未使用のファイル（index のないもの。protocol.md の 15.1）の項目を、使っている項目と同じ形で index だけ nil にしたもの。
+        # 並びはファイルのパスの順。構造の問題で読めないファイル（UnusedFile#item が nil）は入れない
+        def unused(reading, map, values, items)
+          list = ->(kind) { reading.unused.select { |u| u.kind == kind && u.item }.sort_by(&:file) }
+          unindexed = ->(h) { h.merge(index: nil) }
+          {
+            layers: list.call(:layers).map { |u| unindexed.call(layer(u.item, u.file, map, reading, values)) },
+            macros: list.call(:macros).map { |u| unindexed.call(items.macro(u.item, u.file)) },
+            tapDances: list.call(:tap_dances).map { |u| unindexed.call(items.tap_dance(u.item, u.file)) },
+            combos: list.call(:combos).map { |u| unindexed.call(items.combo(u.item, u.file)) }
+          }
+        end
+
+        def position_map(map, reading)
+          file = position_map_file(reading)
           map.positions.map do |pos|
             group, symbol = map.symbol(pos)
-            { hand: pos.hand.to_s, row: pos.row, col: pos.col, group: group, symbol: symbol }
+            hand_key = map.hand_key(pos)
+            path = [hand_key, group, map.symbols(hand_key, group).index(symbol)]
+            { hand: pos.hand.to_s, row: pos.row, col: pos.col, group: group, symbol: symbol,
+              address: { file: file, path: path } }
           end
         end
 
-        def layer(layer, position, map, reading, values)
-          file, = reading.repository.address("layers[#{position}]")
+        # position_map.yaml（.yml も。読めたプロファイルでは必ずある）
+        def position_map_file(reading)
+          Storage::ConfigFiles::EXTENSIONS.map { |ext| "#{Storage::ConfigFiles::POSITION_MAP}#{ext}" }
+                                         .find { |rel| reading.files.key?(rel) }
+        end
+
+        def layer(layer, file, map, reading, values)
           doc = reading.document(file)
           keys = map.positions.map do |pos|
             group, symbol = map.symbol(pos)
@@ -78,7 +143,8 @@ module Cornix
                                                      note: layer.note(pos))
             { hand: pos.hand.to_s, row: pos.row, col: pos.col, address: { file: file, path: path }, value: value }
           end
-          { index: layer.index, name: layer.name, description: layer.description, file: file, keys: keys,
+          { index: layer.index, name: layer.name, description: layer.description, file: file,
+            descriptionAddress: { file: file, path: ['description'] }, keys: keys,
             encoders: encoders(layer, file, doc, values) }
         end
 
@@ -121,9 +187,9 @@ module Cornix
         def references(profile, reading, values)
           shortcuts_doc = reading.shortcuts_file && reading.document(reading.shortcuts_file)
           {
-            layers: profile.layers.map { |layer| { index: layer.index, name: layer.name } },
-            macros: profile.macros.map { |m| { index: m.index, name: m.name, icon: values.macro_icon(m) } },
-            tapDances: profile.tap_dances.map { |t| { index: t.index, name: t.name } },
+            layers: self.class.by_index(profile.layers).map { |layer, _| { index: layer.index, name: layer.name } },
+            macros: self.class.by_index(profile.macros).map { |m, _| { index: m.index, name: m.name, icon: values.macro_icon(m) } },
+            tapDances: self.class.by_index(profile.tap_dances).map { |t, _| { index: t.index, name: t.name } },
             shortcuts: profile.shortcuts.entries.map do |name, keycode|
               { name: name, text: shortcuts_doc&.scalar(['shortcuts', name]) || values.plain(keycode) }
             end

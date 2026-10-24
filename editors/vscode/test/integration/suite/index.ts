@@ -6,7 +6,7 @@ import type { ProfileDocument } from '../../../src/editor/profileDocument';
 import { snapshotValueAt } from '../../../src/editor/pendingChanges';
 import type { CornixExtensionApi } from '../../../src/extension';
 import type { Address } from '../../../src/protocol';
-import { activateExtension, FakePrompts, profileTab, readWorkspaceFile, revertProfile, saveProfile, test, waitFor, workspaceRoot, writeOutside } from './support';
+import { activateExtension, FakeDevicePrompts, FakePrompts, profileTab, readWorkspaceFile, replaceOutside, revertProfile, saveProfile, test, waitFor, workspaceRoot, writeOutside } from './support';
 
 export { run } from './support';
 
@@ -514,9 +514,18 @@ test('サーバーが落ちている間に外で変わっていれば、再起�
   prompts.side = 'screen';
   prompts.conflicts = [0];
   document.applyChange({ address: rightKey('row0', 'Y'), value: 'Tab' });
-  await api.server.stop();
-  await writeOutside(BASE, '      Y: Y\n', '      Y: Enter\n');
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  // 止めている間に画面の要求（keycode/inspect など）がサーバーを起こすことがある。起きたサーバーが書きかけのファイルを
+  // 読まないように、書き換えは置き換えで当てる（#63 で、空のファイルを読んで外の値が「割り当てなし」になった）
+  const sent: string[] = [];
+  const watching = document.watcher.onDidSend(({ changes }) => sent.push(...changes.map((change) => change.path)));
+  try {
+    await api.server.stop();
+    await replaceOutside(BASE, '      Y: Y\n', '      Y: Enter\n');
+    // 見張りが変更に気づいて知らせを送り終える（止まっていれば捨てられる）のを待ってから起動する
+    await waitFor('見張りの知らせ', async () => sent.includes(BASE));
+  } finally {
+    watching.dispose();
+  }
   await api.server.restart();
   await waitFor('聞く', async () => prompts.of('chooseSide').length > 0);
   await document.settled();
@@ -687,9 +696,275 @@ test('開いたままサーバーが落ちても、再起動すると profile/op
   assert.ok(tree.apps.length > 0);
 });
 
+// ---------------------------------------------------------------------------
+// v0.2（protocol.md の 12.3・12.5・12.7）
+// ---------------------------------------------------------------------------
+
+const MACRO = 'macros/00_bracket_pair.yml';
+const sequenceOf = (file: string): Address => ({ file, path: ['sequence'] });
+
+test('並びの Change（edit）を当てる順に持って保存し、snapshot のメッセージに pending を入れる', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  await document.settled();
+  prompts = new FakePrompts();
+  api.profileEditor.prompts = prompts;
+  const insert = { op: 'insert' as const, address: sequenceOf(MACRO), index: 2, value: { action: 'delay' as const, duration: 10 } };
+  const move = { op: 'move' as const, address: sequenceOf(MACRO), from: 2, to: 0 };
+  document.applyChange(insert);
+  document.applyChange(move);
+  document.applyChange({ address: { file: MACRO, path: ['description'] }, value: '角括弧' });
+  assert.deepEqual(document.changes.list(), [insert, move, { address: { file: MACRO, path: ['description'] }, value: '角括弧' }]);
+  assert.deepEqual(document.changes.plainSets(), [{ address: { file: MACRO, path: ['description'] }, value: '角括弧' }]);
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+  await saveProfile(document);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  const text = readWorkspaceFile(`profiles/default/${MACRO}`);
+  assert.ok(text.startsWith('---\nname: Bracket Pair\ndescription: 角括弧\nindex: 0\nsequence:\n- action: delay\n  duration: 10\n'), text);
+  assert.equal(document.changes.size, 0);
+});
+
+test('並びの Change のあるファイルが外で変わったら、そのファイルの Change はまとめて当て直せないものとして見せる', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  prompts.side = 'screen';
+  prompts.lost = 'discard';
+  document.applyChange({ op: 'remove', address: { file: MACRO, path: ['sequence', 0] } });
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Tab' });
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+  await writeOutside(`profiles/default/${MACRO}`, 'description: 角括弧\n', 'description: 外で変えた\n');
+  await waitFor('当て直せないもの', async () => prompts.of('confirmLost').length > 0);
+  await document.settled();
+  assert.deepEqual(prompts.of('confirmLost')[0]?.args, ['default', [{ label: 'マクロ Bracket Pair の手順 1', value: '消す' }]]);
+  // ほかのファイルの変更は残る
+  assert.deepEqual(document.changes.list(), [{ address: baseKey('row0', 'T'), value: 'Tab' }]);
+  await revertProfile(document);
+});
+
+test('項目の追加は、未保存の変更があれば先に保存を促し、確認のあとファイルを作って snapshot に出す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Escape' });
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+  assert.equal(await document.applyItemEdit({ op: 'create', kind: 'combo', name: 'Right Bracket' }), true);
+  assert.deepEqual(prompts.of('confirmSaveFirst').map((c) => c.args), [['default', 1]]);
+  assert.equal(prompts.of('confirmItemEdit').length, 1);
+  assert.ok(readWorkspaceFile('profiles/default/combos/01_right_bracket.yml').includes('name: Right Bracket\n'));
+  assert.ok(readWorkspaceFile(BASE).includes('      T: Escape\n'));
+  assert.ok(document.snapshot.combos?.some((c) => c.name === 'Right Bracket'));
+  assert.equal(document.snapshot.files['combos/01_right_bracket.yml']?.startsWith('sha256:'), true);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+});
+
+test('項目の名前の変更はファイルを改名し、参照も書き換える。削除はファイルを消す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  assert.equal(await document.applyItemEdit({ op: 'rename', kind: 'tapDance', name: 'Tab Escape', to: 'Tab Esc' }), true);
+  assert.ok(readWorkspaceFile('profiles/default/tap_dance/04_tab_esc.yml').includes('name: Tab Esc\n'));
+  assert.ok(readWorkspaceFile(BASE).includes("tab: TapDance('Tab Esc')\n"));
+  assert.equal(document.snapshot.files['tap_dance/04_tab_escape.yml'], undefined);
+
+  assert.equal(await document.applyItemEdit({ op: 'delete', kind: 'combo', name: 'Right Bracket' }), true);
+  assert.equal(document.snapshot.files['combos/01_right_bracket.yml'], undefined);
+  assert.ok(!document.snapshot.combos?.some((c) => c.name === 'Right Bracket'));
+});
+
+test('v0.4: レイヤーを足すとファイルを作って snapshot に出し、消すとファイルを消す（確認には参照の件数）', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  assert.equal(await document.applyItemEdit({ op: 'create', kind: 'layer', name: 'Mouse', index: 5 }), true);
+  assert.ok(readWorkspaceFile('profiles/default/layers/5_mouse.yml').includes('name: Mouse\n'));
+  assert.ok(document.snapshot.layers.some((layer) => layer.index === 5 && layer.name === 'Mouse'));
+
+  assert.equal(await document.applyItemEdit({ op: 'delete', kind: 'layer', name: 'Mouse', file: 'layers/5_mouse.yml' }), true);
+  const [message] = prompts.of('confirmItemEdit').map((c) => String(c.args[0])).slice(-1);
+  assert.ok(message?.includes('レイヤー Mouse（layers/5_mouse.yml）を削除します。'), message);
+  assert.equal(document.snapshot.files['layers/5_mouse.yml'], undefined);
+  assert.ok(!document.snapshot.layers.some((layer) => layer.index === 5));
+});
+
+test('項目の操作の -32602 と -32061（verify）は利用者に見せ、ファイルは変えない', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  const before = readWorkspaceFile('profiles/default/position_map.yaml');
+  assert.equal(await document.applyItemEdit({ op: 'renamePosition', hand: 'left', row: 0, col: 0, to: 'Q' }), false);
+  assert.equal(await document.applyItemEdit({ op: 'rename', kind: 'macro', name: 'Bracket Pair', to: 'VerifyFail' }), false);
+  const failed = prompts.of('itemEditFailed').map((c) => String(c.args[0]));
+  assert.equal(failed.length, 2);
+  assert.ok(failed[0]?.includes('すでにあります'), failed[0]);
+  assert.ok(failed[1]?.includes('compile の結果が変わる'), failed[1]);
+  assert.equal(readWorkspaceFile('profiles/default/position_map.yaml'), before);
+  assert.equal(prompts.of('confirmItemEdit').length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// v0.5（protocol.md の 15.3・ADR 022）: 番号の操作とショートカットの追加は未保存の変更に積む
+// ---------------------------------------------------------------------------
+
+test('v0.5: ショートカットの追加は確認なしで 1 つの編集として積み、元に戻す → やり直す → 保存で行を足す', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  await document.settled();
+  prompts.calls.length = 0;
+  assert.equal(document.changes.size, 0);
+  const address = { file: 'shortcuts.yaml', path: ['shortcuts', '次のタブへ'] };
+  const edits: vscode.CustomDocumentEditEvent<ProfileDocument>[] = [];
+  const subscription = api.profileEditor.onDidChangeCustomDocument((edit) => edits.push(edit));
+  assert.equal(await document.applyItemEdit({ op: 'create', kind: 'shortcut', name: '次のタブへ', value: 'Command + Shift + ]' }), true);
+  subscription.dispose();
+  assert.deepEqual(document.changes.list(), [{ address, value: 'Command + Shift + ]' }]);
+  assert.deepEqual(prompts.calls, []);
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0]?.label, 'ショートカット 次のタブへ を追加する');
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+  await edits[0]?.undo();
+  assert.equal(document.changes.size, 0);
+  await edits[0]?.redo();
+  assert.equal(document.changes.size, 1);
+
+  await saveProfile(document);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  assert.ok(readWorkspaceFile('profiles/default/shortcuts.yaml').includes('  次のタブへ: "Command + Shift + ]"\n'));
+  assert.equal(document.changes.size, 0);
+  assert.ok(document.snapshot.shortcuts?.some((shortcut) => shortcut.name === '次のタブへ'));
+});
+
+test('v0.5: 未保存の変更があっても未使用にでき、壊れる参照があるときだけ確認する', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  prompts.calls.length = 0;
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Tab' });
+  // 0_base.yml の LT1(Space) がレイヤー 1 を指す
+  assert.equal(await document.applyItemEdit({ op: 'unuse', kind: 'layer', file: 'layers/1_symbols.yml' }), true);
+  assert.deepEqual(prompts.of('confirmSaveFirst'), []);
+  const [message] = prompts.of('confirmItemEdit').map((c) => String(c.args[0]));
+  assert.ok(message?.includes('未使用にします。') && message.includes('未保存の変更に積みます'), message);
+  assert.deepEqual(document.changes.list(), [
+    { address: baseKey('row0', 'T'), value: 'Tab' },
+    { op: 'remove', address: { file: 'layers/1_symbols.yml', path: ['index'] } },
+  ]);
+  // 確認でやめたら積まない
+  await revertProfile(document);
+  prompts.itemEdit = false;
+  assert.equal(await document.applyItemEdit({ op: 'unuse', kind: 'layer', file: 'layers/1_symbols.yml' }), false);
+  assert.equal(document.changes.size, 0);
+  prompts.itemEdit = true;
+});
+
+// ---------------------------------------------------------------------------
+// v0.4: 実機への反映（偽の device のサーバー。test/fake-device-server/。本物のキーボードもブリッジも使わない）。
+// プレビューと確定は編集画面のモーダルだが、ここではホストの状態（api.device.states）と操作（api.device.run）で確かめる
+// ---------------------------------------------------------------------------
+
+const DEVICE_DIR = 'profiles/default';
+let devicePrompts: FakeDevicePrompts;
+
+function deviceTransfer() {
+  return api.device.states.get(DEVICE_DIR).transfer;
+}
+
+test('v0.4: allowWrites が false でもプレビューはできる。確定は設定を開くボタン付きで案内し、サーバーは --allow-writes なしで動く', async () => {
+  devicePrompts = new FakeDevicePrompts();
+  api.device.prompts = devicePrompts;
+  assert.equal(vscode.workspace.getConfiguration('cornix').get('device.allowWrites'), false);
+  assert.equal(deviceTransfer(), null);
+
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'different');
+  const transfer = deviceTransfer();
+  assert.equal(transfer?.step, 'preview');
+  assert.equal(transfer?.step === 'preview' && transfer.plan.changes.length, 6);
+  assert.equal(api.device.states.get(DEVICE_DIR).allowWrites, false);
+  assert.equal(await api.device.server.writesAllowed(), false);
+
+  assert.equal(await api.device.run('confirm', DEVICE_DIR), 'blocked');
+  assert.deepEqual(devicePrompts.last?.actions.map((a) => a.label), ['設定を開く']);
+  // やめると閉じる。書いていないので、もう一度プレビューしても同じ違い
+  assert.equal(await api.device.run('cancel', DEVICE_DIR), 'declined');
+  assert.equal(deviceTransfer(), null);
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'different');
+  assert.equal(await api.device.run('cancel', DEVICE_DIR), 'declined');
+});
+
+test('v0.4: 未保存の変更があれば保存を促し（保存しないなら止める）、プレビューのあとで保存したらそのプレビューは古い', async () => {
+  const document = api.profileEditor.openDocuments[0];
+  assert.ok(document);
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Tab' });
+  await waitFor('dirty', async () => profileTab()?.isDirty === true);
+
+  devicePrompts.saveFirst = false;
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'declined');
+  assert.deepEqual(devicePrompts.saves, [['default', 1]]);
+  assert.equal(document.changes.size, 1);
+  assert.equal(deviceTransfer(), null);
+
+  devicePrompts.saveFirst = true;
+  assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'different');
+  assert.equal(document.changes.size, 0);
+  await waitFor('保存', async () => profileTab()?.isDirty === false);
+  assert.equal(deviceTransfer()?.step, 'preview');
+
+  // プレビューのあとで保存すると（profile/saved のあとの snapshot で設定ファイルの版が変わる）そのプレビューは古くなり、確定できない。
+  // （実際にはモーダルが編集画面を覆うので、テキストエディタなど外で変えたときに起きる）
+  document.applyChange({ address: baseKey('row0', 'T'), value: 'Escape' });
+  await saveProfile(document);
+  await waitFor('古い', async () => {
+    const transfer = deviceTransfer();
+    return transfer?.step === 'preview' && transfer.stale;
+  });
+  assert.equal(await api.device.run('confirm', DEVICE_DIR), 'blocked');
+  assert.equal(await api.device.run('cancel', DEVICE_DIR), 'declined');
+});
+
+test('v0.4: allowWrites を true にすると --allow-writes で起動し直し、プレビュー → 確定が通る', async () => {
+  const config = vscode.workspace.getConfiguration('cornix');
+  await config.update('device.allowWrites', true, vscode.ConfigurationTarget.Workspace);
+  try {
+    await waitFor('許可', async () => api.device.states.get(DEVICE_DIR).allowWrites);
+    // 対象を省くと、アクティブな編集画面のプロファイル
+    await vscode.commands.executeCommand('vscode.openWith', api.profileEditor.openDocuments[0]!.uri, 'cornix.profileEditor');
+    devicePrompts.notices.length = 0;
+    assert.equal(await vscode.commands.executeCommand('cornix.device.apply'), 'different');
+    const transfer = deviceTransfer();
+    assert.ok(transfer?.step === 'preview' && transfer.plan.keyboard.name === 'Cornix (fake)' && transfer.plan.changes.length === 6);
+    assert.equal(await api.device.run('confirm', DEVICE_DIR), 'written');
+    assert.equal(await api.device.server.writesAllowed(), true);
+    assert.match(devicePrompts.last?.message ?? '', /^6 件を書き込みました（バックアップ: tmp\/profiles\/default\/snapshots\/.*-pre-apply\/layout\.vil）。$/);
+    assert.equal(deviceTransfer(), null);
+
+    // 書いたあとは同じ（確定は出せない）
+    assert.equal(await vscode.commands.executeCommand('cornix.device.apply', DEVICE_DIR), 'same');
+    assert.equal(await api.device.run('confirm', DEVICE_DIR), 'blocked');
+    assert.equal(await api.device.run('cancel', DEVICE_DIR), 'declined');
+  } finally {
+    await config.update('device.allowWrites', undefined, vscode.ConfigurationTarget.Workspace);
+  }
+  await waitFor('許可を戻す', async () => !api.device.states.get(DEVICE_DIR).allowWrites);
+  // 起動し直したサーバーは --allow-writes なし
+  await waitFor('起動し直す', async () => !(await api.device.server.writesAllowed()));
+});
+
+test('snapshot の diagnostics をテキストの波線（DiagnosticCollection）に出し、閉じると消す', async () => {
+  // 偽のサーバーの BASE_DIAGNOSTICS は layers/1_symbols.yml の warning（range なし → ファイルの先頭）
+  const uri = vscode.Uri.joinPath(workspaceRoot(), 'profiles/default/layers/1_symbols.yml');
+  const diagnostics = await waitFor('波線', async () => {
+    const list = api.profileEditor.diagnostics.get(uri);
+    return list && list.length > 0 ? list : undefined;
+  });
+  assert.equal(diagnostics[0]?.severity, vscode.DiagnosticSeverity.Warning);
+  assert.equal(diagnostics[0]?.range.start.line, 0);
+});
+
 test('閉じると一覧から消える', async () => {
   await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   await waitFor('閉じる', async () => api.profileEditor.openDocuments.length === 0);
+  // プロファイルを閉じたら波線も消す（12.7）
+  const uri = vscode.Uri.joinPath(workspaceRoot(), 'profiles/default/layers/1_symbols.yml');
+  assert.equal(api.profileEditor.diagnostics.get(uri)?.length ?? 0, 0);
 });
 
 test('cornix が見つからなければ CornixUnavailableError になり、設定を直せばつながる', async () => {

@@ -22,7 +22,7 @@ jobs:
     name: node
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: 変わったパスを見る
@@ -42,7 +42,7 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
             echo "拡張に関係する変更がないので飛ばします"
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.changes.outputs.run == 'true'
         with:
           node-version: '24'
@@ -61,7 +61,7 @@ jobs:
         run: npm test
       - name: VS Code をとっておく
         if: steps.changes.outputs.run == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: editors/vscode/.vscode-test
           key: vscode-test-${{ runner.os }}-${{ hashFiles('editors/vscode/package-lock.json') }}

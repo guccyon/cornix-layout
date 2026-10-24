@@ -649,6 +649,7 @@ class FakeServer {
           if (!Number.isInteger(index) || index < 0 || index > 9) invalid('レイヤーの番号は 0〜9 です', edit.index === undefined ? 'edit' : 'edit.index');
           if (layers.some((layer) => layer.index === index)) invalid(`レイヤー ${index} はもうあります`, 'edit.index');
           const file = `layers/${index}_${slug(name) || 'layer'}.${extensionIn(base, 'layers')}`;
+          // 今のサーバーと同じく親指は thumb で書く（positionMap の group は fixtures.ts の前の版のサーバーの形 thumb_keys のまま）
           const groups = ['row0', 'row1', 'row2', 'row3', 'thumb'].map((group) => `    ${group}: {}\n`).join('');
           const body = `---\nname: ${quote(name)}\ndescription: ''\nindex: ${index}\nmapping:\n  left_hand:\n${groups}  right_hand:\n${groups}`;
           files.push({ file, baseVersion: null, create: true, edits: [{ range: { start: zero, end: zero }, newText: body }] });

@@ -6,6 +6,7 @@ require_relative 'file_source'
 require_relative 'problem'
 require_relative 'schema/header'
 require_relative 'schema/hand_groups'
+require_relative 'schema/layer_file'
 
 module Cornix
   module Storage

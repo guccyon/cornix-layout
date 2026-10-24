@@ -119,11 +119,11 @@ module Cornix
         # group は正しい名前（thumb）。address はファイルの中の道筋なので、旧名（thumb_keys）で書いていればそのキー
         def position_map(map, reading)
           file = position_map_file(reading)
-          data = reading.data(file)
+          hands = Storage::Schema::PositionMapFile.hands(reading.data(file))
           map.positions.map do |pos|
             group, symbol = map.symbol(pos)
             hand_key = map.hand_key(pos)
-            key = Storage::Schema::HandGroups.written_key(data.is_a?(Hash) ? data[hand_key] : nil, group)
+            key = Storage::Schema::HandGroups.written_key(hands[hand_key], group)
             path = [hand_key, key, map.symbols(hand_key, group).index(symbol)]
             { hand: pos.hand.to_s, row: pos.row, col: pos.col, group: group, symbol: symbol,
               address: { file: file, path: path } }

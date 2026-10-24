@@ -81,7 +81,7 @@ module Cornix
             next false unless symbol.is_a?(String)
 
             position = position_map.position(hand, group, symbol)
-            next unknown_symbol(ctx, "#{loc}.#{symbol}", position_map.symbols(hand, group), "#{hand}.#{group}") unless position
+            next unknown_symbol(ctx, "#{loc}.#{symbol}", position_map.symbols(hand, group), "#{hand}.#{key}") unless position
             next true if value.nil?
 
             assignment = keycodes.read_assignment(value, ctx, "#{loc}.#{symbol}") or next false

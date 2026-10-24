@@ -14,7 +14,7 @@ module Cornix
     #              エンコーダのプッシュは左 (2, 6)・右 (5, 6)。それ以外の col 6 はキーがない（.vil の -1）
     #
     # シンボルは手とグループ（row0〜row3, thumb）の中で一意。グループが違えば同じ名前でもよい
-    # （設定ファイルでは親指を旧名の thumb_keys でも書ける。読み替えは Storage::Schema::HandGroups がする）。
+    # （設定ファイルでは親指を旧名の thumb_keys でも書ける。読み替えは Storage がする）。
     class PositionMap
       HANDS = { 'left_hand' => :left, 'right_hand' => :right }.freeze
       # グループ => [論理行, 先頭の論理列, キーの数]

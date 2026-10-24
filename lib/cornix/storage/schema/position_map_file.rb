@@ -28,8 +28,21 @@ module Cornix
           Domain::PositionMap.from_h(hash.to_h { |key, value| [key, HANDS.include?(key) ? HandGroups.normalize(value) : value] })
         rescue InvalidValue => e
           # Domain は問題を "position_map が不正です: 問題; 問題" の 1 つにまとめるので 1 件ずつに戻す
-          e.message.sub(/\Aposition_map が不正です: /, '').split('; ').each { |m| ctx.problem('', m) }
+          e.message.sub(/\Aposition_map が不正です: /, '').split('; ').each { |m| ctx.problem('', written(m, hash)) }
           nil
+        end
+
+        # 読んだ中身の手 => その下の Hash（形が違えば空）。エディタがファイルの書いているキーを見るのに使う
+        def hands(data) = data.is_a?(Hash) ? data.slice(*HANDS) : {}
+
+        # Domain の問題の "left_hand.thumb" を、ファイルが旧名で書いていればそのキーに戻す
+        def written(message, hash)
+          HANDS.reduce(message) do |text, hand|
+            HandGroups::LEGACY.values.reduce(text) do |t, group|
+              key = HandGroups.written_key(hash[hand], group)
+              t.gsub(/\b#{hand}\.#{group}\b/, "#{hand}.#{key}")
+            end
+          end
         end
 
         def write(position_map) = position_map.to_h

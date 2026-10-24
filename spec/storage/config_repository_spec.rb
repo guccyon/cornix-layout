@@ -405,7 +405,21 @@ RSpec.describe Cornix::Storage::ConfigRepository do
       end
     end
 
+    it '旧名で書いた position_map の問題は thumb_keys で言う' do
+      with_config_copy do |dir|
+        path = File.join(dir, 'position_map.yaml')
+        File.write(path, File.read(path).sub('thumb_keys: [left, middle, right]', 'thumb_keys: [left, middle]'))
+        expect(load_problems(dir)).to eq(['position_map.yaml: left_hand.thumb_keys は 3 個です: 2 個'])
+      end
+    end
+
     it '旧名で書いたレイヤーの問題の場所は thumb_keys のまま' do
+      with_config_copy do |dir|
+        path = File.join(dir, 'layers/2_layer_2.yaml')
+        File.write(path, File.read(path).sub(/^(    thumb_keys:\n      )left:/, '\1l_left:'))
+        expect(load_problems(dir)).to eq(['layers/2_layer_2.yaml: mapping.left_hand.thumb_keys.l_left: ' \
+                                          'position_map の left_hand.thumb_keys にないキーです（使えるキー: left, middle, right）'])
+      end
       with_config_copy do |dir|
         path = File.join(dir, 'layers/1_layer_1.yaml')
         File.write(path, File.read(path).sub(/^(    thumb_keys:\n      left: ).*$/, '\1NoSuchKey'))

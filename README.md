@@ -408,6 +408,7 @@ encoders:
 - For both hands, keys are listed **physically from left to right**
 - A name only needs to be unique within its group, and may contain letters, digits, `_` and `-`
 - The former name of the thumb group, `thumb_keys`, is still read (in `position_map.yaml` and in layer files, and it may differ from file to file). Writing both `thumb` and `thumb_keys` for the same hand is an error. To switch to `thumb`, change `thumb_keys:` to `thumb:` in each file (the compile result does not change)
+- The template names the thumb keys `l_left` / `l_mid` / `l_right` (`r_…` for the right hand), but the names in your existing `position_map.yaml` (such as `left` / `middle` / `right`) keep working. The new names only appear when you decompile / init a config that has no `position_map.yaml`. To adopt them, use position renaming in the VS Code extension (it also rewrites the keys in every layer), or edit `position_map.yaml` and the keys in every layer by hand
 
 ## Writing keys
 

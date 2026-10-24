@@ -407,6 +407,7 @@ encoders:
 - キーは左右の手とも**物理的に左から右**の順です
 - 名前は同じグループの中で一意であればよく、使える文字は英数字・`_`・`-` です
 - 親指のグループの前の名前 `thumb_keys` も読めます（`position_map.yaml` でもレイヤーファイルでも。ファイルごとに違ってもかまいません）。同じ手に `thumb` と `thumb_keys` の両方を書くとエラーです。`thumb` にそろえるには、各ファイルの `thumb_keys:` を `thumb:` に書き換えます（compile の結果は変わりません）
+- テンプレートの親指の名前は `l_left` / `l_mid` / `l_right`（右手は `r_…`）ですが、今の `position_map.yaml` の名前（`left` / `middle` / `right` など）はそのまま使えます。新しい名前になるのは、`position_map.yaml` のない設定を decompile / init したときだけです。名前をそろえるなら、VS Code 拡張の位置の名前の変更（全レイヤーのキーもまとめて書き換わります）を使うか、`position_map.yaml` と全レイヤーのキーを手で直します
 
 ## キーの書き方
 

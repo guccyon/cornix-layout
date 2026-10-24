@@ -26,7 +26,8 @@ module Cornix
             symbols = map.symbols(hand, group)
             check_symbol!(edit.to, symbols)
             file = position_map_file
-            path = [hand, written_key(reading.data(file), hand, group), symbols.index(symbol)]
+            key = Storage::Schema::HandGroups.written_key(Storage::Schema::PositionMapFile.hands(reading.data(file))[hand], group)
+            path = [hand, key, symbols.index(symbol)]
             edit_file(file) { |text| Storage::YamlDocument.parse(text).replace(path, edit.to) }
             rename_layer_keys(hand, group, symbol, edit.to)
             outcome(verify: { file: file, path: path })
@@ -59,10 +60,6 @@ module Cornix
               key = Storage::Schema::HandGroups.written_key(Storage::Schema::LayerFile.hands(reading.data(file))[hand], group)
               edit_file(file) { |text| YamlKeys.new(text).rename_key(['mapping', hand, key, symbol], name) }
             end
-          end
-
-          def written_key(data, hand, group)
-            Storage::Schema::HandGroups.written_key(data.is_a?(Hash) ? data[hand] : nil, group)
           end
         end
       end

@@ -18,12 +18,12 @@ RSpec.describe Cornix::Domain::PositionMap do
       [l['row1', 'caps'], l['row1', 'A'], l['row1', 'S'], l['row1', 'D'], l['row1', 'F'], l['row1', 'G'], nil],
       [l['row2', 'lshift'], l['row2', 'Z'], l['row2', 'X'], l['row2', 'C'], l['row2', 'V'], l['row2', 'B'], :push],
       [l['row3', 'lctrl'], l['row3', 'command'], l['row3', 'option'],
-       l['thumb_keys', 'left'], l['thumb_keys', 'middle'], l['thumb_keys', 'right'], nil],
+       l['thumb', 'l_left'], l['thumb', 'l_mid'], l['thumb', 'l_right'], nil],
       [r['row0', 'backspace'], r['row0', 'P'], r['row0', 'O'], r['row0', 'I'], r['row0', 'U'], r['row0', 'Y'], nil],
       [r['row1', 'enter'], r['row1', 'colon'], r['row1', 'L'], r['row1', 'K'], r['row1', 'J'], r['row1', 'H'], :push],
       [r['row2', 'rshift'], r['row2', 'up'], r['row2', 'dot'], r['row2', 'comma'], r['row2', 'M'], r['row2', 'N'], nil],
       [r['row3', 'right'], r['row3', 'down'], r['row3', 'left'],
-       r['thumb_keys', 'right'], r['thumb_keys', 'middle'], r['thumb_keys', 'left'], nil]
+       r['thumb', 'r_right'], r['thumb', 'r_mid'], r['thumb', 'r_left'], nil]
     ]
   end
 
@@ -84,15 +84,22 @@ RSpec.describe Cornix::Domain::PositionMap do
       expect(map.path(pos)).to eq('left_hand.row0.tab')
     end
 
-    it '親指キーは thumb_keys グループで row 3 の col 3〜5' do
-      expect(map.position('left_hand', 'thumb_keys', 'left')).to eq(key_position(:left, 3, 3))
-      expect(map.position('right_hand', 'thumb_keys', 'right')).to eq(key_position(:right, 3, 5))
-      expect(map.path(key_position(:right, 3, 4))).to eq('right_hand.thumb_keys.middle')
+    it '親指キーは thumb グループで row 3 の col 3〜5' do
+      expect(map.position('left_hand', 'thumb', 'l_left')).to eq(key_position(:left, 3, 3))
+      expect(map.position('right_hand', 'thumb', 'r_right')).to eq(key_position(:right, 3, 5))
+      expect(map.path(key_position(:right, 3, 4))).to eq('right_hand.thumb.r_mid')
     end
 
     it 'グループが違えば同じシンボルを区別する' do
+      hash = position_map_hash.tap { |h| h['right_hand']['thumb'] = %w[left middle right] }
+      map = described_class.from_h(hash)
       expect(map.position('right_hand', 'row3', 'left')).to eq(key_position(:right, 3, 0))
-      expect(map.position('right_hand', 'thumb_keys', 'left')).to eq(key_position(:right, 3, 3))
+      expect(map.position('right_hand', 'thumb', 'left')).to eq(key_position(:right, 3, 3))
+    end
+
+    it '旧名の thumb_keys は Domain では受け付けない（読み替えは Storage::Schema::HandGroups）' do
+      hash = position_map_hash.tap { |h| h['left_hand']['thumb_keys'] = h['left_hand'].delete('thumb') }
+      expect { described_class.from_h(hash) }.to raise_error(Cornix::InvalidValue, /left_hand.thumb がありません/)
     end
 
     it 'ないものは nil' do
@@ -174,18 +181,18 @@ RSpec.describe Cornix::Domain::PositionMap do
 
     it '手・グループ・エンコーダがなければ InvalidValue' do
       expect { build { |h| h.delete('right_hand') } }.to raise_error(Cornix::InvalidValue, /right_hand がありません/)
-      expect { build { |h| h['left_hand'].delete('thumb_keys') } }
-        .to raise_error(Cornix::InvalidValue, /left_hand.thumb_keys がありません/)
+      expect { build { |h| h['left_hand'].delete('thumb') } }
+        .to raise_error(Cornix::InvalidValue, /left_hand.thumb がありません/)
       expect { build { |h| h.delete('encoders') } }.to raise_error(Cornix::InvalidValue, /encoders がありません/)
       expect { build { |h| h['encoders'].delete('left') } }.to raise_error(Cornix::InvalidValue, /encoders.left がありません/)
       expect { build { |h| h['encoders']['right'].delete('cw') } }.to raise_error(Cornix::InvalidValue, /encoders.right.cw/)
     end
 
-    it '各グループのキーの数（row0〜row2 は 6、row3 と thumb_keys は 3）' do
+    it '各グループのキーの数（row0〜row2 は 6、row3 と thumb は 3）' do
       expect { build { |h| h['left_hand']['row0'].pop } }.to raise_error(Cornix::InvalidValue, /left_hand.row0 は 6 個です: 5 個/)
       expect { build { |h| h['right_hand']['row3'] << 'extra' } }
         .to raise_error(Cornix::InvalidValue, /right_hand.row3 は 3 個です: 4 個/)
-      expect { build { |h| h['right_hand']['thumb_keys'] = %w[a b] } }.to raise_error(Cornix::InvalidValue, /thumb_keys/)
+      expect { build { |h| h['right_hand']['thumb'] = %w[a b] } }.to raise_error(Cornix::InvalidValue, /thumb/)
     end
 
     it 'シンボルは [a-zA-Z0-9_-] の空でない文字列' do

@@ -9,7 +9,7 @@ module Cornix
     #
     # - input を省略すると env.decompile_input（root/tmp/layout.vil）
     # - config/ にすでに設定（layers/ か macros/ の中身）があれば何もしない（:config_exists）
-    # - キーの位置は config/position_map.yaml があればそれ、なければテンプレート（lib/cornix/position_map.yaml）で決める。
+    # - キーの位置は config/position_map.yaml があればそれ、なければテンプレート（data/position_map.yaml）で決める。
     #   テンプレートを使ったときは旧実装と同じくテンプレートをそのまま config/ に複写し、
     #   config/ のものを使ったときはそのファイルを元のまま残す
     # - 最後に config/.decompile.lock を書く（cleanup の保護）

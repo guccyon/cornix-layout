@@ -190,23 +190,28 @@ Cornix の配列の知識はすべて `Domain::PositionMap`（`lib/cornix/domain
 
 - `hand` は `:left` / `:right`、`row` は 0〜3、`col` は 0〜5
 - row0〜row2 は col 0〜5 の 6 キー、row3 は col 0〜2 の 3 キー
-- 親指キー（position_map.yaml の `thumb_keys`）は **row 3 の col 3〜5**（`KeyPosition#thumb?`）
+- 親指キー（position_map.yaml の `thumb`）は **row 3 の col 3〜5**（`KeyPosition#thumb?`）
 - 列は左右とも**物理的に左から右**の順（position_map.yaml の並び順と同じ）
 
 ```yaml
 left_hand:
   row0: [tab, Q, W, E, R, T]          # (left, 0, 0..5)
   row3: [lctrl, command, option]      # (left, 3, 0..2)
-  thumb_keys: [left, middle, right]   # (left, 3, 3..5)
+  thumb: [l_left, l_mid, l_right]     # (left, 3, 3..5)
 right_hand:
   row0: [Y, U, I, O, P, backspace]    # (right, 0, 0..5)
   row3: [left, down, right]           # (right, 3, 0..2)
-  thumb_keys: [left, middle, right]   # (right, 3, 3..5)
+  thumb: [r_left, r_mid, r_right]     # (right, 3, 3..5)
 ```
 
-シンボルは「手 + グループ（row0〜row3, thumb_keys）」の中で一意。グループが違えば同じ名前でよい
-（既定でも右手の row3 と thumb_keys に `left` / `right` がある）。レイヤーファイルのパスは `left_hand.thumb_keys.left` の形。
-テンプレートは `lib/cornix/position_map.yaml`、利用者版は `config/position_map.yaml`。
+シンボルは「手 + グループ（row0〜row3, thumb）」の中で一意。グループが違えば同じ名前でよい
+（右手の row3 と thumb の両方に `left` があってもよい）。レイヤーファイルのパスは `left_hand.thumb.l_left` の形。
+テンプレートは `data/position_map.yaml`、利用者版は `config/position_map.yaml`（または `profiles/<名前>/position_map.yaml`）。
+
+親指のグループは前の名前 `thumb_keys` でも書ける（後方互換。position_map.yaml でもレイヤーファイルでも、ファイルごとに違ってよい）。
+読み替えは Storage の `Schema::HandGroups` だけが行い、Domain の `PositionMap::GROUPS` と Profile の中・意味検証のパス（`layers[0].left_hand.thumb.l_left`）は `thumb` だけを使う。
+同じ手に `thumb` と `thumb_keys` の両方があれば構造の問題。decompile とエディタが新しく書くレイヤーファイルは `thumb`。
+エディタの Address（ファイルの中の道筋）と validate の場所は、そのファイルが書いているほうのキーを指す（旧名のファイルなら `mapping.left_hand.thumb_keys.left`）。
 
 ### 物理位置: layout.vil の `layout[layer][row][col]`（8 行 × 7 列）
 
@@ -337,16 +342,16 @@ mapping:
     row1:
       caps: Trans
       A: { key: "@", note: アットマーク }   # 注記付きの形
-    row2:                                   # グループ（row0〜row3, thumb_keys）は必須。値は空でもよい
+    row2:                                   # グループ（row0〜row3, thumb）は必須。値は空でもよい（thumb は旧名の thumb_keys でも書ける）
     row3:
-    thumb_keys:                             # 書かないキー・空の値のキーは割り当てなし
+    thumb:                                  # 書かないキー・空の値のキーは割り当てなし
   right_hand:
     row0:
     row1:
     row2:
     row3:
       left: Ctrl + Option + Shift + Command + Left
-    thumb_keys:
+    thumb:
   encoders:                                 # 省略した操作は KC_NO
     left: { push: PlayPause, ccw: Rewind, cw: FastForward }
     right: { push: LGUI(KC_0), ccw: Command + Minus, cw: Command + Plus }

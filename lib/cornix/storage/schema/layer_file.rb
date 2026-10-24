@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'hand_groups'
+
 module Cornix
   module Storage
     module Schema
@@ -14,14 +16,14 @@ module Cornix
       #       row1:
       #         caps: { key: LCtrl, note: 注記 }   # 注記付きの形（KeycodeField#read_assignment）
       #       row2: ... row3: ...
-      #       thumb_keys: { left: ..., middle: ..., right: ... }
+      #       thumb: { l_left: ..., l_mid: ..., l_right: ... }   # 旧名の thumb_keys でも読める（HandGroups）
       #     encoders:                          # 省略した操作は KC_NO。値は注記付きの形も書ける
       #       left: { push: Mute, ccw: VolumeDown, cw: VolumeUp }
       #       right: { push: ..., ccw: ..., cw: ... }
       module LayerFile
         KEYS = %w[name description index mapping].freeze
         HANDS = Domain::PositionMap::HANDS.keys.freeze
-        GROUPS = Domain::PositionMap::GROUPS.keys.freeze
+        GROUPS = HandGroups::GROUPS
         SIDES = %w[left right].freeze
         ACTIONS = Domain::EncoderBinding::ACTIONS.map(&:to_s).freeze
 
@@ -43,30 +45,43 @@ module Cornix
           end
         end
 
+        # 読んだ中身の mapping の下の Hash（手 => その下の Hash。形が違えば空）。エディタがファイルの書いているキーを見るのに使う
+        def hands(data)
+          mapping = data.is_a?(Hash) ? data['mapping'] : nil
+          mapping.is_a?(Hash) ? mapping : {}
+        end
+
         # 位置 => KeycodeField::Assignment。問題があれば nil
         def read_hands(mapping, ctx, keycodes, position_map)
           assignments = {}
           results = HANDS.flat_map do |hand|
-            groups = ctx.mapping(mapping[hand], "mapping.#{hand}", required: GROUPS, allowed: GROUPS)
+            loc = "mapping.#{hand}"
+            next [false] if HandGroups.conflict?(mapping[hand], ctx, loc)
+
+            groups = ctx.mapping(HandGroups.normalize(mapping[hand]), loc, required: GROUPS, allowed: GROUPS)
             next [false] unless groups
 
-            GROUPS.map { |group| read_group(groups[group], ctx, keycodes, position_map, hand, group, assignments) }
+            GROUPS.map do |group|
+              key = HandGroups.written_key(mapping[hand], group)
+              read_group(groups[group], ctx, keycodes, position_map, hand, group, assignments, key)
+            end
           end
           results.all? ? assignments : nil
         end
 
-        # 1 つのグループ（left_hand.row0 など）を読み、assignments に足す。問題があれば false
-        def read_group(raw, ctx, keycodes, position_map, hand, group, assignments)
+        # 1 つのグループ（left_hand.row0 など）を読み、assignments に足す。問題があれば false。
+        # key はファイルが書いているグループのキー（問題の場所に使う。旧名の thumb_keys のことがある）
+        def read_group(raw, ctx, keycodes, position_map, hand, group, assignments, key = group)
           return true if raw.nil?
 
-          loc = "mapping.#{hand}.#{group}"
+          loc = "mapping.#{hand}.#{key}"
           hash = ctx.mapping(raw, loc, key_label: 'キーの名前') or return false
           hash.map do |symbol, value|
             symbol = symbol.to_s if symbol.is_a?(Integer) # position_map と同じく数字だけの名前も使える
             next false unless symbol.is_a?(String)
 
             position = position_map.position(hand, group, symbol)
-            next unknown_symbol(ctx, "#{loc}.#{symbol}", position_map.symbols(hand, group), "#{hand}.#{group}") unless position
+            next unknown_symbol(ctx, "#{loc}.#{symbol}", position_map.symbols(hand, group), "#{hand}.#{key}") unless position
             next true if value.nil?
 
             assignment = keycodes.read_assignment(value, ctx, "#{loc}.#{symbol}") or next false

@@ -127,7 +127,7 @@ RSpec.describe Cornix::Domain::ProfileDiagnostics do
     it 'レイヤーのキーが存在しないマクロ・タップダンスを指せば error（パスは position_map のシンボル）' do
       layer = build_layer(keys: { tab => macro_call(5), key_position(:right, 3, 3) => td_call(2) })
       diags = diagnostics_of(build_profile(layers: [layer]))
-      expect(summary(diags)).to eq([[:error, 'layers[0].left_hand.row0.tab'], [:error, 'layers[0].right_hand.thumb_keys.left']])
+      expect(summary(diags)).to eq([[:error, 'layers[0].left_hand.row0.tab'], [:error, 'layers[0].right_hand.thumb.r_left']])
       expect(diags.map(&:message)).to eq(['マクロ M5 が定義されていません', 'タップダンス TD(2) が定義されていません'])
     end
 

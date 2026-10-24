@@ -13,8 +13,8 @@ module Cornix
     #              右手: 行 +4、列は反転（row0〜2 は 5 - col、row3 は 2 - col、親指は 5 - 親指番号）
     #              エンコーダのプッシュは左 (2, 6)・右 (5, 6)。それ以外の col 6 はキーがない（.vil の -1）
     #
-    # シンボルは手とグループ（row0〜row3, thumb_keys）の中で一意。グループが違えば同じ名前でもよい
-    # （既定の position_map でも右手 row3 と親指に left / right がある）。
+    # シンボルは手とグループ（row0〜row3, thumb）の中で一意。グループが違えば同じ名前でもよい
+    # （設定ファイルでは親指を旧名の thumb_keys でも書ける。読み替えは Storage がする）。
     class PositionMap
       HANDS = { 'left_hand' => :left, 'right_hand' => :right }.freeze
       # グループ => [論理行, 先頭の論理列, キーの数]
@@ -23,7 +23,7 @@ module Cornix
         'row1' => [1, 0, 6],
         'row2' => [2, 0, 6],
         'row3' => [3, 0, 3],
-        'thumb_keys' => [3, 3, 3]
+        'thumb' => [3, 3, 3]
       }.freeze
       ENCODER_SIDES = %i[left right].freeze
       ENCODER_ACTIONS = %w[push ccw cw].freeze
@@ -32,7 +32,7 @@ module Cornix
       MATRIX_COLS = 7
       ENCODER_PUSH = { left: [2, 6].freeze, right: [5, 6].freeze }.freeze
 
-      # position_map.yaml を読み込んだ Hash（形式は現行のまま）から作る
+      # position_map.yaml を読み込んだ Hash（親指は thumb）から作る
       def self.from_h(hash)
         Parser.new(hash).call.then { |groups, encoders| new(groups: groups, encoders: encoders) }
       end

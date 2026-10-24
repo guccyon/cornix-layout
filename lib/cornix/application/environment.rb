@@ -17,11 +17,11 @@ module Cornix
     # decompile_input = tmp_dir/layout.vil（decompile の既定の入力。pull がデバイスから読んだ状態もここに書く）、
     # snapshot_dir = tmp_dir/snapshots（キーボードの状態と compile の出力の履歴。Storage::SnapshotStore）、
     # legacy_backup_dir = tmp_dir/device_backups（前の版のバックアップ。読むだけ）。
-    # position_map のテンプレートは root によらず lib/cornix/position_map.yaml
+    # position_map のテンプレートは root によらず data/position_map.yaml
     #
     # CLI は Environment.for(workspace) で作る（Workspace が設定ディレクトリと tmp/ の場所を決める）
     class Environment
-      POSITION_MAP_TEMPLATE = File.join(Cornix::ROOT, 'lib', 'cornix', 'position_map.yaml')
+      POSITION_MAP_TEMPLATE = File.join(Cornix::DATA_DIR, 'position_map.yaml')
 
       attr_reader :root, :config_dir, :layout_path, :snapshot_dir, :legacy_backup_dir, :tmp_dir, :decompile_input, :position_map_template,
                   :workspace

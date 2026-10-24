@@ -10,7 +10,7 @@ module DomainFactories
   def d = D
   def k = K
 
-  DEFAULT_POSITION_MAP = File.expand_path('../../../lib/cornix/position_map.yaml', __dir__)
+  DEFAULT_POSITION_MAP = File.expand_path('../../../data/position_map.yaml', __dir__)
 
   def position_map_hash = YAML.load_file(DEFAULT_POSITION_MAP)
   def position_map = D::PositionMap.from_h(position_map_hash)

@@ -8,7 +8,7 @@ import { ICON_ASSETS } from '../../../src/webview/icons/manifest';
 import { MessageHostClient } from '../../../src/webview/hostClient';
 import { Inspector } from '../../../src/webview/inspector';
 import { KeyboardView, keyFace } from '../../../src/webview/keyboardView';
-import { keyAccessibleName, keyFaceNote, keyMark, layerSlots, windowLabels } from '../../../src/webview/model';
+import { groupLabel, keyAccessibleName, keyFaceNote, keyMark, layerSlots, windowLabels } from '../../../src/webview/model';
 import { describeContent } from '../../../src/webview/tooltip';
 import type { KeyValue } from '../../../src/protocol';
 import type { WebviewMessage } from '../../../src/webviewMessages';
@@ -47,6 +47,12 @@ describe('Cornix の物理配置', () => {
     expect(x('left', 3, 3)).toBeGreaterThan(x('left', 3, 2)); // 左手: 親指が row3 の右（内側）
     expect(x('right', 3, 0)).toBeGreaterThan(x('right', 3, 5)); // 右手: row3（矢印）が親指の右（外側）
     expect(x('right', 0, 0)).toBeGreaterThan(x('left', 0, 5));
+  });
+
+  it('グループの見出し。親指は thumb でも前の版のサーバーの thumb_keys でも「親指」', () => {
+    expect(groupLabel('row0')).toBe('1 段目');
+    expect(groupLabel('thumb')).toBe('親指');
+    expect(groupLabel('thumb_keys')).toBe('親指');
   });
 
   it('エンコーダは両手の間の円で、キーと重ならない', () => {

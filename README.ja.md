@@ -228,22 +228,22 @@ mapping:
       A: Macro('Bracket Pair')     # マクロを名前で参照
     row2:                          # 割り当てのないグループも書く（中身は空でよい）
     row3:
-    thumb_keys:
-      middle: TapDance('Tab Escape')
+    thumb:
+      l_mid: TapDance('Tab Escape')
   right_hand:
     row0:
       Y: Cmd + Space               # 修飾キー表現
     row1:
     row2:
     row3:
-    thumb_keys:
+    thumb:
   encoders:
     left:
       ccw: VolumeDown
       cw: VolumeUp
 ```
 
-- `mapping` の下は `position_map.yaml` と同じ形です。各手の `row0`〜`row3`・`thumb_keys` はすべて書きます（中身は空でかまいません）
+- `mapping` の下は `position_map.yaml` と同じ形です。各手の `row0`〜`row3`・`thumb` はすべて書きます（中身は空でかまいません）
 - グループの中で書かなかったキーは割り当てなしになり、`compile` / `apply` では `NoKey`（KC_NO）として書き込みます。下のレイヤーを使うには `Trans` を書きます。書かなかったエンコーダの操作は `NoKey` です
 - レイヤー番号を変えるときは `index` だけを変えます（ファイル名はそのままでかまいません）。`MO(2)` などは「レイヤー 2」という番号を指すので、ほかのファイルは書き換わりません。2 つのレイヤーの中身を入れ替えたいときは、2 つのファイルの `index` を入れ替えるだけで、`MO(2)` などはそのまま新しいレイヤー 2 を指します
 
@@ -392,13 +392,13 @@ left_hand:
   row1: [caps, A, S, D, F, G]
   row2: [lshift, Z, X, C, V, B]
   row3: [lctrl, command, option]
-  thumb_keys: [left, middle, right]
+  thumb: [l_left, l_mid, l_right]
 right_hand:
   row0: [Y, U, I, O, P, backspace]
   row1: [H, J, K, L, colon, enter]
   row2: [N, M, comma, dot, up, rshift]
   row3: [left, down, right]
-  thumb_keys: [left, middle, right]
+  thumb: [r_left, r_mid, r_right]
 encoders:
   left: { push: push, ccw: ccw, cw: cw }
   right: { push: push, ccw: ccw, cw: cw }
@@ -406,6 +406,8 @@ encoders:
 
 - キーは左右の手とも**物理的に左から右**の順です
 - 名前は同じグループの中で一意であればよく、使える文字は英数字・`_`・`-` です
+- 親指のグループの前の名前 `thumb_keys` も読めます（`position_map.yaml` でもレイヤーファイルでも。ファイルごとに違ってもかまいません）。同じ手に `thumb` と `thumb_keys` の両方を書くとエラーです。`thumb` にそろえるには、各ファイルの `thumb_keys:` を `thumb:` に書き換えます（compile の結果は変わりません）
+- テンプレートの親指の名前は `l_left` / `l_mid` / `l_right`（右手は `r_…`）ですが、今の `position_map.yaml` の名前（`left` / `middle` / `right` など）はそのまま使えます。新しい名前になるのは、`position_map.yaml` のない設定を decompile / init したときだけです。名前をそろえるなら、VS Code 拡張の位置の名前の変更（全レイヤーのキーもまとめて書き換わります）を使うか、`position_map.yaml` と全レイヤーのキーを手で直します
 
 ## キーの書き方
 
@@ -699,7 +701,7 @@ Vial はマクロの保存時に 2 キーの長押し（アンロック）を求
 | `position_map の left_hand.row1 にないキーです` | `position_map.yaml` にある名前を使う |
 | `マクロ「Unknown」が見つかりません` | 参照する名前を、マクロのファイルの `name` に合わせる |
 | `左右の修飾キーは混在できません` | 修飾キーを左右どちらかにそろえる |
-| `row2, row3, thumb_keys がありません` | 各手のグループをすべて書く（中身は空でよい） |
+| `row2, row3, thumb がありません` | 各手のグループをすべて書く（中身は空でよい） |
 
 ## Vial を使う場合（compile / decompile）
 

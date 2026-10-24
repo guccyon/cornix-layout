@@ -110,7 +110,7 @@ RSpec.describe 'Storage::YamlDocument（実データ）' do
                                                     source: overlay).load
     disk = repository(StorageHelpers::AUTHORS_CONFIG).load
     expect(profile.layer(0).key(position(profile, 'left_hand', 'row2', 'X'))).to eq(keycode('Shift + X'))
-    expect(profile.layer(0).key(position(profile, 'right_hand', 'thumb_keys', 'middle'))).to eq(keycode('MO(1)'))
+    expect(profile.layer(0).key(position(profile, 'right_hand', 'thumb', 'middle'))).to eq(keycode('MO(1)'))
     expect(profile.settings).to eq(disk.settings)
   end
 end

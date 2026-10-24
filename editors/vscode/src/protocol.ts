@@ -178,7 +178,7 @@ export type PositionMapEntry = {
   hand: Hand;
   row: number;
   col: number;
-  /** position_map.yaml のグループ（"row0" … "row3"、"thumb_keys"） */
+  /** position_map.yaml のグループ（"row0" … "row3"、"thumb"。ファイルが旧名の thumb_keys で書いていても "thumb"。前の版のサーバーは "thumb_keys"） */
   group: string;
   /** position_map.yaml の記号（"tab"） */
   symbol: string;

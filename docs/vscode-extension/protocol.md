@@ -261,7 +261,7 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
       "keys": [
         {
           "hand": "left", "row": 3, "col": 4,
-          "address": { "file": "layers/0_base.yml", "path": ["mapping", "left_hand", "thumb_keys", "middle"] },
+          "address": { "file": "layers/0_base.yml", "path": ["mapping", "left_hand", "thumb", "l_mid"] },
           "value": {
             "text": "LT1(Space)", "canonical": "LT1(Space)", "code": 16684, "kind": "layerTap",
             "display": { "label": "Space", "tap": "Space", "hold": "L1" }
@@ -307,6 +307,9 @@ Change は「どのファイルの何行目」ではなく Address で指すの�
 - `positionMap` と `keys` の位置は論理位置（[domain-model.md](../domain-model.md) の `KeyPosition` の hand / row / col。親指キーは row 3 の col 3〜5）。
   キーボード図の物理配置は拡張が持ち、この論理位置で組み合わせる（[ADR 009](adr.md)）
 - `keys` は割り当てのない位置も含めて position_map のすべての位置を返す（`value` は `null`）。`address` はその位置を書くときの場所
+- 親指のグループ: `positionMap` の `group` は `"thumb"`（前の版のサーバーは `"thumb_keys"`。拡張はどちらも親指として扱う）。
+  `address` はファイルの中の道筋なので、そのファイルが親指を前の名前 `thumb_keys:` で書いていれば `["mapping", "left_hand", "thumb_keys", "left"]`、
+  `thumb:` で書いていれば `["mapping", "left_hand", "thumb", "l_left"]`（position_map の `address` も同じ。ファイルごとに決まる）。約束の版は変えない
 - `settings` は `data/qmk_settings.yaml` のすべての設定を返す（ファイルにない設定は `value: null`）
 - `status: "invalid"` のときは `files` と `diagnostics` だけを信じてよい（`layers` などは空）。
   拡張はエラーの一覧と、ファイルを開くボタンを出す（[11. 決めたこと](#11-決めたこと) の 6）

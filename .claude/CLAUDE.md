@@ -33,6 +33,7 @@
   - [vscode_extension_v02](memories/vscode_extension_v02.md) - VS Code 拡張 v0.2 の作業の知見（コンテナでの rspec の動かし方と統合テストが CI でしか走らない件、偽のサーバーの注意、並列の PR の進め方、planItemEdit の解釈、未保存の変更の並びと畳み方）
   - [empty_layers](memories/empty_layers.md) - 空のレイヤーのファイルの省略（#83）: compile の埋め方、decompile が書かない条件、authors の空のレイヤーの落とし穴
   - [unused_files](memories/unused_files.md) - 未使用のファイルとファイル名の番号（#85）: 未使用の判定、load_all と UnusedFile、項目とファイルの対応をずらさない場所
+  - [thumb_group](memories/thumb_group.md) - 親指のグループ thumb と旧名 thumb_keys の読み替え（HandGroups の置き場所、Address はファイルごとのキー、fixture を旧名のまま残した理由）
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---
@@ -138,10 +139,11 @@ data/
   shortcuts/*.yaml  同梱のショートカット（cornixhub の一覧。Shortcut('アプリ:カテゴリ:ラベル') で参照）
   shortcut_icons.yaml  同梱のショートカットのアプリ名 → アイコン ID（AppIconCatalog。SVG は拡張に同梱）
   keycode_categories.yaml  キー入力欄の候補の分類と、場面ごとに上に出すもの（CandidateCatalog。keycode/candidates が使う）
+  position_map.yaml  config/position_map.yaml のテンプレート（設定に position_map.yaml がないときの decompile などが使う）
 lib/cornix.rb       全ファイルを層の順に require
 lib/cornix/
   domain/ image/ mapping/ planning/ storage/ device/ application/ interface/
-  version.rb（Cornix::VERSION）, errors.rb, position_map.yaml（config/position_map.yaml のテンプレート）
+  version.rb（Cornix::VERSION）, errors.rb
 ext/cornix_hid/     raw HID ブリッジ（Swift、tmp/cornix-hid にビルド）
 editors/vscode/     VS Code 拡張（TypeScript。cornix serve を子プロセスで起動して JSON-RPC で話す。README.md に開発の手順と構成）
 spec/               lib と同じ層の構成 + end_to_end_spec.rb / architecture_spec.rb / support/ / fixtures/（protocol/ は cornix serve の適合テストのデータ）
@@ -186,8 +188,8 @@ ruby bin/diff_layouts       # tmp/layout.vil と tmp/build/layout.vil を 16bit 
   参照は `Macro('名前')` / `TapDance('名前')`、設定は名前の形
 - **修飾キー**: `Domain::ModifierSet` は左右どちらか一方。左右の混在はエラー
 - **知らない値は落とさない**: 解釈できない 16bit 値は `Keycode::Raw`、.vil の未対応項目は `DeviceImage#meta` で往復させる
-- **Position Map**: テンプレート `lib/cornix/position_map.yaml` → 利用者版 `config/position_map.yaml`。
-  座標変換は `Domain::PositionMap` だけが行う
+- **Position Map**: テンプレート `data/position_map.yaml` → 利用者版 `config/position_map.yaml`。
+  座標変換は `Domain::PositionMap` だけが行う。親指のグループは `thumb`（旧名 `thumb_keys` も読む。読み替えは `Storage::Schema::HandGroups`）
 - **rename**: 名前参照はテキスト置換で書き換え、変更の前後の compile 結果（16bit 値）を比べて違えば元に戻す
 - **cleanup / Environment**: 場所は `Application::Environment#root`（既定はリポジトリのルート）から決まる。カレントディレクトリに依存しない
 - **設定ディレクトリの指定**: `Application::Workspace.resolve` が `--config` > `CORNIX_CONFIG` > `--profile NAME`（profiles/NAME）>

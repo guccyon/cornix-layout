@@ -62,7 +62,7 @@ module Cornix
         rel && File.join(@dir, rel)
       end
 
-      # position_map.yaml の形式のファイル（設定ディレクトリのもの、または lib/cornix/position_map.yaml のテンプレート）を
+      # position_map.yaml の形式のファイル（設定ディレクトリのもの、または data/position_map.yaml のテンプレート）を
       # 読んで Domain::PositionMap にする。問題があれば InvalidConfig
       def self.read_position_map(path)
         problems = Problems.new

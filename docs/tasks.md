@@ -74,7 +74,7 @@ qmk.format(keycode) #=> String | nil（最新の QMK の keymap.c の名前。LT
 
 ```ruby
 Domain::KeyPosition(hand: :left|:right, row:, col:)        # 論理位置（docs/domain-model.md の「座標系」の論理位置）
-Domain::PositionMap.from_h(hash)                           # position_map.yaml の Hash。形式は現行のまま
+Domain::PositionMap.from_h(hash)                           # position_map.yaml の Hash（親指は thumb。旧名 thumb_keys の読み替えは Storage::Schema::HandGroups）
   #position(hand_key, group_key, symbol) #=> KeyPosition | nil   # ('left_hand', 'row0', 'tab')
   #symbol(position) #=> [group_key, symbol] | nil
   #matrix(position) #=> [row, col]                         # layout.vil の物理座標（右手の反転、行 +4、親指）

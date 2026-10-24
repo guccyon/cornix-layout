@@ -17,6 +17,18 @@ RSpec.describe Cornix::Storage::DiagnosticLocator do
     expect(at('layers[2]')).to eq('layers/2_layer_2.yaml')
   end
 
+  it '親指はファイルが書いているキー（旧名の thumb_keys で書いていればそれ）を指す' do
+    expect(at('layers[0].left_hand.thumb.left')).to eq('layers/0_layer_0.yaml: mapping.left_hand.thumb_keys.left')
+    with_config_copy do |dir|
+      rel = 'layers/0_layer_0.yaml'
+      write_file(dir, rel, File.read(File.join(dir, rel)).gsub(/^    thumb_keys:/, '    thumb:'))
+      locator = described_class.new(dir)
+      expect(locator.locate_path('layers[0].left_hand.thumb.left')).to eq("#{rel}: mapping.left_hand.thumb.left")
+      expect(locator.address('layers[0].right_hand.thumb.middle')).to eq([rel, %w[mapping right_hand thumb middle]])
+      expect(locator.address('layers[1].right_hand.thumb.middle')).to eq(['layers/1_layer_1.yaml', %w[mapping right_hand thumb_keys middle]])
+    end
+  end
+
   it '未使用のファイル（index のないもの）を除いて並べた i 番目のファイルを指す（issue #85）' do
     with_config_copy do |dir|
       write_file(dir, 'layers/0_spare.yaml', "name: Spare\nmapping: {}\n")

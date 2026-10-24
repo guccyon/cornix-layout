@@ -116,12 +116,15 @@ module Cornix
           }
         end
 
+        # group は正しい名前（thumb）。address はファイルの中の道筋なので、旧名（thumb_keys）で書いていればそのキー
         def position_map(map, reading)
           file = position_map_file(reading)
+          data = reading.data(file)
           map.positions.map do |pos|
             group, symbol = map.symbol(pos)
             hand_key = map.hand_key(pos)
-            path = [hand_key, group, map.symbols(hand_key, group).index(symbol)]
+            key = Storage::Schema::HandGroups.written_key(data.is_a?(Hash) ? data[hand_key] : nil, group)
+            path = [hand_key, key, map.symbols(hand_key, group).index(symbol)]
             { hand: pos.hand.to_s, row: pos.row, col: pos.col, group: group, symbol: symbol,
               address: { file: file, path: path } }
           end
@@ -135,9 +138,11 @@ module Cornix
 
         def layer(layer, file, map, reading, values)
           doc = reading.document(file)
+          hands = Storage::Schema::LayerFile.hands(reading.data(file))
           keys = map.positions.map do |pos|
             group, symbol = map.symbol(pos)
-            path = ['mapping', map.hand_key(pos), group, symbol]
+            hand = map.hand_key(pos)
+            path = ['mapping', hand, Storage::Schema::HandGroups.written_key(hands[hand], group), symbol]
             keycode = layer.key(pos)
             value = keycode && values.build(keycode, text: written(doc, path) || values.canonical(keycode),
                                                      note: layer.note(pos))

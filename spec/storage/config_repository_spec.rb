@@ -25,7 +25,7 @@ RSpec.describe Cornix::Storage::ConfigRepository do
     it 'レイヤーのキーを position_map の位置で持つ' do
       layer = profile.layer(0)
       tab = profile.position_map.position('left_hand', 'row0', 'tab')
-      thumb = profile.position_map.position('left_hand', 'thumb_keys', 'middle')
+      thumb = profile.position_map.position('left_hand', 'thumb', 'middle')
       expect(layer.name).to eq('Layer 0')
       expect(layer.description).to be_nil
       expect(layer.key(tab)).to eq(basic(0x2B))
@@ -372,6 +372,48 @@ RSpec.describe Cornix::Storage::ConfigRepository do
     end
   end
 
+  describe '親指のグループ（thumb と旧名の thumb_keys）' do
+    # thumb_keys: を thumb: にする（並びとキーの名前はそのまま）
+    def rename_thumb(dir, files)
+      files.each { |rel| write_file(dir, rel, File.read(File.join(dir, rel)).gsub(/^( +)thumb_keys:/, '\1thumb:')) }
+    end
+
+    let(:old_form) { repository(StorageHelpers::TEST_CONFIG).load }
+
+    it 'thumb でも thumb_keys でも同じ Profile になる（ファイルごとに違ってもよい）' do
+      with_config_copy do |dir|
+        rename_thumb(dir, Dir.glob('**/*.yaml', base: dir))
+        expect(repository(dir).load).to eq(old_form)
+      end
+      with_config_copy do |dir|
+        rename_thumb(dir, %w[layers/0_layer_0.yaml])
+        expect(repository(dir).load).to eq(old_form)
+      end
+    end
+
+    it '同じ手に thumb と thumb_keys の両方があれば問題（position_map でもレイヤーでも）' do
+      both = '（thumb_keys は thumb の旧名です。どちらか一方にしてください）'
+      with_config_copy do |dir|
+        path = File.join(dir, 'position_map.yaml')
+        File.write(path, File.read(path).sub("  thumb_keys: [left, middle, right]\n", "\\0  thumb: [a, b, c]\n"))
+        expect(load_problems(dir)).to eq(["position_map.yaml: left_hand: thumb と thumb_keys の両方があります#{both}"])
+      end
+      with_config_copy do |dir|
+        path = File.join(dir, 'layers/1_layer_1.yaml')
+        File.write(path, File.read(path).sub("  encoders:\n", "    thumb:\n\\0"))
+        expect(load_problems(dir)).to eq(["layers/1_layer_1.yaml: mapping.right_hand: thumb と thumb_keys の両方があります#{both}"])
+      end
+    end
+
+    it '旧名で書いたレイヤーの問題の場所は thumb_keys のまま' do
+      with_config_copy do |dir|
+        path = File.join(dir, 'layers/1_layer_1.yaml')
+        File.write(path, File.read(path).sub(/^(    thumb_keys:\n      left: ).*$/, '\1NoSuchKey'))
+        expect(load_problems(dir)).to contain_exactly(start_with('layers/1_layer_1.yaml: mapping.left_hand.thumb_keys.left: '))
+      end
+    end
+  end
+
   describe '#save' do
     let(:profile) { repository(StorageHelpers::TEST_CONFIG).load }
 
@@ -456,8 +498,8 @@ RSpec.describe Cornix::Storage::ConfigRepository do
         layer = YAML.load_file(File.join(dir, 'layers/0_layer.yaml'))
         expect(layer.keys).to eq(%w[name description index mapping])
         expect(layer['mapping'].keys).to eq(%w[left_hand right_hand encoders])
-        expect(layer['mapping']['left_hand']['thumb_keys']).to eq('left' => 'LGUI_T(Lang2)', 'middle' => 'LT1(Space)',
-                                                                  'right' => 'LT2(Escape)')
+        expect(layer['mapping']['left_hand']['thumb']).to eq('left' => 'LGUI_T(Lang2)', 'middle' => 'LT1(Space)',
+                                                             'right' => 'LT2(Escape)')
       end
     end
 

@@ -26,9 +26,9 @@ module Cornix
             symbols = map.symbols(hand, group)
             check_symbol!(edit.to, symbols)
             file = position_map_file
-            path = [hand, group, symbols.index(symbol)]
+            path = [hand, written_key(reading.data(file), hand, group), symbols.index(symbol)]
             edit_file(file) { |text| Storage::YamlDocument.parse(text).replace(path, edit.to) }
-            rename_layer_keys(['mapping', hand, group, symbol], edit.to)
+            rename_layer_keys(hand, group, symbol, edit.to)
             outcome(verify: { file: file, path: path })
           end
 
@@ -50,13 +50,19 @@ module Cornix
                                             .find { |file| reading.files[file] }
           end
 
-          # 未使用のレイヤーのファイル（index のないもの）も書き換える（残すと位置の名前が position_map にないという警告になる）
-          def rename_layer_keys(path, name)
+          # 未使用のレイヤーのファイル（index のないもの）も書き換える（残すと位置の名前が position_map にないという警告になる）。
+          # グループのキーはファイルごとに書いているもの（旧名の thumb_keys のことがある）
+          def rename_layer_keys(hand, group, symbol, name)
             used = profile.layers.each_index.filter_map { |i| reading.repository.address("layers[#{i}]")&.first }
             unused = reading.unused.select { |file| file.kind == :layers }.map(&:file)
             (used + unused).each do |file|
-              edit_file(file) { |text| YamlKeys.new(text).rename_key(path, name) }
+              key = Storage::Schema::HandGroups.written_key(Storage::Schema::LayerFile.hands(reading.data(file))[hand], group)
+              edit_file(file) { |text| YamlKeys.new(text).rename_key(['mapping', hand, key, symbol], name) }
             end
+          end
+
+          def written_key(data, hand, group)
+            Storage::Schema::HandGroups.written_key(data.is_a?(Hash) ? data[hand] : nil, group)
           end
         end
       end

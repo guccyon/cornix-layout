@@ -32,9 +32,9 @@
         { "hand": "left", "row": 3, "col": 0, "group": "row3", "symbol": "lctrl" },
         { "hand": "left", "row": 3, "col": 1, "group": "row3", "symbol": "command" },
         { "hand": "left", "row": 3, "col": 2, "group": "row3", "symbol": "option" },
-        { "hand": "left", "row": 3, "col": 3, "group": "thumb_keys", "symbol": "left" },
-        { "hand": "left", "row": 3, "col": 4, "group": "thumb_keys", "symbol": "middle" },
-        { "hand": "left", "row": 3, "col": 5, "group": "thumb_keys", "symbol": "right" },
+        { "hand": "left", "row": 3, "col": 3, "group": "thumb", "symbol": "left" },
+        { "hand": "left", "row": 3, "col": 4, "group": "thumb", "symbol": "middle" },
+        { "hand": "left", "row": 3, "col": 5, "group": "thumb", "symbol": "right" },
         { "hand": "right", "row": 0, "col": 0, "group": "row0", "symbol": "Y" },
         { "hand": "right", "row": 0, "col": 1, "group": "row0", "symbol": "U" },
         { "hand": "right", "row": 0, "col": 2, "group": "row0", "symbol": "I" },
@@ -56,9 +56,9 @@
         { "hand": "right", "row": 3, "col": 0, "group": "row3", "symbol": "left" },
         { "hand": "right", "row": 3, "col": 1, "group": "row3", "symbol": "down" },
         { "hand": "right", "row": 3, "col": 2, "group": "row3", "symbol": "right" },
-        { "hand": "right", "row": 3, "col": 3, "group": "thumb_keys", "symbol": "left" },
-        { "hand": "right", "row": 3, "col": 4, "group": "thumb_keys", "symbol": "middle" },
-        { "hand": "right", "row": 3, "col": 5, "group": "thumb_keys", "symbol": "right" }
+        { "hand": "right", "row": 3, "col": 3, "group": "thumb", "symbol": "left" },
+        { "hand": "right", "row": 3, "col": 4, "group": "thumb", "symbol": "middle" },
+        { "hand": "right", "row": 3, "col": 5, "group": "thumb", "symbol": "right" }
       ],
       "layers": [
         {

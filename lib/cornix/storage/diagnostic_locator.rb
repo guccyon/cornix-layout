@@ -5,6 +5,7 @@ require_relative 'config_files'
 require_relative 'file_source'
 require_relative 'problem'
 require_relative 'schema/header'
+require_relative 'schema/hand_groups'
 
 module Cornix
   module Storage
@@ -83,7 +84,16 @@ module Cornix
 
       def location(kind, rel, rest) = send(:"#{kind}_location", rel, rest)
 
-      def layers_location(_rel, rest) = rest.match?(LAYER_MAPPING) ? "mapping.#{rest}" : rest
+      # グループはファイルが書いているキーにする（旧名の thumb_keys で書いていれば layers[0].left_hand.thumb.x → mapping.left_hand.thumb_keys.x）
+      def layers_location(rel, rest)
+        return rest unless rest.match?(LAYER_MAPPING)
+
+        hand, group, tail = rest.split('.', 3)
+        return "mapping.#{rest}" unless group && Schema::HandGroups::GROUPS.include?(group)
+
+        key = Schema::HandGroups.written_key(Schema::LayerFile.hands(content(rel))[hand], group)
+        ['mapping', hand, key, tail].compact.join('.')
+      end
 
       # preset: のマクロ（sequence がない）は手順の場所を preset にする
       def macros_location(rel, rest)

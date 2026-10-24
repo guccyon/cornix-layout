@@ -45,11 +45,11 @@ export const ENCODER_OPS: { op: EncoderOp; label: string }[] = [
 
 export const HAND_LABEL: Record<Hand, string> = { left: '左手', right: '右手' };
 
-/** position_map のグループの見出し */
+/** position_map のグループの見出し（親指は thumb。thumb_keys は前の版のサーバーが返す旧名） */
 export function groupLabel(group: string): string {
   const row = /^row(\d)$/.exec(group);
   if (row?.[1]) return `${Number(row[1]) + 1} 段目`;
-  if (group === 'thumb_keys') return '親指';
+  if (group === 'thumb' || group === 'thumb_keys') return '親指';
   return group;
 }
 

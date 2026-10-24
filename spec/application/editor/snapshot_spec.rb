@@ -123,8 +123,17 @@ RSpec.describe Cornix::Application::Editor::Snapshot do
 
   it 'positionMap は論理位置とグループ・記号' do
     expect(snapshot[:positionMap].size).to eq(48)
-    expect(snapshot[:positionMap][21]).to eq(hand: 'left', row: 3, col: 3, group: 'thumb_keys', symbol: 'left',
+    expect(snapshot[:positionMap][21]).to eq(hand: 'left', row: 3, col: 3, group: 'thumb', symbol: 'left',
                                              address: { file: 'position_map.yaml', path: ['left_hand', 'thumb_keys', 0] })
+  end
+
+  it '親指の group は thumb。address はファイルが書いているキー（thumb で書いたファイルは thumb、旧名の thumb_keys ならそのまま）' do
+    %w[position_map.yaml layers/0_layer_0.yaml].each do |rel|
+      write(rel, File.read(File.join(@root, 'profile', rel)).gsub(/^( +)thumb_keys:/, '\1thumb:'))
+    end
+    expect(snapshot[:positionMap][45]).to include(group: 'thumb', address: { file: 'position_map.yaml', path: ['right_hand', 'thumb', 0] })
+    expect(key(snapshot, 0, 'left', 3, 4)[:address]).to eq(file: 'layers/0_layer_0.yaml', path: %w[mapping left_hand thumb middle])
+    expect(key(snapshot, 1, 'left', 3, 4)[:address]).to eq(file: 'layers/1_layer_1.yaml', path: %w[mapping left_hand thumb_keys middle])
   end
 
   it 'references はレイヤー・マクロ・タップダンス・自分のショートカット（ファイルに書いた表記）' do

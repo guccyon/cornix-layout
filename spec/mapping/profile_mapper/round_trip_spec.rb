@@ -17,7 +17,7 @@ RSpec.describe Cornix::Mapping::ProfileMapper, '旧 compile の layout.vil と�
   cases.each do |label, (vil_name, position_map_path)|
     context label do
       let(:image) { VilImage.load(vil_name) }
-      let(:position_map) { Cornix::Domain::PositionMap.from_h(YAML.load_file(position_map_path)) }
+      let(:position_map) { Cornix::Storage::ConfigRepository.read_position_map(position_map_path) }
       let(:profile) { mapper.to_profile(image, position_map: position_map) }
       let(:result) { mapper.to_image(profile) }
 

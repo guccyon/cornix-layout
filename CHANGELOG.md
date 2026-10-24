@@ -72,6 +72,11 @@
 
 ### 変更
 
+- 親指のグループの名前を `thumb_keys` から `thumb` に変え、`position_map.yaml` のテンプレートの親指の名前を左右で分けた（左手 `l_left` / `l_mid` / `l_right`、右手 `r_left` / `r_mid` / `r_right`）。
+  テンプレートの置き場所は `lib/cornix/position_map.yaml` から `data/position_map.yaml` に移した
+  - `thumb_keys` もこれまでどおり読める（`position_map.yaml` でもレイヤーのファイルでも。ファイルごとに違ってよい）。同じ手に `thumb` と `thumb_keys` の両方があれば構造のエラー
+  - 今の設定はそのままで compile の結果が変わらない。`thumb` にそろえるなら各ファイルの `thumb_keys:` を `thumb:` に書き換える。位置の名前は利用者の `position_map.yaml` のままで、テンプレートの新しい名前になるのは、`position_map.yaml` のない設定を decompile / init したときだけ
+  - decompile と VS Code 拡張のレイヤーの追加は `thumb` で書く。`cornix serve` の `positionMap` の `group` は `"thumb"`（Address はファイルが書いているほうのキー）
 - キーボードの状態と compile の出力を、日時付きのスナップショットとして `<tmp>/snapshots/<日時>-<種類>/layout.vil` に履歴で残すようにした（#25）。
   種類は `read`（キーボードを読んだとき）・`build`（compile の出力）・`backup`（`cornix device backup`）・`pre-apply` / `pre-restore`（書き込む直前）。
   上書きせず、`read` と `build` は種類ごとに新しい 50 件だけ残す

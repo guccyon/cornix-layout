@@ -78,7 +78,7 @@
           "hand": "left",
           "row": 3,
           "col": 3,
-          "group": "thumb_keys",
+          "group": "thumb",
           "symbol": "left",
           "address": {
             "file": "position_map.yaml",

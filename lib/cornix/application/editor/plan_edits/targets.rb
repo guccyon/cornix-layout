@@ -36,6 +36,7 @@ module Cornix
           LAYER_KEYS = Storage::Schema::LayerFile::KEYS
           HANDS = Storage::Schema::LayerFile::HANDS
           GROUPS = Storage::Schema::LayerFile::GROUPS
+          HandGroups = Storage::Schema::HandGroups
           SIDES = Storage::Schema::LayerFile::SIDES
           ACTIONS = Storage::Schema::LayerFile::ACTIONS
           TAP_DANCE_ACTIONS = Storage::Schema::TapDanceFile::ACTIONS
@@ -78,11 +79,14 @@ module Cornix
             used = reading.profile.layers.each_index.filter_map { |i| reading.repository.address("layers[#{i}]").first }
             unused = reading.unused.select { |u| u.kind == :layers }.map(&:file)
             (used + unused).each do |file|
+              hands = Storage::Schema::LayerFile.hands(reading.data(file))
+              orders = layer_order.merge(HANDS.to_h { |hand| [['mapping', hand], HandGroups.written_keys(hands[hand])] })
               map.positions.each do |pos|
                 hand = map.hand_key(pos)
                 group, symbol = map.symbol(pos)
-                order = layer_order.merge(['mapping', hand, group] => map.symbols(hand, group))
-                add(file, ['mapping', hand, group, symbol], order, ops: EDIT, note: true)
+                key = HandGroups.written_key(hands[hand], group) # 旧名（thumb_keys）で書いたファイルはそのキーを指す
+                order = orders.merge(['mapping', hand, key] => map.symbols(hand, group))
+                add(file, ['mapping', hand, key, symbol], order, ops: EDIT, note: true)
               end
               SIDES.each do |side|
                 ACTIONS.each { |action| add(file, ['mapping', 'encoders', side, action], encoder_order, ops: EDIT, note: true) }

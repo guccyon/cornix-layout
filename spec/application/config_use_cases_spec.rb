@@ -129,6 +129,10 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
       expect(result.files).to include('metadata.yaml', 'position_map.yaml', 'layers/0_layer.yaml')
       expect(File.read(config_file('position_map.yaml'))).to eq(File.read(env.position_map_template))
       expect(result.position_map).to eq(env.position_map_template)
+      expect(env.position_map_template).to eq(File.join(Cornix::ROOT, 'data', 'position_map.yaml'))
+      layer = YAML.safe_load_file(config_file('layers/0_layer.yaml'))
+      expect(layer['mapping']['left_hand']['thumb'].keys).to eq(%w[l_left l_mid l_right])
+      expect(layer['mapping']['right_hand']['thumb'].keys).to eq(%w[r_left r_mid r_right])
       lock = YAML.safe_load_file(result.lock)
       expect(lock.keys).to eq(%w[decompiled_at source_file checksum])
       expect(lock['source_file']).to eq(input)
@@ -153,6 +157,9 @@ RSpec.describe 'Application の設定ファイルのユースケース' do
       result = decompile.call(input: File.join(fixtures, 'authors_baseline.vil'))
       expect(result.position_map).to eq(config_file('position_map.yaml'))
       expect(read_config('position_map.yaml')).to eq("# 自分の配置\n#{custom}")
+      # 旧名の thumb_keys の position_map でも、書くレイヤーは thumb（シンボルは利用者の position_map のまま）
+      layer = YAML.safe_load_file(config_file('layers/0_layer.yaml'))
+      expect(layer['mapping']['left_hand']).to include('thumb' => include('left', 'middle', 'right'))
       expect(Cornix::Application::Compile.new(env).call).to be_compiled
     end
 

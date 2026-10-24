@@ -4,13 +4,13 @@ left_hand:
   row1: [caps, A, S, D, F, G]
   row2: [lshift, Z, X, C, V, B]
   row3: [lctrl, command, option]
-  thumb_keys: [left, middle, right]
+  thumb: [l_left, l_mid, l_right]
 right_hand:
   row0: [Y, U, I, O, P, backspace]
   row1: [H, J, K, L, colon, enter]
   row2: [N, M, comma, dot, up, rshift]
   row3: [left, down, right]
-  thumb_keys: [left, middle, right]
+  thumb: [r_left, r_mid, r_right]
 encoders:
   left:
     push: push

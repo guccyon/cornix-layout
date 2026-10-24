@@ -55,6 +55,17 @@ RSpec.describe Cornix::Application::Editor::PlanEdits do
     expect(applied(result, layer)).to eq(read(layer).sub('Q: Q #', 'Q: Escape #').sub('U: U', 'U: Macro(0)'))
   end
 
+  it '親指の Address はファイルが書いているキー（旧名の thumb_keys で書いたファイルはそのキー、thumb のファイルは thumb）' do
+    result = plan([change(layer, %w[mapping left_hand thumb_keys middle], 'Space')])
+    expect(applied(result, layer)).to eq(read(layer).sub('middle: LT1(KC_SPACE)', 'middle: Space'))
+    expect { plan([change(layer, %w[mapping left_hand thumb middle], 'Space')]) }.to raise_error(described_class::InvalidChange)
+
+    write(layer, read(layer).gsub(/^    thumb_keys:/, '    thumb:'))
+    result = plan([change(layer, %w[mapping left_hand thumb middle], 'Space')])
+    expect(applied(result, layer)).to eq(read(layer).sub('middle: LT1(KC_SPACE)', 'middle: Space'))
+    expect { plan([change(layer, %w[mapping left_hand thumb_keys middle], 'Space')]) }.to raise_error(described_class::InvalidChange)
+  end
+
   it 'エンコーダの操作の値を置き換える' do
     result = plan([change(layer, %w[mapping encoders right push], 'Mute')])
     expect(applied(result, layer)).to eq(read(layer).sub('push: OSL(9)', 'push: Mute'))

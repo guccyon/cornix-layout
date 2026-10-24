@@ -229,22 +229,22 @@ mapping:
       A: Macro('Bracket Pair')     # refer to a macro by name
     row2:                          # write groups without assignments too (empty is fine)
     row3:
-    thumb_keys:
-      middle: TapDance('Tab Escape')
+    thumb:
+      l_mid: TapDance('Tab Escape')
   right_hand:
     row0:
       Y: Cmd + Space               # modifier expression
     row1:
     row2:
     row3:
-    thumb_keys:
+    thumb:
   encoders:
     left:
       ccw: VolumeDown
       cw: VolumeUp
 ```
 
-- Under `mapping` the structure is the same as `position_map.yaml`. Each hand must list all of `row0`–`row3` and `thumb_keys` (an empty value is fine)
+- Under `mapping` the structure is the same as `position_map.yaml`. Each hand must list all of `row0`–`row3` and `thumb` (an empty value is fine)
 - Keys you leave out inside a group are unassigned, and `compile` / `apply` write them as `NoKey` (KC_NO). To use the layer below, write `Trans`. Encoder actions you leave out are `NoKey`
 - To change a layer's number, change only `index` (the file name can stay as it is). `MO(2)` and the like point to the number "layer 2", so other files don't change. To swap the contents of two layers, just swap the `index` of the two files; `MO(2)` and the like then point to the new layer 2
 
@@ -393,13 +393,13 @@ left_hand:
   row1: [caps, A, S, D, F, G]
   row2: [lshift, Z, X, C, V, B]
   row3: [lctrl, command, option]
-  thumb_keys: [left, middle, right]
+  thumb: [l_left, l_mid, l_right]
 right_hand:
   row0: [Y, U, I, O, P, backspace]
   row1: [H, J, K, L, colon, enter]
   row2: [N, M, comma, dot, up, rshift]
   row3: [left, down, right]
-  thumb_keys: [left, middle, right]
+  thumb: [r_left, r_mid, r_right]
 encoders:
   left: { push: push, ccw: ccw, cw: cw }
   right: { push: push, ccw: ccw, cw: cw }
@@ -407,6 +407,7 @@ encoders:
 
 - For both hands, keys are listed **physically from left to right**
 - A name only needs to be unique within its group, and may contain letters, digits, `_` and `-`
+- The former name of the thumb group, `thumb_keys`, is still read (in `position_map.yaml` and in layer files, and it may differ from file to file). Writing both `thumb` and `thumb_keys` for the same hand is an error. To switch to `thumb`, change `thumb_keys:` to `thumb:` in each file (the compile result does not change)
 
 ## Writing keys
 
@@ -704,7 +705,7 @@ Vial asks you to hold two keys (an unlock) when saving macros, but that is behav
 | `position_map の left_hand.row1 にないキーです` (not a key in the position map) | Use a name that exists in `position_map.yaml` |
 | `マクロ「Unknown」が見つかりません` (macro not found) | Match the reference to the `name` in the macro file |
 | `左右の修飾キーは混在できません` (left and right modifiers mixed) | Use modifiers from one side only |
-| `row2, row3, thumb_keys がありません` (groups missing) | List every group of each hand (empty is fine) |
+| `row2, row3, thumb がありません` (groups missing) | List every group of each hand (empty is fine) |
 
 ## Using Vial (compile / decompile)
 

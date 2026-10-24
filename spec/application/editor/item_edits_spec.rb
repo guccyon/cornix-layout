@@ -153,13 +153,13 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
             row1: {}
             row2: {}
             row3: {}
-            thumb_keys: {}
+            thumb: {}
           right_hand:
             row0: {}
             row1: {}
             row2: {}
             row3: {}
-            thumb_keys: {}
+            thumb: {}
       YAML
       expect(result[:diagnostics]).to eq([])
     end
@@ -345,6 +345,14 @@ RSpec.describe Cornix::Application::Editor::ItemEdits do
     it '右手の row3 と親指のように、グループが違えば同じ名前でもよい' do
       result = plan(op: 'renamePosition', hand: 'right', row: 3, col: 3, to: 'down')
       expect(applied(result, 'position_map.yaml')).to include('thumb_keys: [down, middle, right]')
+    end
+
+    it '親指はファイルごとに書いているキー（thumb か旧名の thumb_keys）の下を書き換える' do
+      %w[position_map.yaml layers/0_layer_0.yaml].each { |rel| write(rel, read(rel).gsub(/^( +)thumb_keys:/, '\1thumb:')) }
+      result = plan(op: 'renamePosition', hand: 'left', row: 3, col: 4, to: 'l_mid')
+      expect(applied(result, 'position_map.yaml')).to include('thumb: [left, l_mid, right]')
+      expect(applied(result, 'layers/0_layer_0.yaml')).to include("    thumb:\n      left: LGUI_T(KC_LANG2)\n      l_mid: ")
+      expect(applied(result, 'layers/1_layer_1.yaml')).to match(/^    thumb_keys:\n      left: .*\n      l_mid: /)
     end
 
     it '使えない名前・ない位置は InvalidChange' do

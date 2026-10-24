@@ -21,6 +21,9 @@ updates:
     ignore:
       # engines.vscode（package.json）と手でそろえる。先に上がると vsce package が通らない
       - dependency-name: '@types/vscode'
+      # VS Code が積んでいる Node（engines.vscode の版では 22 系）に合わせる。メジャーを上げると使えない API の型が入る
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       npm:
         patterns: ['*']

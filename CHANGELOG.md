@@ -71,6 +71,7 @@
 
 ### 変更
 
+- VS Code 拡張 0.5.1: 実機への反映のプレビューで、変更のあるキーの枠・レイヤーのタブの件数・一覧の書き込む値の色を橙からライムグリーンにした（#133）。タップダンスの窓とマクロの印の橙と見分けやすくするため。プレビューの注意・古いプレビュー・書き込み不許可の枠は警告の色にした
 - 親指のグループの名前を `thumb_keys` から `thumb` に変え、`position_map.yaml` のテンプレートの親指の名前を左右で分けた（左手 `l_left` / `l_mid` / `l_right`、右手 `r_left` / `r_mid` / `r_right`）。
   テンプレートの置き場所は `lib/cornix/position_map.yaml` から `data/position_map.yaml` に移した
   - `thumb_keys` もこれまでどおり読める（`position_map.yaml` でもレイヤーのファイルでも。ファイルごとに違ってよい）。同じ手に `thumb` と `thumb_keys` の両方があれば構造のエラー

@@ -63,7 +63,7 @@ issue #105（未使用の項目を取り出す・未使用にする・番号の�
 ### L（段 2。#113）
 
 - 触るのは `src/webview/app.ts`・`layerEditor.ts`・`model.ts`・`keyboardView.ts`（要れば）とそのテスト、`media/webview.css` の末尾
-- W0 の `AddMenu`・`MoreMenu`・`IndexPicker` を組み込む。使っているレイヤーの並び（タブ・図・キー別）は `arrangeItems(snapshotItems(snapshot, 'layer'), pending)` の `used`
+- W0 の `AddMenu`・`MoreMenu`・`IndexPicker` を組み込む。使っているレイヤーの並び（タブ・図・下の欄）は `arrangeItems(snapshotItems(snapshot, 'layer'), pending)` の `used`
 
 ### I（段 2。#114）
 

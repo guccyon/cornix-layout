@@ -272,6 +272,8 @@ class FakeServer {
       }
       case 'keycode/shortcutTree':
         return data.SHORTCUT_TREE;
+      case 'features/status':
+        return { unlocked: [] };
       case 'keycode/inspect': {
         const p = params as { profileId?: unknown; context?: unknown; text?: unknown };
         requireString(p, 'profileId');

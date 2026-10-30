@@ -77,6 +77,8 @@ export type ViewState = { layer?: number; selected?: string; mode?: EditorMode; 
 export type EditorMode = 'layer' | 'key';
 
 /** レイヤーの番号の範囲（Domain::LayerRef::RANGE と同じ 0〜9） */
+/** キー別の並べ方の機能の名前（features/status の unlocked） */
+export const BY_KEY_FEATURE = 'editor.byKey';
 const LAYER_INDEXES = [...Array(INDEX_LIMITS.layer).keys()];
 
 /** W2: レイヤーの並び替えモードの文 */
@@ -114,6 +116,10 @@ export class App {
   private readonly slotById = new Map<string, Slot>();
   private readonly slotLayer = new Map<string, number>();
   private mode: EditorMode = 'layer';
+  /** 選んだ並べ方（キー別が解放されるまでは、覚えていてもレイヤー別で描く） */
+  private preferredMode: EditorMode = 'layer';
+  /** サーバーが解放した機能（features/status） */
+  private unlocked = new Set<string>();
   private foldQuiet = false;
   /** 足したレイヤー（次の snapshot に現れたら選ぶ） */
   private wantedLayer: number | undefined;
@@ -175,7 +181,7 @@ export class App {
     const saved = options.state?.get();
     this.layerIndex = saved?.layer;
     this.selected = saved?.selected;
-    this.mode = saved?.mode === 'key' ? 'key' : 'layer';
+    this.preferredMode = saved?.mode === 'key' ? 'key' : 'layer';
     this.foldQuiet = saved?.foldQuiet === true;
     this.keyboard = new KeyboardView({
       onSelect: (id) => this.reveal(id),
@@ -266,6 +272,7 @@ export class App {
   receive(message: HostMessage): void {
     if (message.type === 'snapshot') this.setSnapshot(message.snapshot, message.changes, message.pending);
     if (message.type === 'device') this.setDevice(message.state);
+    if (message.type === 'features') this.setFeatures(message.unlocked);
     if (message.type === 'error') {
       this.banner.textContent = message.message;
       this.banner.hidden = false;
@@ -286,8 +293,25 @@ export class App {
     return this.mode;
   }
 
-  /** v0.4: 下の欄の並べ方を変える（描き直しや外での変更による読み直しでも保つ） */
+  /** v0.4: 下の欄の並べ方を変える（描き直しや外での変更による読み直しでも保つ）。キー別は解放されているときだけ */
   setMode(mode: EditorMode): void {
+    if (mode === 'key' && !this.byKeyUnlocked) return;
+    this.preferredMode = mode;
+    this.applyMode(mode);
+  }
+
+  /** サーバーが解放した機能を受け取る。キー別が解放されたら覚えていた並べ方に戻す */
+  setFeatures(unlocked: readonly string[]): void {
+    this.unlocked = new Set(unlocked);
+    this.renderModeBar();
+    this.applyMode(this.byKeyUnlocked ? this.preferredMode : 'layer');
+  }
+
+  private get byKeyUnlocked(): boolean {
+    return this.unlocked.has(BY_KEY_FEATURE);
+  }
+
+  private applyMode(mode: EditorMode): void {
     if (mode === this.mode) return;
     this.mode = mode;
     this.saveState();
@@ -539,7 +563,7 @@ export class App {
     this.options.state?.set({
       ...(this.layerIndex === undefined ? {} : { layer: this.layerIndex }),
       ...(this.selected === undefined ? {} : { selected: this.selected }),
-      ...(this.mode === 'layer' ? {} : { mode: this.mode }),
+      ...(this.preferredMode === 'layer' ? {} : { mode: this.preferredMode }),
       ...(this.foldQuiet ? { foldQuiet: true } : {}),
     });
   }
@@ -1007,6 +1031,12 @@ export class App {
 
   /** 下の欄の並べ方の切り替え（とキー別の「畳む」） */
   private renderModeBar(): void {
+    // 並べ方が 1 つしかなければ切り替えを出さない
+    this.modeBar.classList.toggle('editor-mode-hidden', !this.byKeyUnlocked);
+    if (!this.byKeyUnlocked) {
+      this.modeBar.replaceChildren();
+      return;
+    }
     const button = (mode: EditorMode, label: string, title: string) => {
       const pressed = this.mode === mode;
       const element = h('button', { type: 'button', class: `mode-button${pressed ? ' selected' : ''}`, 'aria-pressed': String(pressed), 'data-mode': mode, title }, label);

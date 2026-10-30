@@ -3,7 +3,7 @@
 // 未保存の番号を当てたタブ・図・キー別の並び。W2（ADR 025）: タブの右クリックのメニューと、タブの並びの「…」の並び替え（◀▶・確定・やめる）
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AnyChange, LayerSnapshot, ProfileSnapshot, Unused } from '../../../src/protocol';
-import { App, type ViewState } from '../../../src/webview/app';
+import { App, BY_KEY_FEATURE, type ViewState } from '../../../src/webview/app';
 import { hideTooltip } from '../../../src/webview/tooltip';
 import { FakeHost, fixtureSnapshot } from './fakeHost';
 
@@ -159,6 +159,7 @@ describe('未保存の番号を当てた並び', () => {
   it('キー別の行も未保存の番号の順に並べる', () => {
     const snapshot = withUnused();
     receive(snapshot, [indexSet(nav, 2), indexSet(symbols, 3)]);
+    app.receive({ type: 'features', unlocked: [BY_KEY_FEATURE] });
     app.setMode('key');
     const block = root.querySelector<HTMLElement>(`.layer-editor .field[data-slot='${CSS.escape(slotOf(base, 'left_hand', 'row0', 'Q'))}']`)!.closest('.position-block')!;
     expect([...block.querySelectorAll('.layer-row-title, .layer-row-label')].map((e) => e.textContent)).toEqual(['0 Base', '2 Nav', '3 Symbols']);
@@ -262,6 +263,7 @@ describe('タブの右クリック（W2・ADR 025）', () => {
 
   it('キー別でも使え、名前を変える の欄を閉じたらタブにフォーカスを戻す', () => {
     receive(fixtureSnapshot());
+    app.receive({ type: 'features', unlocked: [BY_KEY_FEATURE] });
     app.setMode('key');
     rightClick(tab(symbols));
     tabMenuList().querySelector<HTMLButtonElement>("[data-action='rename']")!.click();

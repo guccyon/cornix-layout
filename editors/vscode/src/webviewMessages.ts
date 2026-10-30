@@ -86,7 +86,9 @@ export type HostMessage =
   | { type: 'response'; id: number; method: string; result: unknown }
   | { type: 'response'; id: number; method: string; error: string }
   /** v0.4: 実機と比べた状態。開いたとき（ready のあと）と、変わるたびに送る */
-  | { type: 'device'; state: DeviceViewState };
+  | { type: 'device'; state: DeviceViewState }
+  /** サーバーが解放した機能（features/status）。開いたとき（ready のあと）に送る */
+  | { type: 'features'; unlocked: string[] };
 
 /** Webview → ホスト */
 export type WebviewMessage =

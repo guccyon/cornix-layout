@@ -950,6 +950,10 @@ button {
   border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-input-border, #555));
 }
 
+.editor-mode.editor-mode-hidden {
+  display: none;
+}
+
 /* 編集フォーム全体のモード（レイヤー別 / キー別）であることを見出しで示す */
 .editor-mode-title {
   margin-right: 6px;

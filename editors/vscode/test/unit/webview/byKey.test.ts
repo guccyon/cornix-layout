@@ -2,7 +2,7 @@
 // v0.4（issue #84）: 下の欄の「レイヤー別 / キー別」の切り替え、キー別、レイヤーの追加と削除
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { LayerSnapshot, ProfileSnapshot } from '../../../src/protocol';
-import { App, type ViewState } from '../../../src/webview/app';
+import { App, BY_KEY_FEATURE, type ViewState } from '../../../src/webview/app';
 import { hideTooltip } from '../../../src/webview/tooltip';
 import { FakeHost, fixtureSnapshot } from './fakeHost';
 
@@ -41,11 +41,34 @@ beforeEach(() => {
   document.body.replaceChildren(root);
   state = undefined;
   app = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+  app.receive({ type: 'features', unlocked: [BY_KEY_FEATURE] });
 });
 
 afterEach(() => {
   hideTooltip();
   document.body.replaceChildren();
+});
+
+describe('キー別の解放', () => {
+  it('解放されていなければ切り替えを出さず、キー別にできない。覚えていたキー別は解放されたら戻す', () => {
+    state = { mode: 'key' };
+    app = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+    app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    expect(app.editorMode).toBe('layer');
+    expect(root.querySelector('.editor-mode')?.classList.contains('editor-mode-hidden')).toBe(true);
+    expect(modeButton('key')).toBeNull();
+    expect(root.querySelector('.position-block')).toBeNull();
+
+    app.receive({ type: 'features', unlocked: [] });
+    app.setMode('key');
+    expect(app.editorMode).toBe('layer');
+    expect(state).toMatchObject({ mode: 'key' });
+
+    app.receive({ type: 'features', unlocked: [BY_KEY_FEATURE] });
+    expect(app.editorMode).toBe('key');
+    expect(modeButton('key').getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector('.position-block')).not.toBeNull();
+  });
 });
 
 describe('並べ方の切り替え', () => {
@@ -81,6 +104,7 @@ describe('並べ方の切り替え', () => {
   it('覚えた並べ方で開き、外での変更で形が変わっても（レイヤーが増えても）キー別のまま', () => {
     state = { mode: 'key' };
     app = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+    app.receive({ type: 'features', unlocked: [BY_KEY_FEATURE] });
     const snapshot = fixtureSnapshot();
     app.receive({ type: 'snapshot', snapshot, changes: [] });
     expect(root.querySelectorAll('.position-block').length).toBeGreaterThan(0);

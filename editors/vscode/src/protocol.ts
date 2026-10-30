@@ -550,7 +550,11 @@ export interface RequestMap {
   'profile/planEdits': { params: PlanEditsParams; result: PlanEditsResult };
   'profile/saved': { params: SavedParams; result: ProfileSnapshot };
   'profile/planItemEdit': { params: PlanItemEditParams; result: PlanItemEditResult };
+  'features/status': { params: Record<string, never>; result: FeaturesStatusResult };
 }
+
+/** 解放されている機能の名前 */
+export type FeaturesStatusResult = { unlocked: string[] };
 
 /** 拡張 → サーバーの通知 */
 export interface ClientNotificationMap {

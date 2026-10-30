@@ -169,6 +169,21 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
       const message: HostMessage = { type: 'device', state: this.device.stateOf(document.dir) };
       void panel.webview.postMessage(message).then(undefined, () => undefined);
     };
+    // 解放されている機能。聞けなければ（古いサーバーなど）何も解放しない
+    const postFeatures = () => {
+      void this.server
+        .request('features/status', {})
+        .then(
+          (result) => result.unlocked,
+          () => [],
+        )
+        .then((unlocked) => {
+          if (disposed) return;
+          const message: HostMessage = { type: 'features', unlocked };
+          return panel.webview.postMessage(message);
+        })
+        .then(undefined, () => undefined);
+    };
     const subscriptions = [
       document.onDidChangeContent(post),
       ...(this.device ? [this.device.onDidChangeState((dir) => (dir === undefined || dir === document.dir) && postDevice())] : []),
@@ -178,6 +193,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
           case 'ready':
             post();
             postDevice();
+            postFeatures();
             return;
           case 'deviceAction':
             // 画面のボタン。プレビューはコマンドと同じ流れ（保存の促し）を通す

@@ -1145,7 +1145,7 @@ interface DevicePlan {
 ### 14.8 拡張だけで作るもの
 
 約束は変えない。[tasks-v0.4.md](tasks-v0.4.md) の「Tetsuro の確認で変えたこと」（ADR 020）: 編集フォームの一番下の節「デバイス転送」と、反映のプレビューのモーダル
-（違うキーの橙の枠・レイヤーのタブの件数・違いの一覧・警告・`keyboard.name`、「確定」と「やめる」）、設定 `cornix.device.allowWrites`。
+（違うキーのライムグリーンの枠・レイヤーのタブの件数・違いの一覧・警告・`keyboard.name`、「確定」と「やめる」）、設定 `cornix.device.allowWrites`。
 拡張が使うのは `device/compare`（プレビュー）と `device/apply`（確定。プレビューの token）と `device/progress` だけ。`device/backups`・`device/compareBackup`・`device/restore`（14.5）は約束に残すが、拡張からは使わない。
 プレビューのあとで設定ファイルの版が変わったら（`profile/saved` のあと・外での変更）、そのプレビューでは確定させない（もう一度 `device/compare`）。最後はサーバーが token で確かめる（-32071）。
 

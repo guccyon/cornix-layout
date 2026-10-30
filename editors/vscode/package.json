@@ -2,7 +2,7 @@
   "name": "cornix-vscode",
   "displayName": "Cornix Layout",
   "description": "cornix-layout のプロファイル（設定ディレクトリ）を 1 画面で見て、候補から選びながら編集する",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "guccyon",
   "private": true,
   "license": "MIT",

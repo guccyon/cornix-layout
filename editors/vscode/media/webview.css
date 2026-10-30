@@ -2454,7 +2454,20 @@ button {
 /* ---- v0.4: 実機への反映（deviceView.ts。tasks-v0.4.md の「画面」） ---- */
 
 :root {
-  --device-diff: var(--vscode-charts-orange, #d18616);
+  /* 変更のあるキーはライムグリーン（コードの diff の追加の色）。タップダンス・マクロの橙、位置の名前の紫、コンボの青、
+     ショートカットの印の緑（--vscode-charts-green）と見分けるため、テーマの色に任せず固定で持つ（#133）。
+     Light は白い背景で一覧の文字が読める（コントラスト 4.5:1 以上）ように暗くする。ハイコントラストはテーマの枠の色に任せる */
+  --device-diff: #9ccc2c;
+  /* プレビューの注意・古いプレビュー・書き込み不許可の枠（変更ではないので緑にしない） */
+  --device-notice: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+body.vscode-light {
+  --device-diff: #4d7a00;
+}
+
+body.vscode-high-contrast {
+  --device-diff: var(--vscode-contrastActiveBorder, #9ccc2c);
 }
 
 /* 編集フォームの一番下の節「デバイス転送」 */
@@ -2607,8 +2620,8 @@ button {
 .device-modal-locked {
   margin: 0;
   padding: 6px 10px;
-  border-left: 3px solid var(--device-diff);
-  background: color-mix(in srgb, var(--device-diff) 10%, transparent);
+  border-left: 3px solid var(--device-notice);
+  background: color-mix(in srgb, var(--device-notice) 10%, transparent);
 }
 
 .device-modal-errors {
@@ -2642,7 +2655,7 @@ button {
   color: var(--device-diff);
 }
 
-/* 実機と違うキー・エンコーダの操作: 橙の枠 */
+/* 実機と違うキー・エンコーダの操作: ライムグリーンの枠 */
 .key.device-diff::after,
 .encoder-part.device-diff::after {
   content: '';

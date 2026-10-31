@@ -54,11 +54,18 @@ module Cornix
 
           def none(kind) = out.line(kind ? "種類 #{kind} のスナップショットはありません" : 'スナップショットはありません')
 
-          # カレントの下なら相対パス、外なら絶対パス
+          # カレントの下なら相対パス、外なら絶対パス。
+          # シンボリックリンクを解決してから比べる（macOS の /var → /private/var など）
           def display(path)
-            relative = Pathname(path).expand_path.relative_path_from(Pathname(Dir.pwd).expand_path).to_s
+            relative = real(path).relative_path_from(real(Dir.pwd)).to_s
             outside = relative == '..' || relative.start_with?("..#{File::SEPARATOR}")
             outside ? File.expand_path(path) : relative
+          end
+
+          def real(path)
+            Pathname(path).realpath
+          rescue SystemCallError
+            Pathname(path).expand_path
           end
         end
       end

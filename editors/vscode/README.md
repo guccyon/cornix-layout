@@ -145,7 +145,11 @@ editors/vscode/
     extension.ts          入口（コマンド・一覧・編集画面・設定の変更をつなぐ）
     protocol.ts           約束の型（protocol.md をそのまま TypeScript にしたもの。v0.2 の形は 12 節、v0.3 は 13 節。約束を変えたらここも変える）
     deviceProtocol.ts     device のサーバーとの約束の型（protocol.md の 14。型だけで、Webview と偽の device のサーバーからも読む）
-    webviewMessages.ts    拡張と編集画面（Webview）の間のメッセージ（change・edit・itemEdit、snapshot と pending など。v0.4 の device（状態）と deviceAction（ボタン））
+    webviewMessages.ts    拡張と編集画面（Webview）の間のメッセージ（change・edit・itemEdit、snapshot と pending など。v0.4 の device（状態）と deviceAction（ボタン）、keyboard（KeyboardSpec））
+    keyboard/             キーボード固有の情報（KeyboardSpec。ADR 026、docs/vscode-extension/keyboard-spec.md）
+      spec.ts             型と純粋な関数（indexLimit・boardSize・rotationOrigin。Webview からも読む）
+      cornix.ts           Cornix の値（区画・グループ・配置・個数・表示名。Webview は import しない）
+      index.ts            プロファイルに使う spec を選ぶ（ホスト側。今は常に Cornix）
     server/
       locateCornix.ts     cornix の場所を決める（cornix.path → bin/cornix → PATH）
       connection.ts       JSON-RPC の接続（vscode-jsonrpc）、initialize・shutdown

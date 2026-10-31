@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import { hideTooltip } from '../../../src/webview/tooltip';
 import type { Change } from '../../../src/protocol';
 import { App, type ViewState } from '../../../src/webview/app';
@@ -34,6 +35,7 @@ beforeEach(() => {
   rendered = [];
   state = undefined;
   app = new App(root, {
+    keyboard: CORNIX,
     host,
     onRendered: (message) => rendered.push(message),
     state: { get: () => state, set: (s) => (state = s) },
@@ -298,7 +300,7 @@ describe('App の描き直し', () => {
     const id = slotOf('left_hand', 'row1', 'A');
     keyElement(id).click();
     expect(state).toEqual({ layer: 0, selected: id });
-    const again = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+    const again = new App(root, { keyboard: CORNIX, host, state: { get: () => state, set: (s) => (state = s) } });
     again.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     expect(again.selectedSlot).toBe(id);
     expect(keyElement(id).classList.contains('selected')).toBe(true);

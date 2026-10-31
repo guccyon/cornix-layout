@@ -12,13 +12,15 @@
 // 実機と違うキー・エンコーダの操作はライムグリーンの枠（setDeviceDiffs。class device-diff）で囲み、読み上げに実機の値を添える（v0.4。反映のプレビューのモーダルの図）。
 // タップダンスは、キーの面を割り当てのある動作の数の窓に分けて描く（1 つは面全体、2 つ・3 つは横幅いっぱいの窓を上から順に
 // 重ね、4 つは 2×2。順はタップ・ホールド・ダブルタップ・タップホールド）。エンコーダの帯では窓にせず、タップの札と「+残りの数」を並べる。
-import type { Diagnostic, Hand, KeyValue } from '../protocol';
-import { BOARD, ENCODERS, keyRect } from './cornixLayout';
+// 図の配置は KeyboardSpec（keyboard/spec.ts。ADR 026）から引く。サーバーの位置（hand / row / col）は spec のキーの match で、
+// layer.encoders の left / right はエンコーダの match.side で対応させる。spec にない位置は描かない。
+import type { KeyboardEncoder, KeyboardKey, KeyboardSpec, KeyRect } from '../keyboard/spec';
+import { boardSize, rotationOrigin } from '../keyboard/spec';
+import type { Diagnostic, KeyValue } from '../protocol';
 import { h, nodes } from './dom';
 import { iconElement } from './icons';
 import {
   ENCODER_OPS,
-  HAND_LABEL,
   keyAccessibleName,
   keyMark,
   severityOf,
@@ -43,6 +45,8 @@ export type SlotView = {
 export type ComboButton = { index: number; name: string; reachable?: boolean | undefined };
 
 export type KeyboardViewOptions = {
+  /** 図の配置（App の spec）。作ったあとに setSpec で入れてもよい（setSlots より前に） */
+  spec?: KeyboardSpec;
   onSelect: (slotId: string) => void;
   /** 説明をつなぐ（欄は id で指す。作り直さずに slot の中身が変わることがあるため） */
   decorate?: (element: HTMLElement, slotId: string) => void;
@@ -61,6 +65,27 @@ export type KeyboardViewOptions = {
 };
 
 const pct = (value: number, total: number) => `${((value / total) * 100).toFixed(3)}%`;
+
+/** 図の上の位置と大きさ（board の大きさに対する %）。回すときは rotate、中心が rx / ry なら transform-origin も */
+function placeStyle(rect: KeyRect, board: { width: number; height: number }): string {
+  const parts = [
+    `left: ${pct(rect.x, board.width)}`,
+    `top: ${pct(rect.y, board.height)}`,
+    `width: ${pct(rect.w, board.width)}`,
+    `height: ${pct(rect.h, board.height)}`,
+  ];
+  if (rect.r) {
+    // rx / ry がなければ CSS の既定（要素の中心）のまま
+    if (rect.rx !== undefined || rect.ry !== undefined) {
+      const origin = rotationOrigin(rect);
+      parts.push(`transform-origin: ${pct(origin.x - rect.x, rect.w)} ${pct(origin.y - rect.y, rect.h)}`);
+    }
+    parts.push(`transform: rotate(${rect.r}deg)`);
+  }
+  return parts.join('; ');
+}
+
+const positionKey = (hand: string, row: number, col: number) => `${hand}:${row}:${col}`;
 
 export class KeyboardView {
   readonly element: HTMLElement;
@@ -91,9 +116,15 @@ export class KeyboardView {
   private readonly pickBanner: HTMLElement;
   /** v0.4: 実機と違う欄（id → 実機の今の値の表記） */
   private deviceDiffs: ReadonlyMap<string, string> = new Map();
+  /** 図の配置（setSpec） */
+  private encoders: readonly KeyboardEncoder[] = [];
+  /** サーバーの位置（hand:row:col）→ spec のキー */
+  private keysByPosition = new Map<string, KeyboardKey>();
+  private boardSize = { width: 1, height: 1 };
 
   constructor(private readonly options: KeyboardViewOptions) {
-    this.board = h('div', { class: 'board', style: `aspect-ratio: ${BOARD.width} / ${BOARD.height}` });
+    this.board = h('div', { class: 'board' });
+    if (options.spec) this.setSpec(options.spec);
     this.toggle = h(
       'button',
       {
@@ -124,6 +155,14 @@ export class KeyboardView {
       if (event.key === 'Alt') this.setHeld(false);
     });
     win.addEventListener('blur', () => this.setHeld(false));
+  }
+
+  /** 図の配置を入れる（setSlots より前に。入れ直したら setSlots で描き直す） */
+  setSpec(spec: KeyboardSpec): void {
+    this.encoders = spec.encoders;
+    this.keysByPosition = new Map(spec.keys.map((key) => [positionKey(key.match.hand, key.match.row, key.match.col), key]));
+    this.boardSize = boardSize(spec);
+    this.board.style.aspectRatio = `${this.boardSize.width} / ${this.boardSize.height}`;
   }
 
   /** 位置の名前を出している（固定か、Alt・ボタンに載せている間の一時表示） */
@@ -209,23 +248,12 @@ export class KeyboardView {
     this.board.replaceChildren();
     for (const slot of slots) {
       if (!slot.key) continue;
-      const rect = keyRect(slot.hand, slot.key.row, slot.key.col);
-      if (!rect) continue;
-      const key = h('button', {
-        type: 'button',
-        class: 'key',
-        'data-slot': slot.id,
-        style: [
-          `left: ${pct(rect.x, BOARD.width)}`,
-          `top: ${pct(rect.y, BOARD.height)}`,
-          `width: ${pct(rect.w, BOARD.width)}`,
-          `height: ${pct(rect.h, BOARD.height)}`,
-          rect.rotate ? `transform: rotate(${rect.rotate}deg)` : '',
-        ].join('; '),
-      });
+      const spec = this.keysByPosition.get(positionKey(slot.hand, slot.key.row, slot.key.col));
+      if (!spec) continue;
+      const key = h('button', { type: 'button', class: 'key', 'data-slot': slot.id, style: placeStyle(spec.rect, this.boardSize) });
       this.add(key, slot);
     }
-    for (const hand of ['left', 'right'] as const) this.board.append(this.encoder(hand, slots));
+    for (const encoder of this.encoders) this.board.append(this.encoder(encoder, slots));
     this.applySelection();
     this.renderHint();
     this.refreshCombo();
@@ -301,21 +329,10 @@ export class KeyboardView {
     }
   }
 
-  private encoder(hand: Hand, slots: Slot[]): HTMLElement {
-    const place = ENCODERS[hand];
-    const wrapper = h('div', {
-      class: 'encoder',
-      role: 'group',
-      'aria-label': `${HAND_LABEL[hand]}のエンコーダ`,
-      style: [
-        `left: ${pct(place.x, BOARD.width)}`,
-        `top: ${pct(place.y, BOARD.height)}`,
-        `width: ${pct(place.w, BOARD.width)}`,
-        `height: ${pct(place.h, BOARD.height)}`,
-      ].join('; '),
-    });
+  private encoder(encoder: KeyboardEncoder, slots: Slot[]): HTMLElement {
+    const wrapper = h('div', { class: 'encoder', role: 'group', 'aria-label': encoder.label, style: placeStyle(encoder.place, this.boardSize) });
     for (const { op } of ENCODER_OPS) {
-      const slot = slots.find((s) => s.hand === hand && s.encoder === op);
+      const slot = slots.find((s) => s.hand === encoder.match.side && s.encoder === op);
       if (!slot) continue;
       const part = h('button', { type: 'button', class: `encoder-part encoder-${op}`, 'data-slot': slot.id });
       this.add(part, slot, wrapper);
@@ -361,7 +378,7 @@ export class KeyboardView {
     element.classList.toggle('position', positions);
     if (positions) {
       element.replaceChildren(h('span', { class: `key-label position-name${slot.label.length > 6 ? ' long' : ''}` }, slot.label));
-      element.setAttribute('aria-label', `${HAND_LABEL[slot.hand]} 位置の名前 ${slot.label}${deviceNote(device)}`);
+      element.setAttribute('aria-label', `${slot.sectionLabel} 位置の名前 ${slot.label}${deviceNote(device)}`);
       element.classList.remove('dual', 'marked', 'windowed');
       element.dataset.kind = '';
       return;

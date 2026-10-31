@@ -9,10 +9,11 @@
 // 状態はホストが送る（webviewMessages.ts の DeviceViewState）。画面は自分では読まない・書かない。
 import type { DeviceChange } from '../deviceProtocol';
 import type { Diagnostic, LayerSnapshot, ProfileSnapshot } from '../protocol';
+import type { KeyboardSpec } from '../keyboard/spec';
 import type { DeviceAction, DeviceTransfer, DeviceViewState } from '../webviewMessages';
 import { h, nodes } from './dom';
 import { KeyboardView } from './keyboardView';
-import { ENCODER_OPS, HAND_LABEL, baseLayerValue, layerSlots, layerTitle, type Slot } from './model';
+import { ENCODER_OPS, baseLayerValue, layerSlots, layerTitle, sectionLabel, sectionOf, type Slot } from './model';
 import { attachTooltip } from './tooltip';
 
 /** ホストから状態が来る前（と v0.3 までのホスト）の状態 */
@@ -52,18 +53,27 @@ export function deviceLayerCounts(changes: readonly DeviceChange[]): Map<number,
   return counts;
 }
 
+/** 約束のエンコーダの側（left / right）の区画の見出し（spec のエンコーダの match.side で引く。なければ側の名前のまま） */
+function encoderSectionLabel(spec: KeyboardSpec, side: string): string {
+  const encoder = spec.encoders.find((e) => e.match.side === side);
+  return encoder ? sectionLabel(encoder.section, spec) : side;
+}
+
 const ITEM_LABEL: Record<'macro' | 'tapDance' | 'combo', string> = { macro: 'マクロ', tapDance: 'タップダンス', combo: 'コンボ' };
 
-/** 一覧の行の「場所」。キーは「レイヤー名 / 位置の名前」、エンコーダは「レイヤー名 / 左手 エンコーダの押し込み」 */
-export function changePlace(change: DeviceChange, layerNames: ReadonlyMap<number, string>): string {
+/**
+ * 一覧の行の「場所」。キーは「レイヤー名 / 位置の名前」、エンコーダは「レイヤー名 / 左手 エンコーダの押し込み」。
+ * 区画の見出しは spec から（キーは sectionOf、エンコーダは match.side が同じ spec のエンコーダの区画）
+ */
+export function changePlace(change: DeviceChange, layerNames: ReadonlyMap<number, string>, spec: KeyboardSpec): string {
   const layer = change.layer === undefined ? '' : (layerNames.get(change.layer) ?? `レイヤー ${change.layer}`);
   switch (change.kind) {
     case 'key':
-      return `${layer} / ${change.position ?? (change.key ? `${HAND_LABEL[change.key.hand]} (${change.key.row}, ${change.key.col})` : '?')}`;
+      return `${layer} / ${change.position ?? (change.key ? `${sectionLabel(sectionOf(spec, change.key.hand, change.key.row, change.key.col), spec)} (${change.key.row}, ${change.key.col})` : '?')}`;
     case 'encoder': {
       const encoder = change.encoder;
       const op = ENCODER_OPS.find((o) => o.op === encoder?.direction)?.label ?? encoder?.direction ?? '';
-      return `${layer} / ${encoder ? HAND_LABEL[encoder.side] : ''} エンコーダの${op}`;
+      return `${layer} / ${encoder ? encoderSectionLabel(spec, encoder.side) : ''} エンコーダの${op}`;
     }
     case 'macro':
     case 'tapDance':
@@ -104,9 +114,23 @@ export function diagnosticPlace(diagnostic: Diagnostic): string | undefined {
   return file && path ? `${file}: ${path}` : file;
 }
 
+// 「Bluetooth では 10 秒ほど」は RMK 0.8 のキーボードを Bluetooth で読むときの目安（docs/device.md）。キーボードではなく
+// ファームウェアと通信の速さによるので、spec には寄せない
+/** 節「デバイス転送」の説明。keyboard はキーボードの表示名（KeyboardSpec の displayName） */
+export function transferDescription(keyboard: string): string {
+  return `保存済みのプロファイルを、接続中の ${keyboard} に書き込みます。押すと実機を読んで（Bluetooth では 10 秒ほど）違いをプレビューし、「確定」を押すまでは書き込みません。未保存の変更があれば先に保存します。`;
+}
+
+/** 実機を読んでいる間のモーダルの説明 */
+export function readingSummary(keyboard: string): string {
+  return `保存済みのプロファイルと比べるため、接続中の ${keyboard} を読んでいます（読むだけ。Bluetooth では 10 秒ほど）。`;
+}
+
 const WRITE_SETTING_NOTE = '書き込みは設定 cornix.device.allowWrites を有効にしたときだけできます（既定は無効。プレビューはいつでもできます）。';
 
 export type TransferSectionOptions = {
+  /** キーボードの表示名（KeyboardSpec の displayName） */
+  keyboard: string;
   onPreview: () => void;
   /** 検証の結果の 1 行（App の問題の行と同じもの。「ファイルを開く」付き） */
   problemRow: (diagnostic: Diagnostic) => HTMLElement;
@@ -141,7 +165,7 @@ export class TransferSection {
         h(
           'p',
           { class: 'device-transfer-description' },
-          '保存済みのプロファイルを、接続中の Cornix に書き込みます。押すと実機を読んで（Bluetooth では 10 秒ほど）違いをプレビューし、「確定」を押すまでは書き込みません。未保存の変更があれば先に保存します。',
+          transferDescription(options.keyboard),
         ),
         h('div', { class: 'device-transfer-actions' }, this.button, this.blocked),
         this.note,
@@ -191,7 +215,11 @@ export class TransferSection {
   }
 }
 
-export type TransferDialogOptions = { onAction: (action: DeviceAction) => void };
+export type TransferDialogOptions = {
+  /** キーボード固有の情報（App の spec。表示名・図の配置・区画） */
+  keyboard: KeyboardSpec;
+  onAction: (action: DeviceAction) => void;
+};
 
 /** 反映のプレビューのモーダル（transfer がないときは隠す） */
 export class TransferDialog {
@@ -222,6 +250,7 @@ export class TransferDialog {
 
   constructor(private readonly options: TransferDialogOptions) {
     this.keyboard = new KeyboardView({
+      spec: options.keyboard,
       onSelect: (id) => this.highlight(this.slotChanges.get(id)),
       decorate: (element, id) => attachTooltip(element, () => Promise.resolve(this.describe(id)), { focus: 'visible' }),
     });
@@ -304,7 +333,7 @@ export class TransferDialog {
     }
     if (transfer.step === 'reading') {
       this.title.textContent = '実機を読んでいます';
-      this.summary.textContent = '保存済みのプロファイルと比べるため、接続中の Cornix を読んでいます（読むだけ。Bluetooth では 10 秒ほど）。';
+      this.summary.textContent = readingSummary(this.options.keyboard.displayName);
       return;
     }
     const { plan, profile } = transfer;
@@ -382,7 +411,7 @@ export class TransferDialog {
     const layer = snapshot?.layers.find((l) => l.index === this.layer);
     const plan = this.state.transfer && this.state.transfer.step !== 'reading' ? this.state.transfer.plan : undefined;
     if (!snapshot || !layer) return;
-    this.slots = layerSlots(layer, snapshot.positionMap);
+    this.slots = layerSlots(layer, snapshot.positionMap, this.options.keyboard);
     this.slotChanges = deviceSlotChanges(plan?.changes ?? [], this.slots, this.layer);
     this.keyboard.setLayerNames(new Map(snapshot.layers.map((l) => [l.index, l.name])));
     this.keyboard.setSlots(this.slots);
@@ -416,7 +445,7 @@ export class TransferDialog {
       return h('div', { class: 'device-diff-row other', 'data-change': index }, h('span', { class: 'device-diff-text' }, change.text));
     }
     const content = [
-      h('span', { class: 'device-diff-place' }, changePlace(change, names)),
+      h('span', { class: 'device-diff-place' }, changePlace(change, names, this.options.keyboard)),
       ': ',
       h('code', { class: 'device-diff-device', title: '実機の今の値' }, change.device),
       h('span', { class: 'device-diff-arrow' }, ' → '),

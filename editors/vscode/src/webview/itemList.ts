@@ -18,7 +18,8 @@
 //   （番号の選択 indexPicker.ts と「番号を変える…」はやめた）
 // - 項目は番号のある種類ではファイル、ショートカットでは名前で見分ける（未使用の項目と名前が重なることがあるため）
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, IndexedKind, ItemEdit, ItemKind, ProfileSnapshot } from '../protocol';
-import { arrangeItems, INDEX_LIMITS, nextIndex, snapshotItems } from '../itemIndex';
+import { arrangeItems, nextIndex, snapshotItems } from '../itemIndex';
+import { indexLimit, type KeyboardSpec } from '../keyboard/spec';
 import { AddMenu, type AddMenuData, type AddMenuUnusedItem } from './addMenu';
 import { h, nodes } from './dom';
 import type { HostClient } from './hostClient';
@@ -30,7 +31,8 @@ import { MoreMenu, type MoreMenuItem } from './moreMenu';
 import { loadShortcutTree, presetEntries, type PresetEntry, type PresetKind } from './presetPicker';
 import { attachTooltip, describeContent, hideTooltip } from './tooltip';
 
-export type ItemSectionOptions = { host: HostClient };
+/** keyboard はホストが送った KeyboardSpec（個数の上限を取る） */
+export type ItemSectionOptions = { host: HostClient; keyboard: KeyboardSpec };
 
 /** 節ごとに決まるもの */
 export type ItemSectionMeta = {
@@ -120,6 +122,7 @@ export abstract class ItemSection<T extends { name: string }, V> {
   readonly kind: ItemKind;
   readonly title: string;
   private readonly namePlaceholder: string;
+  protected readonly keyboard: KeyboardSpec;
   /** 番号のある種類（ショートカットは undefined） */
   protected readonly indexedKind: IndexedKind | undefined;
 
@@ -134,6 +137,7 @@ export abstract class ItemSection<T extends { name: string }, V> {
 
   constructor(options: ItemSectionOptions, meta: ItemSectionMeta) {
     this.host = options.host;
+    this.keyboard = options.keyboard;
     this.inspector = new Inspector(options.host);
     this.kind = meta.kind;
     this.title = meta.title;
@@ -303,8 +307,8 @@ export abstract class ItemSection<T extends { name: string }, V> {
     const kind = this.indexedKind;
     if (!kind) return { create: { label: `＋ 新しい${this.title}` }, unused: [], unusedBlocked: null };
     const { used, unused } = this.arranged(snapshot);
-    const full = nextIndex(kind, used.map((item) => item.index)) === null;
-    const limit = INDEX_LIMITS[kind];
+    const limit = indexLimit(this.keyboard.limits, kind);
+    const full = nextIndex(limit, used.map((item) => item.index)) === null;
     const unusedRows: AddMenuUnusedItem[] = unused.map((item) => ({
       id: item.file,
       name: item.name,

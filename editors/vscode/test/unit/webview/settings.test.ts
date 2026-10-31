@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // QMK 設定の欄とメタデータの表示、App の下のペインへの置き方、保存前の検証の結果の出し方
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { Change } from '../../../src/protocol';
 import { App } from '../../../src/webview/app';
 import { MetadataView } from '../../../src/webview/metadataView';
@@ -173,7 +174,7 @@ describe('App の下のペイン', () => {
     const root = document.createElement('div');
     document.body.replaceChildren(root);
     const metadata = new MetadataView();
-    const app = new App(root, { host: new FakeHost(), sections: [editor.element, metadata.element] });
+    const app = new App(root, { keyboard: CORNIX, host: new FakeHost(), sections: [editor.element, metadata.element] });
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     const bottom = root.querySelector('.bottom-pane');
     // v0.4: 一番下は節「デバイス転送」（App が置く）
@@ -186,7 +187,7 @@ describe('App の下のペイン', () => {
   it('保存前の検証の結果（ホストが snapshot の diagnostics に入れる）は、変えていない参照している側の欄にも出る', () => {
     const root = document.createElement('div');
     document.body.replaceChildren(root);
-    const app = new App(root, { host: new FakeHost() });
+    const app = new App(root, { keyboard: CORNIX, host: new FakeHost() });
     const fn = { file: 'layers/0_base.yml', path: ['mapping', 'left_hand', 'row3', 'fn'] };
     const q = { file: 'layers/0_base.yml', path: ['mapping', 'left_hand', 'row0', 'Q'] };
     app.receive({

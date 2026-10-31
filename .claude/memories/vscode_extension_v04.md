@@ -40,6 +40,13 @@ v0.4 のうち issue #84（下の欄の「キー別」の並べ方・レイヤ�
   VS Code の色の変数はないので色は確かめられないが、並びと折り返しは分かる。ブラウザは `/opt/pw-browsers/chromium`
 - 実機の画面（D3）も同じやり方で見られる。Playwright は `/opt/node-tools/node_modules/playwright/index.mjs` を直接 import し、
   `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` を付ける。実機の状態は `window.postMessage({ type: 'device', state })` で入れる
+- KeyboardSpec（ADR 026）の後は、ready のあと `{ type: 'keyboard', spec }` を snapshot より先に送る（`CORNIX` を helper に一緒にまとめる）。
+  stub の postMessage で `request` を FakeHost#request に回して `response` を返すと、キーの面まで描ける。
+  見た目を変えないリファクタ（K2 #139 の図の配置の spec 化）は、前後で `.keyboard` の要素のスクリーンショットを撮って `cmp` で比べた（バイト単位で一致した）。
+  色の変数は body に数個置けばライト / ダークの両方を撮れる
+- K2: 図の配置は `CORNIX.keys` / `encoders` のリテラル（式の結果の端数 3.5700000000000003 などもそのまま）。図の大きさは `boardSize`（回した角まで含む範囲 + `padding`、小数第 6 位で丸める）。
+  Cornix の下の余白 0.032552 は、回した親指の角 4.717448 から元の高さ 4.75 までの空き。旧式の値は `test/unit/legacyCornixLayout.ts` に残した。
+  反映のプレビューのモーダルの図（deviceView.ts の TransferDialog）は App から `transferDialog.keyboardView.setSpec(spec)` で入れる（並行の PR と衝突しないよう生成の行は変えなかった）
 
 ## 実機とつなぐ（v0.4 の段 1・段 2）
 

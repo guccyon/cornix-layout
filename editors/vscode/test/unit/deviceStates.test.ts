@@ -1,6 +1,6 @@
 // 実機への反映の途中の状態（src/device/deviceStates.ts）と、通知に出す文（src/device/deviceTexts.ts）
 import { describe, expect, it } from 'vitest';
-import type { DeviceChange, DevicePlan } from '../../src/deviceProtocol';
+import { DeviceErrorCodes, type DeviceChange, type DevicePlan } from '../../src/deviceProtocol';
 import { DeviceStates, filesKey } from '../../src/device/deviceStates';
 import { deviceFailure, isDeviceAction, validationErrorNotice, writeResultNotice } from '../../src/device/deviceTexts';
 
@@ -91,14 +91,24 @@ describe('deviceTexts', () => {
 
   it('知らせ済みのエラー（CornixUnavailableError）と取り消しは知らせない。知らないエラーは出力を表示のボタン付き', () => {
     const unavailable = Object.assign(new Error('x'), { name: 'CornixUnavailableError' });
-    expect(deviceFailure(unavailable, 'preview', 'p')).toBeUndefined();
-    expect(deviceFailure({ code: -32800, message: 'c' }, 'preview', 'p')).toBeUndefined();
-    expect(deviceFailure(new Error('落ちました'), 'confirm', 'p')).toMatchObject({
+    expect(deviceFailure(unavailable, 'preview', 'p', 'Cornix')).toBeUndefined();
+    expect(deviceFailure({ code: -32800, message: 'c' }, 'preview', 'p', 'Cornix')).toBeUndefined();
+    expect(deviceFailure(new Error('落ちました'), 'confirm', 'p', 'Cornix')).toMatchObject({
       level: 'error',
       message: '実機への書き込みに失敗しました: 落ちました',
       actions: [{ label: '出力を表示' }],
     });
-    expect(deviceFailure(new Error('落ちました'), 'preview', 'p')?.message).toBe('実機を読んで比べるのに失敗しました: 落ちました');
+    expect(deviceFailure(new Error('落ちました'), 'preview', 'p', 'Cornix')?.message).toBe('実機を読んで比べるのに失敗しました: 落ちました');
+  });
+
+  it('キーボードが見つからないときの文は、渡したキーボードの表示名を使う', () => {
+    const notConnected = { code: DeviceErrorCodes.DeviceUnavailable, message: 'x', data: { reason: 'notConnected' } };
+    expect(deviceFailure(notConnected, 'preview', 'p', 'Cornix')?.message).toBe(
+      'キーボードが見つかりません。Cornix を USB か Bluetooth でつないでから、もう一度試してください。',
+    );
+    expect(deviceFailure(notConnected, 'preview', 'p', 'Other Board')?.message).toBe(
+      'キーボードが見つかりません。Other Board を USB か Bluetooth でつないでから、もう一度試してください。',
+    );
   });
 
   it('画面から来た操作の名前を確かめる', () => {

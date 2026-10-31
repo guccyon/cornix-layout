@@ -38,8 +38,14 @@ import {
 } from '../../src/protocol';
 import * as data from './fixtures';
 import { NotLocal, applyChange, quote } from './yamlLines';
-import { INDEX_LIMITS, arrangeItems, indexAddress, isPendingItemEdit, nextIndex, snapshotItems } from '../../src/itemIndex';
+import { CORNIX } from '../../src/keyboard/cornix';
+import { indexLimit } from '../../src/keyboard/spec';
+import { arrangeItems, indexAddress, isPendingItemEdit, nextIndex, snapshotItems } from '../../src/itemIndex';
+
 import { addressKey } from '../../src/editor/pendingChanges';
+
+/** 番号を持つ種類 */
+const INDEXED_KINDS: readonly string[] = ['layer', 'macro', 'tapDance', 'combo'];
 
 /** 偽のサーバーの profile/validate・planEdits の params（changes は v0.2 の AnyChange。protocol.md の 12.3） */
 type Draft = DraftParams;
@@ -839,7 +845,7 @@ class FakeServer {
       changes.push({ address: { file: 'shortcuts.yaml', path: ['shortcuts', name] }, value: edit.value });
     } else if (edit.op === 'use' || edit.op === 'unuse' || edit.op === 'setIndex') {
       const kind = edit.kind;
-      if (!(kind in INDEX_LIMITS)) invalid(`知らない種類です: ${String(kind)}`, 'edit.kind');
+      if (!INDEXED_KINDS.includes(kind)) invalid(`知らない種類です: ${String(kind)}`, 'edit.kind');
       const items = snapshotItems(snapshot, kind) as { file: string; name: string; index: number | null }[];
       const { used, unused } = arrangeItems(items, pending);
       const file = edit.file;
@@ -850,7 +856,7 @@ class FakeServer {
         kind === 'macro' ? [`Macro(${index})`, `M${index}`] : kind === 'tapDance' ? [`TD(${index})`, `TapDance(${index})`] : [];
       if (edit.op === 'use') {
         if (!isUnused) invalid(`${file} はもう使っています`, 'edit.file');
-        const index = nextIndex(kind, used.map((item) => item.index));
+        const index = nextIndex(indexLimit(CORNIX.limits, kind), used.map((item) => item.index));
         if (index === null) invalid('空いている番号がありません。先にどれかを未使用にしてください', 'edit');
         changes.push({ address: indexAddress(file), value: index! });
       } else if (edit.op === 'unuse') {
@@ -870,7 +876,7 @@ class FakeServer {
         if (!isUsed) invalid(`${file} は未使用です。先に使ってください`, 'edit.file');
         const item = isUsed!;
         const index = edit.index;
-        if (!Number.isInteger(index) || index < 0 || index >= INDEX_LIMITS[kind]) invalid(`番号は 0〜${INDEX_LIMITS[kind] - 1} です`, 'edit.index');
+        if (!Number.isInteger(index) || index < 0 || index >= indexLimit(CORNIX.limits, kind)) invalid(`番号は 0〜${indexLimit(CORNIX.limits, kind) - 1} です`, 'edit.index');
         if (index === item.index) invalid(`番号はもう ${index} です`, 'edit.index');
         const other = used.find((i) => i.index === index);
         changes.push({ address: indexAddress(file), value: index });
@@ -879,7 +885,7 @@ class FakeServer {
       }
     } else if (edit.op === 'reorder') {
       const kind = edit.kind;
-      if (!(kind in INDEX_LIMITS)) invalid(`知らない種類です: ${String(kind)}`, 'edit.kind');
+      if (!INDEXED_KINDS.includes(kind)) invalid(`知らない種類です: ${String(kind)}`, 'edit.kind');
       const items = snapshotItems(snapshot, kind) as { file: string; name: string; index: number | null }[];
       const { used } = arrangeItems(items, pending);
       const files = edit.files;
@@ -888,8 +894,8 @@ class FakeServer {
       // 今の番号を小さい順に並べて、新しい並びの順に当てる（抜け番はそのまま）。indexes があればその番号（抜け番を作れる）
       const given = edit.indexes;
       if (given !== undefined) {
-        const ok = Array.isArray(given) && given.length === files.length && given.every((i) => Number.isInteger(i) && i >= 0 && i < INDEX_LIMITS[kind]) && new Set(given).size === given.length;
-        if (!ok) invalid(`indexes は files と同じ数の、重ならない 0〜${INDEX_LIMITS[kind] - 1} の番号です`, 'edit.indexes');
+        const ok = Array.isArray(given) && given.length === files.length && given.every((i) => Number.isInteger(i) && i >= 0 && i < indexLimit(CORNIX.limits, kind)) && new Set(given).size === given.length;
+        if (!ok) invalid(`indexes は files と同じ数の、重ならない 0〜${indexLimit(CORNIX.limits, kind) - 1} の番号です`, 'edit.indexes');
       }
       const slotsInOrder = given ?? used.map((item) => item.index).sort((a, b) => a - b);
       moves = new Map();

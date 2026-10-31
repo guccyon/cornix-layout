@@ -124,6 +124,8 @@ export function fileVersionOf(bytes: Uint8Array): string {
   return `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
 }
 
+// 左右の手とエンコーダの名前は、レイヤーのファイル（layers/*.yaml の left_hand / right_hand / encoders.left・right）の形に合わせる。
+// キーボードごとの値ではなく cornix の設定ファイルの約束なので KeyboardSpec に寄せない
 const HAND_NAMES: Record<string, string> = { left_hand: '左手', right_hand: '右手' };
 const ENCODER_OPS: Record<string, string> = { push: '押し込み', ccw: '左回し', cw: '右回し' };
 const TAP_DANCE_ACTIONS: Record<string, string> = {

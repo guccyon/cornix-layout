@@ -40,12 +40,12 @@ describe('arrangeItems', () => {
 
 describe('nextIndex', () => {
   it('使っているいちばん大きい番号の次。上限なら空いている最小、空きがなければ null', () => {
-    expect(nextIndex('layer', [])).toBe(0);
-    expect(nextIndex('layer', [0, 1, 2])).toBe(3);
-    expect(nextIndex('layer', [0, 5])).toBe(6);
-    expect(nextIndex('layer', [0, 1, 9])).toBe(2);
-    expect(nextIndex('layer', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])).toBeNull();
-    expect(nextIndex('macro', [9])).toBe(10);
+    expect(nextIndex(10, [])).toBe(0);
+    expect(nextIndex(10, [0, 1, 2])).toBe(3);
+    expect(nextIndex(10, [0, 5])).toBe(6);
+    expect(nextIndex(10, [0, 1, 9])).toBe(2);
+    expect(nextIndex(10, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])).toBeNull();
+    expect(nextIndex(32, [9])).toBe(10);
   });
 });
 

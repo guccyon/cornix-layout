@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // v0.2 の図とレイヤーの欄（E2）: 位置の名前の表示と名前の変更、KC_TRNS の下のレイヤーの値、割り当てを消す操作と注記の欄
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { AnyChange, PositionMapEntry } from '../../../src/protocol';
 import { App } from '../../../src/webview/app';
 import { hideTooltip } from '../../../src/webview/tooltip';
@@ -42,7 +43,7 @@ beforeEach(() => {
   host = new FakeHost();
   root = document.createElement('div');
   document.body.replaceChildren(root);
-  app = new App(root, { host });
+  app = new App(root, { keyboard: CORNIX, host });
 });
 
 afterEach(() => {

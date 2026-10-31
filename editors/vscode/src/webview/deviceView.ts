@@ -104,9 +104,23 @@ export function diagnosticPlace(diagnostic: Diagnostic): string | undefined {
   return file && path ? `${file}: ${path}` : file;
 }
 
+// 「Bluetooth では 10 秒ほど」は RMK 0.8 のキーボードを Bluetooth で読むときの目安（docs/device.md）。キーボードではなく
+// ファームウェアと通信の速さによるので、spec には寄せない
+/** 節「デバイス転送」の説明。keyboard はキーボードの表示名（KeyboardSpec の displayName） */
+export function transferDescription(keyboard: string): string {
+  return `保存済みのプロファイルを、接続中の ${keyboard} に書き込みます。押すと実機を読んで（Bluetooth では 10 秒ほど）違いをプレビューし、「確定」を押すまでは書き込みません。未保存の変更があれば先に保存します。`;
+}
+
+/** 実機を読んでいる間のモーダルの説明 */
+export function readingSummary(keyboard: string): string {
+  return `保存済みのプロファイルと比べるため、接続中の ${keyboard} を読んでいます（読むだけ。Bluetooth では 10 秒ほど）。`;
+}
+
 const WRITE_SETTING_NOTE = '書き込みは設定 cornix.device.allowWrites を有効にしたときだけできます（既定は無効。プレビューはいつでもできます）。';
 
 export type TransferSectionOptions = {
+  /** キーボードの表示名（KeyboardSpec の displayName） */
+  keyboard: string;
   onPreview: () => void;
   /** 検証の結果の 1 行（App の問題の行と同じもの。「ファイルを開く」付き） */
   problemRow: (diagnostic: Diagnostic) => HTMLElement;
@@ -141,7 +155,7 @@ export class TransferSection {
         h(
           'p',
           { class: 'device-transfer-description' },
-          '保存済みのプロファイルを、接続中の Cornix に書き込みます。押すと実機を読んで（Bluetooth では 10 秒ほど）違いをプレビューし、「確定」を押すまでは書き込みません。未保存の変更があれば先に保存します。',
+          transferDescription(options.keyboard),
         ),
         h('div', { class: 'device-transfer-actions' }, this.button, this.blocked),
         this.note,
@@ -191,7 +205,11 @@ export class TransferSection {
   }
 }
 
-export type TransferDialogOptions = { onAction: (action: DeviceAction) => void };
+export type TransferDialogOptions = {
+  /** キーボードの表示名（KeyboardSpec の displayName） */
+  keyboard: string;
+  onAction: (action: DeviceAction) => void;
+};
 
 /** 反映のプレビューのモーダル（transfer がないときは隠す） */
 export class TransferDialog {
@@ -304,7 +322,7 @@ export class TransferDialog {
     }
     if (transfer.step === 'reading') {
       this.title.textContent = '実機を読んでいます';
-      this.summary.textContent = '保存済みのプロファイルと比べるため、接続中の Cornix を読んでいます（読むだけ。Bluetooth では 10 秒ほど）。';
+      this.summary.textContent = readingSummary(this.options.keyboard);
       return;
     }
     const { plan, profile } = transfer;

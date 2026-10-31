@@ -4,6 +4,7 @@
 // vscode に依存しない（VS Code の部分は DeviceHost と DevicePrompts に分け、単体テストで偽の device のサーバーとつないで確かめる）。
 import { CancellationTokenSource, type CancellationToken } from 'vscode-jsonrpc';
 import { DeviceErrorCodes, type DeviceProgressParams, type DeviceRequestMap, type DeviceRequestMethod } from '../deviceProtocol';
+import { keyboardSpecFor } from '../keyboard';
 import type { DeviceAction } from '../webviewMessages';
 import type { DeviceStates } from './deviceStates';
 import { deviceFailure, validationErrorNotice, writeResultNotice, writesDisabledNotice, type FailedStep, type Notice } from './deviceTexts';
@@ -158,7 +159,8 @@ export class DeviceFlow {
   }
 
   private failed(error: unknown, step: FailedStep, dir: string): DeviceOutcome {
-    const notice = deviceFailure(error, step, dir);
+    // 文のキーボードの表示名は、そのプロファイルの KeyboardSpec から取る
+    const notice = deviceFailure(error, step, dir, keyboardSpecFor(dir).displayName);
     if (notice) this.notify(notice);
     return (error as { code?: unknown } | null)?.code === DeviceErrorCodes.RequestCancelled ? 'cancelled' : 'failed';
   }

@@ -67,20 +67,22 @@ export function validationErrorNotice(errors: number): Notice {
 
 type RpcErrorLike = { code?: unknown; message?: unknown; data?: unknown };
 
-const UNAVAILABLE_TEXT: Record<DeviceUnavailableReason, string> = {
-  platform: '実機の操作は macOS でだけ使えます（キーボードとの通信に macOS の IOKit を使うため）。Mac で開いて試してください。',
-  bridge:
+/** 実機が使えない理由ごとの文。keyboard はキーボードの表示名（KeyboardSpec の displayName） */
+const UNAVAILABLE_TEXT: Record<DeviceUnavailableReason, (keyboard: string) => string> = {
+  platform: () => '実機の操作は macOS でだけ使えます（キーボードとの通信に macOS の IOKit を使うため）。Mac で開いて試してください。',
+  bridge: () =>
     'キーボードと通信するブリッジ（tmp/cornix-hid）を用意できませんでした。初めて使うときに ext/cornix_hid/main.swift を swiftc でビルドします。' +
     'Xcode Command Line Tools を入れて（xcode-select --install）からもう一度試してください。手でビルドするなら、リポジトリで swiftc -O ext/cornix_hid/main.swift -o tmp/cornix-hid。',
-  notConnected: 'キーボードが見つかりません。Cornix を USB か Bluetooth でつないでから、もう一度試してください。',
-  timeout: 'キーボードが応答しません（Bluetooth が切れたか、スリープしているかもしれません）。キーを押して起こすか、つなぎ直してから、もう一度試してください。',
+  notConnected: (keyboard) => `キーボードが見つかりません。${keyboard} を USB か Bluetooth でつないでから、もう一度試してください。`,
+  timeout: () => 'キーボードが応答しません（Bluetooth が切れたか、スリープしているかもしれません）。キーを押して起こすか、つなぎ直してから、もう一度試してください。',
 };
 
 /**
  * device/* の失敗を知らせの文にする。step は読んでいた（preview）か書いていた（confirm）か。
+ * keyboard はキーボードの表示名（プロファイルの KeyboardSpec の displayName。「Cornix を USB か Bluetooth でつないで」など）。
  * 取り消し（-32800）と、知らせ済みのエラー（cornix が見つからないなど。name が CornixUnavailableError）は知らせない（undefined）
  */
-export function deviceFailure(error: unknown, step: FailedStep, dir: string): Notice | undefined {
+export function deviceFailure(error: unknown, step: FailedStep, dir: string, keyboard: string): Notice | undefined {
   if (error instanceof Error && error.name === 'CornixUnavailableError') return undefined;
   const { code, message, data } = (typeof error === 'object' && error !== null ? error : {}) as RpcErrorLike;
   const text = typeof message === 'string' ? message : String(error);
@@ -89,7 +91,7 @@ export function deviceFailure(error: unknown, step: FailedStep, dir: string): No
       return undefined;
     case DeviceErrorCodes.DeviceUnavailable: {
       const reason = (data as Partial<DeviceErrorData['DeviceUnavailable']> | undefined)?.reason;
-      const body = reason && reason in UNAVAILABLE_TEXT ? UNAVAILABLE_TEXT[reason] : `実機が使えません（${text}）。`;
+      const body = reason && reason in UNAVAILABLE_TEXT ? UNAVAILABLE_TEXT[reason](keyboard) : `実機が使えません（${text}）。`;
       const actions = reason === 'notConnected' || reason === 'timeout' ? [previewAgain(dir, 'もう一度')] : reason === 'bridge' ? [SHOW_OUTPUT] : [];
       return { level: 'error', message: body, actions };
     }

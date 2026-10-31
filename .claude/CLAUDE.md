@@ -17,7 +17,7 @@
   - [rename](../docs/rename.md) - `cornix rename` と `bin/rename_file`
   - [コマンドの体系と cornix self](../docs/cli.md) - サブコマンドの並べ方の方針、`cornix self link`（Ruby を固定した shim を PATH に置く。設計だけ）
   - [キーボード直接操作と MCP](../docs/device.md) - `cornix device` / `cornix mcp` / `cornix serve --device`、RMK 0.8 の挙動と安全設計
-  - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・ロードマップ・バックエンドとのリクエストの約束（v0.1〜v0.4。v0.4 は実機への反映（プレビュー → 確定）と #84 のキーごとの並べ方。コードは `editors/vscode/`、バックエンドは `cornix serve` と `cornix serve --device`）
+  - [VS Code 拡張](../docs/vscode-extension/README.md) - 仕様・ADR・キーボード固有の情報（KeyboardSpec）・ロードマップ・バックエンドとのリクエストの約束（v0.1〜v0.4。v0.4 は実機への反映（プレビュー → 確定）と #84 のキーごとの並べ方。コードは `editors/vscode/`、バックエンドは `cornix serve` と `cornix serve --device`）
 - **Memories**: [memories/](memories/)
   - [domain_architecture_refactor](memories/domain_architecture_refactor.md) - 作り直しの知見・意図的に変えた振る舞い
   - [settings_ordering](memories/settings_ordering.md) - QMK Settings の QSID と順序
@@ -34,6 +34,7 @@
   - [empty_layers](memories/empty_layers.md) - 空のレイヤーのファイルの省略（#83）: compile の埋め方、decompile が書かない条件、authors の空のレイヤーの落とし穴
   - [unused_files](memories/unused_files.md) - 未使用のファイルとファイル名の番号（#85）: 未使用の判定、load_all と UnusedFile、項目とファイルの対応をずらさない場所
   - [thumb_group](memories/thumb_group.md) - 親指のグループ thumb と旧名 thumb_keys の読み替え（HandGroups の置き場所、Address はファイルごとのキー、fixture を旧名のまま残した理由）
+  - [keyboard_spec](memories/keyboard_spec.md) - 拡張のキーボード固有の情報 KeyboardSpec（#137）: Slot.hand を残して section を足した理由、図の高さの余白、統合ブランチで squash のあとの載せ替え、サブエージェントの worktree がコミットに入る件
 - **テスト**: [spec/README.md](../spec/README.md)
 
 ---

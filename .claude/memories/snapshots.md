@@ -14,3 +14,4 @@
 - Interface は Application にしか依存できない（architecture_spec）。CLI / MCP が種類の一覧を使うときは `Application::ListSnapshots::KINDS` を通す
 - 同じ秒の番号（-2, -3 …）は種類によらず続けて振る。種類ごとに数えて名前の順で並べると、apply の read → pre-apply が逆に並んだ（レビューの指摘）。mtime は Linux の粒度が粗く同じ値になりうるので使わない
 - 一覧の絞り込みの種類の誤りは ConfigError（利用者の入力）、save の種類の誤りは ArgumentError（コードの誤り）
+- `cornix snapshots` の相対パスの判定はシンボリックリンクを解決して（realpath）比べる。macOS では `Dir.mktmpdir` が `/var/…` を返し、chdir 後の `Dir.pwd` は `/private/var/…` になるので、expand_path だけだと相対パスにならず spec が Mac だけで落ちていた（CI は ubuntu なので通る）

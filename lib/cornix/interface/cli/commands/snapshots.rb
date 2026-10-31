@@ -47,8 +47,10 @@ module Cornix
 
           def print_list(list)
             width = list.snapshots.map { |s| s.kind.size }.max
+            cwd = real(Dir.pwd)
             list.snapshots.each do |snapshot|
-              out.line("#{snapshot.time.strftime('%Y-%m-%d %H:%M:%S')}  #{snapshot.kind.ljust(width)}  #{display(snapshot.path)}")
+              out.line("#{snapshot.time.strftime('%Y-%m-%d %H:%M:%S')}  #{snapshot.kind.ljust(width)}  " \
+                       "#{display(snapshot.path, cwd)}")
             end
           end
 
@@ -56,8 +58,8 @@ module Cornix
 
           # カレントの下なら相対パス、外なら絶対パス。
           # シンボリックリンクを解決してから比べる（macOS の /var → /private/var など）
-          def display(path)
-            relative = real(path).relative_path_from(real(Dir.pwd)).to_s
+          def display(path, cwd)
+            relative = real(path).relative_path_from(cwd).to_s
             outside = relative == '..' || relative.start_with?("..#{File::SEPARATOR}")
             outside ? File.expand_path(path) : relative
           end

@@ -151,6 +151,27 @@ RSpec.describe 'cornix pull / status / apply / restore' do
       end
       expect(device.keymap[1][0][1]).to eq(0)
     end
+
+    # macOS の /var → /private/var と同じく、スナップショットのパスとカレントの片方だけがリンクを通るとき
+    context 'root がシンボリックリンクを通るとき' do
+      let(:real_root) { File.join(@root, 'real').tap { |dir| FileUtils.mkdir_p(dir) } }
+      let(:env) do
+        link = File.join(@root, 'link')
+        File.symlink(real_root, link)
+        Cornix::Application::Environment.new(root: link, device_opener: opener)
+      end
+
+      it 'リンクの先のカレントでも相対パスで出し、そのパスを restore に渡せる' do
+        cornix('apply', '--yes')
+        Dir.chdir(real_root) do
+          expect(cornix('snapshots', '--kind', 'pre-apply')).to eq(0)
+          path = out.string.split.last
+          expect(path).to match(%r{\Atmp/snapshots/\d{8}-\d{6}-pre-apply(-\d+)?/layout\.vil\z})
+          expect(cornix('restore', path, '--yes')).to eq(0)
+        end
+        expect(device.keymap[1][0][1]).to eq(0)
+      end
+    end
   end
 
   describe 'pull' do

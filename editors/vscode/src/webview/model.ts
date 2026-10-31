@@ -364,7 +364,8 @@ export type ArrangedLayers = {
   next: number | null;
 };
 
-export function arrangeLayers(snapshot: ProfileSnapshot, pending: readonly AnyChange[]): ArrangedLayers {
+/** layerLimit はレイヤーの数（KeyboardSpec の limits.layers） */
+export function arrangeLayers(snapshot: ProfileSnapshot, pending: readonly AnyChange[], layerLimit: number): ArrangedLayers {
   const items = snapshotItems(snapshot, 'layer');
   const { used, unused } = arrangeItems(items, pending);
   const changed = new Set(items.filter((item) => indexChanged(item.file, item.index, pending)).map((item) => item.file));
@@ -373,7 +374,7 @@ export function arrangeLayers(snapshot: ProfileSnapshot, pending: readonly AnyCh
     unused,
     changed,
     next: nextIndex(
-      'layer',
+      layerLimit,
       used.map((layer) => layer.index),
     ),
   };
@@ -385,4 +386,6 @@ export function arrangementKey(layers: readonly { index: number; file: string }[
 }
 
 /** 番号が埋まっていて未使用のレイヤーを取り出せないときの文 */
-export const LAYER_INDEXES_FULL = '番号が 10 個とも使われています。使っているレイヤーのどれかを「未使用にする」と、ここから選べます。';
+export function layerIndexesFull(layerLimit: number): string {
+  return `番号が ${layerLimit} 個とも使われています。使っているレイヤーのどれかを「未使用にする」と、ここから選べます。`;
+}

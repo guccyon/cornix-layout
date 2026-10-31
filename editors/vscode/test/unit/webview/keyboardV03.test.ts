@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { AnyChange, ComboSnapshot, KeyValue, PositionMapEntry } from '../../../src/protocol';
 import { App } from '../../../src/webview/app';
 import { comboTargets, effectiveKey, sameKey, triggerKeys } from '../../../src/webview/comboHighlight';
@@ -72,7 +73,7 @@ beforeEach(() => {
   host = new FakeHost();
   root = document.createElement('div');
   document.body.replaceChildren(root);
-  app = new App(root, { host });
+  app = new App(root, { keyboard: CORNIX, host });
 });
 
 afterEach(() => {

@@ -2,6 +2,7 @@
 // v0.4（tasks-v0.4.md の D3）: 実機への反映の画面。編集フォームの一番下の節「デバイス転送」と、反映のプレビューのモーダル
 // （図の橙の枠・レイヤーのタブの件数・違いの一覧・確定とやめる・検証のエラー・古いプレビュー・読む間と書く間）
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { DeviceChange } from '../../../src/deviceProtocol';
 import { App } from '../../../src/webview/app';
 import type { DevicePlan } from '../../../src/deviceProtocol';
@@ -60,7 +61,7 @@ beforeEach(() => {
   host = new FakeHost();
   root = document.createElement('div');
   document.body.replaceChildren(root);
-  app = new App(root, { host });
+  app = new App(root, { keyboard: CORNIX, host });
   app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
 });
 
@@ -339,7 +340,7 @@ describe('反映のプレビューのモーダル', () => {
     document.body.replaceChildren();
     const other = document.createElement('div');
     document.body.append(other);
-    const late = new App(other, { host });
+    const late = new App(other, { keyboard: CORNIX, host });
     late.receive({ type: 'device', state: preview() });
     expect(late.transfer.isOpen).toBe(true);
     late.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });

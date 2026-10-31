@@ -29,7 +29,7 @@
 // 使っていれば入れ替え。レイヤーは「位置」なので抜け番を作れる）。「確定」で番号（indexes）付きの reorder を 1 回送り（変わらなければ送らない。
 // ホストが未保存の変更に積む）、「やめる」で捨てる。モードの間はタブの選択・「＋」は使えない（番号の選択 indexPicker.ts と「番号を変える…」はやめた）。
 import type { Address, AnyChange, CandidateContext, Change, Diagnostic, KeyValue, LayerSnapshot, ProfileSnapshot, RemoveChange, Unused } from '../protocol';
-import { INDEX_LIMITS } from '../itemIndex';
+import type { KeyboardSpec } from '../keyboard/spec';
 import { AddMenu } from './addMenu';
 import { REORDER_CANCEL, REORDER_CONFIRM, REORDER_TOO_FEW } from './itemList';
 import { MoreMenu, type MoreMenuItem } from './moreMenu';
@@ -44,7 +44,7 @@ import type { KeyInput } from './keyInput';
 import { KeyboardView } from './keyboardView';
 import { LayerEditor, type PositionSlots } from './layerEditor';
 import {
-  LAYER_INDEXES_FULL,
+  layerIndexesFull,
   addPending,
   addressKey,
   arrangeLayers,
@@ -76,16 +76,16 @@ export type ViewState = { layer?: number; selected?: string; mode?: EditorMode; 
 /** v0.4: 下の欄の並べ方。layer はレイヤー別（選んでいるレイヤー 1 枚）、key はキー別（位置ごとに全レイヤー） */
 export type EditorMode = 'layer' | 'key';
 
-/** レイヤーの番号の範囲（Domain::LayerRef::RANGE と同じ 0〜9） */
 /** キー別の並べ方の機能の名前（features/status の unlocked） */
 export const BY_KEY_FEATURE = 'editor.byKey';
-const LAYER_INDEXES = [...Array(INDEX_LIMITS.layer).keys()];
 
 /** W2: レイヤーの並び替えモードの文 */
 export const LAYER_REORDER_HINT = '◀▶ で隣の番号へ（空きなら移し、使っていれば入れ替え）。「確定」で反映（MO(n) などの参照も追従します）';
 
 export type AppOptions = {
   host: HostClient;
+  /** ホストが送った KeyboardSpec（webviewMessages.ts の keyboard。main.ts はそれを受けてから App を作る） */
+  keyboard: KeyboardSpec;
   /** 描き終えたら（統合テストが待つ） */
   onRendered?: (message: Extract<WebviewMessage, { type: 'rendered' }>) => void;
   state?: { get(): ViewState | undefined; set(state: ViewState): void };
@@ -169,10 +169,17 @@ export class App {
   private readonly topPane: HTMLElement;
   private readonly bottomPane: HTMLElement;
 
+  /** キーボード固有の情報（AppOptions の keyboard） */
+  private readonly spec: KeyboardSpec;
+  /** レイヤーの番号の範囲（0〜limits.layers - 1。Cornix は Domain::LayerRef::RANGE と同じ 0〜9） */
+  private readonly layerIndexes: number[];
+
   constructor(
     private readonly root: HTMLElement,
     private readonly options: AppOptions,
   ) {
+    this.spec = options.keyboard;
+    this.layerIndexes = [...Array(options.keyboard.limits.layers).keys()];
     this.inspector = new Inspector(options.host);
     this.transferSection = new TransferSection({ onPreview: () => options.host.deviceAction('preview'), problemRow: (diagnostic) => this.problemRow(diagnostic) });
     this.transferDialog = new TransferDialog({ onAction: (action) => options.host.deviceAction(action) });
@@ -546,7 +553,7 @@ export class App {
       this.nextLayerIndex = null;
       return '';
     }
-    const arranged = arrangeLayers(snapshot, this.pending);
+    const arranged = arrangeLayers(snapshot, this.pending, this.spec.limits.layers);
     this.layers = arranged.used;
     this.unusedLayers = arranged.unused;
     this.changedLayers = arranged.changed;
@@ -781,7 +788,7 @@ export class App {
 
   /** 今の番号の枠（0〜9） */
   private slotsOf(layers: readonly { index: number; file: string }[]): (string | null)[] {
-    const slots: (string | null)[] = LAYER_INDEXES.map(() => null);
+    const slots: (string | null)[] = this.layerIndexes.map(() => null);
     for (const layer of layers) if (layer.index >= 0 && layer.index < slots.length) slots[layer.index] = layer.file;
     return slots;
   }
@@ -838,20 +845,20 @@ export class App {
       create:
         free.length > 0
           ? { label: '新しいレイヤー', note: `番号 ${next ?? free[0]} に作る` }
-          : { label: '新しいレイヤー', disabled: true, reason: '空いている番号（0〜9）がありません' },
+          : { label: '新しいレイヤー', disabled: true, reason: `空いている番号（0〜${this.spec.limits.layers - 1}）がありません` },
       unused: this.unusedLayers.map((layer) => ({
         id: layer.file,
         name: layer.name,
         file: layer.file,
         warnings: layerProblems(snapshot, layer.file).length,
       })),
-      unusedBlocked: next === null ? LAYER_INDEXES_FULL : null,
+      unusedBlocked: next === null ? layerIndexesFull(this.spec.limits.layers) : null,
     });
-    this.addMenu.button.title = free.length > 0 ? 'レイヤーを追加する（新しく作る・未使用から取り出す）' : LAYER_INDEXES_FULL;
+    this.addMenu.button.title = free.length > 0 ? 'レイヤーを追加する（新しく作る・未使用から取り出す）' : layerIndexesFull(this.spec.limits.layers);
   }
 
   private freeLayerIndexes(): number[] {
-    return LAYER_INDEXES.filter((index) => !this.layers.some((layer) => layer.index === index));
+    return this.layerIndexes.filter((index) => !this.layers.some((layer) => layer.index === index));
   }
 
   /** v0.5: 未使用のレイヤーを取り出す（ホストが末尾の番号の set を未保存の変更に積む）。並びに現れたら選ぶ */

@@ -2,6 +2,7 @@
 // v0.3 の欄と節（tasks-v0.3.md の E2）: 節を畳む・placeholder を出さない・同梱のショートカットを選ぶ／コピー・preset の展開・
 // コンボの「図から選ぶ」・押せないコンボの印
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { CandidateContext, ComboSnapshot, ProfileSnapshot } from '../../../src/protocol';
 import { ComboEditor, PICK_LABEL, PICKING_LABEL, UNREACHABLE_MESSAGE } from '../../../src/webview/comboEditor';
 import { KeyInput, PRESET_ROW_LABEL, PRESET_SHORTCUT_CONTEXTS } from '../../../src/webview/keyInput';
@@ -49,7 +50,7 @@ afterEach(() => {
 
 describe('節を畳む', () => {
   it('レイヤー以外の節は最初は畳んであり、開いた状態は snapshot の描き直しで戻らない', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     const settings = mount(new SettingsEditor({ onCommit: () => undefined }));
     const metadata = mount(new MetadataView());
     macros.update(snapshot(), []);
@@ -69,7 +70,7 @@ describe('節を畳む', () => {
 
 describe('割り当てのない欄の placeholder', () => {
   it('中身の画面のキーの欄は、割り当てがなければ空白のまま（「（なし）」を出さない）', () => {
-    const tapDances = mount(new TapDanceEditor({ host }));
+    const tapDances = mount(new TapDanceEditor({ keyboard: CORNIX, host }));
     tapDances.update(snapshot(), []);
     const doubleTap = byFocus<HTMLInputElement>(tapDances.element, 'action:doubleTap');
     expect(doubleTap.value).toBe('');
@@ -175,7 +176,7 @@ describe('キー入力欄の「同梱から選ぶ…」', () => {
 
 describe('ショートカットの節の「追加」の同梱から（v0.3 の「同梱からコピー」）', () => {
   it('選んだものを名前はラベル・値は同梱の表記で足す', async () => {
-    const shortcuts = mount(new ShortcutEditor({ host }));
+    const shortcuts = mount(new ShortcutEditor({ keyboard: CORNIX, host }));
     shortcuts.update(snapshot(), []);
     expect(shortcuts.element.querySelector("[data-focus='shortcut-preset-pick']")).toBeNull();
     byFocus<HTMLButtonElement>(shortcuts.element, 'add-menu').click();
@@ -188,7 +189,7 @@ describe('ショートカットの節の「追加」の同梱から（v0.3 の�
   });
 
   it('同じ名前があれば、名前と値を入れた追加の欄を開いてエラーを見せる', async () => {
-    const shortcuts = mount(new ShortcutEditor({ host }));
+    const shortcuts = mount(new ShortcutEditor({ keyboard: CORNIX, host }));
     shortcuts.update(snapshot({ shortcuts: [...SHORTCUTS, { name: 'コマンドパレット', address: at('shortcuts.yaml', 'shortcuts', 'コマンドパレット'), value: kv('Shift + Command + P') }] }), []);
     byFocus<HTMLButtonElement>(shortcuts.element, 'add-menu').click();
     await settle(0);
@@ -209,7 +210,7 @@ describe('ショートカットの節の「追加」の同梱から（v0.3 の�
 
 describe('マクロの「手順に展開」', () => {
   it('preset: のマクロにだけボタンを置き、押すと itemEdit の expandPreset を渡す', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     expect(macros.element.querySelector("[data-focus='expand-preset']")).toBeNull();
     macros.select('Copy Selected');
@@ -224,6 +225,7 @@ describe('コンボの「図から選ぶ」', () => {
   function comboWith(pickings: Picking[]): ComboEditor {
     const combos = mount(
       new ComboEditor({
+        keyboard: CORNIX,
         host,
         pickKey: (onPick) => {
           const picking: Picking = { onPick, stopped: 0 };
@@ -285,7 +287,7 @@ describe('コンボの「図から選ぶ」', () => {
     combos.update(snapshot({ combos: [full] }), []);
     expect(button().disabled).toBe(true);
 
-    const plain = mount(new ComboEditor({ host }));
+    const plain = mount(new ComboEditor({ keyboard: CORNIX, host }));
     plain.update(snapshot(), []);
     expect(plain.element.querySelector("[data-focus='pick-trigger']")).toBeNull();
   });
@@ -293,7 +295,7 @@ describe('コンボの「図から選ぶ」', () => {
 
 describe('押せないコンボの印', () => {
   it('reachable が false のコンボは、一覧の行に ⚠ と説明を出す（true・なしなら出さない。詳細はサーバーの警告に任せる）', () => {
-    const combos = mount(new ComboEditor({ host }));
+    const combos = mount(new ComboEditor({ keyboard: CORNIX, host }));
     const other: ComboSnapshot = { ...COMBO, index: 1, name: 'Right Bracket', file: 'combos/01_right_bracket.yml', reachable: true };
     combos.update(snapshot({ combos: [{ ...COMBO, reachable: false }, other] }), []);
     const rows = [...combos.element.querySelectorAll<HTMLElement>('.item-row')];

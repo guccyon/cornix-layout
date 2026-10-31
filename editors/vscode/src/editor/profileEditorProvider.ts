@@ -6,6 +6,7 @@ import type { CornixServer } from '../server/cornixServer';
 import type { DeviceAction, DeviceViewState, HostMessage, WebviewMessage } from '../webviewMessages';
 import { isDeviceAction } from '../device/deviceTexts';
 import type { ProfileSnapshot } from '../protocol';
+import { keyboardSpecFor } from '../keyboard';
 import { isItemEdit } from './itemEdits';
 import { ProfileDocument } from './profileDocument';
 import { PROFILE_EDITOR_VIEW_TYPE, profileDirOf } from './profileUri';
@@ -164,6 +165,11 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
       };
       void panel.webview.postMessage(message);
     };
+    // キーボード固有の情報（今は常に Cornix）。snapshot より前に送る（Webview はこれを受けてから描く）
+    const postKeyboard = () => {
+      const message: HostMessage = { type: 'keyboard', spec: keyboardSpecFor(document.dir) };
+      void panel.webview.postMessage(message).then(undefined, () => undefined);
+    };
     const postDevice = () => {
       if (!this.device) return;
       const message: HostMessage = { type: 'device', state: this.device.stateOf(document.dir) };
@@ -191,6 +197,7 @@ export class ProfileEditorProvider implements vscode.CustomEditorProvider<Profil
         this.onDidReceiveMessageEmitter.fire({ document, message });
         switch (message.type) {
           case 'ready':
+            postKeyboard();
             post();
             postDevice();
             postFeatures();

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // マクロ・タップダンス・コンボ・ショートカットの節（一覧と編集欄、並びの操作、項目の操作、検証の表示）
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { AnyChange, Change, Diagnostic, ProfileSnapshot } from '../../../src/protocol';
 import { App } from '../../../src/webview/app';
 import { ComboEditor } from '../../../src/webview/comboEditor';
@@ -78,7 +79,7 @@ afterEach(() => {
 
 describe('検証の結果の行から移る（revealFile）', () => {
   it('そのファイルの項目を選び、節を開く。ほかの節のファイルなら何もしない', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     expect(macros.revealFile(TAP_DANCE_FILE)).toBe(false);
     expect(macros.revealFile(PRESET_FILE)).toBe(true);
@@ -89,14 +90,14 @@ describe('検証の結果の行から移る（revealFile）', () => {
 
 describe('節の出し方', () => {
   it('v0.1 のサーバー（snapshot に macros などがない）と読めないプロファイルでは出さない。0 件なら「追加」だけの節を出す', () => {
-    const sections = [new MacroEditor({ host }), new TapDanceEditor({ host }), new ComboEditor({ host }), new ShortcutEditor({ host })];
+    const sections = [new MacroEditor({ keyboard: CORNIX, host }), new TapDanceEditor({ keyboard: CORNIX, host }), new ComboEditor({ keyboard: CORNIX, host }), new ShortcutEditor({ keyboard: CORNIX, host })];
     for (const section of sections) {
       section.update(fixtureSnapshot(), []);
       expect(section.element.hidden).toBe(true);
       section.update(snapshot({ status: 'invalid' }), []);
       expect(section.element.hidden).toBe(true);
     }
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot({ macros: [] }), []);
     expect(macros.element.hidden).toBe(false);
     expect(macros.element.querySelector('.item-detail')?.textContent).toContain('まだありません');
@@ -106,8 +107,8 @@ describe('節の出し方', () => {
   it('App の下のペインで、QMK 設定より前に置ける', () => {
     const root = document.createElement('div');
     document.body.append(root);
-    const macros = new MacroEditor({ host });
-    const app = new App(root, { host, sections: [macros.element] });
+    const macros = new MacroEditor({ keyboard: CORNIX, host });
+    const app = new App(root, { keyboard: CORNIX, host, sections: [macros.element] });
     app.receive({ type: 'snapshot', snapshot: snapshot(), changes: [] });
     macros.update(snapshot(), []);
     // v0.4: 一番下は節「デバイス転送」（App が置く）。渡した節はその前
@@ -117,7 +118,7 @@ describe('節の出し方', () => {
 
 describe('マクロの節', () => {
   it('一覧（番号・名前・説明）と、選んだマクロの手順を描く', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     const rows = [...macros.element.querySelectorAll<HTMLElement>('.item-row')];
     expect(rows.map((r) => r.dataset.item)).toEqual(['Bracket Pair', 'Copy Selected']);
@@ -137,7 +138,7 @@ describe('マクロの節', () => {
   });
 
   it('キー・ミリ秒・文字の値を決めると Change を渡し、変えた印を付ける', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     commitKey(macros.element, 'step:0:key:1', 'C');
     commitValue(macros.element, 'step:1:duration', '250');
@@ -158,7 +159,7 @@ describe('マクロの節', () => {
   });
 
   it('ミリ秒が整数でない・文字が ASCII でない・空のミリ秒は渡さずに欄をエラーにする', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     commitValue(macros.element, 'step:1:duration', '1.5');
     commitValue(macros.element, 'step:2:content', 'こんにちは');
@@ -172,7 +173,7 @@ describe('マクロの節', () => {
   });
 
   it('手順を上下に動かす・消す・足すと AnyChange を渡し、その場で並びを描き直す', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     button(macros.element, 'step:2:up').click();
     expect(stepActions(macros.element)).toEqual(['タップ（tap）', '文字（text）', '待つ（delay）', 'タップ（tap）']);
@@ -198,7 +199,7 @@ describe('マクロの節', () => {
   });
 
   it('手順のキーを足す・消す', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     button(macros.element, 'step:0:add-key').click();
     expect(input(macros.element, 'step:0:key:2').value).toBe('NoKey');
@@ -211,7 +212,7 @@ describe('マクロの節', () => {
   });
 
   it('ホストの pending（未保存の変更の全部）を当てて描き、打っている欄は作り直さない', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     const pending: AnyChange[] = [
       { op: 'insert', address: at(MACRO_FILE, 'sequence'), index: 0, value: { action: 'text', content: 'first' } },
       { address: at(MACRO_FILE, 'sequence', 1, 'keys', 0), value: 'Z' },
@@ -232,7 +233,7 @@ describe('マクロの節', () => {
   });
 
   it('「キーの候補をすべて出す」で keycode/candidates に all: true を足す', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     const field = input(macros.element, 'step:0:key:0');
     field.focus();
@@ -252,7 +253,7 @@ describe('マクロの節', () => {
   });
 
   it('説明を変える・消す（空にすると行を消す remove）', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     commitValue(macros.element, 'description', '新しい説明');
     commitValue(macros.element, 'description', '');
@@ -261,7 +262,7 @@ describe('マクロの節', () => {
   });
 
   it('preset: のマクロは手順を summary で読むだけにし、preset の名前を直せる', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     macros.element.querySelector<HTMLElement>('.item-row[data-item="Copy Selected"]')!.click();
     expect(macros.selected).toBe('Copy Selected');
@@ -273,7 +274,7 @@ describe('マクロの節', () => {
   });
 
   it('preset は同梱のショートカットの木（手順の定義だけ）から「アプリ → カテゴリ → ラベル」で選び直せる。木は 1 回だけ取る', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     macros.select('Copy Selected');
     const pick = button(macros.element, 'preset-pick');
@@ -313,7 +314,7 @@ describe('マクロの節', () => {
       { severity: 'error', source: 'structure', message: '手順の形が違います', address: at(MACRO_FILE, 'sequence', 9) },
       { severity: 'error', source: 'structure', message: 'preset の名前がありません', address: at(PRESET_FILE, 'preset') },
     ];
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot({ diagnostics }), []);
     const key = input(macros.element, 'step:0:key:0').closest('.key-input')!;
     expect(key.classList.contains('warning')).toBe(true);
@@ -324,7 +325,7 @@ describe('マクロの節', () => {
   });
 
   it('変えた値は keycode/inspect の結果で検証を出す（読めない表記はエラー）', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     commitKey(macros.element, 'step:0:key:0', 'Nope');
     await settle(0);
@@ -336,7 +337,7 @@ describe('マクロの節', () => {
 
 describe('項目の追加・削除・名前の変更', () => {
   it('追加は名前を入れて ItemEdit の create を渡す（決まりに合わない名前は渡さない）', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     await openCreate(macros.element);
     expect(macros.formOpen).toBe(true);
@@ -356,7 +357,7 @@ describe('項目の追加・削除・名前の変更', () => {
   });
 
   it('Escape・「やめる」で閉じる', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     await openCreate(macros.element);
     input(macros.element, 'form-name').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
@@ -365,7 +366,7 @@ describe('項目の追加・削除・名前の変更', () => {
   });
 
   it('名前の変更と削除は「…」から ItemEdit を渡すだけ（確認はホスト）', () => {
-    const tapDances = mount(new TapDanceEditor({ host }));
+    const tapDances = mount(new TapDanceEditor({ keyboard: CORNIX, host }));
     tapDances.update(snapshot(), []);
     more(tapDances.element, 'rename');
     const name = input(tapDances.element, 'form-name');
@@ -383,7 +384,7 @@ describe('項目の追加・削除・名前の変更', () => {
   });
 
   it('ショートカットの追加は値も入れる', async () => {
-    const shortcuts = mount(new ShortcutEditor({ host }));
+    const shortcuts = mount(new ShortcutEditor({ keyboard: CORNIX, host }));
     shortcuts.update(snapshot(), []);
     await openCreate(shortcuts.element);
     const name = input(shortcuts.element, 'form-name');
@@ -398,7 +399,7 @@ describe('項目の追加・削除・名前の変更', () => {
 
 describe('タップダンスの節', () => {
   it('4 つの動作の欄。候補はそのタップダンス自身を除き、割り当てを消せる', async () => {
-    const tapDances = mount(new TapDanceEditor({ host }));
+    const tapDances = mount(new TapDanceEditor({ keyboard: CORNIX, host }));
     tapDances.update(snapshot(), []);
     expect(['tap', 'hold', 'doubleTap', 'tapHold'].map((a) => input(tapDances.element, `action:${a}`).value)).toEqual(['Tab', 'Escape', '', '']);
     const field = input(tapDances.element, 'action:doubleTap');
@@ -425,7 +426,7 @@ describe('タップダンスの節', () => {
   it('動作ごとに注記の欄を置く（field: "note"。空にすると注記だけを消す。書いていない動作には書けない）', () => {
     const noted = structuredClone(TAP_DANCE);
     noted.actions.hold.value = { ...noted.actions.hold.value!, note: '押しっぱなしで Esc' };
-    const tapDances = mount(new TapDanceEditor({ host }));
+    const tapDances = mount(new TapDanceEditor({ keyboard: CORNIX, host }));
     tapDances.update(snapshot({ tapDances: [noted] }), []);
     expect(input(tapDances.element, 'action:hold:note').value).toBe('押しっぱなしで Esc');
     expect(input(tapDances.element, 'action:hold:note').closest('.item-field')?.classList.contains('has-note')).toBe(true);
@@ -455,7 +456,7 @@ describe('タップダンスの節', () => {
   it('キーの欄にフォーカスすると、レイヤーの欄と同じ説明（題・説明の行・注記）を出す', async () => {
     const noted = structuredClone(TAP_DANCE);
     noted.actions.hold.value = { ...noted.actions.hold.value!, note: '押しっぱなしで Esc' };
-    const tapDances = mount(new TapDanceEditor({ host }));
+    const tapDances = mount(new TapDanceEditor({ keyboard: CORNIX, host }));
     tapDances.update(snapshot({ tapDances: [noted] }), []);
     const field = input(tapDances.element, 'action:hold');
     field.focus();
@@ -477,7 +478,7 @@ describe('タップダンスの節', () => {
   });
 
   it('tapping_term は数値の欄で、QMK 設定の値を添え、空にすると消す', () => {
-    const tapDances = mount(new TapDanceEditor({ host }));
+    const tapDances = mount(new TapDanceEditor({ keyboard: CORNIX, host }));
     tapDances.update(snapshot(), []);
     const term = input(tapDances.element, 'tapping-term');
     expect(term.value).toBe('200');
@@ -492,7 +493,7 @@ describe('タップダンスの節', () => {
 
 describe('コンボの節', () => {
   it('同時に押すキーを足す（4 つまで）・消す、出すキーを変える', () => {
-    const combos = mount(new ComboEditor({ host }));
+    const combos = mount(new ComboEditor({ keyboard: CORNIX, host }));
     combos.update(snapshot(), []);
     expect([0, 1].map((i) => input(combos.element, `trigger:${i}`).value)).toEqual(['Q', 'W']);
     expect(input(combos.element, 'output').value).toBe("Macro('Bracket Pair')");
@@ -513,7 +514,7 @@ describe('コンボの節', () => {
   });
 
   it('出すキーには注記の欄を置き、同時に押すキーには置かない', () => {
-    const combos = mount(new ComboEditor({ host }));
+    const combos = mount(new ComboEditor({ keyboard: CORNIX, host }));
     combos.update(snapshot(), []);
     expect(combos.element.querySelector("[data-focus='trigger:0:note']")).toBeNull();
     const note = input(combos.element, 'output:note');
@@ -524,7 +525,7 @@ describe('コンボの節', () => {
   });
 
   it('同時に押すキーは comboTrigger、出すキーは comboOutput の候補', async () => {
-    const combos = mount(new ComboEditor({ host }));
+    const combos = mount(new ComboEditor({ keyboard: CORNIX, host }));
     combos.update(snapshot(), []);
     for (const focus of ['trigger:0', 'output']) {
       const field = input(combos.element, focus);
@@ -542,7 +543,7 @@ describe('コンボの節', () => {
 
 describe('ショートカットの節', () => {
   it('名前ごとの値を shortcutValue の欄で直し、変えた行と検証の印はその名前の行だけに付ける', () => {
-    const shortcuts = mount(new ShortcutEditor({ host }));
+    const shortcuts = mount(new ShortcutEditor({ keyboard: CORNIX, host }));
     const diagnostics: Diagnostic[] = [{ severity: 'error', source: 'structure', message: '読めない表記です', address: at(SHORTCUTS_FILE, 'shortcuts', '次のタブへ') }];
     shortcuts.update(snapshot({ diagnostics }), []);
     expect(input(shortcuts.element, 'value').value).toBe('Command + Shift + [');

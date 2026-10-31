@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // v0.4（issue #84）: 下の欄の「レイヤー別 / キー別」の切り替え、キー別、レイヤーの追加と削除
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { LayerSnapshot, ProfileSnapshot } from '../../../src/protocol';
 import { App, BY_KEY_FEATURE, type ViewState } from '../../../src/webview/app';
 import { hideTooltip } from '../../../src/webview/tooltip';
@@ -40,7 +41,7 @@ beforeEach(() => {
   root = document.createElement('div');
   document.body.replaceChildren(root);
   state = undefined;
-  app = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+  app = new App(root, { keyboard: CORNIX, host, state: { get: () => state, set: (s) => (state = s) } });
   app.receive({ type: 'features', unlocked: [BY_KEY_FEATURE] });
 });
 
@@ -52,7 +53,7 @@ afterEach(() => {
 describe('キー別の解放', () => {
   it('解放されていなければ切り替えを出さず、キー別にできない。覚えていたキー別は解放されたら戻す', () => {
     state = { mode: 'key' };
-    app = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+    app = new App(root, { keyboard: CORNIX, host, state: { get: () => state, set: (s) => (state = s) } });
     app.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     expect(app.editorMode).toBe('layer');
     expect(root.querySelector('.editor-mode')?.classList.contains('editor-mode-hidden')).toBe(true);
@@ -103,7 +104,7 @@ describe('並べ方の切り替え', () => {
 
   it('覚えた並べ方で開き、外での変更で形が変わっても（レイヤーが増えても）キー別のまま', () => {
     state = { mode: 'key' };
-    app = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+    app = new App(root, { keyboard: CORNIX, host, state: { get: () => state, set: (s) => (state = s) } });
     app.receive({ type: 'features', unlocked: [BY_KEY_FEATURE] });
     const snapshot = fixtureSnapshot();
     app.receive({ type: 'snapshot', snapshot, changes: [] });

@@ -11,9 +11,6 @@ import { h, nodes } from './dom';
 import { ItemSection, type ItemSectionOptions, type ListEntry } from './itemList';
 import { comboView, type ComboView, type KeyEntry } from './itemsModel';
 
-/** 同時に押すキーの数の上限（Vial のコンボは 4 つ） */
-export const MAX_COMBO_KEYS = 4;
-
 /** 押せないコンボの説明 */
 export const UNREACHABLE_MESSAGE = 'トリガーのキーがすべてそろうレイヤーがありません';
 
@@ -101,13 +98,13 @@ export class ComboEditor extends ItemSection<ComboSnapshot, ComboView> {
         }),
       );
     }
-    const add = h('button', { type: 'button', class: 'item-button small', 'data-focus': 'add-trigger', disabled: count >= MAX_COMBO_KEYS }, 'キーを足す');
+    const add = h('button', { type: 'button', class: 'item-button small', 'data-focus': 'add-trigger', disabled: count >= this.keyboard.limits.comboKeys }, 'キーを足す');
     add.addEventListener('click', () => {
       const list = this.current.triggers;
-      if (list.keys.length >= MAX_COMBO_KEYS) return;
+      if (list.keys.length >= this.keyboard.limits.comboKeys) return;
       this.edit({ op: 'insert', address: list.address, index: list.keys.length, value: 'NoKey' }, `trigger:${list.keys.length}`);
     });
-    const heading = h('div', { class: 'item-subheading' }, `同時に押すキー（最大 ${MAX_COMBO_KEYS}）`);
+    const heading = h('div', { class: 'item-subheading' }, `同時に押すキー（最大 ${this.keyboard.limits.comboKeys}）`);
     this.addUpdater(() => heading.classList.toggle('changed', this.current.triggers.restructured));
     const buttons = h('div', { class: 'combo-trigger-buttons' }, add);
     if (this.pickKey) buttons.append(this.pickButton(combo.name));
@@ -131,7 +128,7 @@ export class ComboEditor extends ItemSection<ComboSnapshot, ComboView> {
       button.setAttribute('aria-pressed', String(active));
       button.classList.toggle('picking', active);
       // 入れる欄がない（4 つとも NoKey でない）なら押せない。選んでいる間は抜けるために押せる
-      button.disabled = !active && keys.length >= MAX_COMBO_KEYS && !keys.some(isNoKey);
+      button.disabled = !active && keys.length >= this.keyboard.limits.comboKeys && !keys.some(isNoKey);
     };
     button.addEventListener('click', () => {
       const same = this.picking?.name === name;
@@ -180,7 +177,7 @@ export class ComboEditor extends ItemSection<ComboSnapshot, ComboView> {
       this.set(empty.address, text);
       return;
     }
-    if (list.keys.length >= MAX_COMBO_KEYS) return;
+    if (list.keys.length >= this.keyboard.limits.comboKeys) return;
     this.edit({ op: 'insert', address: list.address, index: list.keys.length, value: text }, 'pick-trigger');
   }
 }

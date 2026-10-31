@@ -2,6 +2,7 @@
 // v0.5（issue #114）: マクロ・タップダンス・コンボ・ショートカットの節の「追加」（追加の一覧）と行の「…」・右クリック、節の「…」の並び替え（W2）、
 // 未保存の変更を当てた番号の並び、未使用の項目の取り出し、未保存のショートカットの追加
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { AnyChange, ComboSnapshot, MacroSnapshot, ProfileSnapshot, Unused } from '../../../src/protocol';
 import { ComboEditor } from '../../../src/webview/comboEditor';
 import { UNUSED_BLOCKED_REASON } from '../../../src/webview/itemList';
@@ -87,7 +88,7 @@ afterEach(() => {
 
 describe('一覧の並びと番号', () => {
   it('使っている項目だけを、未保存の変更を当てた番号の順に並べる（見出しの番号も描き直す）', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     expect(rows(macros.element)).toEqual(['0 Bracket Pair', '2 Copy Selected']);
     expect(macros.element.querySelector('.item-count')?.textContent).toBe('2 件');
@@ -101,7 +102,7 @@ describe('一覧の並びと番号', () => {
   });
 
   it('未保存の変更で未使用にした項目は並べず、取り出した項目は並べて編集できる', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     const pending: AnyChange[] = [
       { op: 'remove', address: at(PRESET_FILE, 'index') },
       { address: at(OLD_FILE, 'index'), value: 3 },
@@ -119,7 +120,7 @@ describe('一覧の並びと番号', () => {
 
 describe('節の「追加」', () => {
   it('「＋ 新しいマクロ」・未使用（N）・同梱から（マクロの preset）を並べ、ボタンに未使用の数を出す', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     expect(macros.element.querySelector('.add-menu-badge')?.textContent).toBe('1');
     const panel = await openAdd(macros.element);
@@ -133,7 +134,7 @@ describe('節の「追加」', () => {
   });
 
   it('未使用の行を選ぶと use を渡し、未保存の変更で一覧に現れたらその項目を選ぶ', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     const panel = await openAdd(macros.element);
     panel.querySelector<HTMLButtonElement>(`[data-unused='${OLD_FILE}']`)!.click();
@@ -147,16 +148,30 @@ describe('節の「追加」', () => {
 
   it('番号が埋まっていれば「新しく作る」と未使用の行は選べず、理由を出す', async () => {
     const many: MacroSnapshot[] = Array.from({ length: 32 }, (_, i) => ({ ...moved(MACRO, MACRO_FILE, `macros/${i}.yml`), name: `M${i}`, index: i }));
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot({ macros: many }), []);
     const panel = await openAdd(macros.element);
     expect(panel.querySelector<HTMLButtonElement>('.add-menu-create')?.disabled).toBe(true);
     expect(panel.querySelector<HTMLButtonElement>(`[data-unused='${OLD_FILE}']`)?.disabled).toBe(true);
     expect(panel.querySelector('.add-menu-unused .add-menu-reason')?.textContent).toBe(UNUSED_BLOCKED_REASON);
+    // 理由の文は今と同じ（件数は KeyboardSpec の limits から）
+    const create = panel.querySelector<HTMLButtonElement>('.add-menu-create')!;
+    expect(create.closest('.add-menu-group')?.querySelector('.add-menu-reason')?.textContent).toBe('マクロは 32 件までです。どれかを未使用にすると作れます');
+  });
+
+  it('個数の上限は KeyboardSpec の limits から取る（Cornix 以外の上限）', async () => {
+    const small = { ...CORNIX, limits: { ...CORNIX.limits, macros: 2 } };
+    const two: MacroSnapshot[] = Array.from({ length: 2 }, (_, i) => ({ ...moved(MACRO, MACRO_FILE, `macros/${i}.yml`), name: `M${i}`, index: i }));
+    const macros = mount(new MacroEditor({ keyboard: small, host }));
+    macros.update(snapshot({ macros: two }), []);
+    const panel = await openAdd(macros.element);
+    const create = panel.querySelector<HTMLButtonElement>('.add-menu-create')!;
+    expect(create.disabled).toBe(true);
+    expect(create.closest('.add-menu-group')?.querySelector('.add-menu-reason')?.textContent).toBe('マクロは 2 件までです。どれかを未使用にすると作れます');
   });
 
   it('「＋ 新しい〇〇」は検索の文字を名前に入れて名前の欄を開く', async () => {
-    const tapDances = mount(new TapDanceEditor({ host }));
+    const tapDances = mount(new TapDanceEditor({ keyboard: CORNIX, host }));
     tapDances.update(snapshot(), []);
     const panel = await openAdd(tapDances.element);
     // タップダンスには同梱からも未使用もない
@@ -171,7 +186,7 @@ describe('節の「追加」', () => {
   });
 
   it('マクロの同梱からは preset: のマクロを作る。同じ名前があれば名前の欄を開き、preset を付けて送る', async () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     let panel = await openAdd(macros.element);
     panel.querySelector<HTMLButtonElement>('.add-menu-bundled .preset-item')!.click();
@@ -193,10 +208,10 @@ describe('節の「追加」', () => {
 
 describe('行の「…」と右クリック（W2・ADR 025）', () => {
   it('選んでいる行の「…」に状態に合う操作だけを出す（番号を変える… はない。ショートカットには未使用もない）', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     expect(menuLabels(macros.element)).toEqual(['名前を変える', '未使用にする', 'ファイルを開く', '---', '削除…']);
-    const shortcuts = mount(new ShortcutEditor({ host }));
+    const shortcuts = mount(new ShortcutEditor({ keyboard: CORNIX, host }));
     shortcuts.update(snapshot(), []);
     expect(menuLabels(shortcuts.element)).toEqual(['名前を変える', 'ファイルを開く', '---', '削除…']);
     // 編集欄の見出しには「…」も名前を変える・削除のボタンも置かない
@@ -207,7 +222,7 @@ describe('行の「…」と右クリック（W2・ADR 025）', () => {
   });
 
   it('未使用にする・ファイルを開く・削除…', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     choose(macros.element, 'unuse');
     choose(macros.element, 'open');
@@ -224,7 +239,7 @@ describe('行の「…」と右クリック（W2・ADR 025）', () => {
   });
 
   it('選んでいない行の「…」はその行を選んでから開き、その項目の操作になる', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     expect(macros.selected).toBe('Bracket Pair');
     rowMenuButton(macros.element, PRESET_FILE).click();
@@ -236,7 +251,7 @@ describe('行の「…」と右クリック（W2・ADR 025）', () => {
   });
 
   it('行の右クリックはその行を選んで同じメニューを押した位置に出す（既定のメニューは出さない）', () => {
-    const combos = mount(new ComboEditor({ host }));
+    const combos = mount(new ComboEditor({ keyboard: CORNIX, host }));
     const other: ComboSnapshot = { ...moved(COMBO, COMBO_FILE, 'combos/01_x.yml'), name: 'X', index: 1 };
     combos.update(snapshot({ combos: [COMBO, other] }), []);
     const row = combos.element.querySelector<HTMLElement>(".item-row[data-key='combos/01_x.yml']")!;
@@ -253,7 +268,7 @@ describe('行の「…」と右クリック（W2・ADR 025）', () => {
   });
 
   it('名前を変える: 閉じたらその行の「…」にフォーカスを戻す', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     choose(macros.element, 'rename');
     byFocus<HTMLInputElement>(macros.element, 'form-name').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
@@ -273,22 +288,22 @@ describe('「並び替え」のボタンと並び替えモード（W2・ADR 025�
   const MACRO_C: MacroSnapshot = { ...moved(MACRO, MACRO_FILE, 'macros/05_c.yml'), name: 'C', index: 5 };
 
   it('「追加」の隣に「並び替え」のボタン。使っている項目が 1 つ以下なら押せず、ショートカットにはない', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot(), []);
     expect(reorderButton(macros.element).disabled).toBe(false);
-    const tapDances = mount(new TapDanceEditor({ host }));
+    const tapDances = mount(new TapDanceEditor({ keyboard: CORNIX, host }));
     tapDances.update(snapshot(), []);
     expect(reorderButton(tapDances.element).disabled).toBe(true);
     expect(reorderButton(tapDances.element).title).toContain('2 つ以上');
     reorderButton(tapDances.element).click();
     expect(tapDances.reordering).toBe(false);
-    const shortcuts = mount(new ShortcutEditor({ host }));
+    const shortcuts = mount(new ShortcutEditor({ keyboard: CORNIX, host }));
     shortcuts.update(snapshot(), []);
     expect(shortcuts.element.querySelector("[data-focus='section-reorder']")).toBeNull();
   });
 
   it('並び替えモード: 各行に ⬆⬇（先頭の ⬆・末尾の ⬇ は押せない）、確定・やめるを出し、「追加」と行の「…」を隠す', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot({ macros: [MACRO, PRESET_MACRO, MACRO_C] }), []);
     startReorder(macros.element);
     expect(macros.reordering).toBe(true);
@@ -306,7 +321,7 @@ describe('「並び替え」のボタンと並び替えモード（W2・ADR 025�
   });
 
   it('⬆⬇ で画面の並びが動き（番号は行の位置に付いたまま）、確定で reorder を 1 回送ってモードを抜ける', () => {
-    const macros = mount(new MacroEditor({ host }));
+    const macros = mount(new MacroEditor({ keyboard: CORNIX, host }));
     macros.update(snapshot({ macros: [MACRO, PRESET_MACRO, MACRO_C] }), []);
     startReorder(macros.element);
     byFocus<HTMLButtonElement>(macros.element, 'reorder-down:' + MACRO_FILE).click();
@@ -334,7 +349,7 @@ describe('「並び替え」のボタンと並び替えモード（W2・ADR 025�
   });
 
   it('並びが今と同じなら確定しても送らない。やめる（と Escape）は並びを捨てて抜ける', () => {
-    const combos = mount(new ComboEditor({ host }));
+    const combos = mount(new ComboEditor({ keyboard: CORNIX, host }));
     const other: ComboSnapshot = { ...moved(COMBO, COMBO_FILE, 'combos/01_x.yml'), name: 'X', index: 1 };
     combos.update(snapshot({ combos: [COMBO, other] }), []);
     startReorder(combos.element);
@@ -360,7 +375,7 @@ describe('「並び替え」のボタンと並び替えモード（W2・ADR 025�
 
 describe('ショートカットの未保存の追加', () => {
   it('未保存で足したショートカットも一覧に出し、値を直せる', () => {
-    const shortcuts = mount(new ShortcutEditor({ host }));
+    const shortcuts = mount(new ShortcutEditor({ keyboard: CORNIX, host }));
     const pending: AnyChange[] = [{ address: at(SHORTCUTS_FILE, 'shortcuts', '保存'), value: 'Command + S' }];
     shortcuts.update(snapshot(), [], pending);
     expect(rows(shortcuts.element)).toEqual(['- 前のタブへ', '- 次のタブへ', '- 保存']);
@@ -374,7 +389,7 @@ describe('ショートカットの未保存の追加', () => {
   });
 
   it('同梱からコピーしたものは、未保存の変更で一覧に現れたら選ぶ。未保存で足した名前とは重ねない', async () => {
-    const shortcuts = mount(new ShortcutEditor({ host }));
+    const shortcuts = mount(new ShortcutEditor({ keyboard: CORNIX, host }));
     shortcuts.update(snapshot(), []);
     const panel = await openAdd(shortcuts.element);
     // ショートカットには未使用のまとまりを出さない

@@ -145,12 +145,12 @@
     "vscode-jsonrpc": "9.0.3"
   },
   "devDependencies": {
-    "@types/node": "22.20.4",
+    "@types/node": "22.20.5",
     "@types/vscode": "1.120.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",
     "esbuild": "0.28.2",
-    "happy-dom": "21.0.3",
+    "happy-dom": "21.0.4",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }

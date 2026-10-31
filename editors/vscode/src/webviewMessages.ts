@@ -1,5 +1,6 @@
 // 拡張（ホスト）と編集画面（Webview）の間のメッセージ。画面の作業（段 2 の G）はここに種類を足していく。
 import type { DevicePlan } from './deviceProtocol';
+import type { KeyboardSpec } from './keyboard/spec';
 import type {
   AnyChange,
   CandidatesParams,
@@ -71,6 +72,8 @@ export type DeviceAction = 'preview' | 'confirm' | 'cancel' | 'openSettings';
 
 /** ホスト → Webview */
 export type HostMessage =
+  /** キーボード固有の情報（ADR 026）。ready のあと、最初の snapshot より前に送る。Webview はこれを受けてから描く */
+  | { type: 'keyboard'; spec: KeyboardSpec }
   /** 描くもの。開いたとき・読み直したとき・変更のたびに送る */
   | {
       type: 'snapshot';

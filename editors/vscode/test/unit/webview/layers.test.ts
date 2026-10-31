@@ -2,6 +2,7 @@
 // v0.5（issue #113）: レイヤーの「＋」（新しく作る・未使用から取り出す）と見出しの「…」（未使用にする / 名前を変える / 削除…）、
 // 未保存の番号を当てたタブ・図・キー別の並び。W2（ADR 025）: タブの右クリックのメニューと、タブの並びの「…」の並び替え（◀▶・確定・やめる）
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CORNIX } from '../../../src/keyboard/cornix';
 import type { AnyChange, LayerSnapshot, ProfileSnapshot, Unused } from '../../../src/protocol';
 import { App, BY_KEY_FEATURE, type ViewState } from '../../../src/webview/app';
 import { hideTooltip } from '../../../src/webview/tooltip';
@@ -67,7 +68,7 @@ beforeEach(() => {
   root = document.createElement('div');
   document.body.replaceChildren(root);
   state = undefined;
-  app = new App(root, { host, state: { get: () => state, set: (s) => (state = s) } });
+  app = new App(root, { keyboard: CORNIX, host, state: { get: () => state, set: (s) => (state = s) } });
 });
 
 afterEach(() => {
@@ -120,6 +121,16 @@ describe('「＋」の一覧と未使用のレイヤー', () => {
     );
     expect([...root.querySelectorAll<HTMLButtonElement>('.layer-tabs .add-menu-unused-item')].every((row) => row.disabled)).toBe(true);
     expect(root.querySelector<HTMLButtonElement>('.layer-tabs .add-menu-create')!.disabled).toBe(true);
+  });
+
+  it('レイヤーの数は KeyboardSpec の limits から取る（Cornix 以外の上限）', () => {
+    app = new App(root, { keyboard: { ...CORNIX, limits: { ...CORNIX.limits, layers: 2 } }, host });
+    receive(withUnused());
+    addButton().click();
+    expect(root.querySelector('.layer-tabs .add-menu-unused .add-menu-reason')?.textContent).toBe(
+      '番号が 2 個とも使われています。使っているレイヤーのどれかを「未使用にする」と、ここから選べます。',
+    );
+    expect(root.querySelector('.layer-tabs .add-menu-group .add-menu-reason')?.textContent).toBe('空いている番号（0〜1）がありません');
   });
 
   it('番号が埋まっていても、未保存で未使用にしたレイヤーがあれば空いた番号で選べる', () => {

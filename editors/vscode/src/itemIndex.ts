@@ -2,9 +2,6 @@
 // 今どの項目がどの番号かは snapshot（保存済み）に未保存の変更を当てて決める。ホスト・画面・偽のサーバーが同じ規則で使う。vscode に依存しない。
 import type { Address, AnyChange, ComboSnapshot, IndexedKind, ItemEdit, LayerSnapshot, MacroSnapshot, ProfileSnapshot, TapDanceSnapshot, Unused } from './protocol';
 
-/** 番号の数（0〜上限 - 1）。Cornix の大きさ（Domain::Capabilities::CORNIX） */
-export const INDEX_LIMITS: Record<IndexedKind, number> = { layer: 10, macro: 32, tapDance: 32, combo: 32 };
-
 /** 番号を書く場所 */
 export function indexAddress(file: string): Address {
   return { file, path: ['index'] };
@@ -67,10 +64,9 @@ export function snapshotItems<K extends IndexedKind>(snapshot: ProfileSnapshot, 
 
 /**
  * 取り出したときの番号（protocol.md の 15.3 の use）: 使っているいちばん大きい番号の次。それが上限なら空いているいちばん小さい番号。
- * 何も使っていなければ 0、空きがなければ null
+ * 何も使っていなければ 0、空きがなければ null。limit は番号の数（KeyboardSpec の limits から indexLimit で取る）
  */
-export function nextIndex(kind: IndexedKind, usedIndexes: readonly number[]): number | null {
-  const limit = INDEX_LIMITS[kind];
+export function nextIndex(limit: number, usedIndexes: readonly number[]): number | null {
   if (usedIndexes.length === 0) return 0;
   const last = Math.max(...usedIndexes);
   if (last + 1 < limit) return last + 1;

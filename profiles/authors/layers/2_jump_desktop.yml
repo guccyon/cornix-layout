@@ -1,0 +1,85 @@
+---
+name: Jump Desktop
+index: 2
+description: |-
+  iPad から Jump Desktop で Mac を操作するときのレイヤー
+  レイヤー1（iPad Base）の上に重ねる。ほぼ透過で、iPad に取られるキーだけ差し替える
+  英数・かなを Ctrl+Option+Shift+F1・F2 にして、Mac 側の Hammerspoon で元の動作に戻す
+  アプリの切り替えは Option + Tab（Jump が Mac の Cmd + Tab に変える）
+  （Jump は F13 以上を F5 として送ってしまうので使えない）
+
+  呼び出し: レイヤー1 の右エンコーダ押し込み（トグル）
+mapping:
+  left_hand:
+    row0:
+      tab: Trans
+      Q: Trans
+      W: Trans
+      E: Trans
+      R: Trans
+      T: Trans
+    row1:
+      lctrl: Trans
+      A: Trans
+      S: Trans
+      D: Trans
+      F: Trans
+      G: Trans
+    row2:
+      lshift: Trans
+      Z: Trans
+      X: Trans
+      C: Trans
+      V: Trans
+      B: Trans
+    row3:
+      caps: Trans
+      fn: Trans
+      option: Trans
+    thumb_keys:
+      left:
+        key: TapDance('Jump Eisu')
+        note: Mac の英数（Jump Desktop 越しに iPad に取られないように）
+      middle: Trans
+      right: Trans
+  right_hand:
+    row0:
+      Y: Trans
+      U: Trans
+      I: Trans
+      O: Trans
+      P: Trans
+      backspace: Trans
+    row1:
+      H: Trans
+      J: Trans
+      K: Trans
+      L: Trans
+      colon: Trans
+      enter: Trans
+    row2:
+      N: Trans
+      M: Trans
+      comma: Trans
+      dot: Trans
+      up: Trans
+      rshift: Trans
+    row3:
+      left: Trans
+      down: Trans
+      right: Trans
+    thumb_keys:
+      left: Trans
+      middle: Trans
+      right:
+        key: TapDance('Jump Kana')
+        note: Mac のかな（Jump Desktop 越しに iPad に取られないように）
+  encoders:
+    left:
+      push: Trans
+      ccw: Trans
+      cw: Trans
+    right:
+      push: TG(2)
+      ccw: Trans
+      cw: Trans

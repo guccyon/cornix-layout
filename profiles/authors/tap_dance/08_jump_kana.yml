@@ -1,0 +1,11 @@
+---
+name: Jump Kana
+description: Jump Desktop 用。タップで Ctrl+Option+Shift+F2（Mac の Hammerspoon がかなにする）、長押しでレイヤー6（マウス）
+enabled: true
+index: 8
+actions:
+  on_tap: Ctrl + Option + Shift + F2
+  on_hold: MO(6)
+  on_double_tap: KC_NO
+  on_tap_hold: KC_NO
+tapping_term: 200

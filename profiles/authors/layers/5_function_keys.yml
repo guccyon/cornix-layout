@@ -1,6 +1,6 @@
 ---
 name: Function Keys
-index: 3
+index: 5
 description: |-
   ファンクションキー・テンキーレイヤー
   左手: F1〜F12（上段 Q から F1〜F4、中段 F5〜F8、下段 F9〜F12）、BT 切り替え
@@ -19,21 +19,27 @@ mapping:
       R: F4
       T: NoKey
     row1:
-      lctrl: BT2
+      lctrl:
+        key: TapDance('iPad Switch')
+        note: iPad
       A: F5
       S: F6
       D: F7
       F: F8
       G: NoKey
     row2:
-      lshift: BT1
+      lshift:
+        key: BT1
+        note: 仕事の MacBook
       Z: F9
       X: F10
       C: F11
       V: F12
       B: ClearBT
     row3:
-      caps: BT0
+      caps:
+        key: TapDance('Mac mini Switch')
+        note: メインの Mac mini
       fn: Trans
       option: Trans
     thumb_keys:

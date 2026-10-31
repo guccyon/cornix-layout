@@ -27,12 +27,12 @@ mapping:
       B: B
     row3:
       caps: CapsLock
-      fn: MO(3)
+      fn: MO(5)
       option: LAlt
     thumb_keys:
       left: LGUI_T(KC_LANG2)
-      middle: LT1(Space)
-      right: MO(2)
+      middle: LT3(Space)
+      right: MO(4)
   right_hand:
     row0:
       Y: Y
@@ -60,15 +60,15 @@ mapping:
       down: Down
       right: Right
     thumb_keys:
-      left: MO(3)
-      middle: MO(1)
-      right: LT2(KC_LANG1)
+      left: MO(5)
+      middle: MO(3)
+      right: LT4(KC_LANG1)
   encoders:
     left:
       push: Mute
       ccw: VolumeDown
       cw: VolumeUp
     right:
-      push: TapDance('Layer 3 Toggle')
+      push: TapDance('Function Keys Toggle')
       ccw: Up
       cw: Down

@@ -1,6 +1,6 @@
 ---
 name: iPad Base
-index: 4
+index: 1
 description: iPad用ベースレイアウト（マウス操作対応エンコーダ）
 mapping:
   left_hand:
@@ -27,12 +27,12 @@ mapping:
       B: B
     row3:
       caps: CapsLock
-      fn: MO(8)
+      fn: MO(5)
       option: LAlt
     thumb_keys:
       left: LGUI_T(KC_LANG2)
-      middle: LT1(Space)
-      right: LT2(Escape)
+      middle: LT3(Space)
+      right: LT4(Escape)
   right_hand:
     row0:
       Y: Y
@@ -46,29 +46,29 @@ mapping:
       J: J
       K: K
       L: L
-      colon: ";"
-      enter: "\\"
+      colon: "-"
+      enter: Enter
     row2:
       N: N
       M: M
       comma: ","
       dot: .
-      up: /
-      rshift: RSFT_T(Up)
+      up: Up
+      rshift: RShift
     row3:
       left: Left
       down: Down
       right: Right
     thumb_keys:
-      left: LT2(Enter)
-      middle: MO(1)
-      right: LT3(KC_LANG1)
+      left: LT4(Enter)
+      middle: MO(5)
+      right: LT6(KC_LANG1)
   encoders:
     left:
       push: Mute
       ccw: VolumeDown
       cw: VolumeUp
     right:
-      push: OSL(9)
-      ccw: KC_F14
-      cw: KC_F15
+      push: TG(2)
+      ccw: MouseWheelUp
+      cw: MouseWheelDown

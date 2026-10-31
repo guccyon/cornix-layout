@@ -1,0 +1,11 @@
+---
+name: iPad Switch
+description: タップで BT2（iPad）に切り替え、長押しでレイヤー1（iPad Base）をデフォルトにする
+enabled: true
+index: 5
+actions:
+  on_tap: BT2
+  on_hold: DF(1)
+  on_double_tap: KC_NO
+  on_tap_hold: KC_NO
+tapping_term: 200

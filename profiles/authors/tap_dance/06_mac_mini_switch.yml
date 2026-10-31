@@ -1,0 +1,11 @@
+---
+name: Mac mini Switch
+description: タップで BT0（メインの Mac mini）に切り替え、長押しでレイヤー0（Base）をデフォルトにする
+enabled: true
+index: 6
+actions:
+  on_tap: BT0
+  on_hold: DF(0)
+  on_double_tap: KC_NO
+  on_tap_hold: KC_NO
+tapping_term: 200

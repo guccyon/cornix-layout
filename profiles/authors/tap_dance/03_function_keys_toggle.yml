@@ -1,0 +1,11 @@
+---
+name: Function Keys Toggle
+description: タップでレイヤー5をトグル、ホールドでレイヤー5を一時切り替え
+enabled: true
+index: 3
+actions:
+  on_tap: TG(5)
+  on_hold: MO(5)
+  on_double_tap: KC_NO
+  on_tap_hold: KC_NO
+tapping_term: 200

@@ -1,0 +1,80 @@
+---
+name: Mouse
+index: 6
+description: |-
+  マウス操作レイヤー（Jump Desktop で Mac の画面の端を操作する用）
+  右手の WASD 風の並び: P が上、L・colon・Enter が左・下・右
+  クリック: dot が左クリック、rshift が右クリック（← / → でも同じ）
+  斜めは 1 つのキーでは送れないので、上下と左右を同時に押す
+
+  呼び出し: レイヤー1・2 の右親指の一番右を長押し（押している間）
+mapping:
+  left_hand:
+    row0:
+      tab: Trans
+      Q: Trans
+      W: Trans
+      E: Trans
+      R: Trans
+      T: Trans
+    row1:
+      lctrl: Trans
+      A: Trans
+      S: Trans
+      D: Trans
+      F: Trans
+      G: Trans
+    row2:
+      lshift: Trans
+      Z: Trans
+      X: Trans
+      C: Trans
+      V: Trans
+      B: Trans
+    row3:
+      caps: Trans
+      fn: Trans
+      option: Trans
+    thumb_keys:
+      left: Trans
+      middle: Trans
+      right: Trans
+  right_hand:
+    row0:
+      Y: Trans
+      U: Trans
+      I: Trans
+      O: NoKey
+      P: MouseUp
+      backspace: NoKey
+    row1:
+      H: Trans
+      J: Trans
+      K: Trans
+      L: MouseLeft
+      colon: MouseDown
+      enter: MouseRight
+    row2:
+      N: Trans
+      M: Trans
+      comma: Trans
+      dot: MouseButton1
+      up: NoKey
+      rshift: MouseButton2
+    row3:
+      left: MouseButton1
+      down: Trans
+      right: MouseButton2
+    thumb_keys:
+      left: Trans
+      middle: Trans
+      right: Trans
+  encoders:
+    left:
+      push: Trans
+      ccw: Trans
+      cw: Trans
+    right:
+      push: Trans
+      ccw: Trans
+      cw: Trans

@@ -1,0 +1,11 @@
+---
+name: Jump Eisu
+description: Jump Desktop 用。タップで Ctrl+Option+Shift+F1（Mac の Hammerspoon が英数にする）、長押しで Command
+enabled: true
+index: 7
+actions:
+  on_tap: Ctrl + Option + Shift + F1
+  on_hold: LGui
+  on_double_tap: KC_NO
+  on_tap_hold: KC_NO
+tapping_term: 200

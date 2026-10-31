@@ -182,11 +182,9 @@ export class App {
     this.layerIndexes = [...Array(options.keyboard.limits.layers).keys()];
     this.inspector = new Inspector(options.host);
     this.transferSection = new TransferSection({ keyboard: this.spec.displayName, onPreview: () => options.host.deviceAction('preview'), problemRow: (diagnostic) => this.problemRow(diagnostic) });
-    this.transferDialog = new TransferDialog({ keyboard: this.spec.displayName, onAction: (action) => options.host.deviceAction(action) });
+    this.transferDialog = new TransferDialog({ keyboard: this.spec, onAction: (action) => options.host.deviceAction(action) });
     // モーダルは編集画面（root）の外に置く（root に inert を付けても操作できるように）
     (root.ownerDocument.body ?? root).append(this.transferDialog.element);
-    // 反映のプレビューのモーダルの図にも同じ配置を入れる
-    this.transferDialog.keyboardView.setSpec(this.spec);
     const saved = options.state?.get();
     this.layerIndex = saved?.layer;
     this.selected = saved?.selected;
@@ -209,6 +207,7 @@ export class App {
     });
     this.editor = new LayerEditor({
       host: options.host,
+      keyboard: this.spec,
       onCommit: (id, text) => this.commit(id, text),
       onFocus: (id) => this.select(id),
       onRemove: (id) => this.remove(id),
@@ -580,7 +579,7 @@ export class App {
 
   private currentSlots(): Slot[] {
     const layer = this.layers.find((l) => l.index === this.layerIndex);
-    return layer && this.snapshot ? layerSlots(layer, this.snapshot.positionMap) : [];
+    return layer && this.snapshot ? layerSlots(layer, this.snapshot.positionMap, this.spec) : [];
   }
 
   /**
@@ -591,7 +590,7 @@ export class App {
     const snapshot = this.snapshot;
     if (!snapshot) return [];
     const layers = this.layers;
-    const perLayer = layers.map((layer) => ({ layer, slots: layerSlots(layer, snapshot.positionMap) }));
+    const perLayer = layers.map((layer) => ({ layer, slots: layerSlots(layer, snapshot.positionMap, this.spec) }));
     const first = perLayer[0]?.slots ?? [];
     return first.map((_, i) => {
       const rows = perLayer.map(({ layer, slots }) => ({ layer: { index: layer.index, name: layer.name }, slot: slots[i]! }));
@@ -1167,7 +1166,7 @@ export class App {
   }
 
   private layerSlotIds(layer: LayerSnapshot): Set<string> {
-    return new Set(layerSlots(layer, this.snapshot?.positionMap ?? []).map((slot) => slot.id));
+    return new Set(layerSlots(layer, this.snapshot?.positionMap ?? [], this.spec).map((slot) => slot.id));
   }
 
   /** 検証の結果の行から、編集フォームのその欄へ移る（レイヤーを切り替えて欄にフォーカス）。移れなければファイルを開く */

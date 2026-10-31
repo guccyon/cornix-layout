@@ -1,4 +1,5 @@
-// 下のペイン: 選んでいるレイヤーの編集画面。左手の節の下に右手の節を置き、手ごとにグループ（段・親指）ごとのキー入力欄を並べ、最後にエンコーダ。
+// 下のペイン: 選んでいるレイヤーの編集画面。区画（KeyboardSpec の sections の順。Cornix は左手の節の下に右手の節）ごとに
+// グループ（段・親指）ごとのキー入力欄を並べ、最後にその区画のエンコーダ。
 // 欄の並べ方（広ければ横 1 列、狭ければ折り返す）は media/webview.css の .fields。
 // 欄ごとに、キー入力欄（組み立て欄付き）・注記の 1 行の欄・「割り当てを消す」を置く（注記の欄と消すボタンは、選んでいる欄と注記のある欄だけに見せる。CSS）。
 // 割り当てのない欄は空白のまま（placeholder を出さない）。キー入力欄の候補の下には「同梱から選ぶ…」（v0.3）。
@@ -12,10 +13,13 @@ import type { Diagnostic } from '../protocol';
 import { h } from './dom';
 import type { HostClient } from './hostClient';
 import { KeyInput } from './keyInput';
-import { groupLabel, HAND_LABEL, layerTitle, slotLabel, type Slot } from './model';
+import type { KeyboardSpec } from '../keyboard/spec';
+import { groupLabel, layerTitle, sectionLabel, sectionOrder, slotLabel, type Slot } from './model';
 
 export type LayerEditorOptions = {
   host: HostClient;
+  /** 区画の並びと見出し、グループの見出し（App の spec） */
+  keyboard: KeyboardSpec;
   /** 欄で値を決めた（欄は id で指す。作り直さずに slot の中身が変わることがあるため） */
   onCommit: (slotId: string, text: string) => void;
   onFocus: (slotId: string) => void;
@@ -86,14 +90,16 @@ export class LayerEditor {
   /** 欄を作り直す。前の欄は dispose する（外したときの blur で決めないように） */
   setSlots(slots: Slot[]): void {
     this.clear(false);
-    for (const hand of ['left', 'right'] as const) {
-      const section = h('section', { class: 'hand' }, h('h3', {}, HAND_LABEL[hand]));
-      const keys = slots.filter((slot) => slot.hand === hand && slot.key);
+    const spec = this.options.keyboard;
+    for (const id of sectionOrder(slots, spec)) {
+      const keys = slots.filter((slot) => slot.section === id && slot.key);
+      const encoders = slots.filter((slot) => slot.section === id && slot.encoder);
+      if (keys.length === 0 && encoders.length === 0) continue;
+      const section = h('section', { class: 'hand' }, h('h3', {}, sectionLabel(id, spec)));
       const groups = [...new Set(keys.map((slot) => slot.key!.group))];
       for (const group of groups) {
-        section.append(this.group(groupLabel(group), keys.filter((s) => s.key!.group === group)));
+        section.append(this.group(groupLabel(group, spec), keys.filter((s) => s.key!.group === group)));
       }
-      const encoders = slots.filter((slot) => slot.hand === hand && slot.encoder);
       if (encoders.length > 0) section.append(this.group('エンコーダ', encoders));
       this.element.append(section);
     }
@@ -102,14 +108,16 @@ export class LayerEditor {
   /** v0.4: キー別に並べる。位置の並び・グループの分け方は setSlots と同じ（positions は見出しの欄の position_map の順） */
   setPositions(positions: PositionSlots[]): void {
     this.clear(true);
-    for (const hand of ['left', 'right'] as const) {
-      const section = h('section', { class: 'hand' }, h('h3', {}, HAND_LABEL[hand]));
-      const keys = positions.filter((p) => p.slot.hand === hand && p.slot.key);
+    const spec = this.options.keyboard;
+    for (const id of sectionOrder(positions.map((p) => p.slot), spec)) {
+      const keys = positions.filter((p) => p.slot.section === id && p.slot.key);
+      const encoders = positions.filter((p) => p.slot.section === id && p.slot.encoder);
+      if (keys.length === 0 && encoders.length === 0) continue;
+      const section = h('section', { class: 'hand' }, h('h3', {}, sectionLabel(id, spec)));
       const groups = [...new Set(keys.map((p) => p.slot.key!.group))];
       for (const group of groups) {
-        section.append(this.positionGroup(groupLabel(group), keys.filter((p) => p.slot.key!.group === group)));
+        section.append(this.positionGroup(groupLabel(group, spec), keys.filter((p) => p.slot.key!.group === group)));
       }
-      const encoders = positions.filter((p) => p.slot.hand === hand && p.slot.encoder);
       if (encoders.length > 0) section.append(this.positionGroup('エンコーダ', encoders));
       this.element.append(section);
     }
@@ -295,7 +303,7 @@ export class LayerEditor {
       type: 'text',
       class: 'position-name-input',
       value: slot.label,
-      'aria-label': `${HAND_LABEL[slot.hand]} ${slot.label} の位置の名前`,
+      'aria-label': `${slot.sectionLabel} ${slot.label} の位置の名前`,
       spellcheck: 'false',
       autocomplete: 'off',
     });

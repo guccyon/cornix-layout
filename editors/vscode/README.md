@@ -179,8 +179,7 @@ editors/vscode/
       app.ts              画面の全体（レイヤーの選択・欄の選択を上下で共有、Change をホストに渡す。図からキーを選ぶ状態 pickKey）
       model.ts            レイヤーの欄と図に描くものを snapshot と未保存の変更から組み立てる（DOM に依存しない）
       dom.ts              DOM を作る小さな道具
-      cornixLayout.ts     Cornix の物理配置（論理位置 hand / row / col → 図の座標。ADR 009）。エンコーダは円を上・中・下の帯に分けて左回し・押し込み・右回しの欄にする
-      keyboardView.ts     キーボード図（2 役のキーは tap / hold を上下に、アイコン、印、位置の名前の表示、KC_TRNS の下のレイヤー 0 の値、コンボのボタン）
+      keyboardView.ts     キーボード図（配置は KeyboardSpec の keys / encoders から引く。Cornix の配置は keyboard/cornix.ts、図の大きさは keyboard/spec.ts の boardSize。2 役のキーは tap / hold を上下に、アイコン、印、位置の名前の表示、KC_TRNS の下のレイヤー 0 の値、コンボのボタン）
       comboHighlight.ts   コンボのトリガーのキーを今のレイヤーで割り当てた位置を探す（図の強調。DOM に依存しない）
       layerEditor.ts      レイヤーの欄（キー入力欄・注記の欄・割り当てを消す ✕・位置の名前の変更）
       keyInput.ts         キー入力欄（候補・typed・警告。どこも同じ部品。候補の params と組み立て欄のオプション）

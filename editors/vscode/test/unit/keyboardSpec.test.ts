@@ -4,7 +4,8 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CORNIX } from '../../src/keyboard/cornix';
 import { keyboardSpecFor } from '../../src/keyboard';
-import { indexLimit } from '../../src/keyboard/spec';
+import { boardSize, indexLimit, rotationOrigin, type KeyRect } from '../../src/keyboard/spec';
+import { LEGACY_BOARD, LEGACY_ENCODERS, LEGACY_KEYS } from './legacyCornixLayout';
 
 const SRC = path.resolve(__dirname, '../../src');
 
@@ -56,5 +57,40 @@ describe('KeyboardSpec', () => {
 
   it('spec はデータだけ（postMessage で送れる）', () => {
     expect(JSON.parse(JSON.stringify(CORNIX))).toEqual(CORNIX);
+  });
+
+  it('Cornix のキーの矩形と回転は v0.4 までの式の値と完全に一致する（浮動小数点も）', () => {
+    expect(CORNIX.keys.map((key) => [key.match.hand, key.match.row, key.match.col, key.rect.x, key.rect.y, key.rect.w, key.rect.h, key.rect.r ?? 0])).toStrictEqual(
+      LEGACY_KEYS,
+    );
+    for (const key of CORNIX.keys) {
+      expect(key.rect.rx).toBeUndefined();
+      expect(key.rect.ry).toBeUndefined();
+      expect(key.section).toBe(key.match.hand);
+      expect(key.id).toBe(`${key.match.hand === 'left' ? 'L' : 'R'}-r${key.match.row}c${key.match.col}`);
+    }
+  });
+
+  it('Cornix のエンコーダは左右の 2 つで、外枠は v0.4 までの式の値と完全に一致する', () => {
+    expect(CORNIX.encoders.map((encoder) => [encoder.id, encoder.section, encoder.label, encoder.match.side])).toEqual([
+      ['L-encoder', 'left', '左手のエンコーダ', 'left'],
+      ['R-encoder', 'right', '右手のエンコーダ', 'right'],
+    ]);
+    for (const encoder of CORNIX.encoders) expect(encoder.place).toStrictEqual(LEGACY_ENCODERS[encoder.match.side]);
+  });
+
+  it('図の大きさは spec のキーとエンコーダの範囲と余白から決まり、Cornix は v0.4 までと同じ 16.4 × 4.75', () => {
+    expect(boardSize(CORNIX)).toStrictEqual(LEGACY_BOARD);
+    const key = (rect: KeyRect) => ({ id: 'k', section: 's', rect, match: { hand: 'left' as const, row: 0, col: 0 } });
+    // 回した角も範囲に入る（中心まわりに 45 度回した 1 u 角は、中心から対角線の半分まで伸びる）
+    expect(boardSize({ keys: [key({ x: 0, y: 0, w: 1, h: 1, r: 45 })], encoders: [] })).toEqual({ width: 1.207107, height: 1.207107 });
+    // rx / ry は回転の中心（左上の角まわりに 90 度回すと、横長の矩形は左上の角から下へ伸びる）。余白は右と下に足す
+    expect(boardSize({ keys: [key({ x: 1, y: 0, w: 2, h: 1, r: 90, rx: 1, ry: 0 })], encoders: [], padding: { right: 0.5 } })).toEqual({ width: 1.5, height: 2 });
+  });
+
+  it('回転の中心は rx / ry、なければ矩形の中心（片方だけなら、ないほうは中心）', () => {
+    expect(rotationOrigin({ x: 1, y: 2, w: 1, h: 0.5 })).toEqual({ x: 1.5, y: 2.25 });
+    expect(rotationOrigin({ x: 1, y: 2, w: 1, h: 0.5, r: 10, rx: 0, ry: 0 })).toEqual({ x: 0, y: 0 });
+    expect(rotationOrigin({ x: 1, y: 2, w: 1, h: 0.5, r: 10, ry: 3 })).toEqual({ x: 1.5, y: 3 });
   });
 });

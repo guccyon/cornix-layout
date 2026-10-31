@@ -185,12 +185,15 @@ export class App {
     this.transferDialog = new TransferDialog({ keyboard: this.spec.displayName, onAction: (action) => options.host.deviceAction(action) });
     // モーダルは編集画面（root）の外に置く（root に inert を付けても操作できるように）
     (root.ownerDocument.body ?? root).append(this.transferDialog.element);
+    // 反映のプレビューのモーダルの図にも同じ配置を入れる
+    this.transferDialog.keyboardView.setSpec(this.spec);
     const saved = options.state?.get();
     this.layerIndex = saved?.layer;
     this.selected = saved?.selected;
     this.preferredMode = saved?.mode === 'key' ? 'key' : 'layer';
     this.foldQuiet = saved?.foldQuiet === true;
     this.keyboard = new KeyboardView({
+      spec: this.spec,
       onSelect: (id) => this.reveal(id),
       decorate: (element, id) => attachTooltip(element, () => this.describe(id), { focus: 'visible' }),
       onRenamePosition: (id) => {

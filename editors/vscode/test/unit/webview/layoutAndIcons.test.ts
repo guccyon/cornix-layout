@@ -9,7 +9,8 @@ import { ICON_ASSETS } from '../../../src/webview/icons/manifest';
 import { MessageHostClient } from '../../../src/webview/hostClient';
 import { Inspector } from '../../../src/webview/inspector';
 import { KeyboardView, keyFace } from '../../../src/webview/keyboardView';
-import { groupLabel, keyAccessibleName, keyFaceNote, keyMark, layerSlots, windowLabels } from '../../../src/webview/model';
+import { LayerEditor } from '../../../src/webview/layerEditor';
+import { groupLabel, keyAccessibleName, keyFaceNote, keyMark, layerSlots, slotLabel, windowLabels } from '../../../src/webview/model';
 import { describeContent } from '../../../src/webview/tooltip';
 import type { KeyValue } from '../../../src/protocol';
 import type { WebviewMessage } from '../../../src/webviewMessages';
@@ -60,9 +61,9 @@ describe('Cornix の物理配置', () => {
   });
 
   it('グループの見出し。親指は thumb でも前の版のサーバーの thumb_keys でも「親指」', () => {
-    expect(groupLabel('row0')).toBe('1 段目');
-    expect(groupLabel('thumb')).toBe('親指');
-    expect(groupLabel('thumb_keys')).toBe('親指');
+    expect(groupLabel('row0', CORNIX)).toBe('1 段目');
+    expect(groupLabel('thumb', CORNIX)).toBe('親指');
+    expect(groupLabel('thumb_keys', CORNIX)).toBe('親指');
   });
 
   it('エンコーダは両手の間の円で、キーと重ならない', () => {
@@ -89,7 +90,7 @@ describe('Cornix の物理配置', () => {
   });
 
   it('レイヤーの欄は position_map の順のキーとエンコーダ 6 つ', () => {
-    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP, CORNIX);
     expect(slots).toHaveLength(54);
     expect(slots[0]).toMatchObject({ label: 'tab', context: 'layerKey', key: { row: 0, col: 0, group: 'row0' } });
     expect(slots.filter((slot) => slot.context === 'encoder').map((slot) => `${slot.hand}.${slot.encoder}`)).toEqual([
@@ -102,8 +103,37 @@ describe('Cornix の物理配置', () => {
     ]);
   });
 
+  it('区画が 1 つでエンコーダのない spec（一体型のキーボード）でも、欄と編集フォームを組み立てられる', () => {
+    const single: KeyboardSpec = {
+      ...CORNIX,
+      sections: [{ id: 'main', label: '本体' }],
+      keys: CORNIX.keys.map((key) => ({ ...key, section: 'main' })),
+      encoders: [],
+    };
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP, single);
+    expect(slots).toHaveLength(48);
+    expect(slots.every((slot) => slot.section === 'main' && slot.sectionLabel === '本体' && slot.key)).toBe(true);
+    expect(slotLabel(slots[0]!)).toBe('本体 tab');
+    const editor = new LayerEditor({ host: new FakeHost(), keyboard: single, onCommit: () => undefined, onFocus: () => undefined });
+    editor.setSlots(slots);
+    const sections = [...editor.element.querySelectorAll('section.hand')];
+    expect(sections.map((section) => section.querySelector('h3')?.textContent)).toEqual(['本体']);
+    expect(editor.element.textContent).not.toContain('エンコーダ');
+    expect(editor.inputs.size).toBe(48);
+  });
+
+  it('区画の見出しとグループの見出しは spec から（Cornix は左手・右手、1 段目・親指）', () => {
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP, CORNIX);
+    const editor = new LayerEditor({ host: new FakeHost(), keyboard: CORNIX, onCommit: () => undefined, onFocus: () => undefined });
+    editor.setSlots(slots);
+    const sections = [...editor.element.querySelectorAll('section.hand')];
+    expect(sections.map((section) => section.querySelector('h3')?.textContent)).toEqual(['左手', '右手']);
+    expect(slotLabel(slots.find((slot) => slot.encoder === 'push' && slot.hand === 'right')!)).toBe('右手 エンコーダの押し込み');
+    expect(groupLabel('row9', CORNIX)).toBe('row9');
+  });
+
   it('図はキーを spec の矩形で、spec にない位置は描かない。回転の中心が rx / ry なら transform-origin も付ける', () => {
-    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP, CORNIX);
     const view = new KeyboardView({ spec: CORNIX, onSelect: () => undefined });
     view.setSlots(slots);
     const keys = [...view.element.querySelectorAll<HTMLElement>('.board .key')];
@@ -132,7 +162,7 @@ describe('Cornix の物理配置', () => {
   });
 
   it('図のエンコーダは上から左回し・押し込み・右回しの帯で、2 役の値は tap / hold を分けて描く', () => {
-    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+    const slots = layerSlots(data.LAYERS[0]!, data.POSITION_MAP, CORNIX);
     const view = new KeyboardView({ spec: CORNIX, onSelect: () => undefined });
     view.setSlots(slots);
     const encoders = [...view.element.querySelectorAll('.encoder')];
@@ -171,7 +201,7 @@ describe('キーの面の印・窓・帯', () => {
     { action: 'doubleTap', label: 'Copy Word' },
     { action: 'tapHold', label: 'Copy Line' },
   ]);
-  const slots = () => layerSlots(data.LAYERS[0]!, data.POSITION_MAP);
+  const slots = () => layerSlots(data.LAYERS[0]!, data.POSITION_MAP, CORNIX);
   const encoderView = (hand: 'left' | 'right', op: 'ccw' | 'push' | 'cw', v: KeyValue) => {
     const all = slots();
     const view = new KeyboardView({ spec: CORNIX, onSelect: () => undefined });

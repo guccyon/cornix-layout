@@ -21,7 +21,6 @@ import { h, nodes } from './dom';
 import { iconElement } from './icons';
 import {
   ENCODER_OPS,
-  HAND_LABEL,
   keyAccessibleName,
   keyMark,
   severityOf,
@@ -379,7 +378,7 @@ export class KeyboardView {
     element.classList.toggle('position', positions);
     if (positions) {
       element.replaceChildren(h('span', { class: `key-label position-name${slot.label.length > 6 ? ' long' : ''}` }, slot.label));
-      element.setAttribute('aria-label', `${HAND_LABEL[slot.hand]} 位置の名前 ${slot.label}${deviceNote(device)}`);
+      element.setAttribute('aria-label', `${slot.sectionLabel} 位置の名前 ${slot.label}${deviceNote(device)}`);
       element.classList.remove('dual', 'marked', 'windowed');
       element.dataset.kind = '';
       return;

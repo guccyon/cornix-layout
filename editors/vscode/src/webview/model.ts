@@ -18,6 +18,7 @@ import type {
 } from '../protocol';
 import { addressKey } from '../editor/pendingChanges';
 import { arrangeItems, indexChanged, nextIndex, snapshotItems } from '../itemIndex';
+import type { KeyboardSpec } from '../keyboard/spec';
 
 export type EncoderOp = 'push' | 'ccw' | 'cw';
 
@@ -28,7 +29,14 @@ export type Slot = {
   context: CandidateContext;
   /** 欄の名前（position_map の記号、エンコーダは「押し込み」など） */
   label: string;
+  /**
+   * 約束（protocol.md）の位置の手（キーの hand、エンコーダの layer.encoders の left / right）。サーバーとのやりとりと値の照合だけに使い、
+   * 画面の並びと見出しには section を使う
+   */
   hand: Hand;
+  /** 区画（KeyboardSpec の sections の id。左右の手を一般化したもの）と、その見出し */
+  section: string;
+  sectionLabel: string;
   /** キーのときの論理位置とグループ。positionAddress は位置の名前を書いている場所（v0.2 のサーバーだけ。なければ名前を変えられない） */
   key?: { row: number; col: number; group: string; positionAddress?: Address };
   encoder?: EncoderOp;
@@ -43,38 +51,65 @@ export const ENCODER_OPS: { op: EncoderOp; label: string }[] = [
   { op: 'cw', label: '右回し' },
 ];
 
-export const HAND_LABEL: Record<Hand, string> = { left: '左手', right: '右手' };
+/** 約束のエンコーダの側（layer.encoders のキー。protocol.md で決まっていて、キーボードの形によらない。比べる形を作るだけに使う） */
+const ENCODER_SIDES: readonly Hand[] = ['left', 'right'];
 
-/** position_map のグループの見出し（親指は thumb。thumb_keys は前の版のサーバーが返す旧名） */
-export function groupLabel(group: string): string {
-  const row = /^row(\d)$/.exec(group);
-  if (row?.[1]) return `${Number(row[1]) + 1} 段目`;
-  if (group === 'thumb' || group === 'thumb_keys') return '親指';
-  return group;
+/** position_map のグループの見出し（KeyboardSpec の groups。spec にないグループ名はそのまま出す） */
+export function groupLabel(group: string, spec: Pick<KeyboardSpec, 'groups'>): string {
+  return spec.groups.find((g) => g.id === group)?.label ?? group;
+}
+
+/** 区画の見出し（spec にない区画は id のまま） */
+export function sectionLabel(section: string, spec: Pick<KeyboardSpec, 'sections'>): string {
+  return spec.sections.find((s) => s.id === section)?.label ?? section;
+}
+
+/**
+ * 約束の位置（hand / row / col）の区画。spec のキーの match で引き、図にないキー（spec に配置がない位置）は
+ * 同じ手のほかのキーの区画、それもなければ手の名前のまま
+ */
+export function sectionOf(spec: Pick<KeyboardSpec, 'keys'>, hand: Hand, row: number, col: number): string {
+  const exact = spec.keys.find((key) => key.match.hand === hand && key.match.row === row && key.match.col === col);
+  return (exact ?? spec.keys.find((key) => key.match.hand === hand))?.section ?? hand;
+}
+
+/** 区画の並び（spec の sections の順。spec にない区画の欄があれば、そのあとに出てきた順） */
+export function sectionOrder(slots: readonly Pick<Slot, 'section'>[], spec: Pick<KeyboardSpec, 'sections'>): string[] {
+  const known = spec.sections.map((s) => s.id);
+  const extra = [...new Set(slots.map((slot) => slot.section))].filter((id) => !known.includes(id));
+  return [...known, ...extra];
 }
 
 /** Address を Map のキーにする（未保存の変更と同じ形） */
 export { addressKey };
 
-/** レイヤー 1 つの欄。キーは position_map の順（手 → グループ → 列）、そのあとにエンコーダ（左 → 右） */
-export function layerSlots(layer: LayerSnapshot, positionMap: PositionMapEntry[]): Slot[] {
+/**
+ * レイヤー 1 つの欄。キーは position_map の順（手 → グループ → 列）、そのあとにエンコーダ（spec の encoders の順。Cornix は左 → 右）。
+ * 区画は spec から決める（キーは sectionOf、エンコーダは spec のエンコーダの section。サーバーの欄は match.side で引く）
+ */
+export function layerSlots(layer: LayerSnapshot, positionMap: PositionMapEntry[], spec: KeyboardSpec): Slot[] {
   const slots: Slot[] = [];
   const keyAt = new Map(layer.keys.map((key) => [`${key.hand}/${key.row}/${key.col}`, key]));
   for (const entry of positionMap) {
     const key = keyAt.get(`${entry.hand}/${entry.row}/${entry.col}`);
     if (!key) continue;
+    const section = sectionOf(spec, entry.hand, entry.row, entry.col);
     slots.push({
       id: addressKey(key.address),
       address: key.address,
       context: 'layerKey',
       label: entry.symbol,
       hand: entry.hand,
+      section,
+      sectionLabel: sectionLabel(section, spec),
       key: { row: entry.row, col: entry.col, group: entry.group, ...(entry.address ? { positionAddress: entry.address } : {}) },
       saved: key.value,
     });
   }
-  for (const hand of ['left', 'right'] as const) {
+  for (const encoder of spec.encoders) {
+    const hand = encoder.match.side;
     const binding = layer.encoders[hand];
+    if (!binding) continue;
     for (const { op, label } of ENCODER_OPS) {
       const action = binding[op];
       slots.push({
@@ -83,6 +118,8 @@ export function layerSlots(layer: LayerSnapshot, positionMap: PositionMapEntry[]
         context: 'encoder',
         label,
         hand,
+        section: encoder.section,
+        sectionLabel: sectionLabel(encoder.section, spec),
         encoder: op,
         saved: action.value,
       });
@@ -238,7 +275,7 @@ export function layerTitle(layer: { index: number; name: string }): string {
 
 /** 欄の名前（読み上げ・入力欄の名前・図のキーで同じもの。「左手 tab」「左手 エンコーダの押し込み」） */
 export function slotLabel(slot: Slot): string {
-  return `${HAND_LABEL[slot.hand]} ${slot.encoder ? `エンコーダの${slot.label}` : slot.label}`;
+  return `${slot.sectionLabel} ${slot.encoder ? `エンコーダの${slot.label}` : slot.label}`;
 }
 
 /** 図のキーの右上の印。マクロ・タップダンス・自分のショートカットを、ほかのキーと見分けるため */
@@ -346,7 +383,7 @@ export function structureKey(snapshot: ProfileSnapshot): string {
       index: layer.index,
       file: layer.file,
       keys: layer.keys.map((key) => [key.hand, key.row, key.col, addressKey(key.address)]),
-      encoders: (['left', 'right'] as const).map((hand) => ENCODER_OPS.map(({ op }) => addressKey(layer.encoders[hand][op].address))),
+      encoders: ENCODER_SIDES.map((hand) => ENCODER_OPS.map(({ op }) => addressKey(layer.encoders[hand][op].address))),
     })),
   });
 }

@@ -222,8 +222,8 @@ describe('反映のプレビューのモーダル', () => {
     expect(rows()[0]!.textContent).toBe('レイヤー 5 / tab: KC_A → KC_TRNS');
     expect(rows()[0]!.tagName).toBe('DIV');
     expect(dialog().querySelector<HTMLElement>('.device-modal-board')!.hidden).toBe(true);
-    expect(changePlace({ kind: 'tapDance', index: 4, name: 'Tab Escape', device: '', profile: '', text: '' }, new Map())).toBe('タップダンス 4 Tab Escape');
-    expect(changePlace({ kind: 'combo', index: 2, device: '', profile: '', text: '' }, new Map())).toBe('コンボ 2');
+    expect(changePlace({ kind: 'tapDance', index: 4, name: 'Tab Escape', device: '', profile: '', text: '' }, new Map(), CORNIX)).toBe('タップダンス 4 Tab Escape');
+    expect(changePlace({ kind: 'combo', index: 2, device: '', profile: '', text: '' }, new Map(), CORNIX)).toBe('コンボ 2');
   });
 
   it('「確定」で confirm、「やめる」と Esc で cancel', () => {

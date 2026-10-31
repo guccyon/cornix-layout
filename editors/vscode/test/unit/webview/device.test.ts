@@ -6,7 +6,7 @@ import { CORNIX } from '../../../src/keyboard/cornix';
 import type { DeviceChange } from '../../../src/deviceProtocol';
 import { App } from '../../../src/webview/app';
 import type { DevicePlan } from '../../../src/deviceProtocol';
-import { changePlace, snapshotErrors, transferProgressText } from '../../../src/webview/deviceView';
+import { changePlace, readingSummary, snapshotErrors, transferDescription, transferProgressText } from '../../../src/webview/deviceView';
 import { addressKey } from '../../../src/webview/model';
 import { hideTooltip } from '../../../src/webview/tooltip';
 import type { DeviceTransfer, DeviceViewState } from '../../../src/webviewMessages';
@@ -345,5 +345,33 @@ describe('反映のプレビューのモーダル', () => {
     expect(late.transfer.isOpen).toBe(true);
     late.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
     expect(late.transfer.keyboardView.deviceDiffIds).toHaveLength(3);
+  });
+});
+
+describe('キーボードの表示名（KeyboardSpec の displayName）', () => {
+  const description = () => section().querySelector('.device-transfer-description')!.textContent;
+  const summary = () => dialog().querySelector('.device-modal-summary')!.textContent;
+  const reading = (target: App) => target.receive({ type: 'device', state: { transfer: { step: 'reading', progress: null }, busyElsewhere: false, allowWrites: true } });
+
+  it('Cornix では今までの文言のまま', () => {
+    expect(description()).toBe(
+      '保存済みのプロファイルを、接続中の Cornix に書き込みます。押すと実機を読んで（Bluetooth では 10 秒ほど）違いをプレビューし、「確定」を押すまでは書き込みません。未保存の変更があれば先に保存します。',
+    );
+    reading(app);
+    expect(summary()).toBe('保存済みのプロファイルと比べるため、接続中の Cornix を読んでいます（読むだけ。Bluetooth では 10 秒ほど）。');
+  });
+
+  it('表示名を変えた spec では、節の説明と読んでいる間の文がその名前になる', () => {
+    document.body.replaceChildren();
+    root = document.createElement('div');
+    document.body.append(root);
+    const other = new App(root, { keyboard: { ...CORNIX, displayName: 'Other Board' }, host });
+    other.receive({ type: 'snapshot', snapshot: fixtureSnapshot(), changes: [] });
+    expect(description()).toContain('接続中の Other Board に書き込みます');
+    expect(description()).not.toContain('Cornix');
+    reading(other);
+    expect(summary()).toBe('保存済みのプロファイルと比べるため、接続中の Other Board を読んでいます（読むだけ。Bluetooth では 10 秒ほど）。');
+    expect(transferDescription('X')).toContain('接続中の X に');
+    expect(readingSummary('X')).toContain('接続中の X を');
   });
 });

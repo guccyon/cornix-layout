@@ -181,8 +181,8 @@ export class App {
     this.spec = options.keyboard;
     this.layerIndexes = [...Array(options.keyboard.limits.layers).keys()];
     this.inspector = new Inspector(options.host);
-    this.transferSection = new TransferSection({ onPreview: () => options.host.deviceAction('preview'), problemRow: (diagnostic) => this.problemRow(diagnostic) });
-    this.transferDialog = new TransferDialog({ onAction: (action) => options.host.deviceAction(action) });
+    this.transferSection = new TransferSection({ keyboard: this.spec.displayName, onPreview: () => options.host.deviceAction('preview'), problemRow: (diagnostic) => this.problemRow(diagnostic) });
+    this.transferDialog = new TransferDialog({ keyboard: this.spec.displayName, onAction: (action) => options.host.deviceAction(action) });
     // モーダルは編集画面（root）の外に置く（root に inert を付けても操作できるように）
     (root.ownerDocument.body ?? root).append(this.transferDialog.element);
     const saved = options.state?.get();

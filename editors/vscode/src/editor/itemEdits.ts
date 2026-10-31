@@ -10,6 +10,7 @@ const KIND_NAMES: Record<string, string> = {
   layer: 'レイヤー',
 };
 
+// 約束（protocol.ts の Hand）の left / right の見出し。キーボードごとの値ではないので KeyboardSpec に寄せない
 const HAND_NAMES: Record<string, string> = { left: '左手', right: '右手' };
 
 /** Webview から来たものが ItemEdit の形か（中身の正しさはサーバーが確かめる） */
